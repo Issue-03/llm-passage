@@ -124,7 +124,7 @@ def _get_minimal_error_response() -> httpx.Response:
     if _MINIMAL_ERROR_RESPONSE is None:
         _MINIMAL_ERROR_RESPONSE = httpx.Response(
             status_code=400,
-            request=httpx.Request(method="GET", url="https://litellm.ai"),
+            request=httpx.Request(method="GET", url="http://localhost"),
         )
     return _MINIMAL_ERROR_RESPONSE
 
@@ -149,7 +149,7 @@ class AuthenticationError(openai.AuthenticationError):
         self.num_retries = num_retries
         self.response = response or httpx.Response(
             status_code=self.status_code,
-            request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+            request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
         )
         super().__init__(
             self.message, response=self.response, body=None
@@ -193,7 +193,7 @@ class NotFoundError(openai.NotFoundError):
         self.num_retries = num_retries
         self.response = response or httpx.Response(
             status_code=self.status_code,
-            request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+            request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
         )
         super().__init__(
             self.message, response=self.response, body=None
@@ -961,7 +961,7 @@ class UnsupportedParamsError(BadRequestError):
         self.litellm_debug_info = litellm_debug_info
         response = response or httpx.Response(
             status_code=self.status_code,
-            request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+            request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
         )
         self.max_retries = max_retries
         self.num_retries = num_retries
@@ -1033,7 +1033,7 @@ class InvalidRequestError(openai.BadRequestError):
         self.llm_provider = llm_provider
         self.response = httpx.Response(
             status_code=400,
-            request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+            request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
         )
         super().__init__(
             message=self.message, response=self.response, body=None

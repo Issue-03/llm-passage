@@ -36,7 +36,7 @@ class A2AError(Exception):
         self.num_retries = num_retries
         self.response = response or httpx.Response(
             status_code=self.status_code,
-            request=httpx.Request(method="POST", url="https://litellm.ai"),
+            request=httpx.Request(method="POST", url="http://localhost"),
         )
         super().__init__(self.message)
 

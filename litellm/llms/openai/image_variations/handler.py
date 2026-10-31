@@ -90,7 +90,7 @@ class OpenAIImageVariationsHandler:
                 model_response=ImageResponse(**response_json),
                 raw_response=httpx.Response(
                     status_code=200,
-                    request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+                    request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
                 ),
                 logging_obj=logging_obj,
                 request_data=data,
@@ -207,7 +207,7 @@ class OpenAIImageVariationsHandler:
                 model_response=ImageResponse(**response_json),
                 raw_response=httpx.Response(
                     status_code=200,
-                    request=httpx.Request(method="GET", url="https://litellm.ai"),  # mock request object
+                    request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
                 ),
                 logging_obj=logging_obj,
                 request_data=json_data,

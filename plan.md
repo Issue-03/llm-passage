@@ -372,6 +372,15 @@ Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, 
   - Berri AI example emails and support contacts replaced; copyright lines kept.
   - Found: `ui/litellm-dashboard/package.json` / `package-lock.json` are git-ignored (upstream `.gitignore`), so a clean clone can't build the UI. Fix during the rename.
   - Verified 2026-10-26: full run (without the two hanging files) 68,519 passed vs 67,467 in the baseline; the 22 failures not in the baseline all pass when re-run alone (flaky under parallel load). `test_pgbouncer.py` run alone: same 9 failures as the baseline. `tests/unit/gateway` can't be collected (imports a `gateway` module not in this copy), as in the baseline.
+- Step 2 (pre-scan) done 2026-10-31:
+  - No third-party package or import path contains "litellm" (only our own `litellm`, `litellm_proxy_extras`, and the not-installed `litellm_enterprise`, which stays not installed under its new name). No npm dependency either.
+  - No name collisions: renaming every identifier never produces a name that already exists (only the display word "EmbRouter", already in the UI). Path dry run: 74 moves, 0 collisions. Content dry run: 5,079 files.
+  - No unusual spellings beyond the map (no "Lite LLM", "lite_llm", etc.). No binary tracked files contain the name.
+  - Fixed before the rename: removed the duplicate `litellm` start command (it would have become a second `embrouter` key in `pyproject.toml`) and the `lite` alias; removed `[project.urls]` (upstream homepage) in both pyprojects; remaining `litellm.ai` URLs (mock request URLs → `http://localhost`, OpenRouter/Vercel attribution default → empty, app name "EmbRouter"); email footer social/website links; "trial key / pricing" links in two backend messages and four UI notes; Docker images now build locally as `litellm:local` (becomes `embrouter:local`) instead of pulling `docker.litellm.ai` / `ghcr.io/berriai`.
+  - `ui/litellm-dashboard/package.json` and `package-lock.json` are now tracked (removed from `.gitignore`; the lockfile only uses registry.npmjs.org). `next-env.d.ts` stays ignored (generated).
+  - Left as is: test fixtures with fake domains (`litellm.com`, `proxy.litellm.ai`, `test.litellm.ai`, `berri.ai` emails, Bing/MCP fixtures quoting `BerriAI/litellm`). Both sides of each assertion are renamed together, so they stay consistent.
+  - For step 5: Postgres names are already at the 63-character limit (`LiteLLM_DailyUserSpend_..._key` etc.); Prisma truncates the longer `EmbRouter_` names itself in the squashed migration, and no code refers to index or constraint names.
+  - For steps 3–4: run them back to back before testing. Until `uv sync` (step 6) the venv still installs the `litellm` package (`litellm.pth`), so tests only work after step 6, or after a `uv sync` right after step 4.
 
 Original outline:
 

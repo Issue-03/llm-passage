@@ -1,16 +1,19 @@
 # LiteLLM quickstart stack: the gateway plus a Postgres database that stores
 # models, virtual keys, and spend logs. Used by
 #
-#   curl -sSLO
 #   printf 'LITELLM_MASTER_KEY=sk-%s\nLITELLM_SALT_KEY=sk-%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env
 #   docker compose -f docker-compose.quickstart.yml up -d
 #
 # Compose reads .env from this directory. Keep it: regenerating LITELLM_SALT_KEY
 # makes credentials already stored in the database unreadable. For anything
-# beyond local evaluation, pin the image to a specific release tag.
+# beyond local evaluation, build and tag a specific release.
 services:
   litellm:
-    image: docker.litellm.ai/berriai/litellm:main-stable
+    build:
+      context: ..
+      args:
+        target: runtime
+    image: litellm:local
     ports:
       - "4000:4000"
     environment:

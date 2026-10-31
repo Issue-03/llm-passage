@@ -54,8 +54,8 @@ class OpenrouterEmbeddingConfig(BaseEmbeddingConfig):
         from litellm import get_secret
 
         # Get OpenRouter-specific headers
-        openrouter_site_url: Final = get_secret("OR_SITE_URL") or "https://litellm.ai"
-        openrouter_app_name: Final = get_secret("OR_APP_NAME") or "liteLLM"
+        openrouter_site_url: Final = get_secret("OR_SITE_URL") or ""
+        openrouter_app_name: Final = get_secret("OR_APP_NAME") or "EmbRouter"
 
         openrouter_headers: Final = {
             "HTTP-Referer": openrouter_site_url,

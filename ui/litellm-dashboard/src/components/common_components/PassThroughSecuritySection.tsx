@@ -30,11 +30,7 @@ const PassThroughSecuritySection: React.FC<PassThroughSecuritySectionProps> = ({
           </div>
           <div className="rounded-lg border border-warning/20 bg-warning/10 p-3">
             <p className="text-sm text-warning">
-              Setting authentication for pass-through endpoints is an Enterprise feature. Get a trial key{" "}
-              <a href="https://www.litellm.ai/#pricing" target="_blank" rel="noopener noreferrer" className="underline">
-                here
-              </a>
-              .
+              Setting authentication for pass-through endpoints is an Enterprise feature.
             </p>
           </div>
         </div>

@@ -177,16 +177,7 @@ const PromptCompressionTab: React.FC<PromptCompressionTabProps> = ({ accessToken
               <div className="mt-6 mb-4 rounded-lg border border-warning/20 bg-warning/10 p-3">
                 <p className="text-sm text-warning">
                   Applying compression to all requests is available to all users. Enabling it selectively per key or
-                  team is an Enterprise feature. Get a trial key{" "}
-                  <a
-                    href="https://www.litellm.ai/#pricing"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    here
-                  </a>
-                </p>
+                  team is an Enterprise feature.</p>
               </div>
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSaving}>

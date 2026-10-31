@@ -250,7 +250,7 @@ def _validate_file_id_against_configured_buckets(
     return validate_against(configured_bucket_names[-1])
 
 
-_REJECTED_FILE_ID_REQUEST_URL: Final = "https://litellm.ai"
+_REJECTED_FILE_ID_REQUEST_URL: Final = "http://localhost"
 
 
 def _rejected_file_id(reason: ValueError) -> BedrockError:
