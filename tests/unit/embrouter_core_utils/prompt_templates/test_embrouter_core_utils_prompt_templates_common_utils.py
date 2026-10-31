@@ -41,7 +41,7 @@ def test_get_format_from_file_id():
 
 
 def test_update_messages_with_model_file_ids():
-    file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCxmYzdmMmVhNS0wZjUwLTQ5ZjYtODljMS03ZTZhNTRiMTIxMzg"
+    file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLGZjN2YyZWE1LTBmNTAtNDlmNi04OWMxLTdlNmE1NGIxMjEzOA"
     model_id = "my_model_id"
     messages = [
         {
@@ -435,11 +435,11 @@ def test_update_messages_with_model_file_ids_skips_non_openai_file_blocks():
 # target_model_names,gpt-4o;llm_output_file_id,file-ECBPW7ML9g7XHdwGgUPZaM;
 # llm_output_file_model_id,...)
 UNIFIED_FILE_ID_B64 = (
-    "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0"
-    "LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1f"
-    "b3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRf"
-    "ZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFk"
-    "MDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5"
+    "MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xs"
+    "bV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1"
+    "dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJi"
+    "YWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
 )
 
 

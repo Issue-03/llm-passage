@@ -919,7 +919,7 @@ async def test_jwt_user_api_key_auth_builder_enforce_rbac(enforce_rbac, monkeypa
     from embrouter.caching import DualCache
 
     monkeypatch.setenv("JWT_PUBLIC_KEY_URL", "my-fake-url")
-    monkeypatch.setenv("JWT_AUDIENCE", "api://EmbRouter_Proxy-dev")
+    monkeypatch.setenv("JWT_AUDIENCE", "api://LiteLLM_Proxy-dev")  # aud claim of the pre-signed token below
 
     local_cache = DualCache()
 

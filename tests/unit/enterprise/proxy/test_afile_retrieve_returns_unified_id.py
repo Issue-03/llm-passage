@@ -32,7 +32,7 @@ async def test_should_return_unified_id_when_file_object_exists_in_db():
     When get_unified_file_id returns a stored file_object (Case 2),
     afile_retrieve must set .id to the unified file ID before returning.
     """
-    unified_id = "bGl0ZWxsbV9wcm94eTp1bmlmaWVkX291dHB1dF9maWxl"
+    unified_id = "ZW1icm91dGVyX3Byb3h5OnVuaWZpZWRfb3V0cHV0X2ZpbGU"
     raw_provider_id = "batch_20260214-output-file-1"
 
     stored = EmbRouter_ManagedFileTable(

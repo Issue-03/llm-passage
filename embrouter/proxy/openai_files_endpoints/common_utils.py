@@ -204,13 +204,13 @@ def encode_file_id_with_model(file_id: str, model: str, id_type: Literal["file",
 
     Examples:
         encode_file_id_with_model("file-abc123", "gpt-4o-embrouter")
-        -> "file-bGl0ZWxsbTpmaWxlLWFiYzEyMzttb2RlbCxncHQtNG8taWZvb2Q"
+        -> "file-ZW1icm91dGVyOmZpbGUtYWJjMTIzO21vZGVsLGdwdC00by1pZm9vZA"
 
         encode_file_id_with_model("batch_abc123", "gpt-4o-test")
-        -> "batch_bGl0ZWxsbTpiYXRjaF9hYmMxMjM7bW9kZWwsZ3B0LTRvLXRlc3Q"
+        -> "batch_ZW1icm91dGVyOmJhdGNoX2FiYzEyMzttb2RlbCxncHQtNG8tdGVzdA"
 
         encode_file_id_with_model("3814889423749775360", "gemini-2.5-pro", id_type="batch")
-        -> "batch_bGl0ZWxsbTozODE0ODg5NDIzNzQ5Nzc1MzYwO21vZGVsLGdlbWluaS0yLjUtcHJv"
+        -> "batch_ZW1icm91dGVyOjM4MTQ4ODk0MjM3NDk3NzUzNjA7bW9kZWwsZ2VtaW5pLTIuNS1wcm8"
     """
     encoded_str: Final = f"embrouter:{file_id};model,{model}"
     encoded_bytes: Final = base64.urlsafe_b64encode(encoded_str.encode())

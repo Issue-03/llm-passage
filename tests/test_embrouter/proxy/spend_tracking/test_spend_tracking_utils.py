@@ -4320,7 +4320,7 @@ def test_batch_cost_row_does_not_collide_with_the_batch_creation_row():
     billed nothing. Observed against a live proxy: the poller computed and flushed the
     cost, and the only row carrying that id was the acreate_batch row written when the
     batch was submitted."""
-    batch_id = "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDphYmM7bGxtX2JhdGNoX2lkOnh5eg"
+    batch_id = "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOmFiYztsbG1fYmF0Y2hfaWQ6eHl6"
 
     creation_row_id = get_spend_logs_id("acreate_batch", {"id": batch_id}, {"embrouter_call_id": "call-create"})
     cost_row_id = get_spend_logs_id(

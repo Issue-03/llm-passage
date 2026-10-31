@@ -1,8 +1,13 @@
 -- CreateEnum
-CREATE TYPE "JobStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'JobStatus') THEN
+        CREATE TYPE "JobStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+    END IF;
+END $$;
 
 -- CreateTable
-CREATE TABLE "EmbRouter_BudgetTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_BudgetTable" (
     "budget_id" TEXT NOT NULL,
     "max_budget" DOUBLE PRECISION,
     "soft_budget" DOUBLE PRECISION,
@@ -25,7 +30,7 @@ CREATE TABLE "EmbRouter_BudgetTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_CredentialsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_CredentialsTable" (
     "credential_id" TEXT NOT NULL,
     "credential_name" TEXT NOT NULL,
     "credential_values" JSONB NOT NULL,
@@ -39,7 +44,7 @@ CREATE TABLE "EmbRouter_CredentialsTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ProxyModelTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ProxyModelTable" (
     "model_id" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
     "embrouter_params" JSONB NOT NULL,
@@ -54,7 +59,7 @@ CREATE TABLE "EmbRouter_ProxyModelTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AgentsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AgentsTable" (
     "agent_id" TEXT NOT NULL,
     "agent_name" TEXT NOT NULL,
     "embrouter_params" JSONB,
@@ -82,7 +87,7 @@ CREATE TABLE "EmbRouter_AgentsTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AgentIdentity" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AgentIdentity" (
     "agent_id" TEXT NOT NULL,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "provider" TEXT NOT NULL,
@@ -99,7 +104,7 @@ CREATE TABLE "EmbRouter_AgentIdentity" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_RetiredAgentIdentity" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_RetiredAgentIdentity" (
     "binding_id" TEXT NOT NULL,
     "agent_id" TEXT,
     "provider" TEXT NOT NULL,
@@ -111,7 +116,7 @@ CREATE TABLE "EmbRouter_RetiredAgentIdentity" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_RetiredAgent" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_RetiredAgent" (
     "original_agent_id" TEXT NOT NULL,
     "retired_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -119,7 +124,7 @@ CREATE TABLE "EmbRouter_RetiredAgent" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_VerifiedSubject" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_VerifiedSubject" (
     "subject_id" TEXT NOT NULL,
     "issuer" TEXT NOT NULL,
     "tenant_id" TEXT NOT NULL,
@@ -133,7 +138,7 @@ CREATE TABLE "EmbRouter_VerifiedSubject" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_OrganizationTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_OrganizationTable" (
     "organization_id" TEXT NOT NULL,
     "organization_alias" TEXT NOT NULL,
     "budget_id" TEXT NOT NULL,
@@ -151,7 +156,7 @@ CREATE TABLE "EmbRouter_OrganizationTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ModelTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ModelTable" (
     "id" SERIAL NOT NULL,
     "aliases" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -163,7 +168,7 @@ CREATE TABLE "EmbRouter_ModelTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_TeamTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TeamTable" (
     "team_id" TEXT NOT NULL,
     "team_alias" TEXT,
     "organization_id" TEXT,
@@ -200,7 +205,7 @@ CREATE TABLE "EmbRouter_TeamTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ProjectTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ProjectTable" (
     "project_id" TEXT NOT NULL,
     "project_alias" TEXT,
     "description" TEXT,
@@ -223,7 +228,7 @@ CREATE TABLE "EmbRouter_ProjectTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DeletedTeamTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DeletedTeamTable" (
     "id" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
     "team_alias" TEXT,
@@ -263,7 +268,7 @@ CREATE TABLE "EmbRouter_DeletedTeamTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_UserTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_UserTable" (
     "user_id" TEXT NOT NULL,
     "user_alias" TEXT,
     "team_id" TEXT,
@@ -296,7 +301,7 @@ CREATE TABLE "EmbRouter_UserTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ObjectPermissionTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ObjectPermissionTable" (
     "object_permission_id" TEXT NOT NULL,
     "mcp_servers" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "mcp_access_groups" TEXT[] DEFAULT ARRAY[]::TEXT[],
@@ -315,7 +320,7 @@ CREATE TABLE "EmbRouter_ObjectPermissionTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MCPServerTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPServerTable" (
     "server_id" TEXT NOT NULL,
     "server_name" TEXT,
     "alias" TEXT,
@@ -376,7 +381,7 @@ CREATE TABLE "EmbRouter_MCPServerTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MCPToolsetTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPToolsetTable" (
     "toolset_id" TEXT NOT NULL,
     "toolset_name" TEXT NOT NULL,
     "description" TEXT,
@@ -390,7 +395,7 @@ CREATE TABLE "EmbRouter_MCPToolsetTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MCPUserCredentials" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPUserCredentials" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "server_id" TEXT NOT NULL,
@@ -402,7 +407,7 @@ CREATE TABLE "EmbRouter_MCPUserCredentials" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MCPUserEnvVars" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPUserEnvVars" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "server_id" TEXT NOT NULL,
@@ -414,7 +419,7 @@ CREATE TABLE "EmbRouter_MCPUserEnvVars" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MCPServerOAuthClient" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPServerOAuthClient" (
     "server_id" TEXT NOT NULL,
     "credentials" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -424,7 +429,7 @@ CREATE TABLE "EmbRouter_MCPServerOAuthClient" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SSOIdentityAssertion" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SSOIdentityAssertion" (
     "user_id" TEXT NOT NULL,
     "assertion_b64" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -434,7 +439,7 @@ CREATE TABLE "EmbRouter_SSOIdentityAssertion" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_VerificationToken" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_VerificationToken" (
     "token" TEXT NOT NULL,
     "key_name" TEXT,
     "key_alias" TEXT,
@@ -488,7 +493,7 @@ CREATE TABLE "EmbRouter_VerificationToken" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_JWTKeyMapping" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_JWTKeyMapping" (
     "id" TEXT NOT NULL,
     "jwt_issuer" TEXT NOT NULL DEFAULT '',
     "jwt_claim_name" TEXT NOT NULL,
@@ -505,7 +510,7 @@ CREATE TABLE "EmbRouter_JWTKeyMapping" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DeprecatedVerificationToken" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DeprecatedVerificationToken" (
     "id" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "active_token_id" TEXT NOT NULL,
@@ -516,7 +521,7 @@ CREATE TABLE "EmbRouter_DeprecatedVerificationToken" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DeletedVerificationToken" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DeletedVerificationToken" (
     "id" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "key_name" TEXT,
@@ -574,7 +579,7 @@ CREATE TABLE "EmbRouter_DeletedVerificationToken" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_EndUserTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_EndUserTable" (
     "user_id" TEXT NOT NULL,
     "alias" TEXT,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -588,7 +593,7 @@ CREATE TABLE "EmbRouter_EndUserTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ModelAccessGroupBudgetTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ModelAccessGroupBudgetTable" (
     "access_group_name" TEXT NOT NULL,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "budget_id" TEXT,
@@ -601,7 +606,7 @@ CREATE TABLE "EmbRouter_ModelAccessGroupBudgetTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_TagTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TagTable" (
     "tag_name" TEXT NOT NULL,
     "description" TEXT,
     "models" TEXT[],
@@ -616,7 +621,7 @@ CREATE TABLE "EmbRouter_TagTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_Config" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_Config" (
     "param_name" TEXT NOT NULL,
     "param_value" JSONB,
     "last_run_at" TIMESTAMP(3),
@@ -626,7 +631,7 @@ CREATE TABLE "EmbRouter_Config" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SpendLogs" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SpendLogs" (
     "request_id" TEXT NOT NULL,
     "call_type" TEXT NOT NULL,
     "api_key" TEXT NOT NULL DEFAULT '',
@@ -668,7 +673,7 @@ CREATE TABLE "EmbRouter_SpendLogs" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_BudgetWindowSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_BudgetWindowSpend" (
     "entity_type" TEXT NOT NULL,
     "entity_id" TEXT NOT NULL,
     "window_duration" TEXT NOT NULL,
@@ -681,7 +686,7 @@ CREATE TABLE "EmbRouter_BudgetWindowSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ErrorLogs" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ErrorLogs" (
     "request_id" TEXT NOT NULL,
     "startTime" TIMESTAMP(3) NOT NULL,
     "endTime" TIMESTAMP(3) NOT NULL,
@@ -698,7 +703,7 @@ CREATE TABLE "EmbRouter_ErrorLogs" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_UserNotifications" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_UserNotifications" (
     "request_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "models" TEXT[],
@@ -709,7 +714,7 @@ CREATE TABLE "EmbRouter_UserNotifications" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_TeamMembership" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TeamMembership" (
     "user_id" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -720,7 +725,7 @@ CREATE TABLE "EmbRouter_TeamMembership" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_OrganizationMembership" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_OrganizationMembership" (
     "user_id" TEXT NOT NULL,
     "organization_id" TEXT NOT NULL,
     "user_role" TEXT,
@@ -733,7 +738,7 @@ CREATE TABLE "EmbRouter_OrganizationMembership" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_InvitationLink" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_InvitationLink" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "is_accepted" BOOLEAN NOT NULL DEFAULT false,
@@ -748,7 +753,7 @@ CREATE TABLE "EmbRouter_InvitationLink" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AuditLog" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AuditLog" (
     "id" TEXT NOT NULL,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "changed_by" TEXT NOT NULL DEFAULT '',
@@ -763,7 +768,7 @@ CREATE TABLE "EmbRouter_AuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyUserSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyUserSpend" (
     "id" TEXT NOT NULL,
     "user_id" TEXT,
     "date" TEXT NOT NULL,
@@ -795,7 +800,7 @@ CREATE TABLE "EmbRouter_DailyUserSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyGlobalSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGlobalSpend" (
     "id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "model" TEXT,
@@ -825,7 +830,7 @@ CREATE TABLE "EmbRouter_DailyGlobalSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyOrganizationSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyOrganizationSpend" (
     "id" TEXT NOT NULL,
     "organization_id" TEXT,
     "date" TEXT NOT NULL,
@@ -857,7 +862,7 @@ CREATE TABLE "EmbRouter_DailyOrganizationSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyEndUserSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyEndUserSpend" (
     "id" TEXT NOT NULL,
     "end_user_id" TEXT,
     "date" TEXT NOT NULL,
@@ -889,7 +894,7 @@ CREATE TABLE "EmbRouter_DailyEndUserSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyAgentSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyAgentSpend" (
     "id" TEXT NOT NULL,
     "agent_id" TEXT,
     "date" TEXT NOT NULL,
@@ -921,7 +926,7 @@ CREATE TABLE "EmbRouter_DailyAgentSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyTeamSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyTeamSpend" (
     "id" TEXT NOT NULL,
     "team_id" TEXT,
     "date" TEXT NOT NULL,
@@ -954,7 +959,7 @@ CREATE TABLE "EmbRouter_DailyTeamSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyTagSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyTagSpend" (
     "id" TEXT NOT NULL,
     "request_id" TEXT,
     "tag" TEXT,
@@ -987,7 +992,7 @@ CREATE TABLE "EmbRouter_DailyTagSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ProxyWorkerHeartbeat" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ProxyWorkerHeartbeat" (
     "worker_id" TEXT NOT NULL,
     "hostname" TEXT NOT NULL,
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -997,7 +1002,7 @@ CREATE TABLE "EmbRouter_ProxyWorkerHeartbeat" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_CronJob" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_CronJob" (
     "cronjob_id" TEXT NOT NULL,
     "pod_id" TEXT NOT NULL,
     "status" "JobStatus" NOT NULL DEFAULT 'INACTIVE',
@@ -1008,7 +1013,7 @@ CREATE TABLE "EmbRouter_CronJob" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedFileTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedFileTable" (
     "id" TEXT NOT NULL,
     "unified_file_id" TEXT NOT NULL,
     "file_object" JSONB,
@@ -1026,7 +1031,7 @@ CREATE TABLE "EmbRouter_ManagedFileTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedObjectTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedObjectTable" (
     "id" TEXT NOT NULL,
     "unified_object_id" TEXT NOT NULL,
     "model_object_id" TEXT NOT NULL,
@@ -1047,7 +1052,7 @@ CREATE TABLE "EmbRouter_ManagedObjectTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedFileContentTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedFileContentTable" (
     "id" TEXT NOT NULL,
     "content" BYTEA NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1056,7 +1061,7 @@ CREATE TABLE "EmbRouter_ManagedFileContentTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedVectorStoreTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable" (
     "id" TEXT NOT NULL,
     "unified_resource_id" TEXT NOT NULL,
     "resource_object" JSONB,
@@ -1074,7 +1079,7 @@ CREATE TABLE "EmbRouter_ManagedVectorStoreTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedVectorStoresTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedVectorStoresTable" (
     "vector_store_id" TEXT NOT NULL,
     "custom_llm_provider" TEXT NOT NULL,
     "vector_store_name" TEXT,
@@ -1091,7 +1096,7 @@ CREATE TABLE "EmbRouter_ManagedVectorStoresTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_GuardrailsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_GuardrailsTable" (
     "guardrail_id" TEXT NOT NULL,
     "guardrail_name" TEXT NOT NULL,
     "embrouter_params" JSONB NOT NULL,
@@ -1107,7 +1112,7 @@ CREATE TABLE "EmbRouter_GuardrailsTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyGuardrailMetrics" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics" (
     "guardrail_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "requests_evaluated" BIGINT NOT NULL DEFAULT 0,
@@ -1123,7 +1128,7 @@ CREATE TABLE "EmbRouter_DailyGuardrailMetrics" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyGuardrailUsageUnits" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGuardrailUsageUnits" (
     "guardrail_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
@@ -1139,7 +1144,7 @@ CREATE TABLE "EmbRouter_DailyGuardrailUsageUnits" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyPolicyMetrics" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyPolicyMetrics" (
     "policy_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "requests_evaluated" BIGINT NOT NULL DEFAULT 0,
@@ -1155,7 +1160,7 @@ CREATE TABLE "EmbRouter_DailyPolicyMetrics" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SpendLogGuardrailIndex" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex" (
     "request_id" TEXT NOT NULL,
     "guardrail_id" TEXT NOT NULL,
     "policy_id" TEXT,
@@ -1165,7 +1170,7 @@ CREATE TABLE "EmbRouter_SpendLogGuardrailIndex" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SpendLogToolIndex" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SpendLogToolIndex" (
     "request_id" TEXT NOT NULL,
     "tool_name" TEXT NOT NULL,
     "start_time" TIMESTAMP(3) NOT NULL,
@@ -1174,7 +1179,7 @@ CREATE TABLE "EmbRouter_SpendLogToolIndex" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyToolSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyToolSpend" (
     "date" TEXT NOT NULL,
     "tool_name" TEXT NOT NULL,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -1187,7 +1192,7 @@ CREATE TABLE "EmbRouter_DailyToolSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyModelUsage" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyModelUsage" (
     "date" TEXT NOT NULL,
     "model_group" TEXT NOT NULL,
     "model" TEXT NOT NULL,
@@ -1206,7 +1211,7 @@ CREATE TABLE "EmbRouter_DailyModelUsage" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_DailyGatewayRequests" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGatewayRequests" (
     "date" TEXT NOT NULL,
     "category" TEXT NOT NULL,
     "route" TEXT NOT NULL,
@@ -1219,7 +1224,7 @@ CREATE TABLE "EmbRouter_DailyGatewayRequests" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_PromptTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_PromptTable" (
     "id" TEXT NOT NULL,
     "prompt_id" TEXT NOT NULL,
     "version" INTEGER NOT NULL DEFAULT 1,
@@ -1234,7 +1239,7 @@ CREATE TABLE "EmbRouter_PromptTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_HealthCheckTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_HealthCheckTable" (
     "health_check_id" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
     "model_id" TEXT,
@@ -1253,7 +1258,7 @@ CREATE TABLE "EmbRouter_HealthCheckTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SearchToolsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SearchToolsTable" (
     "search_tool_id" TEXT NOT NULL,
     "search_tool_name" TEXT NOT NULL,
     "embrouter_params" JSONB NOT NULL,
@@ -1265,7 +1270,7 @@ CREATE TABLE "EmbRouter_SearchToolsTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SSOConfig" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SSOConfig" (
     "id" TEXT NOT NULL DEFAULT 'sso_config',
     "sso_settings" JSONB NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1275,7 +1280,7 @@ CREATE TABLE "EmbRouter_SSOConfig" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ManagedVectorStoreIndexTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedVectorStoreIndexTable" (
     "id" TEXT NOT NULL,
     "index_name" TEXT NOT NULL,
     "embrouter_params" JSONB NOT NULL,
@@ -1289,7 +1294,7 @@ CREATE TABLE "EmbRouter_ManagedVectorStoreIndexTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_CacheConfig" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_CacheConfig" (
     "id" TEXT NOT NULL DEFAULT 'cache_config',
     "cache_settings" JSONB NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1299,7 +1304,7 @@ CREATE TABLE "EmbRouter_CacheConfig" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_UISettings" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_UISettings" (
     "id" TEXT NOT NULL DEFAULT 'ui_settings',
     "ui_settings" JSONB NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1309,7 +1314,7 @@ CREATE TABLE "EmbRouter_UISettings" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ConfigOverrides" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ConfigOverrides" (
     "config_type" TEXT NOT NULL,
     "config_value" JSONB NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1319,7 +1324,7 @@ CREATE TABLE "EmbRouter_ConfigOverrides" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_SkillsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SkillsTable" (
     "skill_id" TEXT NOT NULL,
     "display_title" TEXT,
     "description" TEXT,
@@ -1339,7 +1344,7 @@ CREATE TABLE "EmbRouter_SkillsTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_PolicyTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_PolicyTable" (
     "policy_id" TEXT NOT NULL,
     "policy_name" TEXT NOT NULL,
     "version_number" INTEGER NOT NULL DEFAULT 1,
@@ -1363,7 +1368,7 @@ CREATE TABLE "EmbRouter_PolicyTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_PolicyAttachmentTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_PolicyAttachmentTable" (
     "attachment_id" TEXT NOT NULL,
     "policy_name" TEXT NOT NULL,
     "scope" TEXT,
@@ -1382,7 +1387,7 @@ CREATE TABLE "EmbRouter_PolicyAttachmentTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ToolTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ToolTable" (
     "tool_id" TEXT NOT NULL,
     "tool_name" TEXT NOT NULL,
     "origin" TEXT,
@@ -1404,7 +1409,7 @@ CREATE TABLE "EmbRouter_ToolTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AccessGroupTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AccessGroupTable" (
     "access_group_id" TEXT NOT NULL,
     "access_group_name" TEXT NOT NULL,
     "description" TEXT,
@@ -1422,7 +1427,7 @@ CREATE TABLE "EmbRouter_AccessGroupTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ClaudeCodePluginTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ClaudeCodePluginTable" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "version" TEXT,
@@ -1438,7 +1443,7 @@ CREATE TABLE "EmbRouter_ClaudeCodePluginTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_MemoryTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MemoryTable" (
     "memory_id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "value" TEXT NOT NULL,
@@ -1454,7 +1459,7 @@ CREATE TABLE "EmbRouter_MemoryTable" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AdaptiveRouterState" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AdaptiveRouterState" (
     "router_name" TEXT NOT NULL,
     "request_type" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
@@ -1467,7 +1472,7 @@ CREATE TABLE "EmbRouter_AdaptiveRouterState" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AdaptiveRouterSession" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AdaptiveRouterSession" (
     "session_id" TEXT NOT NULL,
     "router_name" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
@@ -1493,7 +1498,7 @@ CREATE TABLE "EmbRouter_AdaptiveRouterSession" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AutoRouterBaselineComparison" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterBaselineComparison" (
     "scope" TEXT NOT NULL,
     "api_key" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
@@ -1510,7 +1515,7 @@ CREATE TABLE "EmbRouter_AutoRouterBaselineComparison" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AutoRouterBaselineObservation" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterBaselineObservation" (
     "request_id" TEXT NOT NULL,
     "scope" TEXT NOT NULL,
     "started_at" DOUBLE PRECISION NOT NULL,
@@ -1523,7 +1528,7 @@ CREATE TABLE "EmbRouter_AutoRouterBaselineObservation" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AutoRouterSession" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterSession" (
     "api_key" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
     "router_name" TEXT NOT NULL,
@@ -1562,7 +1567,7 @@ CREATE TABLE "EmbRouter_AutoRouterSession" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_AutoRouterUserSession" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterUserSession" (
     "user_id" TEXT NOT NULL,
     "api_key" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
@@ -1602,7 +1607,7 @@ CREATE TABLE "EmbRouter_AutoRouterUserSession" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ShadowEvalJob" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ShadowEvalJob" (
     "id" TEXT NOT NULL,
     "group_id" TEXT NOT NULL,
     "target_type" TEXT NOT NULL DEFAULT 'key',
@@ -1626,7 +1631,7 @@ CREATE TABLE "EmbRouter_ShadowEvalJob" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ShadowEvalAttempt" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ShadowEvalAttempt" (
     "id" TEXT NOT NULL,
     "job_id" TEXT NOT NULL,
     "request_id" TEXT NOT NULL,
@@ -1649,7 +1654,7 @@ CREATE TABLE "EmbRouter_ShadowEvalAttempt" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_ShadowEvalFunnel" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ShadowEvalFunnel" (
     "job_id" TEXT NOT NULL,
     "not_sampled" INTEGER NOT NULL DEFAULT 0,
     "unjudgeable" INTEGER NOT NULL DEFAULT 0,
@@ -1660,7 +1665,7 @@ CREATE TABLE "EmbRouter_ShadowEvalFunnel" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_WorkflowRun" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_WorkflowRun" (
     "run_id" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
     "workflow_type" TEXT NOT NULL,
@@ -1676,7 +1681,7 @@ CREATE TABLE "EmbRouter_WorkflowRun" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_WorkflowEvent" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_WorkflowEvent" (
     "event_id" TEXT NOT NULL,
     "run_id" TEXT NOT NULL,
     "event_type" TEXT NOT NULL,
@@ -1689,7 +1694,7 @@ CREATE TABLE "EmbRouter_WorkflowEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "EmbRouter_WorkflowMessage" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_WorkflowMessage" (
     "message_id" TEXT NOT NULL,
     "run_id" TEXT NOT NULL,
     "role" TEXT NOT NULL,
@@ -1702,571 +1707,731 @@ CREATE TABLE "EmbRouter_WorkflowMessage" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_CredentialsTable_credential_name_key" ON "EmbRouter_CredentialsTable"("credential_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_CredentialsTable_credential_name_key" ON "EmbRouter_CredentialsTable"("credential_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_AgentsTable_agent_name_key" ON "EmbRouter_AgentsTable"("agent_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_AgentsTable_agent_name_key" ON "EmbRouter_AgentsTable"("agent_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_AgentIdentity_provider_tenant_id_client_id_key" ON "EmbRouter_AgentIdentity"("provider", "tenant_id", "client_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_AgentIdentity_provider_tenant_id_client_id_key" ON "EmbRouter_AgentIdentity"("provider", "tenant_id", "client_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_AgentIdentity_issuer_service_principal_id_key" ON "EmbRouter_AgentIdentity"("issuer", "service_principal_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_AgentIdentity_issuer_service_principal_id_key" ON "EmbRouter_AgentIdentity"("issuer", "service_principal_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_RetiredAgentIdentity_provider_tenant_id_client_id_key" ON "EmbRouter_RetiredAgentIdentity"("provider", "tenant_id", "client_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_RetiredAgentIdentity_provider_tenant_id_client_id_key" ON "EmbRouter_RetiredAgentIdentity"("provider", "tenant_id", "client_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_VerifiedSubject_user_id_idx" ON "EmbRouter_VerifiedSubject"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_VerifiedSubject_user_id_idx" ON "EmbRouter_VerifiedSubject"("user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_VerifiedSubject_issuer_tenant_id_oid_key" ON "EmbRouter_VerifiedSubject"("issuer", "tenant_id", "oid");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_VerifiedSubject_issuer_tenant_id_oid_key" ON "EmbRouter_VerifiedSubject"("issuer", "tenant_id", "oid");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_TeamTable_model_id_key" ON "EmbRouter_TeamTable"("model_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_TeamTable_model_id_key" ON "EmbRouter_TeamTable"("model_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_TeamTable_organization_id_idx" ON "EmbRouter_TeamTable"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_TeamTable_organization_id_idx" ON "EmbRouter_TeamTable"("organization_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_TeamTable_team_alias_idx" ON "EmbRouter_TeamTable"("team_alias");
+CREATE INDEX IF NOT EXISTS "EmbRouter_TeamTable_team_alias_idx" ON "EmbRouter_TeamTable"("team_alias");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_TeamTable_created_at_idx" ON "EmbRouter_TeamTable"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_TeamTable_created_at_idx" ON "EmbRouter_TeamTable"("created_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedTeamTable_team_id_idx" ON "EmbRouter_DeletedTeamTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_team_id_idx" ON "EmbRouter_DeletedTeamTable"("team_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedTeamTable_deleted_at_idx" ON "EmbRouter_DeletedTeamTable"("deleted_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_deleted_at_idx" ON "EmbRouter_DeletedTeamTable"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedTeamTable_organization_id_idx" ON "EmbRouter_DeletedTeamTable"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_organization_id_idx" ON "EmbRouter_DeletedTeamTable"("organization_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedTeamTable_team_alias_idx" ON "EmbRouter_DeletedTeamTable"("team_alias");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_team_alias_idx" ON "EmbRouter_DeletedTeamTable"("team_alias");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedTeamTable_created_at_idx" ON "EmbRouter_DeletedTeamTable"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_created_at_idx" ON "EmbRouter_DeletedTeamTable"("created_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_UserTable_sso_user_id_key" ON "EmbRouter_UserTable"("sso_user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_UserTable_sso_user_id_key" ON "EmbRouter_UserTable"("sso_user_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_MCPServerTable_approval_status_idx" ON "EmbRouter_MCPServerTable"("approval_status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MCPServerTable_approval_status_idx" ON "EmbRouter_MCPServerTable"("approval_status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_MCPToolsetTable_toolset_name_key" ON "EmbRouter_MCPToolsetTable"("toolset_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_MCPToolsetTable_toolset_name_key" ON "EmbRouter_MCPToolsetTable"("toolset_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_MCPUserCredentials_user_id_server_id_key" ON "EmbRouter_MCPUserCredentials"("user_id", "server_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_MCPUserCredentials_user_id_server_id_key" ON "EmbRouter_MCPUserCredentials"("user_id", "server_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_MCPUserEnvVars_user_id_idx" ON "EmbRouter_MCPUserEnvVars"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MCPUserEnvVars_user_id_idx" ON "EmbRouter_MCPUserEnvVars"("user_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_MCPUserEnvVars_server_id_idx" ON "EmbRouter_MCPUserEnvVars"("server_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MCPUserEnvVars_server_id_idx" ON "EmbRouter_MCPUserEnvVars"("server_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_MCPUserEnvVars_user_id_server_id_key" ON "EmbRouter_MCPUserEnvVars"("user_id", "server_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_MCPUserEnvVars_user_id_server_id_key" ON "EmbRouter_MCPUserEnvVars"("user_id", "server_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_VerificationToken_user_id_team_id_idx" ON "EmbRouter_VerificationToken"("user_id", "team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_VerificationToken_user_id_team_id_idx" ON "EmbRouter_VerificationToken"("user_id", "team_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_VerificationToken_team_id_idx" ON "EmbRouter_VerificationToken"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_VerificationToken_team_id_idx" ON "EmbRouter_VerificationToken"("team_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_VerificationToken_budget_reset_at_expires_idx" ON "EmbRouter_VerificationToken"("budget_reset_at", "expires");
+CREATE INDEX IF NOT EXISTS "EmbRouter_VerificationToken_budget_reset_at_expires_idx" ON "EmbRouter_VerificationToken"("budget_reset_at", "expires");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_JWTKeyMapping_jwt_issuer_jwt_claim_name_jwt_claim_idx" ON "EmbRouter_JWTKeyMapping"("jwt_issuer", "jwt_claim_name", "jwt_claim_value", "is_active");
+CREATE INDEX IF NOT EXISTS "EmbRouter_JWTKeyMapping_jwt_issuer_jwt_claim_name_jwt_claim_idx" ON "EmbRouter_JWTKeyMapping"("jwt_issuer", "jwt_claim_name", "jwt_claim_value", "is_active");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_JWTKeyMapping_jwt_issuer_jwt_claim_name_jwt_claim_key" ON "EmbRouter_JWTKeyMapping"("jwt_issuer", "jwt_claim_name", "jwt_claim_value");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_JWTKeyMapping_jwt_issuer_jwt_claim_name_jwt_claim_key" ON "EmbRouter_JWTKeyMapping"("jwt_issuer", "jwt_claim_name", "jwt_claim_value");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeprecatedVerificationToken_token_revoke_at_idx" ON "EmbRouter_DeprecatedVerificationToken"("token", "revoke_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeprecatedVerificationToken_token_revoke_at_idx" ON "EmbRouter_DeprecatedVerificationToken"("token", "revoke_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeprecatedVerificationToken_revoke_at_idx" ON "EmbRouter_DeprecatedVerificationToken"("revoke_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeprecatedVerificationToken_revoke_at_idx" ON "EmbRouter_DeprecatedVerificationToken"("revoke_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DeprecatedVerificationToken_token_key" ON "EmbRouter_DeprecatedVerificationToken"("token");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DeprecatedVerificationToken_token_key" ON "EmbRouter_DeprecatedVerificationToken"("token");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_token_idx" ON "EmbRouter_DeletedVerificationToken"("token");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_token_idx" ON "EmbRouter_DeletedVerificationToken"("token");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_deleted_at_idx" ON "EmbRouter_DeletedVerificationToken"("deleted_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_deleted_at_idx" ON "EmbRouter_DeletedVerificationToken"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_user_id_idx" ON "EmbRouter_DeletedVerificationToken"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_user_id_idx" ON "EmbRouter_DeletedVerificationToken"("user_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_team_id_idx" ON "EmbRouter_DeletedVerificationToken"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_team_id_idx" ON "EmbRouter_DeletedVerificationToken"("team_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_organization_id_idx" ON "EmbRouter_DeletedVerificationToken"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_organization_id_idx" ON "EmbRouter_DeletedVerificationToken"("organization_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_key_alias_idx" ON "EmbRouter_DeletedVerificationToken"("key_alias");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_key_alias_idx" ON "EmbRouter_DeletedVerificationToken"("key_alias");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DeletedVerificationToken_created_at_idx" ON "EmbRouter_DeletedVerificationToken"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_created_at_idx" ON "EmbRouter_DeletedVerificationToken"("created_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_startTime_idx" ON "EmbRouter_SpendLogs"("startTime");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_startTime_idx" ON "EmbRouter_SpendLogs"("startTime");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_startTime_request_id_idx" ON "EmbRouter_SpendLogs"("startTime", "request_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_startTime_request_id_idx" ON "EmbRouter_SpendLogs"("startTime", "request_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_end_user_idx" ON "EmbRouter_SpendLogs"("end_user");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_end_user_idx" ON "EmbRouter_SpendLogs"("end_user");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_session_id_idx" ON "EmbRouter_SpendLogs"("session_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_session_id_idx" ON "EmbRouter_SpendLogs"("session_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_embrouter_call_id_idx" ON "EmbRouter_SpendLogs"("embrouter_call_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_embrouter_call_id_idx" ON "EmbRouter_SpendLogs"("embrouter_call_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogs_api_key_startTime_idx" ON "EmbRouter_SpendLogs"("api_key", "startTime");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_api_key_startTime_idx" ON "EmbRouter_SpendLogs"("api_key", "startTime");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_OrganizationMembership_user_id_organization_id_key" ON "EmbRouter_OrganizationMembership"("user_id", "organization_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_OrganizationMembership_user_id_organization_id_key" ON "EmbRouter_OrganizationMembership"("user_id", "organization_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_date_idx" ON "EmbRouter_DailyUserSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_date_idx" ON "EmbRouter_DailyUserSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_user_id_date_idx" ON "EmbRouter_DailyUserSpend"("user_id", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_user_id_date_idx" ON "EmbRouter_DailyUserSpend"("user_id", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_api_key_idx" ON "EmbRouter_DailyUserSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_api_key_idx" ON "EmbRouter_DailyUserSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_model_idx" ON "EmbRouter_DailyUserSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_model_idx" ON "EmbRouter_DailyUserSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyUserSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyUserSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyUserSpend_endpoint_idx" ON "EmbRouter_DailyUserSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_endpoint_idx" ON "EmbRouter_DailyUserSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyUserSpend_user_id_date_api_key_model_custom__key" ON "EmbRouter_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_user_id_date_api_key_model_custom__key" ON "EmbRouter_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyGlobalSpend_date_idx" ON "EmbRouter_DailyGlobalSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGlobalSpend_date_idx" ON "EmbRouter_DailyGlobalSpend"("date");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyGlobalSpend_date_model_model_group_custom_ll_key" ON "EmbRouter_DailyGlobalSpend"("date", "model", "model_group", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyGlobalSpend_date_model_model_group_custom_ll_key" ON "EmbRouter_DailyGlobalSpend"("date", "model", "model_group", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_date_idx" ON "EmbRouter_DailyOrganizationSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_date_idx" ON "EmbRouter_DailyOrganizationSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_organization_id_date_idx" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_date_idx" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_api_key_idx" ON "EmbRouter_DailyOrganizationSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_api_key_idx" ON "EmbRouter_DailyOrganizationSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_model_idx" ON "EmbRouter_DailyOrganizationSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_model_idx" ON "EmbRouter_DailyOrganizationSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyOrganizationSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyOrganizationSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyOrganizationSpend_endpoint_idx" ON "EmbRouter_DailyOrganizationSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_endpoint_idx" ON "EmbRouter_DailyOrganizationSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyOrganizationSpend_organization_id_date_api_k_key" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_date_api_k_key" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_date_idx" ON "EmbRouter_DailyEndUserSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_date_idx" ON "EmbRouter_DailyEndUserSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_end_user_id_date_idx" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_date_idx" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_api_key_idx" ON "EmbRouter_DailyEndUserSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_api_key_idx" ON "EmbRouter_DailyEndUserSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_model_idx" ON "EmbRouter_DailyEndUserSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_model_idx" ON "EmbRouter_DailyEndUserSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyEndUserSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyEndUserSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyEndUserSpend_endpoint_idx" ON "EmbRouter_DailyEndUserSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_endpoint_idx" ON "EmbRouter_DailyEndUserSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyEndUserSpend_end_user_id_date_api_key_model__key" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_date_api_key_model__key" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_date_idx" ON "EmbRouter_DailyAgentSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_date_idx" ON "EmbRouter_DailyAgentSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_agent_id_date_idx" ON "EmbRouter_DailyAgentSpend"("agent_id", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_agent_id_date_idx" ON "EmbRouter_DailyAgentSpend"("agent_id", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_api_key_idx" ON "EmbRouter_DailyAgentSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_api_key_idx" ON "EmbRouter_DailyAgentSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_model_idx" ON "EmbRouter_DailyAgentSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_model_idx" ON "EmbRouter_DailyAgentSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyAgentSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyAgentSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyAgentSpend_endpoint_idx" ON "EmbRouter_DailyAgentSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_endpoint_idx" ON "EmbRouter_DailyAgentSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyAgentSpend_agent_id_date_api_key_model_custo_key" ON "EmbRouter_DailyAgentSpend"("agent_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_agent_id_date_api_key_model_custo_key" ON "EmbRouter_DailyAgentSpend"("agent_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_date_idx" ON "EmbRouter_DailyTeamSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_date_idx" ON "EmbRouter_DailyTeamSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_team_id_date_idx" ON "EmbRouter_DailyTeamSpend"("team_id", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_team_id_date_idx" ON "EmbRouter_DailyTeamSpend"("team_id", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_api_key_idx" ON "EmbRouter_DailyTeamSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_api_key_idx" ON "EmbRouter_DailyTeamSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_model_idx" ON "EmbRouter_DailyTeamSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_model_idx" ON "EmbRouter_DailyTeamSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyTeamSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyTeamSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTeamSpend_endpoint_idx" ON "EmbRouter_DailyTeamSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_endpoint_idx" ON "EmbRouter_DailyTeamSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyTeamSpend_team_id_date_api_key_model_custom__key" ON "EmbRouter_DailyTeamSpend"("team_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_team_id_date_api_key_model_custom__key" ON "EmbRouter_DailyTeamSpend"("team_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_date_idx" ON "EmbRouter_DailyTagSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_date_idx" ON "EmbRouter_DailyTagSpend"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_tag_date_idx" ON "EmbRouter_DailyTagSpend"("tag", "date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_date_idx" ON "EmbRouter_DailyTagSpend"("tag", "date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_api_key_idx" ON "EmbRouter_DailyTagSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_api_key_idx" ON "EmbRouter_DailyTagSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_model_idx" ON "EmbRouter_DailyTagSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_model_idx" ON "EmbRouter_DailyTagSpend"("model");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyTagSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyTagSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyTagSpend_endpoint_idx" ON "EmbRouter_DailyTagSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_endpoint_idx" ON "EmbRouter_DailyTagSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_DailyTagSpend_tag_date_api_key_model_custom_llm_p_key" ON "EmbRouter_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_date_api_key_model_custom_llm_p_key" ON "EmbRouter_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ManagedFileTable_unified_file_id_key" ON "EmbRouter_ManagedFileTable"("unified_file_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_unified_file_id_key" ON "EmbRouter_ManagedFileTable"("unified_file_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedFileTable_unified_file_id_idx" ON "EmbRouter_ManagedFileTable"("unified_file_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_unified_file_id_idx" ON "EmbRouter_ManagedFileTable"("unified_file_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedFileTable_team_id_created_at_idx" ON "EmbRouter_ManagedFileTable"("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_team_id_created_at_idx" ON "EmbRouter_ManagedFileTable"("team_id", "created_at" DESC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ManagedObjectTable_unified_object_id_key" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_unified_object_id_key" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ManagedObjectTable_model_object_id_key" ON "EmbRouter_ManagedObjectTable"("model_object_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_model_object_id_key" ON "EmbRouter_ManagedObjectTable"("model_object_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedObjectTable_unified_object_id_idx" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_unified_object_id_idx" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedObjectTable_model_object_id_idx" ON "EmbRouter_ManagedObjectTable"("model_object_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_model_object_id_idx" ON "EmbRouter_ManagedObjectTable"("model_object_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedObjectTable_team_id_created_at_idx" ON "EmbRouter_ManagedObjectTable"("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_team_id_created_at_idx" ON "EmbRouter_ManagedObjectTable"("team_id", "created_at" DESC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ManagedVectorStoreTable_unified_resource_id_key" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_unified_resource_id_key" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedVectorStoreTable_unified_resource_id_idx" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_unified_resource_id_idx" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedVectorStoreTable_team_id_created_at_idx" ON "EmbRouter_ManagedVectorStoreTable"("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_team_id_created_at_idx" ON "EmbRouter_ManagedVectorStoreTable"("team_id", "created_at" DESC);
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedVectorStoresTable_team_id_idx" ON "EmbRouter_ManagedVectorStoresTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoresTable_team_id_idx" ON "EmbRouter_ManagedVectorStoresTable"("team_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ManagedVectorStoresTable_user_id_idx" ON "EmbRouter_ManagedVectorStoresTable"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoresTable_user_id_idx" ON "EmbRouter_ManagedVectorStoresTable"("user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_GuardrailsTable_guardrail_name_key" ON "EmbRouter_GuardrailsTable"("guardrail_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_GuardrailsTable_guardrail_name_key" ON "EmbRouter_GuardrailsTable"("guardrail_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_GuardrailsTable_status_idx" ON "EmbRouter_GuardrailsTable"("status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_GuardrailsTable_status_idx" ON "EmbRouter_GuardrailsTable"("status");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyGuardrailMetrics_date_idx" ON "EmbRouter_DailyGuardrailMetrics"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics_date_idx" ON "EmbRouter_DailyGuardrailMetrics"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyGuardrailMetrics_guardrail_id_idx" ON "EmbRouter_DailyGuardrailMetrics"("guardrail_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics_guardrail_id_idx" ON "EmbRouter_DailyGuardrailMetrics"("guardrail_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyGuardrailUsageUnits_date_idx" ON "EmbRouter_DailyGuardrailUsageUnits"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGuardrailUsageUnits_date_idx" ON "EmbRouter_DailyGuardrailUsageUnits"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyPolicyMetrics_date_idx" ON "EmbRouter_DailyPolicyMetrics"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyPolicyMetrics_date_idx" ON "EmbRouter_DailyPolicyMetrics"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyPolicyMetrics_policy_id_idx" ON "EmbRouter_DailyPolicyMetrics"("policy_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyPolicyMetrics_policy_id_idx" ON "EmbRouter_DailyPolicyMetrics"("policy_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogGuardrailIndex_guardrail_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("guardrail_id", "start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex_guardrail_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("guardrail_id", "start_time");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogGuardrailIndex_policy_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("policy_id", "start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex_policy_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("policy_id", "start_time");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogToolIndex_tool_name_start_time_idx" ON "EmbRouter_SpendLogToolIndex"("tool_name", "start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogToolIndex_tool_name_start_time_idx" ON "EmbRouter_SpendLogToolIndex"("tool_name", "start_time");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_SpendLogToolIndex_start_time_idx" ON "EmbRouter_SpendLogToolIndex"("start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogToolIndex_start_time_idx" ON "EmbRouter_SpendLogToolIndex"("start_time");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyModelUsage_date_idx" ON "EmbRouter_DailyModelUsage"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyModelUsage_date_idx" ON "EmbRouter_DailyModelUsage"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyModelUsage_model_group_idx" ON "EmbRouter_DailyModelUsage"("model_group");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyModelUsage_model_group_idx" ON "EmbRouter_DailyModelUsage"("model_group");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_DailyGatewayRequests_date_idx" ON "EmbRouter_DailyGatewayRequests"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGatewayRequests_date_idx" ON "EmbRouter_DailyGatewayRequests"("date");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_PromptTable_prompt_id_environment_idx" ON "EmbRouter_PromptTable"("prompt_id", "environment");
+CREATE INDEX IF NOT EXISTS "EmbRouter_PromptTable_prompt_id_environment_idx" ON "EmbRouter_PromptTable"("prompt_id", "environment");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_PromptTable_prompt_id_idx" ON "EmbRouter_PromptTable"("prompt_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_PromptTable_prompt_id_idx" ON "EmbRouter_PromptTable"("prompt_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_PromptTable_prompt_id_version_environment_key" ON "EmbRouter_PromptTable"("prompt_id", "version", "environment");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_PromptTable_prompt_id_version_environment_key" ON "EmbRouter_PromptTable"("prompt_id", "version", "environment");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_HealthCheckTable_model_name_idx" ON "EmbRouter_HealthCheckTable"("model_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_model_name_idx" ON "EmbRouter_HealthCheckTable"("model_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_HealthCheckTable_checked_at_idx" ON "EmbRouter_HealthCheckTable"("checked_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_checked_at_idx" ON "EmbRouter_HealthCheckTable"("checked_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_HealthCheckTable_status_idx" ON "EmbRouter_HealthCheckTable"("status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_status_idx" ON "EmbRouter_HealthCheckTable"("status");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_HealthCheckTable_model_id_model_name_checked_at_idx" ON "EmbRouter_HealthCheckTable"("model_id", "model_name", "checked_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_model_id_model_name_checked_at_idx" ON "EmbRouter_HealthCheckTable"("model_id", "model_name", "checked_at" DESC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_SearchToolsTable_search_tool_name_key" ON "EmbRouter_SearchToolsTable"("search_tool_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_SearchToolsTable_search_tool_name_key" ON "EmbRouter_SearchToolsTable"("search_tool_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ManagedVectorStoreIndexTable_index_name_key" ON "EmbRouter_ManagedVectorStoreIndexTable"("index_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreIndexTable_index_name_key" ON "EmbRouter_ManagedVectorStoreIndexTable"("index_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_PolicyTable_policy_name_version_status_idx" ON "EmbRouter_PolicyTable"("policy_name", "version_status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_PolicyTable_policy_name_version_status_idx" ON "EmbRouter_PolicyTable"("policy_name", "version_status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_PolicyTable_policy_name_version_number_key" ON "EmbRouter_PolicyTable"("policy_name", "version_number");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_PolicyTable_policy_name_version_number_key" ON "EmbRouter_PolicyTable"("policy_name", "version_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ToolTable_tool_name_key" ON "EmbRouter_ToolTable"("tool_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ToolTable_tool_name_key" ON "EmbRouter_ToolTable"("tool_name");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ToolTable_input_policy_idx" ON "EmbRouter_ToolTable"("input_policy");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ToolTable_input_policy_idx" ON "EmbRouter_ToolTable"("input_policy");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ToolTable_output_policy_idx" ON "EmbRouter_ToolTable"("output_policy");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ToolTable_output_policy_idx" ON "EmbRouter_ToolTable"("output_policy");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ToolTable_team_id_idx" ON "EmbRouter_ToolTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ToolTable_team_id_idx" ON "EmbRouter_ToolTable"("team_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_AccessGroupTable_access_group_name_key" ON "EmbRouter_AccessGroupTable"("access_group_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_AccessGroupTable_access_group_name_key" ON "EmbRouter_AccessGroupTable"("access_group_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_ClaudeCodePluginTable_name_key" ON "EmbRouter_ClaudeCodePluginTable"("name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ClaudeCodePluginTable_name_key" ON "EmbRouter_ClaudeCodePluginTable"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_MemoryTable_key_key" ON "EmbRouter_MemoryTable"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_key_key" ON "EmbRouter_MemoryTable"("key");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_MemoryTable_user_id_idx" ON "EmbRouter_MemoryTable"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_user_id_idx" ON "EmbRouter_MemoryTable"("user_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_MemoryTable_team_id_idx" ON "EmbRouter_MemoryTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_team_id_idx" ON "EmbRouter_MemoryTable"("team_id");
 
 -- CreateIndex
-CREATE INDEX "idx_adaptive_router_session_activity" ON "EmbRouter_AdaptiveRouterSession"("last_activity_at");
+CREATE INDEX IF NOT EXISTS "idx_adaptive_router_session_activity" ON "EmbRouter_AdaptiveRouterSession"("last_activity_at");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_baseline_scope" ON "EmbRouter_AutoRouterBaselineComparison"("api_key", "session_id", "router_name");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_scope" ON "EmbRouter_AutoRouterBaselineComparison"("api_key", "session_id", "router_name");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_baseline_updated" ON "EmbRouter_AutoRouterBaselineComparison"("updated_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_updated" ON "EmbRouter_AutoRouterBaselineComparison"("updated_at");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_baseline_event_order" ON "EmbRouter_AutoRouterBaselineObservation"("scope", "started_at", "request_id");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_event_order" ON "EmbRouter_AutoRouterBaselineObservation"("scope", "started_at", "request_id");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_baseline_event_revision" ON "EmbRouter_AutoRouterBaselineObservation"("scope", "revision", "started_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_event_revision" ON "EmbRouter_AutoRouterBaselineObservation"("scope", "revision", "started_at");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_session_last_turn" ON "EmbRouter_AutoRouterSession"("last_turn_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_session_last_turn" ON "EmbRouter_AutoRouterSession"("last_turn_at");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_user_session_last_turn" ON "EmbRouter_AutoRouterUserSession"("last_turn_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_user_session_last_turn" ON "EmbRouter_AutoRouterUserSession"("last_turn_at");
 
 -- CreateIndex
-CREATE INDEX "idx_autorouter_user_session_user_last_turn" ON "EmbRouter_AutoRouterUserSession"("user_id", "last_turn_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_user_session_user_last_turn" ON "EmbRouter_AutoRouterUserSession"("user_id", "last_turn_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ShadowEvalJob_group_id_idx" ON "EmbRouter_ShadowEvalJob"("group_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ShadowEvalJob_group_id_idx" ON "EmbRouter_ShadowEvalJob"("group_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ShadowEvalJob_target_type_target_id_idx" ON "EmbRouter_ShadowEvalJob"("target_type", "target_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ShadowEvalJob_target_type_target_id_idx" ON "EmbRouter_ShadowEvalJob"("target_type", "target_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ShadowEvalJob_created_at_idx" ON "EmbRouter_ShadowEvalJob"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ShadowEvalJob_created_at_idx" ON "EmbRouter_ShadowEvalJob"("created_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_ShadowEvalAttempt_job_id_idx" ON "EmbRouter_ShadowEvalAttempt"("job_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ShadowEvalAttempt_job_id_idx" ON "EmbRouter_ShadowEvalAttempt"("job_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_WorkflowRun_session_id_key" ON "EmbRouter_WorkflowRun"("session_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_WorkflowRun_session_id_key" ON "EmbRouter_WorkflowRun"("session_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowRun_workflow_type_status_idx" ON "EmbRouter_WorkflowRun"("workflow_type", "status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowRun_workflow_type_status_idx" ON "EmbRouter_WorkflowRun"("workflow_type", "status");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowRun_session_id_idx" ON "EmbRouter_WorkflowRun"("session_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowRun_session_id_idx" ON "EmbRouter_WorkflowRun"("session_id");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowRun_created_at_idx" ON "EmbRouter_WorkflowRun"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowRun_created_at_idx" ON "EmbRouter_WorkflowRun"("created_at");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowRun_created_by_idx" ON "EmbRouter_WorkflowRun"("created_by");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowRun_created_by_idx" ON "EmbRouter_WorkflowRun"("created_by");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowEvent_run_id_idx" ON "EmbRouter_WorkflowEvent"("run_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowEvent_run_id_idx" ON "EmbRouter_WorkflowEvent"("run_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_WorkflowEvent_run_id_sequence_number_key" ON "EmbRouter_WorkflowEvent"("run_id", "sequence_number");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_WorkflowEvent_run_id_sequence_number_key" ON "EmbRouter_WorkflowEvent"("run_id", "sequence_number");
 
 -- CreateIndex
-CREATE INDEX "EmbRouter_WorkflowMessage_run_id_idx" ON "EmbRouter_WorkflowMessage"("run_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_WorkflowMessage_run_id_idx" ON "EmbRouter_WorkflowMessage"("run_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmbRouter_WorkflowMessage_run_id_sequence_number_key" ON "EmbRouter_WorkflowMessage"("run_id", "sequence_number");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_WorkflowMessage_run_id_sequence_number_key" ON "EmbRouter_WorkflowMessage"("run_id", "sequence_number");
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_AgentsTable" ADD CONSTRAINT "EmbRouter_AgentsTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_AgentsTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_AgentsTable" ADD CONSTRAINT "EmbRouter_AgentsTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_AgentIdentity" ADD CONSTRAINT "EmbRouter_AgentIdentity_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "EmbRouter_AgentsTable"("agent_id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_AgentIdentity_agent_id_fkey') THEN
+        ALTER TABLE "EmbRouter_AgentIdentity" ADD CONSTRAINT "EmbRouter_AgentIdentity_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "EmbRouter_AgentsTable"("agent_id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_RetiredAgentIdentity" ADD CONSTRAINT "EmbRouter_RetiredAgentIdentity_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "EmbRouter_AgentsTable"("agent_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_RetiredAgentIdentity_agent_id_fkey') THEN
+        ALTER TABLE "EmbRouter_RetiredAgentIdentity" ADD CONSTRAINT "EmbRouter_RetiredAgentIdentity_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "EmbRouter_AgentsTable"("agent_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_VerifiedSubject" ADD CONSTRAINT "EmbRouter_VerifiedSubject_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerifiedSubject_user_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerifiedSubject" ADD CONSTRAINT "EmbRouter_VerifiedSubject_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_OrganizationTable" ADD CONSTRAINT "EmbRouter_OrganizationTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationTable" ADD CONSTRAINT "EmbRouter_OrganizationTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_OrganizationTable" ADD CONSTRAINT "EmbRouter_OrganizationTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationTable" ADD CONSTRAINT "EmbRouter_OrganizationTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamTable_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "EmbRouter_ModelTable"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamTable_model_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "EmbRouter_ModelTable"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "EmbRouter_TeamTable"("team_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_ProjectTable_team_id_fkey') THEN
+        ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "EmbRouter_TeamTable"("team_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_ProjectTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_ProjectTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_ProjectTable" ADD CONSTRAINT "EmbRouter_ProjectTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_UserTable" ADD CONSTRAINT "EmbRouter_UserTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_UserTable_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_UserTable" ADD CONSTRAINT "EmbRouter_UserTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_UserTable" ADD CONSTRAINT "EmbRouter_UserTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_UserTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_UserTable" ADD CONSTRAINT "EmbRouter_UserTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "EmbRouter_ProjectTable"("project_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_project_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "EmbRouter_ProjectTable"("project_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_JWTKeyMapping" ADD CONSTRAINT "EmbRouter_JWTKeyMapping_token_fkey" FOREIGN KEY ("token") REFERENCES "EmbRouter_VerificationToken"("token") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_JWTKeyMapping_token_fkey') THEN
+        ALTER TABLE "EmbRouter_JWTKeyMapping" ADD CONSTRAINT "EmbRouter_JWTKeyMapping_token_fkey" FOREIGN KEY ("token") REFERENCES "EmbRouter_VerificationToken"("token") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_EndUserTable" ADD CONSTRAINT "EmbRouter_EndUserTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_EndUserTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_EndUserTable" ADD CONSTRAINT "EmbRouter_EndUserTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_EndUserTable" ADD CONSTRAINT "EmbRouter_EndUserTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_EndUserTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_EndUserTable" ADD CONSTRAINT "EmbRouter_EndUserTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_ModelAccessGroupBudgetTable" ADD CONSTRAINT "EmbRouter_ModelAccessGroupBudgetTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_ModelAccessGroupBudgetTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_ModelAccessGroupBudgetTable" ADD CONSTRAINT "EmbRouter_ModelAccessGroupBudgetTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_TagTable" ADD CONSTRAINT "EmbRouter_TagTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TagTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TagTable" ADD CONSTRAINT "EmbRouter_TagTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_TeamMembership" ADD CONSTRAINT "EmbRouter_TeamMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamMembership_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamMembership" ADD CONSTRAINT "EmbRouter_TeamMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_user_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_user_id_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_created_by_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_updated_by_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_WorkflowEvent" ADD CONSTRAINT "EmbRouter_WorkflowEvent_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "EmbRouter_WorkflowRun"("run_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_WorkflowEvent_run_id_fkey') THEN
+        ALTER TABLE "EmbRouter_WorkflowEvent" ADD CONSTRAINT "EmbRouter_WorkflowEvent_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "EmbRouter_WorkflowRun"("run_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "EmbRouter_WorkflowMessage" ADD CONSTRAINT "EmbRouter_WorkflowMessage_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "EmbRouter_WorkflowRun"("run_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_WorkflowMessage_run_id_fkey') THEN
+        ALTER TABLE "EmbRouter_WorkflowMessage" ADD CONSTRAINT "EmbRouter_WorkflowMessage_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "EmbRouter_WorkflowRun"("run_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 
 -- Not expressible in schema.prisma; carried over by hand from the pre-squash migrations.
@@ -2276,13 +2441,13 @@ ALTER TABLE "EmbRouter_ShadowEvalJob" ALTER COLUMN "router_names" SET NOT NULL;
 ALTER TABLE "EmbRouter_ShadowEvalJob" ALTER COLUMN "models" SET NOT NULL;
 
 -- Case-insensitive email lookups (20260108_add_user_email_lower_idx)
-CREATE INDEX "EmbRouter_UserTable_user_email_lower_idx" ON "EmbRouter_UserTable"(LOWER("user_email"));
+CREATE INDEX IF NOT EXISTS "EmbRouter_UserTable_user_email_lower_idx" ON "EmbRouter_UserTable"(LOWER("user_email"));
 
 -- One active shadow eval per target and direction (20260831000000_shadow_eval_typed_targets)
-CREATE UNIQUE INDEX "EmbRouter_ShadowEvalJob_one_active_per_target_direction"
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ShadowEvalJob_one_active_per_target_direction"
     ON "EmbRouter_ShadowEvalJob"("target_type", "target_id", "direction") WHERE "stopped_at" IS NULL;
 
 -- Baseline comparisons waiting to be published (20260915010000_add_autorouter_baseline_state)
-CREATE INDEX "idx_autorouter_baseline_dirty"
+CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_dirty"
     ON "EmbRouter_AutoRouterBaselineComparison" ("attempted_at", "updated_at", "scope")
     WHERE NOT "retired" AND "revision" <> "published_revision";

@@ -11,5 +11,5 @@ def test_is_managed_cloud_storage_uri_detects_raw_object_uris():
 def test_is_managed_cloud_storage_uri_ignores_provider_and_unified_ids():
     # Plain provider ids and base64 unified ids carry no storage scheme.
     assert not is_managed_cloud_storage_uri("file-abc123")
-    assert not is_managed_cloud_storage_uri("bGl0ZWxsbV9wcm94eQ==")
+    assert not is_managed_cloud_storage_uri("ZW1icm91dGVyX3Byb3h5")
     assert not is_managed_cloud_storage_uri("")

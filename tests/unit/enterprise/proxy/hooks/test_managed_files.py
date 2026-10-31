@@ -28,7 +28,7 @@ def test_get_file_ids_from_messages():
                 {
                     "type": "file",
                     "file": {
-                        "file_id": "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCxmYzdmMmVhNS0wZjUwLTQ5ZjYtODljMS03ZTZhNTRiMTIxMzg",
+                        "file_id": "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLGZjN2YyZWE1LTBmNTAtNDlmNi04OWMxLTdlNmE1NGIxMjEzOA",
                     },
                 },
             ],
@@ -36,7 +36,7 @@ def test_get_file_ids_from_messages():
     ]
     file_ids = proxy_managed_files.get_file_ids_from_messages(messages)
     assert file_ids == [
-        "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCxmYzdmMmVhNS0wZjUwLTQ5ZjYtODljMS03ZTZhNTRiMTIxMzg"
+        "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLGZjN2YyZWE1LTBmNTAtNDlmNi04OWMxLTdlNmE1NGIxMjEzOA"
     ]
 
 
@@ -89,7 +89,7 @@ async def test_async_pre_call_hook_batch_retrieve():
             user_id="123", parent_otel_span=MagicMock()
         ),
         "data": {
-            "batch_id": "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDpteS1nZW5lcmFsLWF6dXJlLWRlcGxveW1lbnQ7bGxtX2JhdGNoX2lkOmJhdGNoX2EzMjJiNmJhLWFjN2UtNDg4OC05MjljLTFhZDM0NDJmMDZlZA",
+            "batch_id": "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOm15LWdlbmVyYWwtYXp1cmUtZGVwbG95bWVudDtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYTMyMmI2YmEtYWM3ZS00ODg4LTkyOWMtMWFkMzQ0MmYwNmVk",
         },
         "call_type": "aretrieve_batch",
         "cache": MagicMock(),
@@ -330,7 +330,7 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 async def test_async_post_call_success_hook_for_unified_finetuning_job():
     from embrouter.types.utils import EmbRouterFineTuningJob
 
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCxiZTQ0ZDVlYi1mNDU3LTRiNzktOWM4My01N2QxMTMxYWM0YzY7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00LjEtb3BlbmFpO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLURKMnQ0OWZlQ2NTQk5vNG9oekZ6NGc7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGRiNjY5ODcwNzdkZTdmYzZjNzAzY2Y1MDczMGU2MmNkOWQ3YTU1N2NlNjVmMDUzNTFkYTM4YTA3ZjBlZDEyNzQ"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbTt1bmlmaWVkX2lkLGJlNDRkNWViLWY0NTctNGI3OS05YzgzLTU3ZDExMzFhYzRjNjt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTQuMS1vcGVuYWk7bGxtX291dHB1dF9maWxlX2lkLGZpbGUtREoydDQ5ZmVDY1NCTm80b2h6Rno0ZztsbG1fb3V0cHV0X2ZpbGVfbW9kZWxfaWQsZGI2Njk4NzA3N2RlN2ZjNmM3MDNjZjUwNzMwZTYyY2Q5ZDdhNTU3Y2U2NWYwNTM1MWRhMzhhMDdmMGVkMTI3NA"
     provider_ft_job = EmbRouterFineTuningJob(
         object="fine_tuning.job",
         id="ftjob-0kEBV5b4sPrFcMnuzmYSzU1G",
@@ -384,7 +384,7 @@ async def test_async_pre_call_hook_for_unified_finetuning_job():
             user_id="123", parent_otel_span=MagicMock()
         ),
         "data": {
-            "fine_tuning_job_id": "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDo0OTIxODU4MWY3OGViZTllZjE4NDE0ZmE0ZjdmYjlmYTc0YzA5NWVkMTEyY2E4NDBkZDU2ZGZmZTliZDMwZGQxO2dlbmVyaWNfcmVzcG9uc2VfaWQ6ZnRqb2ItalRCeXM3YlZzYnlaRE93TDlHbHBZcVhS",
+            "fine_tuning_job_id": "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOjQ5MjE4NTgxZjc4ZWJlOWVmMTg0MTRmYTRmN2ZiOWZhNzRjMDk1ZWQxMTJjYTg0MGRkNTZkZmZlOWJkMzBkZDE7Z2VuZXJpY19yZXNwb25zZV9pZDpmdGpvYi1qVEJ5czdiVnNieVpET3dMOUdscFlxWFI",
         },
         "call_type": "acancel_fine_tuning_job",
         "cache": MagicMock(),
@@ -411,7 +411,7 @@ async def test_can_user_call_unified_file_id(call_type):
     proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCxmMTNlNDAzZS01YWM3LTRhZjktOGQzNS0wNDgwZDMxOTgyYTg7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00by1taW5pLW9wZW5haTtsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1Ib3UxZDFXc3c1SDNKcjFMYllpZDJiO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxmODBiNWU2NzQ1NzdkNjkyMjM4YmVhNTIxZDdiMGI5ZGYyY2FmMTEwMTU2YmU5YzBjM2NjMmNkNTBjOTM1ZDI0"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbTt1bmlmaWVkX2lkLGYxM2U0MDNlLTVhYzctNGFmOS04ZDM1LTA0ODBkMzE5ODJhODt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvLW1pbmktb3BlbmFpO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUhvdTFkMVdzdzVIM0pyMUxiWWlkMmI7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGY4MGI1ZTY3NDU3N2Q2OTIyMzhiZWE1MjFkN2IwYjlkZjJjYWYxMTAxNTZiZTljMGMzY2MyY2Q1MGM5MzVkMjQ"
 
     with pytest.raises(HTTPException):
         await proxy_managed_files.async_pre_call_hook(
@@ -460,7 +460,7 @@ async def test_router_acreate_batch_only_selects_from_file_id_mapping(monkeypatc
         ],
     )
 
-    file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCw2YmQ4ZjhhYS02NmEzLTRmY2MtOTIxZS1lMTYwYzIzZWZjNzU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1MTENVRkI1MnVUTWE5aE5ZanRldzlWO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxmMzJlNWQ0OC05YWZmLTQ5YjMtOWE1Ny0zYzJhN2JjN2NjMmE"
+    file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbTt1bmlmaWVkX2lkLDZiZDhmOGFhLTY2YTMtNGZjYy05MjFlLWUxNjBjMjNlZmM3NTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUxMQ1VGQjUydVRNYTloTllqdGV3OVY7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGYzMmU1ZDQ4LTlhZmYtNDliMy05YTU3LTNjMmE3YmM3Y2MyYQ"
 
     model_file_id_mapping = {file_id: {"5678": "file-LLCUFB52uTMa9hNYjtew9V"}}
 
@@ -490,7 +490,7 @@ async def test_output_file_id_for_batch_retrieve():
     from embrouter.types.utils import EmbRouterBatch
 
     batch = EmbRouterBatch(
-        id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfNjg1YzVlNWQ2Mzk4ODE5MGI4NWJkYjIxNDdiYTEzMWQ",
+        id="ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOjEyMzQ1Njc5O2xsbV9iYXRjaF9pZDpiYXRjaF82ODVjNWU1ZDYzOTg4MTkwYjg1YmRiMjE0N2JhMTMxZA",
         completion_window="24h",
         created_at=1750883933,
         endpoint="/v1/chat/completions",
@@ -624,7 +624,7 @@ async def test_error_file_id_for_failed_batch():
     from embrouter.types.utils import EmbRouterBatch
 
     batch = EmbRouterBatch(
-        id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz",
+        id="ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOjEyMzQ1Njc5O2xsbV9iYXRjaF9pZDpiYXRjaF9hYmMxMjM",
         completion_window="24h",
         created_at=1714508499,
         endpoint="/v1/chat/completions",
@@ -709,7 +709,7 @@ async def test_async_post_call_success_hook_twice_assert_no_unique_violation():
     prisma_client = AsyncMock()
 
     batch = EmbRouterBatch(
-        id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfNjg1YzVlNWQ2Mzk4ODE5MGI4NWJkYjIxNDdiYTEzMWQ",
+        id="ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOjEyMzQ1Njc5O2xsbV9iYXRjaF9pZDpiYXRjaF82ODVjNWU1ZDYzOTg4MTkwYjg1YmRiMjE0N2JhMTMxZA",
         completion_window="24h",
         created_at=1750883933,
         endpoint="/v1/chat/completions",
@@ -788,7 +788,7 @@ def test_update_responses_input_with_unified_file_id():
 
     # Create a base64-encoded unified file ID
     # This decodes to: embrouter_proxy:application/pdf;unified_id,6c0b5890-8914-48e0-b8f4-0ae5ed3c14a5;target_model_names,gpt-4o;llm_output_file_id,file-ECBPW7ML9g7XHdwGgUPZaM;llm_output_file_model_id,e26453f9e76e7993680d0068d98c1f4cc205bbad0967a33c664893568ca743c2
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
 
     # Test input with unified file ID in content array
     input_data = [
@@ -883,7 +883,7 @@ def test_update_responses_input_with_multiple_file_ids():
     )
 
     # Unified file ID
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
     # Regular OpenAI file ID
     regular_file_id = "file-regular123"
 
@@ -1187,7 +1187,7 @@ async def test_check_file_ids_access_with_unified_file_ids():
     from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create a unified file ID
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
     regular_file_id = "file-abc123"
 
     # Mock the access check to return True
@@ -1226,7 +1226,7 @@ async def test_check_file_ids_access_denied():
     """
     from embrouter.proxy._types import UserAPIKeyAuth
 
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
 
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
@@ -1298,7 +1298,7 @@ async def test_completion_with_file_access_check():
     """
     from embrouter.proxy._types import UserAPIKeyAuth
 
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
 
     prisma_client = AsyncMock()
     prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
@@ -1357,8 +1357,8 @@ async def test_responses_with_file_access_check():
     """
     from embrouter.proxy._types import UserAPIKeyAuth
 
-    unified_file_id_1 = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
-    unified_file_id_2 = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsNzc3Nzc3Nzc7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1YWVo7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLG1vZGVsXzEyMw"
+    unified_file_id_1 = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL3BkZjt1bmlmaWVkX2lkLDZjMGI1ODkwLTg5MTQtNDhlMC1iOGY0LTBhZTVlZDNjMTRhNTt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLUVDQlBXN01MOWc3WEhkd0dnVVBaYU07bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGUyNjQ1M2Y5ZTc2ZTc5OTM2ODBkMDA2OGQ5OGMxZjRjYzIwNWJiYWQwOTY3YTMzYzY2NDg5MzU2OGNhNzQzYzI"
+    unified_file_id_2 = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCw3Nzc3Nzc3Nzt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLVhZWjtsbG1fb3V0cHV0X2ZpbGVfbW9kZWxfaWQsbW9kZWxfMTIz"
 
     prisma_client = AsyncMock()
     prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
@@ -1522,7 +1522,7 @@ async def test_afile_delete_returns_provider_response_when_stored_file_object_no
     """
     from embrouter.types.llms.openai import OpenAIFileObject
 
-    unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsdGVzdC1pZDt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLXByb3ZpZGVyLXh5ejtsbG1fb3V0cHV0X2ZpbGVfbW9kZWxfaWQsbW9kZWwtMTIz"
+    unified_file_id = "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCx0ZXN0LWlkO3RhcmdldF9tb2RlbF9uYW1lcyxncHQtNG87bGxtX291dHB1dF9maWxlX2lkLGZpbGUtcHJvdmlkZXIteHl6O2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxtb2RlbC0xMjM"
 
     prisma_client = AsyncMock()
     db_record = MagicMock()
@@ -2794,7 +2794,7 @@ async def test_user_b_cannot_retrieve_user_a_batch():
 
     # User B tries to retrieve User A's batch
     unified_batch_id = (
-        "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDpteS1tb2RlbDtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz"
+        "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOm15LW1vZGVsO2xsbV9iYXRjaF9pZDpiYXRjaF9hYmMxMjM"
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -2831,7 +2831,7 @@ async def test_user_b_cannot_cancel_user_a_batch():
 
     # User B tries to cancel User A's batch
     unified_batch_id = (
-        "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDpteS1tb2RlbDtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz"
+        "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOm15LW1vZGVsO2xsbV9iYXRjaF9pZDpiYXRjaF9hYmMxMjM"
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -2871,7 +2871,7 @@ async def test_user_a_can_retrieve_own_batch():
 
     # User A retrieves their own batch
     unified_batch_id = (
-        "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDpteS1tb2RlbDtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz"
+        "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOm15LW1vZGVsO2xsbV9iYXRjaF9pZDpiYXRjaF9hYmMxMjM"
     )
 
     # Should not raise an exception
@@ -2909,7 +2909,7 @@ async def test_user_b_cannot_retrieve_user_a_file():
 
     # User B tries to retrieve User A's file
     unified_file_id = (
-        "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsZmlsZS1hYmMxMjM"
+        "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCxmaWxlLWFiYzEyMw"
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -2946,7 +2946,7 @@ async def test_user_b_cannot_download_user_a_file_content():
 
     # User B tries to download User A's file content
     unified_file_id = (
-        "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsZmlsZS1hYmMxMjM"
+        "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCxmaWxlLWFiYzEyMw"
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -2983,7 +2983,7 @@ async def test_user_b_cannot_delete_user_a_file():
 
     # User B tries to delete User A's file
     unified_file_id = (
-        "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsZmlsZS1hYmMxMjM"
+        "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCxmaWxlLWFiYzEyMw"
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -3033,7 +3033,7 @@ async def test_user_a_can_retrieve_own_file():
 
     # User A retrieves their own file
     unified_file_id = (
-        "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsZmlsZS1hYmMxMjM"
+        "ZW1icm91dGVyX3Byb3h5OmFwcGxpY2F0aW9uL2pzb247dW5pZmllZF9pZCxmaWxlLWFiYzEyMw"
     )
 
     # Should not raise an exception
@@ -3124,7 +3124,7 @@ async def test_same_user_different_keys_can_access_batch():
     )
 
     unified_batch_id = (
-        "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDpteS1tb2RlbDtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz"
+        "ZW1icm91dGVyX3Byb3h5O21vZGVsX2lkOm15LW1vZGVsO2xsbV9iYXRjaF9pZDpiYXRjaF9hYmMxMjM"
     )
 
     # First API key for User A retrieves the batch

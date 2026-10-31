@@ -974,8 +974,8 @@ async def test_should_record_containers_from_responses_output_for_service_accoun
     )
     auth = UserAPIKeyAuth(team_id="team-1")
     encoded_container_id = (
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOmF6dXJlO21vZGVsX2lkOmR"
-        "lZi0xMjM7Y29udGFpbmVyX2lkOmNudHJfbmF0aXZl"
+        "cntr_ZW1icm91dGVyOmN1c3RvbV9sbG1fcHJvdmlkZXI6YXp1cmU7bW9kZWxfaWQ"
+        "6ZGVmLTEyMztjb250YWluZXJfaWQ6Y250cl9uYXRpdmU="
     )
     responses_payload = {
         "output": [
@@ -1014,8 +1014,8 @@ async def test_service_account_can_access_container_after_responses_tracking(
     monkeypatch,
 ):
     encoded_container_id = (
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOmF6dXJlO21vZGVsX2lkOmR"
-        "lZi0xMjM7Y29udGFpbmVyX2lkOmNudHJfbmF0aXZl"
+        "cntr_ZW1icm91dGVyOmN1c3RvbV9sbG1fcHJvdmlkZXI6YXp1cmU7bW9kZWxfaWQ"
+        "6ZGVmLTEyMztjb250YWluZXJfaWQ6Y250cl9uYXRpdmU="
     )
     table = AsyncMock()
     table.find_unique.return_value = None
@@ -1066,8 +1066,8 @@ async def test_should_record_container_ownership_after_streaming_responses_finis
     from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     encoded_container_id = (
-        "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOmF6dXJlO21vZGVsX2lkOmR"
-        "lZi0xMjM7Y29udGFpbmVyX2lkOmNudHJfbmF0aXZl"
+        "cntr_ZW1icm91dGVyOmN1c3RvbV9sbG1fcHJvdmlkZXI6YXp1cmU7bW9kZWxfaWQ"
+        "6ZGVmLTEyMztjb250YWluZXJfaWQ6Y250cl9uYXRpdmU="
     )
     response_body = SimpleNamespace(
         output=[

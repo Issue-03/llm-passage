@@ -278,7 +278,7 @@ async def test_get_user_created_file_ids_remaps_stored_raw_provider_id_to_unifie
 
 
     """
-    unified_id = "bGl0ZWxsbV9wcm94eTt1bmlmaWVkX2lkLGRlYWRiZWVm"
+    unified_id = "ZW1icm91dGVyX3Byb3h5O3VuaWZpZWRfaWQsZGVhZGJlZWY"
     raw_provider_object = _make_file_object("file-raw-provider-123")
     managed_files = _make_managed_files_instance()
     managed_files.prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(

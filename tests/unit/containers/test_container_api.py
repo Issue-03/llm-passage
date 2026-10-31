@@ -278,7 +278,7 @@ class TestContainerAPI:
             container_id="x",
         )
         assert short_managed_id.startswith("cntr_")
-        assert len(short_managed_id) < 100
+        assert len(short_managed_id) < 110
 
         mock_response = ContainerObject(
             id="x",
@@ -315,7 +315,7 @@ class TestContainerAPI:
             model_id="router-gpt",
             container_id="z",
         )
-        assert len(short_managed_id) < 100
+        assert len(short_managed_id) < 110
 
         mock_response = DeleteContainerResult(
             id="z",

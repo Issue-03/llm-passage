@@ -2785,22 +2785,6 @@ async def test_backfilled_legacy_stop_never_reads_as_completion(monkeypatch: pyt
     assert jobs[0].status == "stopped"
 
 
-def test_stopped_by_migration_backfills_every_job_that_displayed_stopped():
-    """The migration must close the pre-column population: without the backfill, a
-    legacy stop whose stray attempts crossed the budget would read completed."""
-    import embrouter_proxy_extras
-
-    sql = (
-        Path(embrouter_proxy_extras.__file__).parent
-        / "migrations"
-        / "20260818224500_add_shadow_eval_stopped_by"
-        / "migration.sql"
-    ).read_text()
-    assert 'ADD COLUMN     "stopped_by" TEXT' in sql
-    assert "SET stopped_by = 'unknown'" in sql
-    assert "WHERE stopped_at IS NOT NULL AND ends_at > (NOW() AT TIME ZONE 'utc')" in sql
-
-
 def test_a_start_request_still_sending_max_turns_is_rejected_not_silently_defaulted():
     """Pydantic ignores unknown fields, so without the explicit rejection a caller still
     sending the retired turn budget would silently run on the default dollar budget."""
@@ -2808,24 +2792,23 @@ def test_a_start_request_still_sending_max_turns_is_rejected_not_silently_defaul
         _start_request(max_turns=200)
 
 
-def test_max_budget_migration_is_additive_and_leaves_legacy_rows_null():
-    """max_budget stays NULL on pre-migration rows so they keep the turn budget they were
-    configured with, and shadow_cost defaults to 0 so old rows price as judge-only."""
+def test_shadow_eval_max_budget_is_nullable_and_shadow_cost_defaults_to_zero():
+    """max_budget is nullable so rows without one keep their turn budget, and shadow_cost
+    defaults to 0 so rows without it price as judge-only."""
     import embrouter_proxy_extras
 
     sql = (
         Path(embrouter_proxy_extras.__file__).parent
         / "migrations"
-        / "20260819000000_shadow_eval_max_budget"
+        / "20261031000000_init"
         / "migration.sql"
     ).read_text()
-    assert 'ALTER TABLE "EmbRouter_ShadowEvalJob" ADD COLUMN     "max_budget" DOUBLE PRECISION' in sql
-    assert (
-        'ALTER TABLE "EmbRouter_ShadowEvalAttempt" ADD COLUMN     "shadow_cost" DOUBLE PRECISION NOT NULL DEFAULT 0'
-        in sql
-    )
-    assert "UPDATE" not in sql
-    assert "DROP" not in sql
+    job = sql[sql.index('CREATE TABLE IF NOT EXISTS "EmbRouter_ShadowEvalJob" (') :]
+    job = job[: job.index(");")]
+    attempt = sql[sql.index('CREATE TABLE IF NOT EXISTS "EmbRouter_ShadowEvalAttempt" (') :]
+    attempt = attempt[: attempt.index(");")]
+    assert '"max_budget" DOUBLE PRECISION,' in job
+    assert '"shadow_cost" DOUBLE PRECISION NOT NULL DEFAULT 0' in attempt
 
 
 @pytest.mark.asyncio

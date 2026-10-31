@@ -1,0 +1,9 @@
+EmbRouter
+Copyright (c) 2026 EMB Global
+
+EmbRouter is derived from LiteLLM (https://github.com/BerriAI/litellm),
+Copyright (c) 2023 Berri AI, used under the MIT License. The original
+copyright and permission notice is kept in the LICENSE file.
+
+Names, packages, environment variables, headers and database tables were
+renamed from "litellm" to "embrouter"; this does not change the license.

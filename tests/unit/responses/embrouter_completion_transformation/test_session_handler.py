@@ -78,7 +78,7 @@ async def test_get_chat_completion_message_history_for_previous_response_id():
             "proxy_server_request": {
                 "input": "can you tell me more about him",
                 "model": "anthropic/claude-sonnet-4-5-20250929",
-                "previous_response_id": "resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOmFudGhyb3BpYzttb2RlbF9pZDplMGYzMDJhMTQxMmU3ODQ3MGViYjI4Y2JlZDAxZmZmNWY4OGMwZDMzMWM2NjdlOWYyYmE0YjQxM2M2ZmJkMjgyO3Jlc3BvbnNlX2lkOmNoYXRjbXBsLTkzNWI4ZGFkLWZkYzItNDY2ZS1hOGNhLWUyNmU1YThhMjFiYg==",
+                "previous_response_id": "resp_ZW1icm91dGVyOmN1c3RvbV9sbG1fcHJvdmlkZXI6YW50aHJvcGljO21vZGVsX2lkOmUwZjMwMmExNDEyZTc4NDcwZWJiMjhjYmVkMDFmZmY1Zjg4YzBkMzMxYzY2N2U5ZjJiYTRiNDEzYzZmYmQyODI7cmVzcG9uc2VfaWQ6Y2hhdGNtcGwtOTM1YjhkYWQtZmRjMi00NjZlLWE4Y2EtZTI2ZTVhOGEyMWJi",
             },
             "response": {
                 "id": "chatcmpl-370760c9-39fa-4db7-b034-d1f8d933c935",

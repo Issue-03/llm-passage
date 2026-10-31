@@ -9927,7 +9927,7 @@ class TestBackgroundResponseRetrievalGovernance:
     ) -> None:
         data = await self._pre_call("aget_responses", monkeypatch)
 
-        assert data["response_id"].startswith("resp_bGl0ZWxsbTpjdXN0b21f")
+        assert data["response_id"].startswith("resp_ZW1icm91dGVyOmN1c3RvbV8")
         pipelines = data["embrouter_metadata"]["_guardrail_pipelines"]
         assert [(policy_name, [step.guardrail for step in pipeline.steps]) for policy_name, pipeline in pipelines] == [
             ("response-governance", ["output-word-filter"])

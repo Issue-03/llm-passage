@@ -427,7 +427,7 @@ and I learn to carry this small calm home."""
 
     # Create the full ResponsesAPIResponse
     raw_response = ResponsesAPIResponse(
-        id="resp_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOm9wZW5haTttb2RlbF9pZDpOb25lO3Jlc3BvbnNlX2lkOnJlc3BfMDRjODAyMWI4YjMxODhhMDAwNjhlOWFlMDgyYmZjODE5ZDhmNDk0OTI5MWMzMzM4YTc=",
+        id="resp_ZW1icm91dGVyOmN1c3RvbV9sbG1fcHJvdmlkZXI6b3BlbmFpO21vZGVsX2lkOk5vbmU7cmVzcG9uc2VfaWQ6cmVzcF8wNGM4MDIxYjhiMzE4OGEwMDA2OGU5YWUwODJiZmM4MTlkOGY0OTQ5MjkxYzMzMzhhNw==",
         created_at=1760144904,
         error=None,
         incomplete_details=None,

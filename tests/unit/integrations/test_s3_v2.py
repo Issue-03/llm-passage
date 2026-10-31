@@ -2259,7 +2259,7 @@ async def test_download_signs_object_key_with_space_the_way_s3_does():
 
 
 _RESERVED_CHAR_KEYS = (
-    "2026-08-21/time-05-29-36_resp_bGl0ZWxsbTpjdXN0b20=.json",
+    "2026-08-21/time-05-29-36_resp_ZW1icm91dGVyOmN1c3RvbQ==.json",
     "session=logs/2026-08-21/time-05-29-36_abc.json",
     "a+b/2026-08-21/time-05-29-36_abc.json",
     "a&b/2026-08-21/time-05-29-36_abc.json",

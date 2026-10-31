@@ -381,6 +381,25 @@ Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, 
   - Left as is: test fixtures with fake domains (`litellm.com`, `proxy.litellm.ai`, `test.litellm.ai`, `berri.ai` emails, Bing/MCP fixtures quoting `BerriAI/litellm`). Both sides of each assertion are renamed together, so they stay consistent.
   - For step 5: Postgres names are already at the 63-character limit (`LiteLLM_DailyUserSpend_..._key` etc.); Prisma truncates the longer `EmbRouter_` names itself in the squashed migration, and no code refers to index or constraint names.
   - For steps 3–4: run them back to back before testing. Until `uv sync` (step 6) the venv still installs the `litellm` package (`litellm.pth`), so tests only work after step 6, or after a `uv sync` right after step 4.
+- Step 3 (paths) done 2026-10-31, commit `c65a63a`: 6,977 files moved by 74 `git mv`s, nothing else in the commit.
+- Step 4 (contents) done 2026-10-31, commit `4da5cdd`: 5,079 files, ~165k replacements. Leftover scan: only `plan.md` (by design) and the lockfiles (step 6). After it: `uv sync --frozen --extra proxy --extra extra_proxy` (plain `uv sync` drops the proxy extras).
+- Step 5 (database) done 2026-10-31, commit `1437fef4`:
+  - The 192 migration folders are replaced by one, `20261031000000_init`: `prisma migrate diff --from-empty` from `schema.prisma`, plus hand-written SQL for what `schema.prisma` can't express (2 `NOT NULL` array columns on `EmbRouter_ShadowEvalJob`, the `LOWER(user_email)` index, 2 partial indexes).
+  - Proof: old migrations and the new one applied to scratch DBs `squash_old` / `squash_new`, `pg_dump --schema-only` compared ignoring column order: identical except 9 index names (Postgres/Prisma cut them at 63 characters differently; same columns; no code uses index names). The old migrations insert no data.
+  - New container `embrouter_db` (port 5433, volume `embrouter_postgres_data`, database `embrouter`). Compose treated it as the same `db` service and **removed the old `litellm_db` container**; its data is still in the volume `litellm_postgres_data` (not deleted), so it can be reattached with a `postgres:16` container if ever needed.
+- Step 6 done 2026-10-31, commit `4e0c401c`: `uv.lock` (same package versions, new names), `package-lock.json`, Prisma client, UI rebuilt into `embrouter/proxy/_experimental/out` (no "litellm" left in the bundle). Local `.env` keys now `EMBROUTER_*` and `DATABASE_URL` points at `/embrouter`; `config.yaml` uses `embrouter_params` etc. Pre-rename copies of both in `~/Documents/llm-passage-phase3-baseline/`.
+  - Checked: proxy starts with `uv run --env-file .env embrouter --config config.yaml --port 4000`, applies `20261031000000_init`, 87 `EmbRouter_*` tables (0 `litellm`), chat (normal + streaming) works, headers are `x-embrouter-*`, UI login and pages work.
+- Step 7 (verify) 2026-10-31:
+  - First full run hung at 95% for 48 minutes (pytest-timeout's default signal method can't interrupt some blocking calls). Re-runs use `--timeout-method=thread`, `-n 6`, `-v`: ~8 minutes, no hang.
+  - Squashed migration made re-runnable to match the project's migration rules (`IF NOT EXISTS` on tables and indexes, `DO $$` guards on constraints and the enum). Re-applying it to a migrated DB gives 0 errors; schema still identical to the old migrations. `_PRE_GUARD_MIGRATIONS` in the extras tests is now empty.
+  - Rename side effects fixed in tests:
+    - base64 fixtures that decode to `litellm:` / `litellm_proxy:` IDs: re-encoded with `~/Documents/llm-passage-phase3-baseline/scripts/rename_b64.py`, plus fixtures split over several string lines by hand. The longer name can make standard base64 need `=` padding where the old one didn't.
+    - signed JWT fixtures keep their `LiteLLM` claims (re-encoding would break the signature), and the JWT audience setting in that test keeps `api://LiteLLM_Proxy-dev` to match.
+    - length-sensitive asserts (container id `< 110`, masked-exception 50-char prefix), a streamed path split across chunks.
+    - tests that read old migration folders: one now reads `20261031000000_init`, one (backfill of pre-migration rows) removed.
+  - Local git-ignored files the rename script skips (it only touches tracked files): three `_*secret_config.yaml` files and `tests/.../test_mcp_server_manager.py`, renamed in place.
+  - Expected until merge: `tests/unit/proxy/test_db_schema_changes.py` compares `schema.prisma` with `main` and reports every renamed table as "removed".
+- Found in step 7: the optional `semantic-router` extra depends on the PyPI `litellm` package. Before the rename our own package satisfied it; now installing that extra would download upstream LiteLLM next to EmbRouter. Not installed by default (`proxy`, `extra_proxy`). Decide later: drop the extra (auto-router is hidden in the UI) or override the dependency.
 
 Original outline:
 

@@ -305,7 +305,7 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
     mock_managed_files_hook.afile_content = AsyncMock()
     mock_managed_files_hook.store_unified_file_id = AsyncMock()
     mock_managed_files_hook.get_unified_output_file_id.return_value = (
-        "bGl0ZWxsbV9wcm94eTo6bWFuYWdlZA=="
+        "ZW1icm91dGVyX3Byb3h5OjptYW5hZ2Vk"
     )
     mock_proxy_logging.get_proxy_hook = MagicMock(return_value=mock_managed_files_hook)
 

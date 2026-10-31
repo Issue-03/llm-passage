@@ -169,22 +169,8 @@ def _get_all_migrations():
 _LINE_COMMENT = re.compile(r"--.*$")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 
-_PRE_GUARD_MIGRATIONS = frozenset({
-    "20260331000000_add_prompt_environment_and_created_by",
-    "20260418000000_add_adaptive_router_tables",
-    "20260429161855_workflow_runs_tables",
-    "20260605182307_add_timeout_to_mcp_server_table",
-    "20260626120000_add_mcp_tool_search_enabled",
-    "20260629000000_add_max_concurrent_requests_to_mcp_server_table",
-    "20260710000000_add_dcr_bridge_to_mcp_server_table",
-    "20260713230852_add_key_type_to_embrouter_verification_token",
-    "20260811172448_add_shadow_eval",
-    "20260813180408_add_shadow_eval_direction",
-    "20260814000000_add_proxy_worker_heartbeat",
-    "20260817143646_add_daily_guardrail_usage_units",
-    "20260818224500_add_shadow_eval_stopped_by",
-    "20260819000000_shadow_eval_max_budget",
-})
+# Empty since the squash into 20261031000000_init, which follows every rule.
+_PRE_GUARD_MIGRATIONS: frozenset[str] = frozenset()
 
 
 def _blanked_block_comments(sql):
@@ -463,8 +449,8 @@ class TestMigrationGuardScope:
 
     def test_a_pre_guard_migration_is_exempt_but_a_new_one_is_not(self):
         bare = 'CREATE TABLE "Foo" (id TEXT);\n'
-        exempt = sorted(_PRE_GUARD_MIGRATIONS)[0]
-        assert self._run_rules([(exempt, bare)]) == []
+        for exempt in sorted(_PRE_GUARD_MIGRATIONS):
+            assert self._run_rules([(exempt, bare)]) == []
         assert self._run_rules([(self._NEW, bare)]) != []
 
     def test_every_pre_guard_migration_still_exists_on_disk(self):

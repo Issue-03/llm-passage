@@ -41,8 +41,8 @@ async def test_should_resolve_raw_input_file_id_to_unified_id():
     get_batch_from_database must look up the unified ID from the
     managed files table.
     """
-    unified_batch_id = "bGl0ZWxsbV9wcm94eTpiYXRjaF9pZA"
-    unified_input_file_id = "bGl0ZWxsbV9wcm94eTp1bmlmaWVkX2lucHV0"
+    unified_batch_id = "ZW1icm91dGVyX3Byb3h5OmJhdGNoX2lk"
+    unified_input_file_id = "ZW1icm91dGVyX3Byb3h5OnVuaWZpZWRfaW5wdXQ"
     raw_input_file_id = "file-abc123-raw"
 
     batch_data = {
@@ -94,7 +94,7 @@ async def test_should_preserve_already_managed_input_file_id():
     """
     import base64
 
-    unified_batch_id = "bGl0ZWxsbV9wcm94eTpiYXRjaF9pZA"
+    unified_batch_id = "ZW1icm91dGVyX3Byb3h5OmJhdGNoX2lk"
     decoded_unified = "embrouter_proxy:application/octet-stream;unified_id,test-123"
     base64_input_file_id = base64.urlsafe_b64encode(decoded_unified.encode()).decode().rstrip("=")
 

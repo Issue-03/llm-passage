@@ -92,7 +92,7 @@ class TestCooldownCacheExceptionMasking:
         assert "magical kingdom" not in masked_exception
 
         # Should preserve the error type information at the beginning (first 50 chars)
-        assert masked_exception.startswith("embrouter.proxy.proxy_server._handle_llm_api_excepti")
+        assert masked_exception.startswith("embrouter.proxy.proxy_server._handle_llm_api_excep")
 
     def test_exception_with_api_keys_masked(self, cooldown_cache):
         """Test that API keys in exceptions are properly masked"""

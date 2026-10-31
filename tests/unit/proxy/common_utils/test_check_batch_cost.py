@@ -1672,8 +1672,8 @@ class TestCheckBatchCost:
 
         raw_output_file_id = "file-batch-output-abc123"
         raw_error_file_id = "file-batch-error-xyz456"
-        fake_managed_output_id = "bGl0ZWxsbV9wcm94eTo6b3V0cHV0"
-        fake_managed_error_id = "bGl0ZWxsbV9wcm94eTo6ZXJyb3I="
+        fake_managed_output_id = "ZW1icm91dGVyX3Byb3h5OjpvdXRwdXQ"
+        fake_managed_error_id = "ZW1icm91dGVyX3Byb3h5OjplcnJvcg=="
 
         mock_response = MagicMock()
         mock_response.status = "completed"
