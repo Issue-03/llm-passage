@@ -346,7 +346,7 @@ Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/
 
 ---
 
-## Phase 3: Code rebrand (in progress on branch `phase-3-code-rebrand`, started 2026-10-26)
+## Phase 3: Code rebrand (done 2026-10-31 on branch `phase-3-code-rebrand`, pushed, not merged into `main` yet)
 
 **Decisions (2026-10-26):** names as proposed (display "EmbRouter"; package, CLI and DB `embrouter`; env vars `EMBROUTER_*`); **remove** all docs links; **one** fresh migration and a fresh database. Work happens in this folder (the proxy on :4000 from `main` stops working here until Phase 3 lands); checkpoint commits per step on the branch, no push until asked.
 
@@ -399,7 +399,26 @@ Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, 
     - tests that read old migration folders: one now reads `20261031000000_init`, one (backfill of pre-migration rows) removed.
   - Local git-ignored files the rename script skips (it only touches tracked files): three `_*secret_config.yaml` files and `tests/.../test_mcp_server_manager.py`, renamed in place.
   - Expected until merge: `tests/unit/proxy/test_db_schema_changes.py` compares `schema.prisma` with `main` and reports every renamed table as "removed".
-- Found in step 7: the optional `semantic-router` extra depends on the PyPI `litellm` package. Before the rename our own package satisfied it; now installing that extra would download upstream LiteLLM next to EmbRouter. Not installed by default (`proxy`, `extra_proxy`). Decide later: drop the extra (auto-router is hidden in the UI) or override the dependency.
+  - Final backend run: 68,529 passed, 701 failed + 392 errors (baseline 67,467 / 712 / 416). Failures not in the baseline: 12 pass when re-run alone (flaky under parallel load) and `test_db_schema_changes.py` (expected until merge). Log: `~/Documents/llm-passage-phase3-baseline/pytest_step7b.txt`.
+  - UI run (vitest): 11,248 passed, 12 failed. 3 were tests still looking for links removed in step 1 (guardrail pricing request, available-teams docs link): fixed in `50c19ef`. The other 9 are in `AddModelPanel.integration.test.tsx` and fail on the pre-rename code too (most likely since the Phase 2 Add Model field hiding): open.
+  - Signed JWT test token replaced in `fa4e771` (see above).
+- Found in step 7: the optional `semantic-router` extra depends on the PyPI `litellm` package. Before the rename our own package satisfied it; now installing that extra would download upstream LiteLLM next to EmbRouter, and it is the only `litellm` left in `uv.lock`. Not installed by default (`proxy`, `extra_proxy`). Proposed: drop the extra (auto-router, semantic guard and semantic tool filter are unused and already handle the library being missing).
+- Backup: branch `llm-passage-backup` = `main` before Phase 3 (`0ad6991`), pushed 2026-10-31.
+
+**How to run after Phase 3:**
+```bash
+docker compose up -d db                                            # embrouter_db, port 5433, database embrouter
+uv sync --extra proxy --extra extra_proxy                          # after pulling new code (plain `uv sync` drops the proxy extras)
+uv run --env-file .env embrouter --config config.yaml --port 4000
+```
+UI at http://localhost:4000/ui, user `admin`, password `EMBROUTER_MASTER_KEY` from `.env`. The `litellm` command is gone. The database is fresh: models, keys and teams created in the UI before Phase 3 are not in it.
+
+**Open after Phase 3:**
+- Decide on the `semantic-router` extra (above).
+- Fix or update the 9 `AddModelPanel` integration tests.
+- Merge `phase-3-code-rebrand` into `main` (then `test_db_schema_changes.py` passes again).
+- Cleanup when no longer needed: scratch databases `squash_old` / `squash_new` in `embrouter_db`; old volume `litellm_postgres_data`; baseline worktree `~/Documents/llm-passage-baseline-wt`.
+- README: the rename turned "the old `litellm` command still works" into "the old `embrouter` command still works"; fix in Phase 4.
 
 Original outline:
 
