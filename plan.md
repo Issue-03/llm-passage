@@ -418,7 +418,6 @@ UI at http://localhost:4000/ui, user `admin`, password `EMBROUTER_MASTER_KEY` fr
 - Fix or update the 9 `AddModelPanel` integration tests.
 - Merge `phase-3-code-rebrand` into `main` (then `test_db_schema_changes.py` passes again).
 - Cleanup when no longer needed: scratch databases `squash_old` / `squash_new` in `embrouter_db`; old volume `litellm_postgres_data`; baseline worktree `~/Documents/llm-passage-baseline-wt`.
-- README: the rename turned "the old `litellm` command still works" into "the old `embrouter` command still works"; fix in Phase 4.
 
 Original outline:
 

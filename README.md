@@ -33,7 +33,7 @@ docker compose up -d db              # if it isn't already running
 uv run --env-file .env embrouter --config config.yaml --port 4000
 ```
 
-On first start the proxy applies the DB migrations, which takes about 15 seconds. (`embrouter` is the new name for the start command; the old `embrouter` command still works until the Phase 3 code rename.)
+On first start the proxy applies the DB migrations, which takes about 15 seconds.
 
 - **API:** http://localhost:4000 (OpenAI-compatible, e.g. `/v1/chat/completions`)
 - **Admin UI:** http://localhost:4000/ui. Log in with username `admin` and your `EMBROUTER_MASTER_KEY` as the password.
