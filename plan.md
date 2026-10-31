@@ -394,7 +394,7 @@ Measured scale: ~170,000 mentions (`litellm` 139k, `LiteLLM` 19k, `Litellm` 5k, 
   - Squashed migration made re-runnable to match the project's migration rules (`IF NOT EXISTS` on tables and indexes, `DO $$` guards on constraints and the enum). Re-applying it to a migrated DB gives 0 errors; schema still identical to the old migrations. `_PRE_GUARD_MIGRATIONS` in the extras tests is now empty.
   - Rename side effects fixed in tests:
     - base64 fixtures that decode to `litellm:` / `litellm_proxy:` IDs: re-encoded with `~/Documents/llm-passage-phase3-baseline/scripts/rename_b64.py`, plus fixtures split over several string lines by hand. The longer name can make standard base64 need `=` padding where the old one didn't.
-    - signed JWT fixtures keep their `LiteLLM` claims (re-encoding would break the signature), and the JWT audience setting in that test keeps `api://LiteLLM_Proxy-dev` to match.
+    - signed JWT fixtures: `test_jwt_user_api_key_auth_builder_enforce_rbac` now generates its RSA key and signs its token at test time (audience `api://EmbRouter_Proxy-dev`) instead of a pre-signed Azure token; the placeholder token in `test_jwt_non_admin_team_route_access` (never verified) has its claims re-encoded.
     - length-sensitive asserts (container id `< 110`, masked-exception 50-char prefix), a streamed path split across chunks.
     - tests that read old migration folders: one now reads `20261031000000_init`, one (backfill of pre-migration rows) removed.
   - Local git-ignored files the rename script skips (it only touches tracked files): three `_*secret_config.yaml` files and `tests/.../test_mcp_server_manager.py`, renamed in place.
