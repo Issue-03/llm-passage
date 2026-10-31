@@ -1,5 +1,5 @@
 """
-✨ SCIM v2 Endpoints for LiteLLM Proxy using Internal User/Team Management
+✨ SCIM v2 Endpoints for EmbRouter Proxy using Internal User/Team Management
 
 This is an enterprise feature and requires a premium license.
 """
@@ -25,15 +25,15 @@ from fastapi import (
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.models.user import SCIMPlaceholder
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.models.user import SCIMPlaceholder
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     Member,
     NewTeamRequest,
     NewUserRequest,
@@ -44,44 +44,44 @@ from litellm.proxy._types import (
     TeamMemberDeleteRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import _delete_cache_key_object
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
-from litellm.proxy.management_endpoints.internal_user_endpoints import new_user
-from litellm.proxy.management_endpoints.scim.scim_transformations import (
+from embrouter.proxy.auth.auth_checks import _delete_cache_key_object
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
+from embrouter.proxy.management_endpoints.internal_user_endpoints import new_user
+from embrouter.proxy.management_endpoints.scim.scim_transformations import (
     ScimTransformations,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import (
     new_team,
     team_member_add,
     team_member_delete,
 )
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     PrismaClient,
     _premium_user_check,
     handle_exception_on_proxy,
 )
-from litellm.repositories.table_repositories import (
+from embrouter.repositories.table_repositories import (
     InvitationLinkRepository,
     OrganizationMembershipRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.management_endpoints.scim_v2 import *
+from embrouter.types.proxy.management_endpoints.scim_v2 import *
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_VerificationToken as PrismaVerificationToken
+    from prisma.models import EmbRouter_VerificationToken as PrismaVerificationToken
 
 
 class _UserTableClient(Protocol):
-    async def find_first(self, where: Mapping[str, object]) -> LiteLLM_UserTable | None: ...
+    async def find_first(self, where: Mapping[str, object]) -> EmbRouter_UserTable | None: ...
 
-    async def find_unique(self, where: Mapping[str, object]) -> LiteLLM_UserTable | None: ...
+    async def find_unique(self, where: Mapping[str, object]) -> EmbRouter_UserTable | None: ...
 
     async def find_many(
         self,
@@ -89,17 +89,17 @@ class _UserTableClient(Protocol):
         skip: int | None = None,
         take: int | None = None,
         order: Mapping[str, str] | None = None,
-    ) -> Sequence[LiteLLM_UserTable]: ...
+    ) -> Sequence[EmbRouter_UserTable]: ...
 
-    async def update(self, where: Mapping[str, object], data: Mapping[str, object]) -> LiteLLM_UserTable: ...
+    async def update(self, where: Mapping[str, object], data: Mapping[str, object]) -> EmbRouter_UserTable: ...
 
-    async def delete(self, where: Mapping[str, object]) -> LiteLLM_UserTable | None: ...
+    async def delete(self, where: Mapping[str, object]) -> EmbRouter_UserTable | None: ...
 
     async def count(self, where: Mapping[str, object] | None = None) -> int: ...
 
 
 class _TeamTableClient(Protocol):
-    async def find_unique(self, where: Mapping[str, object]) -> LiteLLM_TeamTable | None: ...
+    async def find_unique(self, where: Mapping[str, object]) -> EmbRouter_TeamTable | None: ...
 
     async def find_many(
         self,
@@ -107,11 +107,11 @@ class _TeamTableClient(Protocol):
         skip: int | None = None,
         take: int | None = None,
         order: Mapping[str, str] | None = None,
-    ) -> Sequence[LiteLLM_TeamTable]: ...
+    ) -> Sequence[EmbRouter_TeamTable]: ...
 
-    async def update(self, where: Mapping[str, object], data: Mapping[str, object]) -> LiteLLM_TeamTable: ...
+    async def update(self, where: Mapping[str, object], data: Mapping[str, object]) -> EmbRouter_TeamTable: ...
 
-    async def delete(self, where: Mapping[str, object]) -> LiteLLM_TeamTable | None: ...
+    async def delete(self, where: Mapping[str, object]) -> EmbRouter_TeamTable | None: ...
 
     async def count(self, where: Mapping[str, object] | None = None) -> int: ...
 
@@ -229,7 +229,7 @@ class UserProvisionerHelpers:
             },
         )
 
-        return await ScimTransformations.transform_litellm_user_to_scim_user(updated_user)
+        return await ScimTransformations.transform_embrouter_user_to_scim_user(updated_user)
 
 
 class ScimUserData(TypedDict):
@@ -271,14 +271,14 @@ SCIM_MAX_PAGE_SIZE: Final = 100
 # Helper functions for common operations
 async def _get_prisma_client_or_raise_exception():
     """Check if database is connected and raise HTTPException if not."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No database connected"})
     return prisma_client
 
 
-async def _check_user_exists(user_id: str) -> LiteLLM_UserTable:
+async def _check_user_exists(user_id: str) -> EmbRouter_UserTable:
     """Check if user exists and return user, raise 404 if not found."""
     prisma_client: Final = await _get_prisma_client_or_raise_exception()
 
@@ -290,7 +290,7 @@ async def _check_user_exists(user_id: str) -> LiteLLM_UserTable:
     return user
 
 
-async def _check_team_exists(team_id: str) -> LiteLLM_TeamTable:
+async def _check_team_exists(team_id: str) -> EmbRouter_TeamTable:
     """Check if team exists and return team, raise 404 if not found."""
     prisma_client: Final = await _get_prisma_client_or_raise_exception()
 
@@ -340,7 +340,7 @@ def _build_scim_metadata(
 ) -> dict[str, object]:
     """Build metadata dictionary with SCIM data."""
     metadata: Final[dict[str, object]] = {
-        "scim_metadata": LiteLLM_UserScimMetadata(
+        "scim_metadata": EmbRouter_UserScimMetadata(
             givenName=given_name,
             familyName=family_name,
         ).model_dump()
@@ -363,18 +363,18 @@ def _build_scim_metadata(
 
 async def _get_scim_upsert_user_setting() -> bool:
     """
-    Get the scim_upsert_user setting from litellm_settings.
+    Get the scim_upsert_user setting from embrouter_settings.
 
     Returns:
         True if scim_upsert_user is not set or is True (default behavior),
         False if scim_upsert_user is explicitly set to False (SCIM 2.0 strict mode)
     """
     try:
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         config: Final = await proxy_config.get_config()
-        litellm_settings: Final = config.get("litellm_settings", {}) or {}
-        scim_upsert_user: Final = litellm_settings.get("scim_upsert_user", True)
+        embrouter_settings: Final = config.get("embrouter_settings", {}) or {}
+        scim_upsert_user: Final = embrouter_settings.get("scim_upsert_user", True)
 
         # Default to True if not set (backward compatibility)
         return bool(scim_upsert_user)
@@ -385,35 +385,35 @@ async def _get_scim_upsert_user_setting() -> bool:
 
 
 ScimUserRole = Literal[
-    LitellmUserRoles.PROXY_ADMIN,
-    LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-    LitellmUserRoles.INTERNAL_USER,
-    LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+    EmbrouterUserRoles.PROXY_ADMIN,
+    EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+    EmbrouterUserRoles.INTERNAL_USER,
+    EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
 ]
 
 
 def _default_scim_user_role() -> ScimUserRole:
     """Non-admin default role for SCIM-provisioned users."""
-    if litellm.default_internal_user_params:
-        configured_role: Final = litellm.default_internal_user_params.get("user_role")
+    if embrouter.default_internal_user_params:
+        configured_role: Final = embrouter.default_internal_user_params.get("user_role")
         if configured_role is not None:
             return configured_role
-    return LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+    return EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
 
 
 async def _get_scim_admin_group() -> str | None:
     """
-    Get the scim_admin_group setting from litellm_settings.
+    Get the scim_admin_group setting from embrouter_settings.
 
     Returns the configured admin group identifier, or None when unset so callers
     leave a user's global role untouched (default-safe).
     """
     try:
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         config: Final = await proxy_config.get_config()
-        litellm_settings: Final = config.get("litellm_settings", {}) or {}
-        return litellm_settings.get("scim_admin_group") or None
+        embrouter_settings: Final = config.get("embrouter_settings", {}) or {}
+        return embrouter_settings.get("scim_admin_group") or None
     except Exception as e:
         verbose_proxy_logger.warning("Error reading scim_admin_group setting, defaulting to None: %s", e)
         return None
@@ -423,7 +423,7 @@ def _resolve_scim_user_role(
     groups: list[SCIMUserGroup],
     admin_group: str | None,
     default_role: ScimUserRole,
-) -> LitellmUserRoles | None:
+) -> EmbrouterUserRoles | None:
     """
     Resolve a user's global proxy role from their SCIM groups.
 
@@ -435,7 +435,7 @@ def _resolve_scim_user_role(
         return None
     for group in groups:
         if group.value == admin_group or group.display == admin_group:
-            return LitellmUserRoles.PROXY_ADMIN
+            return EmbrouterUserRoles.PROXY_ADMIN
     return default_role
 
 
@@ -623,7 +623,7 @@ async def _classify_group_member(member: SCIMMember, prisma_client: PrismaClient
     """
     Decide what a single SCIM group member refers to.
 
-    A LiteLLM team only holds users, so a member is dropped when it declares a type
+    A EmbRouter team only holds users, so a member is dropped when it declares a type
     other than ``User`` or when its id names an existing team. Both of those checks
     are placed around the user lookup rather than before it, because the id of a
     real user is the one thing that outranks them:
@@ -845,7 +845,7 @@ async def _member_ids_to_drop(
             status_code=400,
             detail={
                 "error": f"Member ID '{undecidable[0]}' names more than one member of this group, so the removal "
-                "cannot be attributed. Send the LiteLLM user ID as the member value, or resolve the duplicate."
+                "cannot be attributed. Send the EmbRouter user ID as the member value, or resolve the duplicate."
             },
         )
     return frozenset(chain.from_iterable(entries for _, entries in matched))
@@ -857,10 +857,10 @@ async def _resolve_group_member_ids(
     prisma_client: PrismaClient,
 ) -> GroupMemberExtractionResult:
     """
-    Resolve SCIM group members to LiteLLM user ids, dropping members that are not users.
+    Resolve SCIM group members to EmbRouter user ids, dropping members that are not users.
 
     Member ids are matched by ``user_id`` first, then by SSO identity or email. An
-    id that resolves to nothing is created when litellm_settings.scim_upsert_user is
+    id that resolves to nothing is created when embrouter_settings.scim_upsert_user is
     True (default) and rejected per SCIM 2.0 otherwise. Removals do not come through
     here: they resolve through ``_member_ids_to_drop`` instead, which neither creates
     a user nor fails on an id it cannot place.
@@ -877,7 +877,7 @@ async def _resolve_group_member_ids(
 
     for skipped in partition.skipped:
         verbose_proxy_logger.info(
-            "SCIM: ignoring non-user group member '%s' (%s); LiteLLM teams contain users only",
+            "SCIM: ignoring non-user group member '%s' (%s); EmbRouter teams contain users only",
             skipped.value,
             skipped.reason,
         )
@@ -886,7 +886,7 @@ async def _resolve_group_member_ids(
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Member ID '{partition.ambiguous_values[0]}' names more than one LiteLLM user, so the "
+                "error": f"Member ID '{partition.ambiguous_values[0]}' names more than one EmbRouter user, so the "
                 "group membership cannot be attributed. Resolve the duplicate, which for an id that also matches a "
                 "SCIM-provisioned placeholder means deleting that placeholder."
             },
@@ -931,7 +931,7 @@ async def _extract_group_member_ids(group: SCIMGroup) -> GroupMemberExtractionRe
     """
     Extract member IDs from SCIMGroup, validating that all users exist.
 
-    Behavior depends on litellm_settings.scim_upsert_user:
+    Behavior depends on embrouter_settings.scim_upsert_user:
     - If True (default): Creates users that don't exist (backward compatible)
     - If False: Rejects non-existent users per SCIM 2.0 protocol
 
@@ -1007,7 +1007,7 @@ async def _set_user_keys_blocked(user_id: str, blocked: bool) -> int:
 
     Returns the number of keys whose state was flipped.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     prisma_client: Final = await _get_prisma_client_or_raise_exception()
 
@@ -1059,11 +1059,11 @@ async def _set_user_keys_blocked(user_id: str, blocked: bool) -> int:
 
 
 async def _delete_rows_referencing_user(prisma_client: PrismaClient, *, user_id: str) -> None:
-    """Drop rows whose foreign keys reference ``LiteLLM_UserTable.user_id``.
+    """Drop rows whose foreign keys reference ``EmbRouter_UserTable.user_id``.
 
     Required before deleting the user row itself, otherwise Postgres rejects
     the user delete with an FK constraint violation (e.g.
-    ``LiteLLM_InvitationLink_user_id_fkey``).
+    ``EmbRouter_InvitationLink_user_id_fkey``).
     """
     await _table(InvitationLinkRepository(prisma_client)).delete_many(
         where={
@@ -1088,7 +1088,7 @@ def _scim_active_value(metadata: Mapping[str, object] | None) -> bool | None:
     return bool(value)
 
 
-def _user_scim_active(user: LiteLLM_UserTable) -> bool | None:
+def _user_scim_active(user: EmbRouter_UserTable) -> bool | None:
     """Read the SCIM active flag off a user row's metadata, if present."""
     metadata: Final[dict[str, object] | None] = user.metadata
     return _scim_active_value(metadata)
@@ -1103,23 +1103,23 @@ async def _create_user_if_not_exists(user_id: str, created_via: str = "scim_grou
         created_via: Context for where the user was created from
 
     Returns:
-        LiteLLM_UserTable if user was created, None if creation failed
+        EmbRouter_UserTable if user was created, None if creation failed
     """
-    from litellm.proxy.management_endpoints.internal_user_endpoints import new_user
+    from embrouter.proxy.management_endpoints.internal_user_endpoints import new_user
 
     try:
         # Get default role for new internal users
         default_role: (
             Literal[
-                LitellmUserRoles.PROXY_ADMIN,
-                LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-                LitellmUserRoles.INTERNAL_USER,
-                LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+                EmbrouterUserRoles.PROXY_ADMIN,
+                EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+                EmbrouterUserRoles.INTERNAL_USER,
+                EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
             ]
             | None
-        ) = LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
-        if litellm.default_internal_user_params:
-            default_role = litellm.default_internal_user_params.get("user_role")
+        ) = EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
+        if embrouter.default_internal_user_params:
+            default_role = embrouter.default_internal_user_params.get("user_role")
 
         new_user_request: Final = NewUserRequest(
             user_id=user_id,
@@ -1132,7 +1132,7 @@ async def _create_user_if_not_exists(user_id: str, created_via: str = "scim_grou
 
         created_user: Final = await new_user(
             data=new_user_request,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         verbose_proxy_logger.info("Created user %s via %s", user_id, created_via)
         return created_user
@@ -1142,7 +1142,7 @@ async def _create_user_if_not_exists(user_id: str, created_via: str = "scim_grou
         return None
 
 
-async def _get_team_member_user_ids_from_team(team: LiteLLM_TeamTable) -> list[str]:
+async def _get_team_member_user_ids_from_team(team: EmbRouter_TeamTable) -> list[str]:
     """
     Get the IDs of the members from a team.
 
@@ -1390,7 +1390,7 @@ def _get_schemas() -> Sequence[SCIMSchema]:
                             type="string",
                             description=(
                                 'The type of member; canonical values are "User" and "Group". '
-                                "Only members of type User are honored, LiteLLM teams contain users only."
+                                "Only members of type User are honored, EmbRouter teams contain users only."
                             ),
                         ),
                     ],
@@ -1592,7 +1592,7 @@ async def get_users(
         # Parse filter if provided (basic support)
         where_conditions: Final[dict[str, object]] = {}
         if filter:
-            # Okta locates users by userName before deprovisioning. LiteLLM
+            # Okta locates users by userName before deprovisioning. EmbRouter
             # exposes SCIM userName from user_email, while older SCIM-created
             # users may still have user_id == userName, so support both.
             parsed_filter: Final = _parse_scim_eq_filter(filter)
@@ -1607,7 +1607,7 @@ async def get_users(
                     where_conditions["user_email"] = filter_value
 
         # Get users from database
-        users: Final[Sequence[LiteLLM_UserTable]] = await _table(UserRepository(prisma_client)).find_many(
+        users: Final[Sequence[EmbRouter_UserTable]] = await _table(UserRepository(prisma_client)).find_many(
             where=where_conditions,
             skip=(startIndex - 1),
             take=page_size,
@@ -1620,7 +1620,7 @@ async def get_users(
         # Convert to SCIM format
         scim_users: Final[list[SCIMUser]] = []
         for user in users:
-            scim_user = await ScimTransformations.transform_litellm_user_to_scim_user(user=user)
+            scim_user = await ScimTransformations.transform_embrouter_user_to_scim_user(user=user)
             scim_users.append(scim_user)
 
         return SCIMListResponse(
@@ -1651,7 +1651,7 @@ async def get_user(
         user: Final = await _check_user_exists(user_id)
 
         # Convert to SCIM format
-        scim_user: Final = await ScimTransformations.transform_litellm_user_to_scim_user(user)
+        scim_user: Final = await ScimTransformations.transform_embrouter_user_to_scim_user(user)
         return scim_user
 
     except Exception as e:
@@ -1722,10 +1722,10 @@ async def create_user(
 
         created_user: Final = await new_user(
             data=new_user_request,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
-        scim_user: Final = await ScimTransformations.transform_litellm_user_to_scim_user(user=created_user)
+        scim_user: Final = await ScimTransformations.transform_embrouter_user_to_scim_user(user=created_user)
         return scim_user
     except HTTPException as e:  # allow exceptions like SCIMUserAlreadyExists to be raised
         raise e
@@ -1804,7 +1804,7 @@ async def update_user(
             where={"user_id": user_id},
             data=update_data,
         )
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from embrouter.proxy.proxy_server import user_api_key_cache
 
         await evict_and_broadcast(cache_keys=(user_id,), user_api_key_cache=user_api_key_cache)
 
@@ -1814,7 +1814,7 @@ async def update_user(
                 await _set_user_keys_blocked(user_id=user_id, blocked=not new_active)
 
         # Convert back to SCIM format
-        scim_user: Final = await ScimTransformations.transform_litellm_user_to_scim_user(updated_user)
+        scim_user: Final = await ScimTransformations.transform_embrouter_user_to_scim_user(updated_user)
 
         return scim_user
 
@@ -1856,11 +1856,11 @@ async def delete_user(
                     where={"team_id": team.team_id}, data={"members": new_members}
                 )
 
-            team_row = LiteLLM_TeamTable.model_validate(team.model_dump())
+            team_row = EmbRouter_TeamTable.model_validate(team.model_dump())
             if any(member.user_id == user_id for member in team_row.members_with_roles or []):
                 await team_member_delete(
                     data=TeamMemberDeleteRequest(team_id=team_row.team_id, user_id=user_id),
-                    user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+                    user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
                 )
 
         await _set_user_keys_blocked(user_id=user_id, blocked=True)
@@ -1870,7 +1870,7 @@ async def delete_user(
         # Delete user
         await _table(UserRepository(prisma_client)).delete(where={"user_id": user_id})
 
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from embrouter.proxy.proxy_server import user_api_key_cache
 
         await evict_and_broadcast(cache_keys=(user_id,), user_api_key_cache=user_api_key_cache)
 
@@ -1903,7 +1903,7 @@ async def list_placeholders() -> tuple[SCIMPlaceholder, ...]:
         raise handle_exception_on_proxy(e)
 
 
-def _placeholder_rejection(placeholder: LiteLLM_UserTable, resolved: tuple[str, ...], key_count: int) -> str | None:
+def _placeholder_rejection(placeholder: EmbRouter_UserTable, resolved: tuple[str, ...], key_count: int) -> str | None:
     if placeholder.sso_user_id is not None:
         return f"User '{placeholder.user_id}' has an SSO identity of its own, so it is an account someone signs in to"
     if key_count:
@@ -2134,7 +2134,7 @@ def _handle_generic_metadata(path: str, op_type: str, value: object, metadata: d
 
 
 def _apply_patch_ops(
-    existing_user: LiteLLM_UserTable,
+    existing_user: EmbRouter_UserTable,
     patch_ops: SCIMPatchOp,
 ) -> tuple[dict[str, object], set[str]]:
     """Apply patch operations and return update data and final team set."""
@@ -2265,7 +2265,7 @@ async def _add_user_to_team(user_id: str, team_id: str) -> None:
                 team_id=team_id,
                 member=Member(user_id=user_id, role="user"),
             ),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
     except ProxyException as e:
         if e.type != ProxyErrorTypes.team_member_already_in_team:
@@ -2277,7 +2277,7 @@ async def _remove_user_from_team(user_id: str, team_id: str) -> None:
     try:
         await team_member_delete(
             data=TeamMemberDeleteRequest(team_id=team_id, user_id=user_id),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
     except HTTPException as e:
         if not _is_user_not_in_team_error(e):
@@ -2374,7 +2374,7 @@ async def patch_user(
 
         # Serialize metadata to JSON string for Prisma to avoid GraphQL parsing issues
         if "metadata" in update_data and isinstance(update_data["metadata"], dict):
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             update_data["metadata"] = safe_dumps(update_data["metadata"])
 
@@ -2382,14 +2382,14 @@ async def patch_user(
             where={"user_id": user_id},
             data=update_data,
         )
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from embrouter.proxy.proxy_server import user_api_key_cache
 
         await evict_and_broadcast(cache_keys=(user_id,), user_api_key_cache=user_api_key_cache)
 
         if new_active is not None and new_active != (True if prev_active is None else prev_active):
             await _set_user_keys_blocked(user_id=user_id, blocked=not new_active)
 
-        scim_user: Final = await ScimTransformations.transform_litellm_user_to_scim_user(updated_user)
+        scim_user: Final = await ScimTransformations.transform_embrouter_user_to_scim_user(updated_user)
 
         return scim_user
 
@@ -2500,7 +2500,7 @@ async def get_group(
     try:
         team: Final = await _check_team_exists(group_id)
 
-        scim_group: Final = await ScimTransformations.transform_litellm_team_to_scim_group(team)
+        scim_group: Final = await ScimTransformations.transform_embrouter_team_to_scim_group(team)
         verbose_proxy_logger.debug("SCIM GET GROUP response: %s", scim_group)
         return scim_group
 
@@ -2513,9 +2513,9 @@ def _new_team_request_with_defaults(
     team_alias: str | None,
     members_with_roles: Sequence[Member],
 ) -> NewTeamRequest:
-    """Build the SCIM group's team request, applying litellm.default_team_params
+    """Build the SCIM group's team request, applying embrouter.default_team_params
     (including models) the same way SSO auto-created teams do."""
-    default_params: Final = litellm.default_team_params
+    default_params: Final = embrouter.default_team_params
     defaults: Final[Mapping[str, object]] = (
         deepcopy(default_params)
         if isinstance(default_params, dict)
@@ -2582,12 +2582,12 @@ async def create_group(
                 members_with_roles=members_with_roles,
             ),
             http_request=Request(scope={"type": "http", "path": "/scim/v2/Groups"}),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         await _recompute_scim_member_roles(prisma_client, member_result.all_member_ids)
 
-        scim_group: Final = await ScimTransformations.transform_litellm_team_to_scim_group(created_team)
+        scim_group: Final = await ScimTransformations.transform_embrouter_team_to_scim_group(created_team)
         return scim_group
     except Exception as e:
         raise handle_exception_on_proxy(e)
@@ -2661,7 +2661,7 @@ async def update_group(
         )
 
         # Convert to SCIM format and return
-        scim_group: Final = await ScimTransformations.transform_litellm_team_to_scim_group(updated_team)
+        scim_group: Final = await ScimTransformations.transform_embrouter_team_to_scim_group(updated_team)
         return scim_group
 
     except Exception as e:
@@ -2709,7 +2709,7 @@ async def delete_group(
 
 
 async def _process_group_patch_operations(
-    patch_ops: SCIMPatchOp, existing_team: LiteLLM_TeamTable, prisma_client: PrismaClient
+    patch_ops: SCIMPatchOp, existing_team: EmbRouter_TeamTable, prisma_client: PrismaClient
 ) -> tuple[dict[str, object], set[str], set[str] | None]:
     """Process patch operations for a group and return update data, final members
     and, when the request contained a member ``replace`` op, the absolute target
@@ -2902,7 +2902,7 @@ async def patch_group(
         refreshed_team: Final = await _table(TeamRepository(prisma_client)).find_unique(where={"team_id": group_id})
         refreshed_current: Final = (
             set(
-                await _get_team_member_user_ids_from_team(LiteLLM_TeamTable.model_validate(refreshed_team.model_dump()))
+                await _get_team_member_user_ids_from_team(EmbRouter_TeamTable.model_validate(refreshed_team.model_dump()))
             )
             if refreshed_team
             else snapshot_members
@@ -2936,8 +2936,8 @@ async def patch_group(
             )
 
         # Convert to SCIM format and return
-        scim_group: Final = await ScimTransformations.transform_litellm_team_to_scim_group(
-            LiteLLM_TeamTable.model_validate(updated_team.model_dump())
+        scim_group: Final = await ScimTransformations.transform_embrouter_team_to_scim_group(
+            EmbRouter_TeamTable.model_validate(updated_team.model_dump())
         )
         return scim_group
 

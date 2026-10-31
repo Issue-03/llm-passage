@@ -1,8 +1,8 @@
 """
-Tests for litellm.litellm_core_utils.llm_response_utils.response_metadata
+Tests for embrouter.embrouter_core_utils.llm_response_utils.response_metadata
 
 Covers the callback_duration_ms timing metric that flows from the Logging object
-through _hidden_params to the x-litellm-callback-duration-ms response header.
+through _hidden_params to the x-embrouter-callback-duration-ms response header.
 """
 
 import asyncio
@@ -14,19 +14,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-import litellm.litellm_core_utils.llm_response_utils.response_metadata as response_metadata_mod
-import litellm.proxy.common_request_processing as common_request_processing_mod
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+import embrouter
+import embrouter.embrouter_core_utils.llm_response_utils.response_metadata as response_metadata_mod
+import embrouter.proxy.common_request_processing as common_request_processing_mod
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
     ResponseMetadata,
     _union_duration_ms,
     response_timing_metrics,
     update_response_metadata,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.types.utils import ModelResponse, Usage
 
 
 class TestCallbackDurationMs:
@@ -79,7 +79,7 @@ class TestCallbackDurationMs:
         result = ModelResponse()
         logging_obj = self._make_logging_obj(callback_duration_ms=5.5, llm_api_duration_ms=800.0)
         logging_obj._response_cost_calculator = MagicMock(return_value=0.001)
-        logging_obj.litellm_call_id = "test-call-id"
+        logging_obj.embrouter_call_id = "test-call-id"
 
         start = datetime.datetime(2025, 1, 1, 0, 0, 0)
         end = datetime.datetime(2025, 1, 1, 0, 0, 1)
@@ -96,7 +96,7 @@ class TestCallbackDurationMs:
         hidden = result._hidden_params
         assert hidden.get("callback_duration_ms") == 5.5
         # overhead should also be set
-        assert hidden.get("litellm_overhead_time_ms") is not None
+        assert hidden.get("embrouter_overhead_time_ms") is not None
 
 
 class TestDictResultsSkipMetadataUpdate:
@@ -117,7 +117,7 @@ class TestDictResultsSkipMetadataUpdate:
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
         logging_obj.caching_details = None
-        logging_obj.litellm_call_id = "test-call-id"
+        logging_obj.embrouter_call_id = "test-call-id"
 
         update_response_metadata(
             result=anthropic_response,
@@ -133,7 +133,7 @@ class TestDictResultsSkipMetadataUpdate:
 
     def test_update_response_metadata_keeps_timing_on_logging_obj_for_dict_results(self):
         """LIT-5466: the /v1/messages dict cannot carry _hidden_params, so its timing
-        (the input to x-litellm-overhead-duration-ms and the SLP litellm_overhead_time_ms)
+        (the input to x-embrouter-overhead-duration-ms and the SLP embrouter_overhead_time_ms)
         lands on the logging object instead - still without recomputing cost."""
         anthropic_response = {"id": "msg_123", "type": "message", "role": "assistant", "content": []}
         logging_obj = MagicMock()
@@ -150,7 +150,7 @@ class TestDictResultsSkipMetadataUpdate:
         )
 
         logging_obj.set_response_timing_metrics.assert_called_once_with(
-            {"_response_ms": 1000.0, "litellm_overhead_time_ms": 100.0}
+            {"_response_ms": 1000.0, "embrouter_overhead_time_ms": 100.0}
         )
         logging_obj._response_cost_calculator.assert_not_called()
         assert "_hidden_params" not in anthropic_response
@@ -192,7 +192,7 @@ class TestDictResultsSkipMetadataUpdate:
         logging_obj.model_call_details = {"llm_api_duration_ms": 900.0}
         logging_obj.caching_details = None
         logging_obj._response_cost_calculator = MagicMock(return_value=0.001)
-        logging_obj.litellm_call_id = "test-call-id"
+        logging_obj.embrouter_call_id = "test-call-id"
 
         update_response_metadata(
             result=result,
@@ -204,7 +204,7 @@ class TestDictResultsSkipMetadataUpdate:
         )
 
         logging_obj.set_response_timing_metrics.assert_not_called()
-        assert result._hidden_params["litellm_overhead_time_ms"] == 100.0
+        assert result._hidden_params["embrouter_overhead_time_ms"] == 100.0
 
     def test_update_response_metadata_omits_overhead_for_completed_stream(self):
         """LIT-5466: the Responses streaming iterator finishes the whole stream before updating
@@ -214,7 +214,7 @@ class TestDictResultsSkipMetadataUpdate:
         logging_obj.model_call_details = {"llm_api_duration_ms": 200.0}
         logging_obj.caching_details = None
         logging_obj._response_cost_calculator = MagicMock(return_value=0.001)
-        logging_obj.litellm_call_id = "test-call-id"
+        logging_obj.embrouter_call_id = "test-call-id"
 
         update_response_metadata(
             result=result,
@@ -227,11 +227,11 @@ class TestDictResultsSkipMetadataUpdate:
         )
 
         assert result._hidden_params["_response_ms"] == 1000.0
-        assert "litellm_overhead_time_ms" not in result._hidden_params
+        assert "embrouter_overhead_time_ms" not in result._hidden_params
 
 
 class TestResponseTimingMetrics:
-    """response_timing_metrics() is the single source of _response_ms / litellm_overhead_time_ms."""
+    """response_timing_metrics() is the single source of _response_ms / embrouter_overhead_time_ms."""
 
     START = datetime.datetime(2025, 1, 1, 0, 0, 0)
     END = datetime.datetime(2025, 1, 1, 0, 0, 1)
@@ -250,10 +250,10 @@ class TestResponseTimingMetrics:
         if received_at is not None or llm_api_timing_windows is not None:
             metadata = {}
             if received_at is not None:
-                metadata["litellm_received_at"] = received_at
+                metadata["embrouter_received_at"] = received_at
             if llm_api_timing_windows is not None:
                 metadata["llm_api_timing_windows"] = llm_api_timing_windows
-            logging_obj.model_call_details["litellm_params"] = {"metadata": metadata}
+            logging_obj.model_call_details["embrouter_params"] = {"metadata": metadata}
         logging_obj.caching_details = caching_details
         return logging_obj
 
@@ -261,7 +261,7 @@ class TestResponseTimingMetrics:
         logging_obj = self._make_logging_obj(llm_api_duration_ms=900.0)
         assert response_timing_metrics(self.START, self.END, logging_obj) == {
             "_response_ms": 1000.0,
-            "litellm_overhead_time_ms": 100.0,
+            "embrouter_overhead_time_ms": 100.0,
         }
 
     def test_window_starts_at_proxy_receive_when_stamped(self):
@@ -271,7 +271,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(4000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(3100.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(3100.0)
 
     def test_receive_anchored_window_subtracts_all_provider_attempts(self):
         logging_obj = self._make_logging_obj(
@@ -286,7 +286,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(1000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(300.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(300.0)
 
     def test_sdk_window_subtracts_current_provider_attempt(self):
         logging_obj = self._make_logging_obj(
@@ -297,7 +297,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(1000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(700.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(700.0)
 
     def test_receive_anchored_window_unions_nested_and_retry_windows(self):
         windows = (
@@ -313,7 +313,7 @@ class TestResponseTimingMetrics:
 
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
-        assert result["litellm_overhead_time_ms"] == pytest.approx(400.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(400.0)
         assert _union_duration_ms(windows, self.START.timestamp(), self.END.timestamp()) == pytest.approx(600.0)
 
     def test_receive_anchored_window_ignores_seeded_windows_outside_window(self):
@@ -329,7 +329,7 @@ class TestResponseTimingMetrics:
 
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
-        assert result["litellm_overhead_time_ms"] == pytest.approx(700.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(700.0)
 
     def test_receive_anchored_window_falls_back_to_current_provider_attempt(self):
         logging_obj = self._make_logging_obj(
@@ -340,7 +340,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(1000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(700.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(700.0)
 
     def test_cache_hit_window_starts_at_proxy_receive_when_stamped(self):
         received_at = self.START.astimezone(datetime.timezone.utc) - datetime.timedelta(seconds=3)
@@ -352,7 +352,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(4000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(3750.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(3750.0)
 
     def test_non_datetime_proxy_receive_falls_back_to_start_time(self):
         logging_obj = self._make_logging_obj(llm_api_duration_ms=900.0, received_at="bad")
@@ -360,7 +360,7 @@ class TestResponseTimingMetrics:
         result = response_timing_metrics(self.START, self.END, logging_obj)
 
         assert result["_response_ms"] == pytest.approx(1000.0)
-        assert result["litellm_overhead_time_ms"] == pytest.approx(100.0)
+        assert result["embrouter_overhead_time_ms"] == pytest.approx(100.0)
 
     def test_overhead_omitted_when_no_provider_or_cache_duration_recorded(self):
         logging_obj = self._make_logging_obj()
@@ -372,7 +372,7 @@ class TestResponseTimingMetrics:
         )
         assert response_timing_metrics(self.START, self.END, logging_obj) == {
             "_response_ms": 1000.0,
-            "litellm_overhead_time_ms": 750.0,
+            "embrouter_overhead_time_ms": 750.0,
         }
 
     def test_cache_miss_ignores_cache_duration(self):
@@ -383,12 +383,12 @@ class TestResponseTimingMetrics:
         logging_obj = self._make_logging_obj(llm_api_duration_ms=900.0, caching_details={"cache_hit": True})
         assert response_timing_metrics(self.START, self.END, logging_obj) == {
             "_response_ms": 1000.0,
-            "litellm_overhead_time_ms": 100.0,
+            "embrouter_overhead_time_ms": 100.0,
         }
 
     def test_overhead_omitted_when_caller_measured_a_wider_window(self):
         """A stream read to completion times the provider call to first byte, so the rest of the
-        stream is token generation, not LiteLLM overhead."""
+        stream is token generation, not EmbRouter overhead."""
         logging_obj = self._make_logging_obj(llm_api_duration_ms=200.0)
         assert response_timing_metrics(self.START, self.END, logging_obj, include_overhead=False) == {
             "_response_ms": 1000.0
@@ -402,7 +402,7 @@ class TestCallbackDurationInCustomHeaders:
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
         hidden_params = {
             "_response_ms": 1000.0,
-            "litellm_overhead_time_ms": 50.0,
+            "embrouter_overhead_time_ms": 50.0,
             "callback_duration_ms": 7.25,
         }
 
@@ -411,8 +411,8 @@ class TestCallbackDurationInCustomHeaders:
             hidden_params=hidden_params,
         )
 
-        assert "x-litellm-callback-duration-ms" in headers
-        assert headers["x-litellm-callback-duration-ms"] == "7.25"
+        assert "x-embrouter-callback-duration-ms" in headers
+        assert headers["x-embrouter-callback-duration-ms"] == "7.25"
 
     def test_header_absent_when_no_callback_duration(self):
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
@@ -426,7 +426,7 @@ class TestCallbackDurationInCustomHeaders:
         )
 
         # Should be excluded because value is "None" which is in exclude_values
-        assert "x-litellm-callback-duration-ms" not in headers
+        assert "x-embrouter-callback-duration-ms" not in headers
 
 
 @pytest.fixture(params=["UTC", "Asia/Kolkata", "America/Los_Angeles"])
@@ -439,7 +439,7 @@ def process_timezone(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyP
 
 
 class TestDetailedTiming:
-    """Tests for detailed per-phase timing headers behind LITELLM_DETAILED_TIMING."""
+    """Tests for detailed per-phase timing headers behind EMBROUTER_DETAILED_TIMING."""
 
     def _make_logging_obj(
         self,
@@ -459,8 +459,8 @@ class TestDetailedTiming:
         return logging_obj
 
     def test_detailed_timing_headers_present_when_enabled(self, monkeypatch):
-        """When LITELLM_DETAILED_TIMING is true, detailed timing keys appear in hidden_params."""
-        monkeypatch.setattr(response_metadata_mod, "LITELLM_DETAILED_TIMING", True)
+        """When EMBROUTER_DETAILED_TIMING is true, detailed timing keys appear in hidden_params."""
+        monkeypatch.setattr(response_metadata_mod, "EMBROUTER_DETAILED_TIMING", True)
 
         result = ModelResponse()
         start = datetime.datetime(2025, 1, 1, 0, 0, 0)
@@ -485,7 +485,7 @@ class TestDetailedTiming:
 
     @pytest.mark.skipif(not hasattr(time, "tzset"), reason="switching the process timezone needs time.tzset()")
     def test_detailed_timing_pre_processing_uses_receive_anchor(self, monkeypatch, process_timezone: str):
-        monkeypatch.setattr(response_metadata_mod, "LITELLM_DETAILED_TIMING", True)
+        monkeypatch.setattr(response_metadata_mod, "EMBROUTER_DETAILED_TIMING", True)
 
         result = ModelResponse()
         received_at = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
@@ -496,7 +496,7 @@ class TestDetailedTiming:
             llm_api_duration_ms=500.0,
             api_call_start_time=api_call_start,
         )
-        logging_obj.model_call_details["litellm_params"] = {"metadata": {"litellm_received_at": received_at}}
+        logging_obj.model_call_details["embrouter_params"] = {"metadata": {"embrouter_received_at": received_at}}
 
         metadata = ResponseMetadata(result)
         metadata.set_timing_metrics(start, end, logging_obj)
@@ -507,8 +507,8 @@ class TestDetailedTiming:
         assert hidden.get("timing_post_processing_ms") == pytest.approx(30.0)
 
     def test_detailed_timing_absent_when_disabled(self, monkeypatch):
-        """When LITELLM_DETAILED_TIMING is false, no detailed timing keys."""
-        monkeypatch.setattr(response_metadata_mod, "LITELLM_DETAILED_TIMING", False)
+        """When EMBROUTER_DETAILED_TIMING is false, no detailed timing keys."""
+        monkeypatch.setattr(response_metadata_mod, "EMBROUTER_DETAILED_TIMING", False)
 
         result = ModelResponse()
         start = datetime.datetime(2025, 1, 1, 0, 0, 0)
@@ -524,8 +524,8 @@ class TestDetailedTiming:
         assert hidden.get("timing_pre_processing_ms") is None
 
     def test_detailed_timing_headers_in_custom_headers(self, monkeypatch):
-        """When LITELLM_DETAILED_TIMING is true, headers flow to get_custom_headers."""
-        monkeypatch.setattr(common_request_processing_mod, "LITELLM_DETAILED_TIMING", True)
+        """When EMBROUTER_DETAILED_TIMING is true, headers flow to get_custom_headers."""
+        monkeypatch.setattr(common_request_processing_mod, "EMBROUTER_DETAILED_TIMING", True)
 
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
         hidden_params = {
@@ -541,14 +541,14 @@ class TestDetailedTiming:
             hidden_params=hidden_params,
         )
 
-        assert headers["x-litellm-timing-llm-api-ms"] == "500.0"
-        assert headers["x-litellm-timing-pre-processing-ms"] == "20.0"
-        assert headers["x-litellm-timing-post-processing-ms"] == "10.0"
-        assert headers["x-litellm-timing-message-copy-ms"] == "2.5"
+        assert headers["x-embrouter-timing-llm-api-ms"] == "500.0"
+        assert headers["x-embrouter-timing-pre-processing-ms"] == "20.0"
+        assert headers["x-embrouter-timing-post-processing-ms"] == "10.0"
+        assert headers["x-embrouter-timing-message-copy-ms"] == "2.5"
 
     def test_detailed_timing_headers_absent_when_disabled(self, monkeypatch):
-        """When LITELLM_DETAILED_TIMING is false, no timing headers emitted."""
-        monkeypatch.setattr(common_request_processing_mod, "LITELLM_DETAILED_TIMING", False)
+        """When EMBROUTER_DETAILED_TIMING is false, no timing headers emitted."""
+        monkeypatch.setattr(common_request_processing_mod, "EMBROUTER_DETAILED_TIMING", False)
 
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
         hidden_params = {
@@ -561,8 +561,8 @@ class TestDetailedTiming:
             hidden_params=hidden_params,
         )
 
-        assert "x-litellm-timing-llm-api-ms" not in headers
-        assert "x-litellm-timing-pre-processing-ms" not in headers
+        assert "x-embrouter-timing-llm-api-ms" not in headers
+        assert "x-embrouter-timing-pre-processing-ms" not in headers
 
 
 class TestLoggingInitCallbackDuration:
@@ -575,7 +575,7 @@ class TestLoggingInitCallbackDuration:
             stream=False,
             call_type="acompletion",
             start_time=datetime.datetime.now(),
-            litellm_call_id="test-123",
+            embrouter_call_id="test-123",
             function_id="func-123",
         )
 
@@ -590,7 +590,7 @@ class TestLoggingInitCallbackDuration:
             stream=False,
             call_type="acompletion",
             start_time=datetime.datetime.now(),
-            litellm_call_id="test-456",
+            embrouter_call_id="test-456",
             function_id="func-456",
         )
 
@@ -600,15 +600,15 @@ class TestLoggingInitCallbackDuration:
 
 
 def test_update_response_metadata_prices_per_second_deployment_from_its_stamped_duration(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
     deployment_id: Final = "per-second-deployment-response-metadata"
-    litellm.register_model(
+    embrouter.register_model(
         model_cost={
             deployment_id: {
                 "cost_per_second": 0.02,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
             }
         }
@@ -620,12 +620,12 @@ def test_update_response_metadata_prices_per_second_deployment_from_its_stamped_
         stream=False,
         call_type="completion",
         start_time=start_time,
-        litellm_call_id="per-second-response-metadata",
+        embrouter_call_id="per-second-response-metadata",
         function_id="f",
     )
     logging_obj.update_environment_variables(
         model="gpt-5.4-nano",
-        litellm_params={
+        embrouter_params={
             "cost_per_second": 0.02,
             "metadata": {"model_info": {"id": deployment_id}},
         },

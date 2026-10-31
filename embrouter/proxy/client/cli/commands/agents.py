@@ -19,7 +19,7 @@ from .auth import CliContextObj, context_secret_vault, get_stored_api_key, login
 from .claude_settings import ClaudeSettingsError, install_statusline_script
 from .cmd_quoting import quote_for_cmd
 from .pi import (
-    LITELLM_PROXY_API_KEY_ENV,
+    EMBROUTER_PROXY_API_KEY_ENV,
     PI_PROVIDER_NAME,
     ListingFailure,
     PiSyncError,
@@ -39,21 +39,21 @@ ENABLE_GATEWAY_MODEL_DISCOVERY_VALUE: Final = "1"
 OPENAI_BASE_URL_ENV: Final = "OPENAI_BASE_URL"
 OPENAI_API_KEY_ENV: Final = "OPENAI_API_KEY"
 OPENCODE_CONFIG_CONTENT_ENV: Final = "OPENCODE_CONFIG_CONTENT"
-OPENCODE_PROVIDER_ID: Final = "litellm"
-OPENCODE_PROVIDER_NAME: Final = "LiteLLM"
+OPENCODE_PROVIDER_ID: Final = "embrouter"
+OPENCODE_PROVIDER_NAME: Final = "EmbRouter"
 OPENCODE_PROVIDER_NPM: Final = "@ai-sdk/openai-compatible"
 
 _SKIP_VERIFY_FLAG: Final = "--skip-verify"
 
 PROFILE_ANTHROPIC: Final = "anthropic"
 PROFILE_OPENAI: Final = "openai"
-PROFILE_LITELLM: Final = "litellm"
+PROFILE_EMBROUTER: Final = "embrouter"
 
 _KNOWN_AGENTS: Final[dict[str, tuple[str, frozenset[str]]]] = {
     "claude": ("Claude Code", frozenset({PROFILE_ANTHROPIC})),
     "codex": ("Codex", frozenset({PROFILE_OPENAI})),
     "opencode": ("OpenCode", frozenset({PROFILE_OPENAI})),
-    "pi": ("pi", frozenset({PROFILE_LITELLM})),
+    "pi": ("pi", frozenset({PROFILE_EMBROUTER})),
 }
 
 _INSTALL_DOCS: Final[dict[str, str]] = {
@@ -65,9 +65,9 @@ _INSTALL_DOCS: Final[dict[str, str]] = {
 
 _HIDDEN_AGENTS: Final = frozenset({"pi"})
 
-CODEX_PROXY_PROVIDER: Final = "litellm"
+CODEX_PROXY_PROVIDER: Final = "embrouter"
 CODEX_HOME_ENV: Final = "CODEX_HOME"
-CODEX_MODEL_CATALOG_FILENAME: Final = "litellm-models.json"
+CODEX_MODEL_CATALOG_FILENAME: Final = "embrouter-models.json"
 _CODEX_BASE_INSTRUCTIONS_PATH: Final = Path(__file__).with_name("codex_base_instructions.md")
 _CODEX_PREFLIGHT_TIMEOUT_SECONDS: Final = 10.0
 
@@ -105,7 +105,7 @@ def build_agent_env(
     the environment is left alone. CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY
     defaults to 1 so Claude Code (v2.1.129+) fills its /model picker from the
     proxy's /v1/models; likewise left alone when already set.
-    pi ignores both base URL variables and instead resolves $LITELLM_PROXY_API_KEY
+    pi ignores both base URL variables and instead resolves $EMBROUTER_PROXY_API_KEY
     from its synced models.json provider entry.
     """
     env: Final = dict(base_env)
@@ -121,15 +121,15 @@ def build_agent_env(
     if PROFILE_OPENAI in profiles:
         env[OPENAI_BASE_URL_ENV] = root + "/v1"
         env[OPENAI_API_KEY_ENV] = api_key
-    if PROFILE_LITELLM in profiles:
-        env[LITELLM_PROXY_API_KEY_ENV] = api_key
+    if PROFILE_EMBROUTER in profiles:
+        env[EMBROUTER_PROXY_API_KEY_ENV] = api_key
     return env
 
 
 def codex_proxy_provider(base_url: str) -> Mapping[str, str | bool]:
     return MappingProxyType(
         {
-            "name": "LiteLLM proxy",
+            "name": "EmbRouter proxy",
             "base_url": base_url.rstrip("/") + "/v1",
             "wire_api": "responses",
             "supports_websockets": False,
@@ -178,8 +178,8 @@ def prepare_pi(
     """Sync the proxy's model list into pi's models.json before handoff.
 
     pi has no base-URL env vars, so this file is the only way to point it at the
-    proxy. Only the litellm provider entry is touched; the synced entry references
-    the key as $LITELLM_PROXY_API_KEY, which build_agent_env exports. The returned
+    proxy. Only the embrouter provider entry is touched; the synced entry references
+    the key as $EMBROUTER_PROXY_API_KEY, which build_agent_env exports. The returned
     --model pin is needed because pi ignores a bare --provider when picking the
     interactive startup model; a user-supplied --model comes later in argv and wins.
     """
@@ -193,7 +193,7 @@ def prepare_pi(
     error: Final = sync_models_json(path, base_url, ids, limits)
     if error is not None:
         raise AgentRunError(error.message)
-    click.echo(f"litellm: synced {len(ids)} proxy models into {path}")
+    click.echo(f"embrouter: synced {len(ids)} proxy models into {path}")
     return ("--model", f"{PI_PROVIDER_NAME}/{ids[0]}")
 
 
@@ -230,7 +230,7 @@ def prepare_codex(
 ) -> tuple[str, ...]:
     """A `-c hooks.Stop=` session flag replaces the user's whole Stop list, so their own hooks win over ours."""
     if codex_declares_stop_hooks(codex_config_path(base_env)):
-        warn("litellm: your Codex config already declares hooks; not adding the routed-model Stop hook")
+        warn("embrouter: your Codex config already declares hooks; not adding the routed-model Stop hook")
         return ()
     try:
         command: Final = install()
@@ -346,7 +346,7 @@ def _opencode_model_entry(model: ListedModel) -> _OpenCodeModel:
 
 
 def opencode_provider_config(base_url: str, models: Sequence[ListedModel]) -> str:
-    """OPENCODE_CONFIG_CONTENT declaring the proxy as OpenCode provider `litellm`.
+    """OPENCODE_CONFIG_CONTENT declaring the proxy as OpenCode provider `embrouter`.
 
     One model entry per chat-capable /v1/models row (mode chat, responses, or
     unknown), so OpenCode's model picker mirrors what the key can call. The key
@@ -666,12 +666,12 @@ def verify_proxy_key(
         resp: Final = get(url, headers={"Authorization": f"Bearer {api_key}"}, timeout=10)
     except requests.RequestException as e:
         raise AgentRunError(
-            f"Could not reach the LiteLLM proxy at {base_url.rstrip('/')}: {e}. "
-            "Is it running, and is --base-url (or LITELLM_PROXY_URL) correct?"
+            f"Could not reach the EmbRouter proxy at {base_url.rstrip('/')}: {e}. "
+            "Is it running, and is --base-url (or EMBROUTER_PROXY_URL) correct?"
         )
     if resp.status_code in (401, 403):
         raise AgentRunError(
-            f"LiteLLM rejected your key (HTTP {resp.status_code}). "
+            f"EmbRouter rejected your key (HTTP {resp.status_code}). "
             "Run `lite login` to refresh it, or pass a valid --api-key."
         )
 
@@ -803,7 +803,7 @@ def run_agent(
     env_before_sync: Final = base_env if base_env is not None else os.environ
     synced: Final = sync_models(binary, env_before_sync, base_url, api_key, skip_verify)
     if isinstance(synced, ModelSyncSkipped):
-        warn(f"litellm: not syncing {display_name} models from the proxy: {synced.reason}")
+        warn(f"embrouter: not syncing {display_name} models from the proxy: {synced.reason}")
 
     prepare: Final = preparers.get(os.path.basename(command[0]))
     prepared_args: Final = tuple(prepare(base_url, api_key, env_before_sync)) if prepare is not None else ()
@@ -834,11 +834,11 @@ def resolve_api_key(ctx: click.Context) -> str:
 
     if not _is_interactive():
         raise click.ClickException(
-            "No LiteLLM key found. Set LITELLM_PROXY_API_KEY (or pass --api-key) for "
+            "No EmbRouter key found. Set EMBROUTER_PROXY_API_KEY (or pass --api-key) for "
             "non-interactive use, or run `lite login` from a terminal."
         )
 
-    click.echo("No LiteLLM credentials found; starting login...")
+    click.echo("No EmbRouter credentials found; starting login...")
     ctx.invoke(login)
     api_key = get_stored_api_key(expected_base_url=base_url, vault=context_secret_vault(ctx))
     if not api_key:
@@ -856,7 +856,7 @@ def _launch(ctx: click.Context, binary: str, args: Sequence[str], *, skip_verify
     api_key: Final = resolve_api_key(ctx)
 
     display_name, _profiles = agent_profile(binary)
-    click.echo(f"litellm: routing {display_name} through proxy at {base_url.rstrip('/')}")
+    click.echo(f"embrouter: routing {display_name} through proxy at {base_url.rstrip('/')}")
 
     try:
         run_agent(
@@ -874,7 +874,7 @@ def _make_agent_command(binary: str, display_name: str) -> click.Command:
     @click.command(
         name=binary,
         context_settings={"ignore_unknown_options": True},
-        short_help=f"Run {display_name} through your LiteLLM proxy",
+        short_help=f"Run {display_name} through your EmbRouter proxy",
         hidden=binary in _HIDDEN_AGENTS,
     )
     @click.option("--skip-verify", is_flag=True, default=False, help=_SKIP_VERIFY_HELP)
@@ -884,8 +884,8 @@ def _make_agent_command(binary: str, display_name: str) -> click.Command:
         _launch(ctx, binary, list(args), skip_verify=skip_verify)
 
     _command.help = (
-        f"Run {display_name} routed through your LiteLLM proxy.\n\n"
-        f"Logs in with LiteLLM if needed, verifies your key against the proxy, "
+        f"Run {display_name} routed through your EmbRouter proxy.\n\n"
+        f"Logs in with EmbRouter if needed, verifies your key against the proxy, "
         f"exports the env vars {binary} reads, then hands off. Any arguments are "
         f"forwarded to `{binary}`."
     )

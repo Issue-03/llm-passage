@@ -4,12 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
-from litellm.endpoints.speech.speech_to_completion_bridge.transformation import (
+import embrouter
+from embrouter.constants import OPENAI_CHAT_COMPLETION_PARAMS
+from embrouter.endpoints.speech.speech_to_completion_bridge.transformation import (
     SpeechToCompletionBridgeTransformationHandler,
 )
-from litellm.types.utils import ChatCompletionAudioResponse, Choices, Message, ModelResponse
+from embrouter.types.utils import ChatCompletionAudioResponse, Choices, Message, ModelResponse
 
 GEMINI_TTS_MODEL: Final = "gemini-3.1-flash-tts-preview"
 PCM_BYTES: Final = b"\x01\x02\x03\x04" * 6
@@ -28,12 +28,12 @@ def _bridge_request(response_format: str | None) -> dict:
     )
     return SpeechToCompletionBridgeTransformationHandler().transform_request(
         model=GEMINI_TTS_MODEL,
-        input="Hello from LiteLLM",
+        input="Hello from EmbRouter",
         voice="Kore",
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        embrouter_logging_obj=MagicMock(),
         custom_llm_provider="gemini",
     )
 
@@ -47,7 +47,7 @@ def test_gemini_tts_request_keeps_speech_response_format_out_of_chat_params(resp
     assert request["temperature"] == 0.4
     assert request["modalities"] == ["audio"]
 
-    gemini_params: Final = litellm.get_optional_params(
+    gemini_params: Final = embrouter.get_optional_params(
         model=GEMINI_TTS_MODEL,
         custom_llm_provider="gemini",
         **{param: value for param, value in request.items() if param in OPENAI_CHAT_COMPLETION_PARAMS},
@@ -59,12 +59,12 @@ def test_gemini_tts_request_keeps_speech_response_format_out_of_chat_params(resp
 def test_non_gemini_request_forwards_speech_response_format_as_audio_format() -> None:
     request: Final = SpeechToCompletionBridgeTransformationHandler().transform_request(
         model="gpt-4o-audio-preview",
-        input="Hello from LiteLLM",
+        input="Hello from EmbRouter",
         voice="alloy",
         optional_params={"response_format": "wav"},
-        litellm_params={},
+        embrouter_params={},
         headers={},
-        litellm_logging_obj=MagicMock(),
+        embrouter_logging_obj=MagicMock(),
         custom_llm_provider="openai",
     )
 
@@ -74,7 +74,7 @@ def test_non_gemini_request_forwards_speech_response_format_as_audio_format() ->
 
 @pytest.mark.parametrize("response_format", ["mp3", "flac", "opus", "aac"])
 def test_gemini_tts_request_rejects_formats_gemini_cannot_produce(response_format: str) -> None:
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         _bridge_request(response_format)
 
     assert excinfo.value.status_code == 400

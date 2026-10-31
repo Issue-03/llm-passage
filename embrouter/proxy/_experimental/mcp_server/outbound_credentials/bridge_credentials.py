@@ -1,7 +1,7 @@
 """Producer and consumer helpers for the DCR-bridge ``oauth_delegate`` envelope.
 
-A DCR-bridge ``oauth_delegate`` client presents ONE bearer that is a litellm-signed
-envelope (see :mod:`.envelope`) carrying both a litellm identity and the upstream OAuth
+A DCR-bridge ``oauth_delegate`` client presents ONE bearer that is a embrouter-signed
+envelope (see :mod:`.envelope`) carrying both a embrouter identity and the upstream OAuth
 token. The gateway token endpoint mints it (producer) at OAuth issuance, and at the MCP
 admission edge the gateway derives the envelope keys from the proxy ``master_key``, opens
 it, admits the request under the recovered identity, and forwards the inner upstream token
@@ -16,7 +16,7 @@ from typing import Final, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, SecretStr
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (
     EnvelopeIdentity,
     EnvelopeKeys,
     EnvelopeMintError,
@@ -33,8 +33,8 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import
     open_refresh_envelope,
 )
 
-_SIGNING_KEY_DOMAIN: Final = b"litellm-mcp-bridge:envelope-signing:"
-_ENCRYPTION_KEY_DOMAIN: Final = b"litellm-mcp-bridge:envelope-encryption:"
+_SIGNING_KEY_DOMAIN: Final = b"embrouter-mcp-bridge:envelope-signing:"
+_ENCRYPTION_KEY_DOMAIN: Final = b"embrouter-mcp-bridge:envelope-encryption:"
 
 # scrypt work factors (RFC 7914). n=2**15 with r=8/p=1 costs ~50ms and ~32MB per derivation, which
 # makes offline guessing of a candidate master key memory-hard rather than a bare hash comparison.

@@ -5,16 +5,16 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import litellm.proxy.proxy_server as proxy_server
-import litellm.proxy.management_endpoints.team_endpoints as team_endpoints
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+import embrouter.proxy.proxy_server as proxy_server
+import embrouter.proxy.management_endpoints.team_endpoints as team_endpoints
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     Member,
     TeamMemberUpdateRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import (
     TEAM_ADVISORY_LOCK_SQL,
     team_member_update,
 )
@@ -46,8 +46,8 @@ async def test_ateam_member_update_admin_requires_premium(monkeypatch):
 
     assert exc_info.value.status_code == 400
     expected_msg = (
-        "Assigning team admins is a premium feature. You must be a LiteLLM Enterprise user to use this feature. "
-        "If you have a license please set `LITELLM_LICENSE` in your env."
+        "Assigning team admins is a premium feature. You must be a EmbRouter Enterprise user to use this feature. "
+        "If you have a license please set `EMBROUTER_LICENSE` in your env."
     )
     assert exc_info.value.detail == expected_msg
 
@@ -56,18 +56,18 @@ async def test_ateam_member_update_admin_requires_premium(monkeypatch):
 def happy_path_upsert(monkeypatch):
     """Stub out the DB and the budget upsert so a team_member_update call reaches
     _upsert_budget_and_membership, and hand back that mock to inspect the patch."""
-    team_row = LiteLLM_TeamTable(
+    team_row = EmbRouter_TeamTable(
         team_id="team-1234",
         members_with_roles=[Member(user_id="user-1", role="user")],
         metadata={},
     )
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
-    prisma_client.db.litellm_teamtable.update = AsyncMock()
+    prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=team_row)
+    prisma_client.db.embrouter_teamtable.update = AsyncMock()
 
     class _FakeTx:
-        litellm_teamtable = prisma_client.db.litellm_teamtable
+        embrouter_teamtable = prisma_client.db.embrouter_teamtable
 
         async def __aenter__(self):
             return self
@@ -106,7 +106,7 @@ def _member_update_request(**overrides):
         team_id="team-1234", user_id="user-1", role="user", **overrides
     )
     request = Request({"type": "http", "method": "POST", "path": "/team/member_update"})
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN.value, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN.value, user_id="admin")
     return data, request, auth
 
 
@@ -179,7 +179,7 @@ async def test_team_member_update_rejects_invalid_budget_duration(
         budget_duration=bad_duration,
     )
     request = Request({"type": "http", "method": "POST", "path": "/team/member_update"})
-    auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN.value, user_id="admin")
+    auth = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN.value, user_id="admin")
 
     with pytest.raises(HTTPException) as exc_info:
         await team_member_update(data, request, auth)

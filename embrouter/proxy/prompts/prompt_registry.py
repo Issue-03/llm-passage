@@ -4,11 +4,11 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.types.prompts.init_prompts import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.types.prompts.init_prompts import (
     PromptInfo,
-    PromptLiteLLMParams,
+    PromptEmbRouterParams,
     PromptSpec,
 )
 
@@ -130,7 +130,7 @@ def get_prompt_initializer_from_integrations():
             if not os.path.exists(init_file):
                 continue
 
-            module_path = f"litellm.integrations.{item}"
+            module_path = f"embrouter.integrations.{item}"
             try:
                 # Import the module
                 verbose_proxy_logger.debug("Discovering prompt integrations in: %s", module_path)
@@ -188,11 +188,11 @@ class InMemoryPromptRegistry:
         config_file_path: str | None = None,
     ) -> PromptSpec | None:
         """
-        Initialize a guardrail from a dictionary and add it to the litellm callback manager
+        Initialize a guardrail from a dictionary and add it to the embrouter callback manager
 
         Returns a Guardrail object if the guardrail is initialized successfully
         """
-        import litellm
+        import embrouter
 
         registry_key: Final = registry_key_for_prompt(prompt)
         if registry_key in self.IN_MEMORY_PROMPTS:
@@ -200,7 +200,7 @@ class InMemoryPromptRegistry:
             return self.IN_MEMORY_PROMPTS[registry_key]
 
         parsed_prompt, custom_prompt_callback = self._build_prompt_callback(prompt=prompt)
-        litellm.logging_callback_manager.add_litellm_callback(custom_prompt_callback)
+        embrouter.logging_callback_manager.add_embrouter_callback(custom_prompt_callback)
 
         self.IN_MEMORY_PROMPTS[registry_key] = parsed_prompt
         self.prompt_id_to_custom_prompt[registry_key] = custom_prompt_callback
@@ -208,15 +208,15 @@ class InMemoryPromptRegistry:
         return parsed_prompt
 
     def _build_prompt_callback(self, prompt: PromptSpec) -> tuple[PromptSpec, CustomPromptManagement]:
-        litellm_params_data: Final = prompt.litellm_params
-        verbose_proxy_logger.debug("litellm_params= %s", litellm_params_data)
+        embrouter_params_data: Final = prompt.embrouter_params
+        verbose_proxy_logger.debug("embrouter_params= %s", embrouter_params_data)
 
-        if isinstance(litellm_params_data, dict):
-            litellm_params = PromptLiteLLMParams(**litellm_params_data)
+        if isinstance(embrouter_params_data, dict):
+            embrouter_params = PromptEmbRouterParams(**embrouter_params_data)
         else:
-            litellm_params = litellm_params_data
+            embrouter_params = embrouter_params_data
 
-        prompt_integration: Final = litellm_params.prompt_integration
+        prompt_integration: Final = embrouter_params.prompt_integration
         if prompt_integration is None:
             raise ValueError("prompt_integration is required")
 
@@ -224,7 +224,7 @@ class InMemoryPromptRegistry:
         if initializer is None:
             raise ValueError(f"Unsupported prompt: {prompt_integration}")
 
-        custom_prompt_callback: Final = initializer(litellm_params, prompt)
+        custom_prompt_callback: Final = initializer(embrouter_params, prompt)
         if not isinstance(custom_prompt_callback, CustomPromptManagement):
             raise ValueError(  # noqa: TRY004  # prompt endpoints map ValueError to HTTP 400; keep the existing contract
                 f"CustomPromptManagement is required, got {type(custom_prompt_callback)}"
@@ -232,7 +232,7 @@ class InMemoryPromptRegistry:
 
         parsed_prompt: Final = PromptSpec(
             prompt_id=prompt.prompt_id,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             prompt_info=prompt.prompt_info or PromptInfo(prompt_type="config"),
             created_at=prompt.created_at,
             updated_at=prompt.updated_at,
@@ -243,15 +243,15 @@ class InMemoryPromptRegistry:
         return parsed_prompt, custom_prompt_callback
 
     def reload_prompt(self, prompt: PromptSpec) -> PromptSpec | None:
-        import litellm
+        import embrouter
 
         parsed_prompt, new_callback = self._build_prompt_callback(prompt=prompt)
         registry_key: Final = registry_key_for_prompt(parsed_prompt)
         stale_callback: Final = self.prompt_id_to_custom_prompt.pop(registry_key, None)
         self.IN_MEMORY_PROMPTS.pop(registry_key, None)
         if stale_callback is not None:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(stale_callback)
-        litellm.logging_callback_manager.add_litellm_callback(new_callback)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(stale_callback)
+        embrouter.logging_callback_manager.add_embrouter_callback(new_callback)
         self.IN_MEMORY_PROMPTS[registry_key] = parsed_prompt
         self.prompt_id_to_custom_prompt[registry_key] = new_callback
         return parsed_prompt
@@ -260,7 +260,7 @@ class InMemoryPromptRegistry:
         existing: Final = self.IN_MEMORY_PROMPTS.get(registry_key_for_prompt(prompt))
         if existing is None:
             return self.initialize_prompt(prompt=prompt)
-        if existing.litellm_params == prompt.litellm_params and existing.prompt_info == prompt.prompt_info:
+        if existing.embrouter_params == prompt.embrouter_params and existing.prompt_info == prompt.prompt_info:
             return existing
         return self.reload_prompt(prompt=prompt)
 
@@ -308,12 +308,12 @@ class InMemoryPromptRegistry:
         )
 
     def remove_prompt(self, registry_key: str) -> None:
-        import litellm
+        import embrouter
 
         self.IN_MEMORY_PROMPTS.pop(registry_key, None)
         stale_callback: Final = self.prompt_id_to_custom_prompt.pop(registry_key, None)
         if stale_callback is not None:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(stale_callback)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(stale_callback)
 
     def delete_prompts_by_base_id(self, base_prompt_id: str, environment: str | None = None) -> list[str]:
         """

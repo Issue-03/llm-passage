@@ -12,13 +12,13 @@ from typing import Final
 
 import httpx
 
-from litellm import LlmProviders
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.llms.gigachat.utils import get_api_base
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse
+from embrouter import LlmProviders
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.llms.gigachat.utils import get_api_base
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse
 
 from ..authenticator import get_access_token
 
@@ -89,7 +89,7 @@ class GigaChatEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """Get the complete URL for embeddings endpoint."""
@@ -123,11 +123,11 @@ class GigaChatEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         """
         Transform GigaChat embedding response to OpenAI format.
@@ -173,7 +173,7 @@ class GigaChatEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -181,7 +181,7 @@ class GigaChatEmbeddingConfig(BaseEmbeddingConfig):
         Set up headers with OAuth token for GigaChat.
         """
         # Get access token via OAuth
-        access_token: Final = get_access_token(credentials=api_key, litellm_params=litellm_params)
+        access_token: Final = get_access_token(credentials=api_key, embrouter_params=embrouter_params)
 
         default_headers: Final = {
             "Content-Type": "application/json",

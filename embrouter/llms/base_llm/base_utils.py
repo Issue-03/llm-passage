@@ -10,9 +10,9 @@ from typing import Any, Final
 from openai.lib import _parsing, _pydantic
 from pydantic import BaseModel
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
-from litellm.types.utils import Message, ProviderSpecificModelInfo, TokenCountResponse
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
+from embrouter.types.utils import Message, ProviderSpecificModelInfo, TokenCountResponse
 
 
 class BaseTokenCounter(ABC):
@@ -52,7 +52,7 @@ class BaseLLMModelInfo(ABC):
 
     def get_model_cost_key(self, model: str) -> str | None:
         """
-        Maps the model name a user sends to the key `litellm.model_cost` stores it under, when the two differ.
+        Maps the model name a user sends to the key `embrouter.model_cost` stores it under, when the two differ.
         `get_model_info` tries this key once the exact `model` and `provider/model` keys miss. The default None means
         the provider's user-facing names already match the cost map, so there is nothing extra to try.
         """
@@ -84,7 +84,7 @@ class BaseLLMModelInfo(ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

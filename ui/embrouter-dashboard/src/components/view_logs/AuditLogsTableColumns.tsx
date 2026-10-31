@@ -19,12 +19,12 @@ export type AuditLogEntry = {
 };
 
 export const AUDIT_TABLE_NAME_DISPLAY: Record<string, string> = {
-  LiteLLM_VerificationToken: "Keys",
-  LiteLLM_TeamTable: "Teams",
-  LiteLLM_UserTable: "Users",
-  LiteLLM_OrganizationTable: "Organizations",
-  LiteLLM_ProxyModelTable: "Models",
-  LiteLLM_AgentsTable: "Agents",
+  EmbRouter_VerificationToken: "Keys",
+  EmbRouter_TeamTable: "Teams",
+  EmbRouter_UserTable: "Users",
+  EmbRouter_OrganizationTable: "Organizations",
+  EmbRouter_ProxyModelTable: "Models",
+  EmbRouter_AgentsTable: "Agents",
 };
 
 const ACTION_TONE: Record<string, StatusTone> = {

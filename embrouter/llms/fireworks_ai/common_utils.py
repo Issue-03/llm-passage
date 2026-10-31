@@ -4,9 +4,9 @@ from typing import Final
 
 from httpx import Headers
 
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.constants import SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from ..base_llm.chat.transformation import BaseLLMException
 
@@ -15,19 +15,19 @@ class FireworksAIException(BaseLLMException):
     pass
 
 
-def get_fireworks_session_id(litellm_params: Mapping[str, object]) -> str | None:
+def get_fireworks_session_id(embrouter_params: Mapping[str, object]) -> str | None:
     """
     Session id to send as `x-session-affinity`, or None when the caller gave none.
 
-    Deliberately does not fall back to `litellm_trace_id`, and ignores session ids the
+    Deliberately does not fall back to `embrouter_trace_id`, and ignores session ids the
     proxy generated for a request that had none: both are per request, so using them
     pins every request to a different Fireworks node and prompt caching never hits.
     """
-    params: Final = litellm_params
+    params: Final = embrouter_params
     metadata: Final = params.get("metadata")
     if isinstance(metadata, Mapping) and metadata.get(SESSION_ID_GENERATED_METADATA_KEY):
         return None
-    for key in ("litellm_session_id", "session_id"):
+    for key in ("embrouter_session_id", "session_id"):
         value = params.get(key)
         if value:
             return str(value)
@@ -39,11 +39,11 @@ def get_fireworks_session_id(litellm_params: Mapping[str, object]) -> str | None
 
 
 def with_fireworks_session_affinity(
-    headers: Mapping[str, str], litellm_params: Mapping[str, object]
+    headers: Mapping[str, str], embrouter_params: Mapping[str, object]
 ) -> Mapping[str, str]:
     if any(key.lower() == "x-session-affinity" for key in headers):
         return headers
-    session_id: Final = get_fireworks_session_id(litellm_params)
+    session_id: Final = get_fireworks_session_id(embrouter_params)
     if not session_id:
         return headers
     return MappingProxyType({**headers, "x-session-affinity": session_id})
@@ -95,7 +95,7 @@ class FireworksAIMixin:
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -107,8 +107,8 @@ class FireworksAIMixin:
         content_type_header: Final = (
             {} if any(key.lower() == "content-type" for key in auth_headers) else {"Content-Type": "application/json"}
         )
-        return self._add_session_affinity_header({**auth_headers, **content_type_header}, litellm_params)
+        return self._add_session_affinity_header({**auth_headers, **content_type_header}, embrouter_params)
 
-    def _add_session_affinity_header(self, headers: dict, litellm_params: dict) -> dict:
-        pinned: Final = with_fireworks_session_affinity(headers, litellm_params)
+    def _add_session_affinity_header(self, headers: dict, embrouter_params: dict) -> dict:
+        pinned: Final = with_fireworks_session_affinity(headers, embrouter_params)
         return dict(pinned)  # mutable-ok: the HTTP handler updates the returned headers in place

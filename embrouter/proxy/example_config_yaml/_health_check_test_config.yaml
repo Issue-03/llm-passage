@@ -1,6 +1,6 @@
 model_list:
   - model_name: text-embedding-ada-002
-    litellm_params:
+    embrouter_params:
       model: azure/azure-embedding-model
       api_base: "os.environ/AZURE_API_BASE"
       api_key: "os.environ/AZURE_API_KEY"
@@ -9,7 +9,7 @@ model_list:
       mode: embedding
       base_model: text-embedding-ada-002
 
-litellm_settings: 
+embrouter_settings: 
   set_verbose: True
 
 general_settings: 

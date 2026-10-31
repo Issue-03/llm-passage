@@ -8,14 +8,14 @@ from typing import Final
 
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_SETTING: Final = "dangerously_permit_weak_or_unset_master_key"
-WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_ENV_VAR: Final = "LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY"
+WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_ENV_VAR: Final = "EMBROUTER_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY"
 MASTER_KEY_SETTING: Final = "master_key"
-MASTER_KEY_ENV_VAR: Final = "LITELLM_MASTER_KEY"
-SALT_KEY_ENV_VAR: Final = "LITELLM_SALT_KEY"
-MIGRATE_FROM_MASTER_KEY_ENV_VAR: Final = "LITELLM_MIGRATE_FROM_MASTER_KEY"
+MASTER_KEY_ENV_VAR: Final = "EMBROUTER_MASTER_KEY"
+SALT_KEY_ENV_VAR: Final = "EMBROUTER_SALT_KEY"
+MIGRATE_FROM_MASTER_KEY_ENV_VAR: Final = "EMBROUTER_MIGRATE_FROM_MASTER_KEY"
 PUBLICLY_KNOWN_MASTER_KEYS: Final = frozenset({"sk-1234"})
 _NEW_MASTER_KEY: Final = "sk-$(openssl rand -hex 32)"
 GENERATE_MASTER_KEY_COMMAND: Final = f'echo "{MASTER_KEY_ENV_VAR}={_NEW_MASTER_KEY}" | tee -a .env'
@@ -126,7 +126,7 @@ def enforce_master_key_boot_verdict(verdict: MasterKeyBootVerdict, announce: Cal
         case UnsafeMasterKeyRefused(reason=reason):
             announce(f"\n{render_refusal(verdict)}\n\n")
             raise UnsafeMasterKeyError(
-                f"LiteLLM proxy refused to start: {_REFUSAL_HEADLINE[reason]} The fix is printed once the server exits."
+                f"EmbRouter proxy refused to start: {_REFUSAL_HEADLINE[reason]} The fix is printed once the server exits."
             )
         case _:
             assert_never(verdict)
@@ -145,7 +145,7 @@ def _flush_stdout_then_write_stderr(message: str) -> None:
 def render_refusal(refusal: UnsafeMasterKeyRefused) -> str:
     return "\n\n".join(
         (
-            f"LiteLLM proxy refused to start: {_REFUSAL_HEADLINE[refusal.reason]}\n{_source_line(refusal)}",
+            f"EmbRouter proxy refused to start: {_REFUSAL_HEADLINE[refusal.reason]}\n{_source_line(refusal)}",
             _fix_steps(refusal),
             _OVERRIDE_HINT,
         )

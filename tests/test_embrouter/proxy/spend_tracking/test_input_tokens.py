@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.spend_tracking.input_tokens import (
+from embrouter.proxy.spend_tracking.input_tokens import (
     TOKENIZE_OFF_EVENT_LOOP_MIN_CHARS,
     count_input_tokens,
     count_input_tokens_for_model,

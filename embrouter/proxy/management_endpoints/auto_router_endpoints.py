@@ -15,50 +15,50 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, field_validator
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import BudgetExceededError
-from litellm.litellm_core_utils.llm_judge import judge_target
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import BudgetExceededError
+from embrouter.embrouter_core_utils.llm_judge import judge_target
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     _virtual_key_max_budget_check,
     can_key_call_resolved_model,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.autorouter_savings_comparison import historical_session_comparisons
-from litellm.proxy.db.autorouter_session_rollup import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.autorouter_savings_comparison import historical_session_comparisons
+from embrouter.proxy.db.autorouter_session_rollup import (
     AUTOROUTER_BENCHMARKS_SQL,
     bounded_session_id,
 )
-from litellm.proxy.litellm_pre_call_utils import (
-    LiteLLMProxyRequestSetup,
+from embrouter.proxy.embrouter_pre_call_utils import (
+    EmbRouterProxyRequestSetup,
     refresh_proxy_server_request_body_snapshot,
 )
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.management_endpoints.common_utils import (
     _is_user_team_admin,  # pyright: ignore[reportPrivateUsage]  # shared owner of team-admin membership
 )
-from litellm.proxy.management_helpers.auto_router_permissions import (
+from embrouter.proxy.management_helpers.auto_router_permissions import (
     authorize_member_auto_router_dependencies,
     authorize_member_auto_router_team,
     validate_member_auto_router_config,
 )
-from litellm.repositories.autorouter_session_repository import AutoRouterSessionRepository
-from litellm.repositories.base_repository import SupportsModelDump
-from litellm.repositories.team_repository import TeamRepository
-from litellm.router_strategy.complexity_router import ComplexityRouter
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.repositories.autorouter_session_repository import AutoRouterSessionRepository
+from embrouter.repositories.base_repository import SupportsModelDump
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.router_strategy.complexity_router import ComplexityRouter
+from embrouter.router_utils.auto_router_model_naming import (
     StrategyRouterDependencyRole,
     classify_strategy_router_model,
     strategy_router_dependencies,
 )
-from litellm.types.management_endpoints.auto_router_endpoints import (
+from embrouter.types.management_endpoints.auto_router_endpoints import (
     SHADOW_EVAL_TURN_VALVE,
     AutoRouterAvailabilityRequest,
     AutoRouterAvailabilityResponse,
@@ -85,8 +85,8 @@ from litellm.types.management_endpoints.auto_router_endpoints import (
 if TYPE_CHECKING:
     from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
 else:
     try:
         from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -185,40 +185,40 @@ def _team_table(prisma_client: "PrismaClient") -> _TeamTable:
 
 
 def _verification_tokens(prisma_client: "PrismaClient") -> _VerificationTokenTable:
-    return prisma_client.db.litellm_verificationtoken
+    return prisma_client.db.embrouter_verificationtoken
 
 
 def _team_rows(prisma_client: "PrismaClient") -> _TeamRowsTable:
-    return prisma_client.db.litellm_teamtable
+    return prisma_client.db.embrouter_teamtable
 
 
 def _user_rows(prisma_client: "PrismaClient") -> _UserRowsTable:
-    return prisma_client.db.litellm_usertable
+    return prisma_client.db.embrouter_usertable
 
 
 def _shadow_eval_jobs(prisma_client: "PrismaClient") -> _ShadowEvalJobTable:
-    return prisma_client.db.litellm_shadowevaljob
+    return prisma_client.db.embrouter_shadowevaljob
 
 
 def _shadow_eval_funnel(prisma_client: "PrismaClient") -> _ShadowEvalFunnelTable:
-    return prisma_client.db.litellm_shadowevalfunnel  # pyright: ignore[reportAttributeAccessIssue]  # generated client
+    return prisma_client.db.embrouter_shadowevalfunnel  # pyright: ignore[reportAttributeAccessIssue]  # generated client
 
 
 def _shadow_eval_attempts(prisma_client: "PrismaClient") -> _ShadowEvalAttemptTable:
-    return prisma_client.db.litellm_shadowevalattempt
+    return prisma_client.db.embrouter_shadowevalattempt
 
 
 async def _query_raw(prisma_client: "PrismaClient", query: str, *args: object) -> Sequence[Mapping[str, object]]:
     return await prisma_client.db.query_raw(query, *args)
 
 
-async def _authorize_router_dry_run(user_api_key_dict: UserAPIKeyAuth, team_id: str | None) -> LiteLLM_TeamTable | None:
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+async def _authorize_router_dry_run(user_api_key_dict: UserAPIKeyAuth, team_id: str | None) -> EmbRouter_TeamTable | None:
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.proxy.proxy_server import premium_user, prisma_client
+    from embrouter.proxy.proxy_server import premium_user, prisma_client
 
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return None
 
     if team_id is None:
@@ -248,7 +248,7 @@ async def _authorize_router_dry_run(user_api_key_dict: UserAPIKeyAuth, team_id: 
             },
         )
 
-    team: Final = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+    team: Final = EmbRouter_TeamTable.model_validate(team_row.model_dump())
     if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team):
         ModelManagementAuthChecks.can_user_make_team_model_call(
             team_id=team_id,
@@ -270,9 +270,9 @@ async def _authorize_member_dry_run_config(
     config: Mapping[str, object],
     default_model: str | None,
     user_api_key_dict: UserAPIKeyAuth,
-    team: LiteLLM_TeamTable,
+    team: EmbRouter_TeamTable,
 ) -> UserAPIKeyAuth:
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     if prisma_client is None or llm_router is None:
         raise HTTPException(status_code=503, detail="Cannot verify auto-router model access")
@@ -327,7 +327,7 @@ async def _authorize_models_this_test_can_call(
     if not models and config.classifier_type != "jev":
         return
 
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     for model in models:
         await can_key_call_resolved_model(
@@ -380,7 +380,7 @@ async def validate_complexity_router_config(
     """
     member_team: Final = await _authorize_router_dry_run(user_api_key_dict=user_api_key_dict, team_id=data.team_id)
 
-    from litellm.router_utils.auto_router_model_naming import (
+    from embrouter.router_utils.auto_router_model_naming import (
         validate_complexity_router_config_write,
     )
 
@@ -404,8 +404,8 @@ async def get_auto_router_availability(
     data: AutoRouterAvailabilityRequest,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ) -> AutoRouterAvailabilityResponse:
-    from litellm.proxy.management_helpers.auto_router_availability import auto_router_availability
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.management_helpers.auto_router_availability import auto_router_availability
+    from embrouter.proxy.proxy_server import (
         _license_check,  # pyright: ignore[reportPrivateUsage]  # same entitlement owner as the model write gate
         heuristic_v1_tuning_baselines,
         llm_router,
@@ -420,7 +420,7 @@ async def get_auto_router_availability(
     if data.saved_model_id is not None:
         if saved is None:
             raise HTTPException(status_code=404, detail="Saved auto router is unavailable")
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN and (
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN and (
             saved.team_id != data.team_id or (member_team is not None and saved.created_by != user_api_key_dict.user_id)
         ):
             raise HTTPException(status_code=403, detail="Cannot check another user's auto router")
@@ -428,7 +428,7 @@ async def get_auto_router_availability(
     others: Final = tuple(row.deployment for row in rows if row is not saved) + tuple(llm_router.config_deployments())
     candidate: Final = MappingProxyType(
         {
-            "litellm_params": MappingProxyType(
+            "embrouter_params": MappingProxyType(
                 {"model": "auto_router/complexity_router", "complexity_router_config": data.complexity_router_config}
             ),
             "model_info": MappingProxyType({"id": data.saved_model_id or "availability-new-router", "db_model": True}),
@@ -453,7 +453,7 @@ async def _resolve_saved_routing_test(
     deployment: Final = llm_router.get_deployment(data.saved_model_id)
     if deployment is None or deployment.model_info.blocked:
         raise HTTPException(status_code=404, detail="Saved auto router is unavailable")
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN and deployment.model_info.team_id != data.team_id:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN and deployment.model_info.team_id != data.team_id:
         raise HTTPException(status_code=403, detail="Saved auto router belongs to a different team")
     await can_key_call_resolved_model(
         model=deployment.model_info.team_public_model_name or deployment.model_name,
@@ -461,7 +461,7 @@ async def _resolve_saved_routing_test(
         valid_token=user_api_key_dict,
         llm_router=llm_router,
     )
-    params: Final = deployment.litellm_params
+    params: Final = deployment.embrouter_params
     if classify_strategy_router_model(params.model or "") != "complexity" or params.complexity_router_config is None:
         raise HTTPException(status_code=400, detail="Saved deployment is not a complexity auto router")
     return data.model_copy(
@@ -521,7 +521,7 @@ async def preview_auto_router_routing(
     }
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         prisma_client,
@@ -529,7 +529,7 @@ async def preview_auto_router_routing(
         user_api_key_cache,
         user_model,
     )
-    from litellm.proxy.utils import get_available_models_for_user
+    from embrouter.proxy.utils import get_available_models_for_user
 
     member_team: Final = await _authorize_router_dry_run(user_api_key_dict=user_api_key_dict, team_id=data.team_id)
     if llm_router is None:
@@ -557,7 +557,7 @@ async def preview_auto_router_routing(
     }
 
     if member_team is not None and _models_this_test_can_call(resolved.complexity_router_config):
-        from litellm.proxy.auth.user_api_key_auth import (
+        from embrouter.proxy.auth.user_api_key_auth import (
             _run_centralized_common_checks,  # pyright: ignore[reportPrivateUsage]  # reuse the serving admission policy
         )
 
@@ -576,13 +576,13 @@ async def preview_auto_router_routing(
 
     complexity_router: Final = ComplexityRouter(
         model_name=resolved.router_name,
-        litellm_router_instance=llm_router,
+        embrouter_router_instance=llm_router,
         complexity_router_config=resolved.complexity_router_config.model_dump(exclude_none=True),
         default_model=resolved.default_model,
         derive_savings_baseline=False,
     )
 
-    request_kwargs: Final = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    request_kwargs: Final = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data=request_data,
         user_api_key_dict=actor,
         _metadata_variable_name="metadata",
@@ -807,11 +807,11 @@ def _strategy_router_key(deployment: object) -> tuple[str, str] | None:
     """
     if not isinstance(deployment, Mapping):
         return None
-    litellm_params: Final = deployment.get("litellm_params")
+    embrouter_params: Final = deployment.get("embrouter_params")
     router_name: Final = deployment.get("model_name")
-    if not (isinstance(litellm_params, Mapping) and isinstance(router_name, str) and router_name):
+    if not (isinstance(embrouter_params, Mapping) and isinstance(router_name, str) and router_name):
         return None
-    model: Final = litellm_params.get("model")
+    model: Final = embrouter_params.get("model")
     if not isinstance(model, str):
         return None
     kind: Final = classify_strategy_router_model(model)
@@ -876,7 +876,7 @@ async def get_auto_router_benchmarks(
     serves traffic, and `routers_in_scope` counts those too rather than only the routers the
     window recorded.
     """
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     _require_admin_viewer(user_api_key_dict, "view auto-router benchmarks across the deployment")
     if prisma_client is None:
@@ -966,11 +966,11 @@ async def get_auto_router_session(
     One auto-routed session, for the key that ran it: the model its last turn was routed to and the
     session's spend against the router's savings baseline. Built for a coding agent's status line
     or stop hook, so any virtual key may call it and only ever sees rows written under its own
-    key hash. Reads the LiteLLM_AutoRouterSession rollup, which the asynchronous spend flush
+    key hash. Reads the EmbRouter_AutoRouterSession rollup, which the asynchronous spend flush
     fills a moment after each turn; a session with no flushed auto-routed turn yet is a 404. The
     id is bounded the way the writer bounded it, so an oversized client id still finds its row.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -1039,14 +1039,14 @@ async def get_auto_router_session(
 
 def _require_admin_viewer(user_api_key_dict: UserAPIKeyAuth, action: str) -> None:
     if user_api_key_dict.user_role not in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         raise HTTPException(status_code=403, detail=f"Only proxy admin roles can {action}")
 
 
 def _require_admin_writer(user_api_key_dict: UserAPIKeyAuth, action: str) -> None:
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail=f"Only a proxy admin can {action}")
 
 
@@ -1063,11 +1063,11 @@ def _is_configured_pre_routing_strategy(llm_router: "Router", router_name: str) 
 
 
 def _sdk_model_is_missing_anthropic_credentials(model: str) -> bool:
-    _, provider, _, _ = litellm.get_llm_provider(model=model)
-    if provider != "anthropic" or litellm.anthropic_key or litellm.api_key:
+    _, provider, _, _ = embrouter.get_llm_provider(model=model)
+    if provider != "anthropic" or embrouter.anthropic_key or embrouter.api_key:
         return False
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.secret_managers.main import secret_manager_would_be_consulted
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.secret_managers.main import secret_manager_would_be_consulted
 
     if AnthropicModelInfo.get_api_key() or AnthropicModelInfo.get_auth_token():
         return False
@@ -1110,7 +1110,7 @@ def _validate_plain_model(
     raise HTTPException(
         status_code=400,
         detail=(
-            f"{field_name} '{model}' uses the LiteLLM SDK but required credentials are not configured: "
+            f"{field_name} '{model}' uses the EmbRouter SDK but required credentials are not configured: "
             "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN" + _for_teams(sdk_teams)
         ),
     )
@@ -1167,7 +1167,7 @@ def _router_arm_models(llm_router: "Router | None", router_name: str) -> tuple[t
         dict.fromkeys(
             (dependency.role, dependency.model_name)
             for deployment in deployments or ()
-            for dependency in strategy_router_dependencies(deployment["litellm_params"])
+            for dependency in strategy_router_dependencies(deployment["embrouter_params"])
             if dependency.role in _JUDGED_ROLES
         )
     )
@@ -1271,7 +1271,7 @@ _ATTEMPT_AGG_COLUMNS: Final = """
 _ATTEMPT_AGG_SELECT: Final = (
     _ATTEMPT_AGG_COLUMNS
     + """
-FROM "LiteLLM_ShadowEvalAttempt"
+FROM "EmbRouter_ShadowEvalAttempt"
 WHERE job_id = ANY($1::text[]) AND outcome != 'error'
 GROUP BY 1
 """
@@ -1287,8 +1287,8 @@ _ATTEMPT_AGG_BY_ROUTER_SQL: Final = (
     "SELECT COALESCE(a.router_name, j.router_name) AS grp,"
     + _ATTEMPT_AGG_COLUMNS
     + """
-FROM "LiteLLM_ShadowEvalAttempt" a
-JOIN "LiteLLM_ShadowEvalJob" j ON j.id = a.job_id
+FROM "EmbRouter_ShadowEvalAttempt" a
+JOIN "EmbRouter_ShadowEvalJob" j ON j.id = a.job_id
 WHERE a.job_id = ANY($1::text[]) AND a.outcome != 'error'
 GROUP BY 1
 """
@@ -1298,14 +1298,14 @@ GROUP BY 1
 # reads the live counter, so admission can stop before a row-based guard would fire (safe
 # direction, and mid-deploy rows from old pods price as judge-only until the deploy ends).
 _SWEEP_FINISHED_JOBS_SQL: Final = """
-UPDATE "LiteLLM_ShadowEvalJob" j SET stopped_at = (NOW() AT TIME ZONE 'utc')
+UPDATE "EmbRouter_ShadowEvalJob" j SET stopped_at = (NOW() AT TIME ZONE 'utc')
 WHERE j.target_type = $2 AND j.target_id = ANY($1::text[]) AND j.stopped_at IS NULL
   AND (
     j.ends_at <= (NOW() AT TIME ZONE 'utc')
-    OR (SELECT COUNT(*) FROM "LiteLLM_ShadowEvalAttempt" a WHERE a.job_id = j.id) >= j.max_turns
+    OR (SELECT COUNT(*) FROM "EmbRouter_ShadowEvalAttempt" a WHERE a.job_id = j.id) >= j.max_turns
     OR (
       j.max_budget IS NOT NULL
-      AND (SELECT COALESCE(SUM(a.judge_cost + a.shadow_cost + a.shadow_classifier_cost), 0) FROM "LiteLLM_ShadowEvalAttempt" a WHERE a.job_id = j.id) >= j.max_budget
+      AND (SELECT COALESCE(SUM(a.judge_cost + a.shadow_cost + a.shadow_classifier_cost), 0) FROM "EmbRouter_ShadowEvalAttempt" a WHERE a.job_id = j.id) >= j.max_budget
     )
   )
 """
@@ -1315,14 +1315,14 @@ SELECT
     COUNT(*) FILTER (WHERE outcome != 'error')::int AS judged_count,
     COUNT(*) FILTER (WHERE outcome = 'error')::int AS error_count,
     COALESCE(SUM(judge_cost), 0)::float AS judge_spend
-FROM "LiteLLM_ShadowEvalAttempt"
+FROM "EmbRouter_ShadowEvalAttempt"
 WHERE job_id = ANY($1::text[])
 """
 
 _ATTEMPT_COUNTS_SQL: Final = """
 SELECT a.job_id, COUNT(*)::int AS attempt_count, COALESCE(SUM(a.judge_cost + a.shadow_cost + a.shadow_classifier_cost), 0)::float AS spend
-FROM "LiteLLM_ShadowEvalAttempt" a
-JOIN "LiteLLM_ShadowEvalJob" j ON j.id = a.job_id
+FROM "EmbRouter_ShadowEvalAttempt" a
+JOIN "EmbRouter_ShadowEvalJob" j ON j.id = a.job_id
 WHERE a.job_id = ANY($1::text[]) AND (j.stopped_at IS NULL OR a.created_at <= j.stopped_at)
 GROUP BY a.job_id
 """
@@ -1333,23 +1333,23 @@ SELECT COUNT(*)::int AS legs_with_rows,
     COALESCE(SUM(unjudgeable), 0)::int AS unjudgeable,
     COALESCE(SUM(shed), 0)::int AS shed,
     COALESCE(SUM(withheld), 0)::int AS withheld
-FROM "LiteLLM_ShadowEvalFunnel"
+FROM "EmbRouter_ShadowEvalFunnel"
 WHERE job_id = ANY($1::text[])
 """
 
 
 _STOP_JOB_SQL: Final = """
-UPDATE "LiteLLM_ShadowEvalJob"
+UPDATE "EmbRouter_ShadowEvalJob"
 SET stopped_by = $2, stopped_at = COALESCE(stopped_at, $3::timestamp)
 WHERE group_id = $1 AND stopped_by IS NULL
   AND ends_at > (NOW() AT TIME ZONE 'utc')
   AND EXISTS (
-    SELECT 1 FROM "LiteLLM_ShadowEvalJob" k
+    SELECT 1 FROM "EmbRouter_ShadowEvalJob" k
     WHERE k.group_id = $1 AND k.stopped_at IS NULL
-      AND (SELECT COUNT(*) FROM "LiteLLM_ShadowEvalAttempt" a WHERE a.job_id = k.id) < k.max_turns
+      AND (SELECT COUNT(*) FROM "EmbRouter_ShadowEvalAttempt" a WHERE a.job_id = k.id) < k.max_turns
       AND (
         k.max_budget IS NULL
-        OR (SELECT COALESCE(SUM(a.judge_cost + a.shadow_cost + a.shadow_classifier_cost), 0) FROM "LiteLLM_ShadowEvalAttempt" a WHERE a.job_id = k.id) < k.max_budget
+        OR (SELECT COALESCE(SUM(a.judge_cost + a.shadow_cost + a.shadow_classifier_cost), 0) FROM "EmbRouter_ShadowEvalAttempt" a WHERE a.job_id = k.id) < k.max_budget
       )
   )
 """
@@ -1373,17 +1373,17 @@ _ATTEMPT_COUNT_ROWS: Final = TypeAdapter(list[_AttemptCountRow])
 
 
 _LIST_LEGS_SQL: Final = """
-SELECT * FROM "LiteLLM_ShadowEvalJob"
+SELECT * FROM "EmbRouter_ShadowEvalJob"
 WHERE group_id IN (
-    SELECT group_id FROM "LiteLLM_ShadowEvalJob"
+    SELECT group_id FROM "EmbRouter_ShadowEvalJob"
     GROUP BY group_id ORDER BY MAX(created_at) DESC LIMIT $1::int
 )
 """
 
 _LIST_LEGS_BY_TARGET_SQL: Final = """
-SELECT * FROM "LiteLLM_ShadowEvalJob"
+SELECT * FROM "EmbRouter_ShadowEvalJob"
 WHERE group_id IN (
-    SELECT group_id FROM "LiteLLM_ShadowEvalJob" WHERE target_type = $2 AND target_id = $3
+    SELECT group_id FROM "EmbRouter_ShadowEvalJob" WHERE target_type = $2 AND target_id = $3
     GROUP BY group_id ORDER BY MAX(created_at) DESC LIMIT $1::int
 )
 """
@@ -1424,7 +1424,7 @@ def _leg_group_id(leg: "_LegRow") -> str:
 
 
 class _LegRow(BaseModel):
-    """One LiteLLM_ShadowEvalJob row, validated off the untyped prisma record. A row is
+    """One EmbRouter_ShadowEvalJob row, validated off the untyped prisma record. A row is
     one target's leg of a job; the legs of a job share group_id and identical config,
     written together by one create_many. The API's job id is the group id, so leg ids
     never leave the server (attempts reference them internally)."""
@@ -1701,7 +1701,7 @@ async def start_shadow_eval(
     seconds. Shadow and judge calls bill to the sampled request's own identity but are
     excluded from request counts and auto-router adoption metrics.
     """
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     _require_admin_writer(user_api_key_dict, "start a shadow eval")
     if prisma_client is None:
@@ -1909,7 +1909,7 @@ async def list_shadow_eval_jobs(
 ) -> tuple[ShadowEvalJobResponse, ...]:
     """List shadow eval jobs, newest first, each target with its attempt count so status
     is accurate. Judged counts, spend, and results ride the detail endpoint only."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _require_admin_viewer(user_api_key_dict, "view shadow evals")
     if prisma_client is None:
@@ -1949,7 +1949,7 @@ async def get_shadow_eval_job(
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ) -> ShadowEvalJobResponse:
     """One job with derived counts, judge spend, latest error, and stratified results."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _require_admin_viewer(user_api_key_dict, "view shadow evals")
     if prisma_client is None:
@@ -2009,7 +2009,7 @@ async def stop_shadow_eval_job(
     only while a leg still samples inside the window with no stop recorded, so a racing
     operator, a same-instant budget spend, and a repeat stop all read the same 400 with
     the status the job actually holds."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _require_admin_writer(user_api_key_dict, "stop a shadow eval")
     if prisma_client is None:

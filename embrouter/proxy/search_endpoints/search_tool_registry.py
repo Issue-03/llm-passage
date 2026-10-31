@@ -6,12 +6,12 @@ from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Final, Protocol
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy.db.exception_handler import call_with_db_reconnect_retry
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import SearchToolsRepository
-from litellm.types.search import SearchTool
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy.db.exception_handler import call_with_db_reconnect_retry
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import SearchToolsRepository
+from embrouter.types.search import SearchTool
 
 
 class SearchToolRecord(Protocol):
@@ -92,14 +92,14 @@ class SearchToolRegistry:
         """
         try:
             search_tool_name: Final = search_tool.get("search_tool_name")
-            litellm_params: Final[str] = safe_dumps(dict(search_tool.get("litellm_params", {})))
+            embrouter_params: Final[str] = safe_dumps(dict(search_tool.get("embrouter_params", {})))
             search_tool_info: Final[str] = safe_dumps(search_tool.get("search_tool_info", {}))
 
             # Create search tool in DB
             created_search_tool: Final = await _search_tools_table(prisma_client).create(
                 data={
                     "search_tool_name": search_tool_name,
-                    "litellm_params": litellm_params,
+                    "embrouter_params": embrouter_params,
                     "search_tool_info": search_tool_info,
                     "created_at": datetime.now(timezone.utc),
                     "updated_at": datetime.now(timezone.utc),
@@ -162,7 +162,7 @@ class SearchToolRegistry:
         """
         try:
             search_tool_name: Final = search_tool.get("search_tool_name")
-            litellm_params: Final[str] = safe_dumps(dict(search_tool.get("litellm_params", {})))
+            embrouter_params: Final[str] = safe_dumps(dict(search_tool.get("embrouter_params", {})))
             search_tool_info: Final[str] = safe_dumps(search_tool.get("search_tool_info", {}))
 
             # Update in DB
@@ -170,7 +170,7 @@ class SearchToolRegistry:
                 where={"search_tool_id": search_tool_id},
                 data={
                     "search_tool_name": search_tool_name,
-                    "litellm_params": litellm_params,
+                    "embrouter_params": embrouter_params,
                     "search_tool_info": search_tool_info,
                     "updated_at": datetime.now(timezone.utc),
                 },

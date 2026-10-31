@@ -1,9 +1,9 @@
 import json
 from typing import Final
 
-import litellm
-from litellm.llms.openai.completion.transformation import OpenAITextCompletionConfig
-from litellm.types.llms.databricks import GenericStreamingChunk
+import embrouter
+from embrouter.llms.openai.completion.transformation import OpenAITextCompletionConfig
+from embrouter.types.llms.databricks import GenericStreamingChunk
 
 
 class CodestralTextCompletionConfig(OpenAITextCompletionConfig):
@@ -83,7 +83,7 @@ class CodestralTextCompletionConfig(OpenAITextCompletionConfig):
         finish_reason = None
         logprobs = None
 
-        chunk_data = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(chunk_data) or ""
+        chunk_data = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(chunk_data) or ""
         chunk_data = chunk_data.strip()
         if len(chunk_data) == 0 or chunk_data == "[DONE]":
             return {
@@ -100,7 +100,7 @@ class CodestralTextCompletionConfig(OpenAITextCompletionConfig):
                 "finish_reason": finish_reason,
             }
 
-        original_chunk: Final = litellm.ModelResponseStream(**chunk_data_dict)
+        original_chunk: Final = embrouter.ModelResponseStream(**chunk_data_dict)
         _choices: Final = chunk_data_dict.get("choices", []) or []
         if len(_choices) == 0:
             return {

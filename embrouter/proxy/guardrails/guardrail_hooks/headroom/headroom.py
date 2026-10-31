@@ -14,45 +14,45 @@ from fastapi import HTTPException
 from httpx import Response as HttpxResponse
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.compression.compress import get_protected_indices
-from litellm.constants import HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.compression.compress import get_protected_indices
+from embrouter.constants import HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     get_attribute_or_key,
     get_tool_calls_from_response,
     group_tool_exchanges,
     has_tool_with_name,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]
     httpxSpecialProvider,
 )
-from litellm.proxy.guardrails.guardrail_hooks.content_text import (
+from embrouter.proxy.guardrails.guardrail_hooks.content_text import (
     assistant_text_from_response,
     content_to_text,
     is_all_text_parts,
     merge_rewritten_text_parts,
 )
-from litellm.proxy.spend_tracking.compression_savings import HEADROOM_GUARDRAIL_PROVIDER
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.integrations.custom_logger import (
+from embrouter.proxy.spend_tracking.compression_savings import HEADROOM_GUARDRAIL_PROVIDER
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.integrations.custom_logger import (
     HEADROOM_CONVERTED_STREAM_KEY,
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+from embrouter.types.utils import CallTypes, GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.anthropic_messages.transformation import BaseAnthropicMessagesConfig
-    from litellm.types.guardrails import LitellmParams
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.anthropic_messages.transformation import BaseAnthropicMessagesConfig
+    from embrouter.types.guardrails import EmbrouterParams
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 BYPASS_HEADER: Final = "x-headroom-bypass"
 _STREAM_CONVERTIBLE_CALL_TYPES: Final = frozenset(
@@ -143,7 +143,7 @@ def _tool_call_name(tool_call: Mapping[str, object]) -> str | None:
 def _is_retrieve_tool_name(name: str | None) -> bool:
     """Match the retrieve tool whether called directly or via the MCP gateway.
 
-    Server-side the tool is ``headroom_retrieve``; exposed through LiteLLM's MCP
+    Server-side the tool is ``headroom_retrieve``; exposed through EmbRouter's MCP
     gateway a client calls it as ``mcp__<server>__headroom_retrieve``.
     """
     return name is not None and (
@@ -207,7 +207,7 @@ def _retrieval_result_indices(
     """Indices of tool-result rows that carry ``headroom_retrieve`` output.
 
     When the retrieve tool is exposed to a client that runs its own tool loop
-    (the LiteLLM MCP gateway path), the client executes the call and sends the
+    (the EmbRouter MCP gateway path), the client executes the call and sends the
     recovered original content back as a tool result on the next turn. That
     content is exactly what a prior compression stubbed, so compressing it again
     re-derives the identical content hash: a no-op that strands the model on the
@@ -234,7 +234,7 @@ def _protected_indices(
 ) -> frozenset[int]:
     """Indices headroom must not send to the compression service.
 
-    ``get_protected_indices`` is litellm's own compression policy: the system
+    ``get_protected_indices`` is embrouter's own compression policy: the system
     rows, the last user row, the last assistant row. Rows carrying just-retrieved
     ``headroom_retrieve`` output are added so re-compression can't collapse them
     back to the marker they were expanded from. The union is expanded over whole
@@ -349,13 +349,13 @@ def _build_headroom_retrieve_tool() -> dict[str, object]:
 
 
 def _resolve_call_id(logging_obj: object, request_state: dict[str, object]) -> str | None:
-    """Resolve the litellm_call_id shared by a request's pre-call hook and its
+    """Resolve the embrouter_call_id shared by a request's pre-call hook and its
     agentic-loop hooks, so CCR hash validation can be scoped per call instead
     of trusting any hash-shaped string that shows up in message text."""
-    logging_call_id: Final = getattr(logging_obj, "litellm_call_id", None)
+    logging_call_id: Final = getattr(logging_obj, "embrouter_call_id", None)
     if isinstance(logging_call_id, str) and logging_call_id:
         return logging_call_id
-    kwargs_call_id: Final = request_state.get("litellm_call_id")
+    kwargs_call_id: Final = request_state.get("embrouter_call_id")
     return kwargs_call_id if isinstance(kwargs_call_id, str) else None
 
 
@@ -555,10 +555,10 @@ class HeadroomGuardrail(CustomGuardrail):
         seconds: Final = _COMPRESS_TIMEOUT_SECONDS if timeout is None or rejected else timeout
         return httpx.Timeout(timeout=seconds, connect=min(seconds, HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS))
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
         """Re-resolve the timeout, which the base implementation would otherwise null out."""
-        super().update_in_memory_litellm_params(litellm_params)
-        self.timeout = self._resolve_timeout(litellm_params.timeout)
+        super().update_in_memory_embrouter_params(embrouter_params)
+        self.timeout = self._resolve_timeout(embrouter_params.timeout)
 
     def _prune_expired_hashes(self) -> None:
         now: Final = time.monotonic()
@@ -609,7 +609,7 @@ class HeadroomGuardrail(CustomGuardrail):
                 False,
                 {},
             )
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.TransportError, litellm.Timeout) as e:
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.TransportError, embrouter.Timeout) as e:
             return _CompressResult(
                 self._handle_compress_failure(
                     messages,
@@ -737,7 +737,7 @@ class HeadroomGuardrail(CustomGuardrail):
                 headers=self._request_headers(),
                 timeout=self.timeout,
             )
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.TransportError, litellm.Timeout) as e:
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.TransportError, embrouter.Timeout) as e:
             verbose_proxy_logger.warning("Headroom: retrieve failed for hash=%s: %s", hash_value, e)
             return f"[Headroom: retrieval failed for hash={hash_value}]"
 
@@ -770,7 +770,7 @@ class HeadroomGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if input_type != "request":
             return inputs
@@ -817,7 +817,7 @@ class HeadroomGuardrail(CustomGuardrail):
         )
         end_time: Final = time.time()
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -863,7 +863,7 @@ class HeadroomGuardrail(CustomGuardrail):
         call_id = _resolve_call_id(logging_obj, request_data)
         if not call_id:
             call_id = str(uuid.uuid4())
-            request_data["litellm_call_id"] = call_id
+            request_data["embrouter_call_id"] = call_id
         self._issued_hashes_by_call_id[call_id] = (frozenset(hashes), time.monotonic() + _HASH_CACHE_TTL_SECONDS)
 
         existing_tools: Final = inputs.get("tools")
@@ -923,7 +923,7 @@ class HeadroomGuardrail(CustomGuardrail):
         response: object,
         anthropic_messages_provider_config: BaseAnthropicMessagesConfig | None,
         anthropic_messages_optional_request_params: dict,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -940,7 +940,7 @@ class HeadroomGuardrail(CustomGuardrail):
             hash_value = str(raw_hash).lower()
             query = arguments.get("query") if isinstance(arguments, dict) else None
             # A hash is only honored if it was issued by *this request's own*
-            # Headroom /v1/compress call, scoped by litellm_call_id. Scoping by
+            # Headroom /v1/compress call, scoped by embrouter_call_id. Scoping by
             # message text alone is forgeable -- an attacker can plant a
             # hash-shaped string in their own prompt, and a hash issued for one
             # request would validate for any other request that echoes it back.
@@ -991,7 +991,7 @@ class HeadroomGuardrail(CustomGuardrail):
                 max_tokens=max_tokens,
                 optional_params=optional_params_without_max_tokens,
                 kwargs={
-                    k: v for k, v in kwargs.items() if not k.startswith("_headroom") and k != "litellm_logging_obj"
+                    k: v for k, v in kwargs.items() if not k.startswith("_headroom") and k != "embrouter_logging_obj"
                 },
             ),
             metadata={"tool_type": "headroom_ccr"},
@@ -999,7 +999,7 @@ class HeadroomGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel[object]] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.headroom import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.headroom import (
             HeadroomGuardrailConfigModel,
         )
 

@@ -20,12 +20,12 @@ import jwt as pyjwt
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
     HttpxTokenEndpointTransport,
     RefreshFailure,
     RefreshingSSOAssertionStore,
@@ -34,7 +34,7 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_r
     default_sso_assertion_store,
     sso_client_config,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     AssertionStoreUnavailable,
     SSOIdentityAssertion,
 )
@@ -45,13 +45,13 @@ TOKEN_ENDPOINT = "https://idp.example.com/token"
 
 _CLIENT = SSOClientConfig(
     token_endpoint=TOKEN_ENDPOINT,
-    client_id="litellm",
+    client_id="embrouter",
     client_secret=SecretStr("s3cret"),
     auth_method="client_secret_basic",
 )
 _POST_CLIENT = SSOClientConfig(
     token_endpoint=TOKEN_ENDPOINT,
-    client_id="litellm",
+    client_id="embrouter",
     client_secret=SecretStr("s3cret"),
     auth_method="client_secret_post",
 )
@@ -191,7 +191,7 @@ async def test_a_basic_auth_login_gets_a_basic_auth_refresh():
 
     await _store(rows, transport).fetch("alice")
 
-    expected = base64.b64encode(b"litellm:s3cret").decode()
+    expected = base64.b64encode(b"embrouter:s3cret").decode()
     assert transport.headers[0]["Authorization"] == f"Basic {expected}"
     _url, form = transport.calls[0]
     assert "client_secret" not in form
@@ -210,7 +210,7 @@ async def test_a_body_credential_login_gets_a_body_credential_refresh():
 
     assert "Authorization" not in transport.headers[0]
     _url, form = transport.calls[0]
-    assert form["client_id"] == "litellm"
+    assert form["client_id"] == "embrouter"
     assert form["client_secret"] == "s3cret"
 
 
@@ -228,7 +228,7 @@ def test_the_auth_method_follows_the_flag_the_login_reads(include_client_id, exp
     parses it, so the renewal cannot pick a method the sign-in did not use."""
     env = {
         "GENERIC_TOKEN_ENDPOINT": TOKEN_ENDPOINT,
-        "GENERIC_CLIENT_ID": "litellm",
+        "GENERIC_CLIENT_ID": "embrouter",
         "GENERIC_CLIENT_SECRET": "s3cret",
         **({"GENERIC_INCLUDE_CLIENT_ID": include_client_id} if include_client_id is not None else {}),
     }
@@ -690,10 +690,10 @@ async def test_the_in_process_coordinator_is_retried_until_redis_appears():
     "env",
     [
         {},
-        {"GENERIC_CLIENT_ID": "litellm", "GENERIC_CLIENT_SECRET": "s"},
+        {"GENERIC_CLIENT_ID": "embrouter", "GENERIC_CLIENT_SECRET": "s"},
         {"GENERIC_TOKEN_ENDPOINT": TOKEN_ENDPOINT, "GENERIC_CLIENT_SECRET": "s"},
-        {"GENERIC_TOKEN_ENDPOINT": TOKEN_ENDPOINT, "GENERIC_CLIENT_ID": "litellm"},
-        {"GENERIC_TOKEN_ENDPOINT": "", "GENERIC_CLIENT_ID": "litellm", "GENERIC_CLIENT_SECRET": "s"},
+        {"GENERIC_TOKEN_ENDPOINT": TOKEN_ENDPOINT, "GENERIC_CLIENT_ID": "embrouter"},
+        {"GENERIC_TOKEN_ENDPOINT": "", "GENERIC_CLIENT_ID": "embrouter", "GENERIC_CLIENT_SECRET": "s"},
     ],
 )
 def test_a_partial_sso_client_is_no_client(env):
@@ -706,14 +706,14 @@ def test_the_configured_sso_client_is_the_one_the_login_used():
     config = sso_client_config(
         {
             "GENERIC_TOKEN_ENDPOINT": TOKEN_ENDPOINT,
-            "GENERIC_CLIENT_ID": "litellm",
+            "GENERIC_CLIENT_ID": "embrouter",
             "GENERIC_CLIENT_SECRET": "s3cret",
         }
     )
 
     assert config is not None
     assert config.token_endpoint == TOKEN_ENDPOINT
-    assert config.client_id == "litellm"
+    assert config.client_id == "embrouter"
     assert config.client_secret.get_secret_value() == "s3cret"
 
 

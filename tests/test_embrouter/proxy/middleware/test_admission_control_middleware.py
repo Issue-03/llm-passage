@@ -6,7 +6,7 @@ import pytest
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from litellm.proxy.middleware.admission_control_middleware import (
+from embrouter.proxy.middleware.admission_control_middleware import (
     AdmissionControlMetrics,
     AdmissionControlMiddleware,
     AdmissionControlSettings,
@@ -345,9 +345,9 @@ def test_create_prometheus_admission_metrics_registers_named_metrics() -> None:
         metrics.admitted_gauge.inc()
         metrics.queued_gauge.inc()
         metrics.rejected_counter.labels(reason="queue_full").inc()
-        assert REGISTRY.get_sample_value("litellm_admission_admitted_requests") == 1.0
-        assert REGISTRY.get_sample_value("litellm_admission_queued_requests") == 1.0
-    assert REGISTRY.get_sample_value("litellm_admission_rejected_requests_total", {"reason": "queue_full"}) is not None
+        assert REGISTRY.get_sample_value("embrouter_admission_admitted_requests") == 1.0
+        assert REGISTRY.get_sample_value("embrouter_admission_queued_requests") == 1.0
+    assert REGISTRY.get_sample_value("embrouter_admission_rejected_requests_total", {"reason": "queue_full"}) is not None
     assert create_prometheus_admission_metrics() is None
 
 

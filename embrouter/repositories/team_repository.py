@@ -1,5 +1,5 @@
 """
-Team repository for database operations on LiteLLM_TeamTable.
+Team repository for database operations on EmbRouter_TeamTable.
 """
 
 import json
@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 from pydantic import TypeAdapter
 
-from litellm.models.team import LiteLLM_TeamTable, Member
-from litellm.repositories.base_repository import (
+from embrouter.models.team import EmbRouter_TeamTable, Member
+from embrouter.repositories.base_repository import (
     BaseRepository,
     DbRecord,
     record_to_dict,
 )
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import Prisma
@@ -36,7 +36,7 @@ class _TeamArrays(Protocol):
     def models(self) -> Sequence[str]: ...
 
 
-def _team_arrays(team: LiteLLM_TeamTable) -> _TeamArrays:
+def _team_arrays(team: EmbRouter_TeamTable) -> _TeamArrays:
     """View a team's untyped list columns as sequences of ids."""
     return team
 
@@ -45,10 +45,10 @@ class _TeamTables(Protocol):
     """The two team tables this repository reads and writes."""
 
     @property
-    def litellm_teamtable(self) -> TableActions["prisma_models.LiteLLM_TeamTable"]: ...
+    def embrouter_teamtable(self) -> TableActions["prisma_models.EmbRouter_TeamTable"]: ...
 
     @property
-    def litellm_deletedteamtable(self) -> TableActions["prisma_models.LiteLLM_DeletedTeamTable"]: ...
+    def embrouter_deletedteamtable(self) -> TableActions["prisma_models.EmbRouter_DeletedTeamTable"]: ...
 
 
 class _TeamTransactionManager(Protocol):
@@ -85,7 +85,7 @@ _JSON_ENCODED_TEAM_FIELDS: Final = (
 )
 
 
-class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
+class TeamRepository(BaseRepository[EmbRouter_TeamTable]):
     """Repository for team database operations."""
 
     def __init__(self, prisma_client: object, *, use_writer: bool = False) -> None:
@@ -98,18 +98,18 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         return client.writer_db if self._use_writer else client.db
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_TeamTable"]:
-        return self._db.litellm_teamtable
+    def table(self) -> TableActions["prisma_models.EmbRouter_TeamTable"]:
+        return self._db.embrouter_teamtable
 
     @property
-    def deleted_table(self) -> TableActions["prisma_models.LiteLLM_DeletedTeamTable"]:
-        return self._db.litellm_deletedteamtable
+    def deleted_table(self) -> TableActions["prisma_models.EmbRouter_DeletedTeamTable"]:
+        return self._db.embrouter_deletedteamtable
 
     @property
-    def model_class(self) -> type[LiteLLM_TeamTable]:
-        return LiteLLM_TeamTable
+    def model_class(self) -> type[EmbRouter_TeamTable]:
+        return EmbRouter_TeamTable
 
-    def _to_model(self, record: DbRecord | None) -> LiteLLM_TeamTable | None:
+    def _to_model(self, record: DbRecord | None) -> EmbRouter_TeamTable | None:
         """Convert a database record to a Team model."""
         if record is None:
             return None
@@ -119,7 +119,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
             for field, value in record_to_dict(record).items()
         }
 
-        return LiteLLM_TeamTable.model_validate(data)
+        return EmbRouter_TeamTable.model_validate(data)
 
     async def get_members_with_roles_locked(self, tx: "Prisma", team_id: str) -> list[Member] | None:
         """Return the team's members_with_roles. The caller must already hold
@@ -131,13 +131,13 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
 
         A plain read is enough here because the advisory lock, not a row lock, is what
         serializes this against a concurrent writer: ``SELECT ... FOR UPDATE`` would
-        additionally take a row lock on ``LiteLLM_TeamTable``, and the access-group
+        additionally take a row lock on ``EmbRouter_TeamTable``, and the access-group
         endpoints lock an access group and then a team row, so a team-row-first lock
         here can deadlock with them. The advisory lock cannot, since those endpoints
         never take it.
         """
         rows: Final = await tx.query_raw(
-            'SELECT members_with_roles FROM "LiteLLM_TeamTable" WHERE team_id = $1',
+            'SELECT members_with_roles FROM "EmbRouter_TeamTable" WHERE team_id = $1',
             team_id,
         )
         if not rows:
@@ -148,27 +148,27 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
             return []
         return _MEMBERS_WITH_ROLES_ADAPTER.validate_python(parsed)
 
-    async def find_by_id(self, team_id: str, id_field: str = "team_id") -> LiteLLM_TeamTable | None:
+    async def find_by_id(self, team_id: str, id_field: str = "team_id") -> EmbRouter_TeamTable | None:
         return await super().find_by_id(team_id, id_field)
 
-    async def find_by_alias(self, team_alias: str) -> LiteLLM_TeamTable | None:
+    async def find_by_alias(self, team_alias: str) -> EmbRouter_TeamTable | None:
         """Find a team by alias."""
         records: Final = await self.table.find_many(where={"team_alias": team_alias})
         if records:
             return self._to_model(records[0])
         return None
 
-    async def find_by_organization_id(self, organization_id: str) -> list[LiteLLM_TeamTable]:
+    async def find_by_organization_id(self, organization_id: str) -> list[EmbRouter_TeamTable]:
         """Find all teams belonging to an organization."""
         records: Final = await self.table.find_many(where={"organization_id": organization_id})
         return self._to_model_list(records)
 
-    async def find_by_member(self, user_id: str) -> list[LiteLLM_TeamTable]:
+    async def find_by_member(self, user_id: str) -> list[EmbRouter_TeamTable]:
         """Find all teams where user is a member."""
         records: Final = await self.table.find_many(where={"members": {"has": user_id}})
         return self._to_model_list(records)
 
-    async def find_by_admin(self, user_id: str) -> list[LiteLLM_TeamTable]:
+    async def find_by_admin(self, user_id: str) -> list[EmbRouter_TeamTable]:
         """Find all teams where user is an admin."""
         records: Final = await self.table.find_many(where={"admins": {"has": user_id}})
         return self._to_model_list(records)
@@ -190,7 +190,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         rpm_limit: int | None = None,
         budget_duration: str | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_TeamTable:
+    ) -> EmbRouter_TeamTable:
         """Create a new team."""
         data: Final[dict[str, object]] = {"team_id": team_id}
         if team_alias is not None:
@@ -242,7 +242,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         budget_duration: str | None = None,
         blocked: bool | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_TeamTable | None:
+    ) -> EmbRouter_TeamTable | None:
         """Update a team."""
         data: Final[dict[str, object]] = {}
         if team_alias is not None:
@@ -283,8 +283,8 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         team_id: str,
         deleted_by: str | None = None,
         deleted_by_api_key: str | None = None,
-        litellm_changed_by: str | None = None,
-    ) -> LiteLLM_TeamTable | None:
+        embrouter_changed_by: str | None = None,
+    ) -> EmbRouter_TeamTable | None:
         """Delete a team and archive it to the deleted teams table.
 
         Uses a transaction to ensure atomicity of the archive-then-delete operation.
@@ -296,17 +296,17 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         archive_data: Final = self._build_archive_data(team)
         archive_data["deleted_by"] = deleted_by
         archive_data["deleted_by_api_key"] = deleted_by_api_key
-        archive_data["litellm_changed_by"] = litellm_changed_by
+        archive_data["embrouter_changed_by"] = embrouter_changed_by
         archive_data["deleted_at"] = datetime.utcnow()
 
         async with self._db.tx() as tx:
-            await tx.litellm_deletedteamtable.create(data=archive_data)
-            await tx.litellm_teamtable.delete(where={"team_id": team_id})
+            await tx.embrouter_deletedteamtable.create(data=archive_data)
+            await tx.embrouter_teamtable.delete(where={"team_id": team_id})
 
         return team
 
-    def _build_archive_data(self, team: LiteLLM_TeamTable) -> dict[str, object]:
-        """Build archive data dict with only columns that exist in LiteLLM_DeletedTeamTable."""
+    def _build_archive_data(self, team: EmbRouter_TeamTable) -> dict[str, object]:
+        """Build archive data dict with only columns that exist in EmbRouter_DeletedTeamTable."""
         data: Final[dict[str, object]] = {"team_id": team.team_id}
         if team.team_alias is not None:
             data["team_alias"] = team.team_alias
@@ -351,11 +351,11 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         data["allow_team_guardrail_config"] = team.allow_team_guardrail_config
         return data
 
-    async def update_spend(self, team_id: str, spend: float) -> LiteLLM_TeamTable | None:
+    async def update_spend(self, team_id: str, spend: float) -> EmbRouter_TeamTable | None:
         """Update team spend."""
         return await self.update(team_id, {"spend": spend}, id_field="team_id")
 
-    async def add_member(self, team_id: str, user_id: str) -> LiteLLM_TeamTable | None:
+    async def add_member(self, team_id: str, user_id: str) -> EmbRouter_TeamTable | None:
         """Add a member to a team using atomic array push operation."""
         if not await self.exists(team_id, id_field="team_id"):
             return None
@@ -366,7 +366,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         )
         return self._to_model(record)
 
-    async def remove_member(self, team_id: str, user_id: str) -> LiteLLM_TeamTable | None:
+    async def remove_member(self, team_id: str, user_id: str) -> EmbRouter_TeamTable | None:
         """Remove a member from a team.
 
         Note: Prisma doesn't support atomic array removal, so we use a
@@ -380,7 +380,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         members: Final = [m for m in _team_arrays(team).members if m != user_id]
         return await self.update(team_id, {"members": members}, id_field="team_id")
 
-    async def add_admin(self, team_id: str, user_id: str) -> LiteLLM_TeamTable | None:
+    async def add_admin(self, team_id: str, user_id: str) -> EmbRouter_TeamTable | None:
         """Add an admin to a team using atomic array push operation."""
         if not await self.exists(team_id, id_field="team_id"):
             return None
@@ -391,7 +391,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         )
         return self._to_model(record)
 
-    async def remove_admin(self, team_id: str, user_id: str) -> LiteLLM_TeamTable | None:
+    async def remove_admin(self, team_id: str, user_id: str) -> EmbRouter_TeamTable | None:
         """Remove an admin from a team.
 
         Note: Prisma doesn't support atomic array removal, so we use a
@@ -405,7 +405,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         admins: Final = [a for a in _team_arrays(team).admins if a != user_id]
         return await self.update(team_id, {"admins": admins}, id_field="team_id")
 
-    async def add_models(self, team_id: str, models: list[str]) -> LiteLLM_TeamTable | None:
+    async def add_models(self, team_id: str, models: list[str]) -> EmbRouter_TeamTable | None:
         """Add models to a team's allowed models list using atomic array push."""
         if not await self.exists(team_id, id_field="team_id"):
             return None
@@ -416,7 +416,7 @@ class TeamRepository(BaseRepository[LiteLLM_TeamTable]):
         )
         return self._to_model(record)
 
-    async def remove_models(self, team_id: str, models: list[str]) -> LiteLLM_TeamTable | None:
+    async def remove_models(self, team_id: str, models: list[str]) -> EmbRouter_TeamTable | None:
         """Remove models from a team's allowed models list.
 
         Note: Prisma doesn't support atomic array removal, so we use a

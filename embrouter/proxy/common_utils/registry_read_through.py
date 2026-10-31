@@ -15,19 +15,19 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
 
 if TYPE_CHECKING:
     from prisma.types import (
-        LiteLLM_AgentsTableInclude,
-        LiteLLM_AgentsTableWhereUniqueInput,
-        LiteLLM_GuardrailsTableWhereInput,
-        LiteLLM_ProxyModelTableWhereInput,
+        EmbRouter_AgentsTableInclude,
+        EmbRouter_AgentsTableWhereUniqueInput,
+        EmbRouter_GuardrailsTableWhereInput,
+        EmbRouter_ProxyModelTableWhereInput,
     )
 
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.types.agents import AgentResponse
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.types.agents import AgentResponse
 
 READ_THROUGH_MISS_TTL_SECONDS: Final = 2.0
 READ_THROUGH_RESYNC_WINDOW_SECONDS: Final = 5.0
@@ -97,7 +97,7 @@ class RegistryReadThrough:
 
 
 def _db_backed_registries_enabled(object_type: str) -> bool:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     if proxy_server.prisma_client is None or proxy_server.store_model_in_db is not True:
         return False
@@ -105,16 +105,16 @@ def _db_backed_registries_enabled(object_type: str) -> bool:
 
 
 async def _resync_model_deployments(model_name: str) -> bool:
-    from litellm.proxy import proxy_server
-    from litellm.repositories.model_repository import ModelRepository
+    from embrouter.proxy import proxy_server
+    from embrouter.repositories.model_repository import ModelRepository
 
     if not _db_backed_registries_enabled("models"):
         return False
     prisma_client: Final = proxy_server.prisma_client
     assert prisma_client is not None
     table: Final = ModelRepository(prisma_client).table
-    name_filter: Final[LiteLLM_ProxyModelTableWhereInput] = {"model_name": model_name}
-    id_filter: Final[LiteLLM_ProxyModelTableWhereInput] = {"model_id": model_name}
+    name_filter: Final[EmbRouter_ProxyModelTableWhereInput] = {"model_name": model_name}
+    id_filter: Final[EmbRouter_ProxyModelTableWhereInput] = {"model_id": model_name}
     rows: Final = await table.find_many(where=name_filter) or await table.find_many(where=id_filter)
     if not rows:
         return False
@@ -132,19 +132,19 @@ async def _resync_model_deployments(model_name: str) -> bool:
 
 
 async def _resync_guardrails(guardrail_name: str) -> bool:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.guardrails.guardrail_registry import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.guardrails.guardrail_registry import (
         GUARDRAIL_RECONCILE_LOCK,
         IN_MEMORY_GUARDRAIL_HANDLER,
     )
-    from litellm.repositories.table_repositories import GuardrailsRepository
-    from litellm.types.guardrails import Guardrail
+    from embrouter.repositories.table_repositories import GuardrailsRepository
+    from embrouter.types.guardrails import Guardrail
 
     if not _db_backed_registries_enabled("guardrails"):
         return False
     prisma_client: Final = proxy_server.prisma_client
     assert prisma_client is not None
-    active_row_filter: Final[LiteLLM_GuardrailsTableWhereInput] = {
+    active_row_filter: Final[EmbRouter_GuardrailsTableWhereInput] = {
         "guardrail_name": guardrail_name,
         "status": "active",
     }
@@ -157,13 +157,13 @@ async def _resync_guardrails(guardrail_name: str) -> bool:
 
 
 async def _resync_agents(agent_id_or_name: str) -> bool:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.agent_registry import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints.agent_registry import (
         AGENT_RECONCILE_LOCK,
         agents_table,
         global_agent_registry,
     )
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     if not _db_backed_registries_enabled("agents"):
         return False
@@ -172,9 +172,9 @@ async def _resync_agents(agent_id_or_name: str) -> bool:
     prisma_client: Final = proxy_server.prisma_client
     assert prisma_client is not None
     table: Final = agents_table(prisma_client)
-    id_filter: Final[LiteLLM_AgentsTableWhereUniqueInput] = {"agent_id": agent_id_or_name}
-    name_filter: Final[LiteLLM_AgentsTableWhereUniqueInput] = {"agent_name": agent_id_or_name}
-    include_permission: Final[LiteLLM_AgentsTableInclude] = {
+    id_filter: Final[EmbRouter_AgentsTableWhereUniqueInput] = {"agent_id": agent_id_or_name}
+    name_filter: Final[EmbRouter_AgentsTableWhereUniqueInput] = {"agent_name": agent_id_or_name}
+    include_permission: Final[EmbRouter_AgentsTableInclude] = {
         "object_permission": True,
         "identity": True,
     }
@@ -196,7 +196,7 @@ agent_registry_read_through: Final = RegistryReadThrough(resync=_resync_agents)
 
 
 def _agent_from_registry(agent_id_or_name: str) -> "AgentResponse | None":
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     by_id: Final = global_agent_registry.get_agent_by_id(agent_id=agent_id_or_name)
     if by_id is not None:
@@ -214,7 +214,7 @@ async def get_agent_with_read_through(agent_id_or_name: str) -> "AgentResponse |
 
 
 def _initialized_guardrail(guardrail_name: str) -> "CustomGuardrail | None":
-    from litellm.proxy.guardrails import guardrail_endpoints
+    from embrouter.proxy.guardrails import guardrail_endpoints
 
     return guardrail_endpoints.GUARDRAIL_REGISTRY.get_initialized_guardrail_callback(guardrail_name=guardrail_name)
 

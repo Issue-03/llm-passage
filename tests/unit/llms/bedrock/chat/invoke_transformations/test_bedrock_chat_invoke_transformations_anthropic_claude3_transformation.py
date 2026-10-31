@@ -10,14 +10,14 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `embrouter` can be imported when
 # tests are executed from any working directory.
 
-import litellm
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
+import embrouter
+from embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -27,8 +27,8 @@ ONE_PIXEL_PNG = base64.b64decode(
 
 @pytest.fixture
 def async_only_image_fetch(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import factory, image_handling
-    from litellm.llms.gemini.chat import transformation as gemini_chat_transformation
+    from embrouter.embrouter_core_utils.prompt_templates import factory, image_handling
+    from embrouter.llms.gemini.chat import transformation as gemini_chat_transformation
 
     fetch = SimpleNamespace(
         fetched=[],
@@ -37,7 +37,7 @@ def async_only_image_fetch(monkeypatch):
     )
 
     def forbid_sync_fetch(client, url, **kwargs):
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise embrouter.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client, url, **kwargs):
         fetch.fetched.append(url)
@@ -50,7 +50,7 @@ def async_only_image_fetch(monkeypatch):
 
     def forbid_sync_convert(url, *args, **kwargs):
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise embrouter.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling, "safe_get", forbid_sync_fetch)
@@ -68,24 +68,24 @@ def local_model_cost_map(monkeypatch):
     ``get_model_info`` is lru_cached, so swapping ``model_cost`` is not enough on its
     own; clear on the way in and out so entries warmed against either map never leak
     across tests."""
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
+    embrouter.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_model_cost
+        embrouter.get_model_info.cache_clear()
 
 
 @pytest.fixture
 def local_beta_headers_config(monkeypatch):
     """Pin the bundled ``anthropic_beta_headers_config.json`` so beta header assertions
     do not depend on the network-fetched copy or on what earlier tests left cached."""
-    from litellm.anthropic_beta_headers_manager import reload_beta_headers_config
+    from embrouter.anthropic_beta_headers_manager import reload_beta_headers_config
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     reload_beta_headers_config()
     yield
     reload_beta_headers_config()
@@ -140,7 +140,7 @@ def test_aws_params_filtered_from_request_body():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params=optional_params.copy(),  # Copy to avoid mutation
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -218,10 +218,10 @@ def test_output_format_conversion_to_inline_schema():
     """
     Test that output_format is converted to inline schema in message content for Bedrock Invoke.
 
-    Bedrock Invoke doesn't support the output_format parameter, so LiteLLM converts it by
+    Bedrock Invoke doesn't support the output_format parameter, so EmbRouter converts it by
     embedding the schema directly into the user message content.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -257,7 +257,7 @@ def test_output_format_conversion_to_inline_schema():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -300,7 +300,7 @@ def test_output_format_conversion_with_string_content():
     """
     Test that output_format conversion works when message content is a string (not a list).
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -324,7 +324,7 @@ def test_output_format_conversion_with_string_content():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -348,7 +348,7 @@ def test_output_format_with_no_schema():
     """
     Test that if output_format has no schema, the conversion is skipped gracefully.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -369,7 +369,7 @@ def test_output_format_with_no_schema():
         model="anthropic.claude-sonnet-4-20250514-v1:0",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -387,7 +387,7 @@ def test_opus_4_5_model_detection():
     Test that the _is_claude_opus_4_5 method correctly identifies Opus 4.5 models
     with various naming conventions.
     """
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -440,7 +440,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         embrouter_params={},
 #         headers=headers,
 #     )
 
@@ -456,7 +456,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         embrouter_params={},
 #         headers=headers,
 #     )
 
@@ -472,7 +472,7 @@ def test_opus_4_5_model_detection():
 #         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
 #         messages=messages,
 #         optional_params={},
-#         litellm_params={},
+#         embrouter_params={},
 #         headers=headers,
 #     )
 
@@ -501,7 +501,7 @@ def test_output_config_forwarded_for_bedrock_chat_invoke_request():
         model="anthropic.claude-opus-4-7",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -519,7 +519,7 @@ def test_output_config_format_converted_for_bedrock_chat_invoke_request():
     }
 
     with patch(  # test-quality-ok: pin non-native path
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "embrouter.llms.bedrock.common_utils._bedrock_model_supports",
         side_effect=lambda _model, key: key == "supports_output_config",
     ):
         result = config.transform_request(
@@ -532,7 +532,7 @@ def test_output_config_format_converted_for_bedrock_chat_invoke_request():
                     "format": {"type": "json_schema", "schema": schema},
                 },
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -555,7 +555,7 @@ def test_output_config_format_inlined_for_bedrock_chat_invoke_opus_4_7_and_4_8(l
             "max_tokens": 100,
             "output_config": {"effort": "xhigh", "format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -578,7 +578,7 @@ def test_output_config_format_forwarded_for_bedrock_chat_invoke_request(local_mo
             "max_tokens": 100,
             "output_config": {"effort": "max", "format": schema_format},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -607,7 +607,7 @@ def test_output_config_effort_normalized_for_bedrock_chat_invoke_request(
             "max_tokens": 100,
             "output_config": {"effort": "xhigh"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -620,14 +620,14 @@ def test_bedrock_chat_invoke_checks_output_config_support_with_bedrock_provider(
     optional_params = {"max_tokens": 100, "output_config": {"effort": "high"}}
 
     with patch(
-        "litellm.llms.bedrock.common_utils._bedrock_model_supports",
+        "embrouter.llms.bedrock.common_utils._bedrock_model_supports",
         return_value=True,
     ) as mock_supports_factory:
         result = config.transform_request(
             model="us.anthropic.claude-opus-4-7",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -662,7 +662,7 @@ def test_output_format_removed_from_bedrock_invoke_request():
         model="anthropic.claude-4-0-sonnet-20250514-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -695,7 +695,7 @@ def test_bedrock_chat_invoke_forwards_output_config_format_natively(local_model_
             "max_tokens": 100,
             "output_config": {"format": schema_format},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -706,9 +706,9 @@ def test_bedrock_chat_invoke_forwards_output_config_format_natively(local_model_
 def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local_model_cost_map, monkeypatch):
     """``drop_params=True`` must not eat ``output_config.format`` before the
     native-forwarding router runs (Sonnet 4.5 has no effort flags)."""
-    import litellm
+    import embrouter
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     schema_format = {
         "type": "json_schema",
         "schema": {"type": "object", "properties": {"zebra_count": {"type": "integer"}}},
@@ -718,7 +718,7 @@ def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local
         model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=[{"role": "user", "content": "say hello"}],
         optional_params={"max_tokens": 100, "output_config": {"format": schema_format}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -728,9 +728,9 @@ def test_bedrock_chat_invoke_drop_params_keeps_native_output_config_format(local
 def test_bedrock_chat_invoke_drop_params_still_inlines_for_non_native(local_model_cost_map, monkeypatch):
     """``drop_params=True`` on a model without native structured-output support
     still reaches the inline-schema fallback instead of losing the schema."""
-    import litellm
+    import embrouter
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     schema = {"type": "object", "properties": {"zebra_count": {"type": "integer"}}}
 
     result = AmazonAnthropicClaudeConfig().transform_request(
@@ -740,7 +740,7 @@ def test_bedrock_chat_invoke_drop_params_still_inlines_for_non_native(local_mode
             "max_tokens": 100,
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -842,7 +842,7 @@ async def test_bedrock_invoke_claude_async_completion_inlines_remote_images_off_
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/invoke/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -887,7 +887,7 @@ async def test_bedrock_invoke_claude_async_completion_inlines_document_url_sourc
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/invoke/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -950,7 +950,7 @@ def test_bedrock_chat_invoke_tool_search_beta_follows_model_map(
                 },
             ],
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -976,7 +976,7 @@ def _chat_invoke_request_with_tools(
         model=model,
         messages=[{"role": "user", "content": "write a big file"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers or {},
     )
 
@@ -1031,7 +1031,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="invoke/us.anthropic.claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1047,7 +1047,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="invoke/us.anthropic.claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1101,7 +1101,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
     request must be a byte-identical prefix of turn N+1's or the block is dropped."""
     requests = [
         AmazonAnthropicClaudeConfig().transform_request(
-            model="invoke/us.anthropic.claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, litellm_params={}, headers={}
+            model="invoke/us.anthropic.claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, embrouter_params={}, headers={}
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
     ]

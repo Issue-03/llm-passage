@@ -10,26 +10,26 @@ from typing import TYPE_CHECKING, Any, Final
 
 from httpx._models import Headers, Response
 
-import litellm
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
-from litellm.utils import token_counter
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
+from embrouter.utils import token_counter
 
 from ..common_utils import SagemakerError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class SagemakerConfig(BaseConfig):
@@ -154,7 +154,7 @@ class SagemakerConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         inference_params: Final = optional_params.copy()
@@ -163,9 +163,9 @@ class SagemakerConfig(BaseConfig):
         if stream is True:
             data["stream"] = True
 
-        custom_prompt_dict: Final = litellm_params.get("custom_prompt_dict", None) or litellm.custom_prompt_dict
+        custom_prompt_dict: Final = embrouter_params.get("custom_prompt_dict", None) or embrouter.custom_prompt_dict
 
-        hf_model_name: Final = litellm_params.get("hf_model_name", None)
+        hf_model_name: Final = embrouter_params.get("hf_model_name", None)
 
         prompt: Final = self._transform_prompt(
             model=model,
@@ -182,21 +182,21 @@ class SagemakerConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        return await asyncify(self.transform_request)(model, messages, optional_params, litellm_params, headers)
+        return await asyncify(self.transform_request)(model, messages, optional_params, embrouter_params, headers)
 
     def transform_response(
         self,
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -231,7 +231,7 @@ class SagemakerConfig(BaseConfig):
             model_response.choices[0].message.content = completion_output
         except Exception:
             raise SagemakerError(
-                message=f"LiteLLM Error: Unable to parse sagemaker RAW RESPONSE {json.dumps(completion_response)}",
+                message=f"EmbRouter Error: Unable to parse sagemaker RAW RESPONSE {json.dumps(completion_response)}",
                 status_code=500,
             )
 
@@ -260,7 +260,7 @@ class SagemakerConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

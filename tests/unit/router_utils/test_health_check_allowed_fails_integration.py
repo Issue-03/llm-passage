@@ -10,16 +10,16 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.proxy.health_check import run_with_timeout
-from litellm.router import Router
-from litellm.types.router import AllowedFailsPolicy
+import embrouter
+from embrouter.proxy.health_check import run_with_timeout
+from embrouter.router import Router
+from embrouter.types.router import AllowedFailsPolicy
 
 
 def _make_model(model_id: str, model_name: str = "gpt-4") -> dict:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model_name, "api_key": "fake-key"},
+        "embrouter_params": {"model": model_name, "api_key": "fake-key"},
         "model_info": {"id": model_id},
     }
 
@@ -29,7 +29,7 @@ class TestAhealthCheckExceptionPreservation:
 
     @pytest.mark.asyncio
     async def test_run_with_timeout_returns_timeout_exception(self):
-        """run_with_timeout should return a litellm.Timeout in the 'exception' key on timeout."""
+        """run_with_timeout should return a embrouter.Timeout in the 'exception' key on timeout."""
         import asyncio
 
         async def slow_task():
@@ -39,7 +39,7 @@ class TestAhealthCheckExceptionPreservation:
 
         assert "error" in result
         assert "exception" in result
-        assert isinstance(result["exception"], litellm.Timeout)
+        assert isinstance(result["exception"], embrouter.Timeout)
 
 
 class TestHealthCheckEndpointExceptionPropagation:
@@ -52,21 +52,21 @@ class TestHealthCheckEndpointExceptionPropagation:
         """
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy.health_check import _perform_health_check
+        from embrouter.proxy.health_check import _perform_health_check
 
-        auth_error = litellm.AuthenticationError(
+        auth_error = embrouter.AuthenticationError(
             message="Invalid key", llm_provider="openai", model="gpt-4"
         )
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {"id": "deploy-abc"},
             }
         ]
 
         with patch(
-            "litellm.proxy.health_check.litellm.ahealth_check",
+            "embrouter.proxy.health_check.embrouter.ahealth_check",
             new=AsyncMock(
                 return_value={"error": "auth failed", "exception": auth_error}
             ),
@@ -83,22 +83,22 @@ class TestHealthCheckEndpointExceptionPropagation:
         exceptions_by_model_id — not in the endpoint dict."""
         from unittest.mock import patch
 
-        from litellm.proxy.health_check import _perform_health_check
+        from embrouter.proxy.health_check import _perform_health_check
 
-        raw_exc = litellm.RateLimitError(
+        raw_exc = embrouter.RateLimitError(
             message="Rate limited", llm_provider="openai", model="gpt-4"
         )
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {"id": "deploy-xyz"},
             }
         ]
 
         # Simulate asyncio.gather returning a raw exception for this task
         with patch(
-            "litellm.proxy.health_check._run_model_health_check",
+            "embrouter.proxy.health_check._run_model_health_check",
             side_effect=raw_exc,
         ):
             healthy, unhealthy, exc_map = await _perform_health_check(model_list)
@@ -114,15 +114,15 @@ class TestGetAllowedFailsFromPolicyWithHealthCheckExceptions:
     @pytest.mark.parametrize(
         "exception_type, policy_field, threshold",
         [
-            (litellm.Timeout, "TimeoutErrorAllowedFails", 5),
-            (litellm.AuthenticationError, "AuthenticationErrorAllowedFails", 3),
-            (litellm.RateLimitError, "RateLimitErrorAllowedFails", 10),
+            (embrouter.Timeout, "TimeoutErrorAllowedFails", 5),
+            (embrouter.AuthenticationError, "AuthenticationErrorAllowedFails", 3),
+            (embrouter.RateLimitError, "RateLimitErrorAllowedFails", 10),
             (
-                litellm.ContentPolicyViolationError,
+                embrouter.ContentPolicyViolationError,
                 "ContentPolicyViolationErrorAllowedFails",
                 2,
             ),
-            (litellm.BadRequestError, "BadRequestErrorAllowedFails", 7),
+            (embrouter.BadRequestError, "BadRequestErrorAllowedFails", 7),
         ],
     )
     def test_policy_resolves_for_health_check_exception_types(
@@ -157,7 +157,7 @@ class TestHealthCheckCooldownIntegration:
 
     def test_health_check_failure_increments_failed_calls(self):
         """Health check failure should increment the failed_calls counter."""
-        from litellm.router_utils.cooldown_handlers import (
+        from embrouter.router_utils.cooldown_handlers import (
             should_cooldown_based_on_allowed_fails_policy,
         )
 
@@ -166,13 +166,13 @@ class TestHealthCheckCooldownIntegration:
             allowed_fails_policy=AllowedFailsPolicy(TimeoutErrorAllowedFails=3),
         )
 
-        timeout_exc = litellm.Timeout(
+        timeout_exc = embrouter.Timeout(
             message="Health check timeout", model="gpt-4", llm_provider="openai"
         )
 
         # First call: should not cooldown (1 <= 3)
         result = should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="deploy-1",
             original_exception=timeout_exc,
         )
@@ -184,7 +184,7 @@ class TestHealthCheckCooldownIntegration:
 
     def test_health_check_failure_triggers_cooldown_at_threshold(self):
         """After exceeding allowed_fails threshold, deployment should enter cooldown."""
-        from litellm.router_utils.cooldown_handlers import (
+        from embrouter.router_utils.cooldown_handlers import (
             should_cooldown_based_on_allowed_fails_policy,
         )
 
@@ -193,14 +193,14 @@ class TestHealthCheckCooldownIntegration:
             allowed_fails_policy=AllowedFailsPolicy(AuthenticationErrorAllowedFails=2),
         )
 
-        auth_exc = litellm.AuthenticationError(
+        auth_exc = embrouter.AuthenticationError(
             message="Invalid key", model="gpt-4", llm_provider="openai"
         )
 
         # Fails 1 and 2: should not cooldown
         for _ in range(2):
             result = should_cooldown_based_on_allowed_fails_policy(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="deploy-1",
                 original_exception=auth_exc,
             )
@@ -208,7 +208,7 @@ class TestHealthCheckCooldownIntegration:
 
         # Fail 3: should trigger cooldown (3 > 2)
         result = should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="deploy-1",
             original_exception=auth_exc,
         )
@@ -216,7 +216,7 @@ class TestHealthCheckCooldownIntegration:
 
     def test_health_check_failure_falls_back_to_allowed_fails(self):
         """When policy has no matching field, fall back to generic allowed_fails."""
-        from litellm.router_utils.cooldown_handlers import (
+        from embrouter.router_utils.cooldown_handlers import (
             should_cooldown_based_on_allowed_fails_policy,
         )
 
@@ -233,7 +233,7 @@ class TestHealthCheckCooldownIntegration:
 
         # Fail 1: should not cooldown (1 <= 1)
         result = should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="deploy-1",
             original_exception=generic_exc,
         )
@@ -241,7 +241,7 @@ class TestHealthCheckCooldownIntegration:
 
         # Fail 2: should trigger cooldown (2 > 1)
         result = should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="deploy-1",
             original_exception=generic_exc,
         )
@@ -249,7 +249,7 @@ class TestHealthCheckCooldownIntegration:
 
     def test_healthy_endpoints_do_not_trigger_cooldown(self):
         """Healthy endpoints should not increment any failure counters."""
-        from litellm.router_utils.cooldown_handlers import _set_cooldown_deployments
+        from embrouter.router_utils.cooldown_handlers import _set_cooldown_deployments
 
         router = Router(
             model_list=[_make_model("deploy-1")],
@@ -268,7 +268,7 @@ class TestHealthCheckCooldownIntegration:
 
     def test_disable_cooldowns_prevents_health_check_cooldown(self):
         """When disable_cooldowns=True, health check failures should not trigger cooldown."""
-        from litellm.router_utils.cooldown_handlers import _set_cooldown_deployments
+        from embrouter.router_utils.cooldown_handlers import _set_cooldown_deployments
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -277,12 +277,12 @@ class TestHealthCheckCooldownIntegration:
             disable_cooldowns=True,
         )
 
-        timeout_exc = litellm.Timeout(
+        timeout_exc = embrouter.Timeout(
             message="Health check timeout", model="gpt-4", llm_provider="openai"
         )
 
         result = _set_cooldown_deployments(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             original_exception=timeout_exc,
             exception_status=500,
             deployment="deploy-1",
@@ -296,8 +296,8 @@ class TestWriteHealthStateIntegration:
 
     def test_unhealthy_endpoint_triggers_set_cooldown(self):
         """_write_health_state_to_router_cache should call _set_cooldown_deployments for unhealthy endpoints."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -305,7 +305,7 @@ class TestWriteHealthStateIntegration:
             enable_health_check_routing=True,
         )
 
-        timeout_exc = litellm.Timeout(
+        timeout_exc = embrouter.Timeout(
             message="Health check timeout", model="", llm_provider=""
         )
 
@@ -318,7 +318,7 @@ class TestWriteHealthStateIntegration:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 _write_health_state_to_router_cache(
                     healthy_endpoints=healthy_endpoints,
@@ -326,7 +326,7 @@ class TestWriteHealthStateIntegration:
                     exceptions_by_model_id={"deploy-1": timeout_exc},
                 )
                 mock_cooldown.assert_called_once_with(
-                    litellm_router_instance=router,
+                    embrouter_router_instance=router,
                     original_exception=timeout_exc,
                     exception_status=408,  # Timeout has status_code 408
                     deployment="deploy-1",
@@ -335,8 +335,8 @@ class TestWriteHealthStateIntegration:
 
     def test_unhealthy_endpoint_without_exception_skips_cooldown(self):
         """Unhealthy endpoints without an exception key should not trigger cooldown."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1")],
@@ -350,7 +350,7 @@ class TestWriteHealthStateIntegration:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 _write_health_state_to_router_cache(
                     healthy_endpoints=[],
@@ -361,8 +361,8 @@ class TestWriteHealthStateIntegration:
 
     def test_unhealthy_endpoint_increments_failure_counter(self):
         """Unhealthy endpoints should call increment_deployment_failures_for_current_minute."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -370,7 +370,7 @@ class TestWriteHealthStateIntegration:
             enable_health_check_routing=True,
         )
 
-        rate_exc = litellm.RateLimitError(
+        rate_exc = embrouter.RateLimitError(
             message="Rate limited", model="gpt-4", llm_provider="openai"
         )
 
@@ -380,10 +380,10 @@ class TestWriteHealthStateIntegration:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.router_callbacks.track_deployment_metrics.increment_deployment_failures_for_current_minute"
+                "embrouter.router_utils.router_callbacks.track_deployment_metrics.increment_deployment_failures_for_current_minute"
             ) as mock_increment:
                 with patch(
-                    "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                    "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
                 ):
                     _write_health_state_to_router_cache(
                         healthy_endpoints=[],
@@ -391,7 +391,7 @@ class TestWriteHealthStateIntegration:
                         exceptions_by_model_id={"deploy-1": rate_exc},
                     )
                     mock_increment.assert_called_once_with(
-                        litellm_router_instance=router,
+                        embrouter_router_instance=router,
                         deployment_id="deploy-1",
                     )
 
@@ -406,8 +406,8 @@ class TestHealthCheckFilterBypassWithPolicy:
         """Binary health check filter is a no-op when allowed_fails_policy is configured."""
         import time
 
-        from litellm.caching.caching import DualCache
-        from litellm.router_utils.health_state_cache import DeploymentHealthCache
+        from embrouter.caching.caching import DualCache
+        from embrouter.router_utils.health_state_cache import DeploymentHealthCache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -441,8 +441,8 @@ class TestHealthCheckFilterBypassWithPolicy:
         """Binary health check filter still works when no allowed_fails_policy is configured."""
         import time
 
-        from litellm.caching.caching import DualCache
-        from litellm.router_utils.health_state_cache import DeploymentHealthCache
+        from embrouter.caching.caching import DualCache
+        from embrouter.router_utils.health_state_cache import DeploymentHealthCache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -473,8 +473,8 @@ class TestHealthCheckFilterBypassWithPolicy:
         """Async version also bypasses when allowed_fails_policy is set."""
         import time
 
-        from litellm.caching.caching import DualCache
-        from litellm.router_utils.health_state_cache import DeploymentHealthCache
+        from embrouter.caching.caching import DualCache
+        from embrouter.router_utils.health_state_cache import DeploymentHealthCache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -505,8 +505,8 @@ class TestHealthCheckFilterBypassWithPolicy:
     def _make_scoped_router_with_unhealthy(self, policy) -> Router:
         import time
 
-        from litellm.caching.caching import DualCache
-        from litellm.router_utils.health_state_cache import DeploymentHealthCache
+        from embrouter.caching.caching import DualCache
+        from embrouter.router_utils.health_state_cache import DeploymentHealthCache
 
         router = Router(
             model_list=[
@@ -591,7 +591,7 @@ class TestAllDeploymentsInCooldownSafetyNet:
         returns the full list instead of empty (safety net)."""
         from unittest.mock import AsyncMock
 
-        from litellm.router_utils.cooldown_handlers import (
+        from embrouter.router_utils.cooldown_handlers import (
             _async_get_cooldown_deployments,
         )
 
@@ -605,7 +605,7 @@ class TestAllDeploymentsInCooldownSafetyNet:
 
         # Simulate all deployments in cooldown
         with patch(
-            "litellm.router._async_get_cooldown_deployments",
+            "embrouter.router._async_get_cooldown_deployments",
             new=AsyncMock(return_value=["deploy-1", "deploy-2"]),
         ):
             # The safety net in async_get_available_deployment should restore
@@ -634,8 +634,8 @@ class TestHealthCheckIgnoreTransientErrors:
 
     def test_429_skipped_when_flag_enabled(self):
         """429 from health check does not trigger cooldown when flag is set."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -644,7 +644,7 @@ class TestHealthCheckIgnoreTransientErrors:
             health_check_ignore_transient_errors=True,
         )
 
-        rate_exc = litellm.RateLimitError(
+        rate_exc = embrouter.RateLimitError(
             message="Rate limited", model="gpt-4", llm_provider="openai"
         )
         assert getattr(rate_exc, "status_code", None) == 429
@@ -655,10 +655,10 @@ class TestHealthCheckIgnoreTransientErrors:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 with patch(
-                    "litellm.router_utils.router_callbacks.track_deployment_metrics.increment_deployment_failures_for_current_minute"
+                    "embrouter.router_utils.router_callbacks.track_deployment_metrics.increment_deployment_failures_for_current_minute"
                 ) as mock_increment:
                     _write_health_state_to_router_cache(
                         healthy_endpoints=[],
@@ -670,8 +670,8 @@ class TestHealthCheckIgnoreTransientErrors:
 
     def test_408_skipped_when_flag_enabled(self):
         """408 from health check does not trigger cooldown when flag is set."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -680,7 +680,7 @@ class TestHealthCheckIgnoreTransientErrors:
             health_check_ignore_transient_errors=True,
         )
 
-        timeout_exc = litellm.Timeout(
+        timeout_exc = embrouter.Timeout(
             message="Health check timeout exceeded", model="", llm_provider=""
         )
 
@@ -690,7 +690,7 @@ class TestHealthCheckIgnoreTransientErrors:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 _write_health_state_to_router_cache(
                     healthy_endpoints=[],
@@ -701,8 +701,8 @@ class TestHealthCheckIgnoreTransientErrors:
 
     def test_401_still_triggers_cooldown_when_flag_enabled(self):
         """Auth errors (401) still trigger cooldown even when flag is set."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -711,7 +711,7 @@ class TestHealthCheckIgnoreTransientErrors:
             health_check_ignore_transient_errors=True,
         )
 
-        auth_exc = litellm.AuthenticationError(
+        auth_exc = embrouter.AuthenticationError(
             message="Invalid key", model="gpt-4", llm_provider="openai"
         )
 
@@ -721,7 +721,7 @@ class TestHealthCheckIgnoreTransientErrors:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 _write_health_state_to_router_cache(
                     healthy_endpoints=[],
@@ -733,8 +733,8 @@ class TestHealthCheckIgnoreTransientErrors:
     def test_429_not_written_to_health_state_cache_when_flag_enabled(self):
         """429 endpoint is excluded from health state cache when flag is set,
         so the binary health check filter does not mark it as unhealthy."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1")],
@@ -742,7 +742,7 @@ class TestHealthCheckIgnoreTransientErrors:
             health_check_ignore_transient_errors=True,
         )
 
-        rate_exc = litellm.RateLimitError(
+        rate_exc = embrouter.RateLimitError(
             message="Rate limited", model="gpt-4", llm_provider="openai"
         )
 
@@ -764,8 +764,8 @@ class TestHealthCheckIgnoreTransientErrors:
 
     def test_429_triggers_cooldown_when_flag_disabled(self):
         """When flag is False (default), 429 still triggers cooldown."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -774,7 +774,7 @@ class TestHealthCheckIgnoreTransientErrors:
             health_check_ignore_transient_errors=False,
         )
 
-        rate_exc = litellm.RateLimitError(
+        rate_exc = embrouter.RateLimitError(
             message="Rate limited", model="gpt-4", llm_provider="openai"
         )
 
@@ -784,7 +784,7 @@ class TestHealthCheckIgnoreTransientErrors:
 
         with patch.object(proxy_module, "llm_router", router):
             with patch(
-                "litellm.router_utils.cooldown_handlers._set_cooldown_deployments"
+                "embrouter.router_utils.cooldown_handlers._set_cooldown_deployments"
             ) as mock_cooldown:
                 _write_health_state_to_router_cache(
                     healthy_endpoints=[],
@@ -803,8 +803,8 @@ class TestSharedCacheTransientErrorFilter:
 
     def test_cached_429_excluded_via_exception_status_field(self):
         """Cache-hit path: endpoint with exception_status=429 is excluded from health state."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],
@@ -830,8 +830,8 @@ class TestSharedCacheTransientErrorFilter:
 
     def test_cached_401_still_marked_unhealthy(self):
         """Cache-hit path: endpoint with exception_status=401 is still written as unhealthy."""
-        import litellm.proxy.proxy_server as proxy_module
-        from litellm.proxy.proxy_server import _write_health_state_to_router_cache
+        import embrouter.proxy.proxy_server as proxy_module
+        from embrouter.proxy.proxy_server import _write_health_state_to_router_cache
 
         router = Router(
             model_list=[_make_model("deploy-1"), _make_model("deploy-2", "gpt-5")],

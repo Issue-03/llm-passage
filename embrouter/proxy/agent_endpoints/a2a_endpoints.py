@@ -4,10 +4,10 @@
 # values flow in as Unknown. The rule is off file-wide rather than scattering per-line
 # ignores across every SDK and JSON-RPC call.
 """
-A2A Protocol endpoints for LiteLLM Proxy.
+A2A Protocol endpoints for EmbRouter Proxy.
 
-Allows clients to invoke agents through LiteLLM using the A2A protocol.
-The A2A SDK can point to LiteLLM's URL and invoke agents registered with LiteLLM.
+Allows clients to invoke agents through EmbRouter using the A2A protocol.
+The A2A SDK can point to EmbRouter's URL and invoke agents registered with EmbRouter.
 """
 
 import json
@@ -21,36 +21,36 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.url_utils import SSRFError, validate_url
-from litellm.llms.a2a.common_utils import resolve_a2a_hop_auth_header
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.a2a.version_convert import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.url_utils import SSRFError, validate_url
+from embrouter.llms.a2a.common_utils import resolve_a2a_hop_auth_header
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.a2a.version_convert import (
     A2AVersion,
     normalize_agent_card,
     normalize_jsonrpc_response,
     normalize_request_params,
     normalize_stream_event,
 )
-from litellm.proxy.agent_endpoints.databricks_oauth import (
+from embrouter.proxy.agent_endpoints.databricks_oauth import (
     DATABRICKS_OAUTH_PARAM,
     resolve_databricks_app_auth_header,
 )
-from litellm.proxy.agent_endpoints.utils import merge_agent_headers
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.sse_keepalive import (
+from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.sse_keepalive import (
     SSE_COMMENT_PING,
     coerce_keepalive_interval,
     wrap_sse_stream_with_keepalive_pings,
 )
-from litellm.proxy.utils import ProxyLogging, get_custom_url
-from litellm.types.utils import all_litellm_params
+from embrouter.proxy.utils import ProxyLogging, get_custom_url
+from embrouter.types.utils import all_embrouter_params
 
 if TYPE_CHECKING:
     from a2a.compat.v0_3.types import MessageSendParams
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
 router: Final = APIRouter()
 
@@ -118,7 +118,7 @@ def _build_message_send_params(params: dict[str, Any]) -> "MessageSendParams":
 
 
 def _served_version(agent: "AgentResponse", request: Request, original_method: str | None = None) -> A2AVersion:
-    """Protocol version LiteLLM serves for this agent.
+    """Protocol version EmbRouter serves for this agent.
 
     The agent's configured version governs. For agents that pin no version, fall back
     to the client's signal: PascalCase JSON-RPC methods and an ``a2a-version: 1.x``
@@ -155,8 +155,8 @@ def _caller_identity_headers(user_api_key_dict: UserAPIKeyAuth) -> Mapping[str, 
         {
             name: value
             for name, value in (
-                ("X-LiteLLM-User-Id", user_id),
-                ("X-LiteLLM-Team-Id", team_id),
+                ("X-EmbRouter-User-Id", user_id),
+                ("X-EmbRouter-Team-Id", team_id),
             )
             if value
         }
@@ -164,12 +164,12 @@ def _caller_identity_headers(user_api_key_dict: UserAPIKeyAuth) -> Mapping[str, 
 
 
 async def _resolve_backend_auth_header(
-    litellm_params: dict[str, object],
+    embrouter_params: dict[str, object],
     custom_llm_provider: object,
 ) -> Mapping[str, str] | None:
-    if litellm_params.get(DATABRICKS_OAUTH_PARAM):
-        return await resolve_databricks_app_auth_header(litellm_params)
-    return await resolve_a2a_hop_auth_header(litellm_params, custom_llm_provider)
+    if embrouter_params.get(DATABRICKS_OAUTH_PARAM):
+        return await resolve_databricks_app_auth_header(embrouter_params)
+    return await resolve_a2a_hop_auth_header(embrouter_params, custom_llm_provider)
 
 
 def _forwarding_headers(
@@ -183,10 +183,10 @@ def _forwarding_headers(
     passthrough: Final = tuple(
         (name, value)
         for name, value in (agent_extra_headers.items() if agent_extra_headers else ())
-        if not name.lower().startswith("x-litellm-") and name.lower() not in minted_names
+        if not name.lower().startswith("x-embrouter-") and name.lower() not in minted_names
     )
-    trace_id: Final = request_data.get("litellm_trace_id")
-    trace: Final = (("X-LiteLLM-Trace-Id", str(trace_id)),) if trace_id else ()
+    trace_id: Final = request_data.get("embrouter_trace_id")
+    trace: Final = (("X-EmbRouter-Trace-Id", str(trace_id)),) if trace_id else ()
     merged: Final = dict((*passthrough, *caller_identity.items(), *trace, *backend_auth))
     return merged or None
 
@@ -210,7 +210,7 @@ def _jsonrpc_error(
 
 async def _get_agent(agent_id: str) -> "AgentResponse | None":
     """Look up an agent by ID or name. Returns None if not found."""
-    from litellm.proxy.common_utils.registry_read_through import (
+    from embrouter.proxy.common_utils.registry_read_through import (
         get_agent_with_read_through,
     )
 
@@ -218,19 +218,19 @@ async def _get_agent(agent_id: str) -> "AgentResponse | None":
 
 
 def _enforce_inbound_trace_id(agent: "AgentResponse", request: Request) -> None:
-    """Raise 400 if agent requires x-litellm-trace-id on inbound calls and it is missing."""
-    agent_litellm_params: Final = agent.litellm_params or {}
-    if not agent_litellm_params.get("require_trace_id_on_calls_to_agent"):
+    """Raise 400 if agent requires x-embrouter-trace-id on inbound calls and it is missing."""
+    agent_embrouter_params: Final = agent.embrouter_params or {}
+    if not agent_embrouter_params.get("require_trace_id_on_calls_to_agent"):
         return
 
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     headers_dict: Final = dict(request.headers)
     trace_id: Final = get_chain_id_from_headers(headers_dict)
     if not trace_id:
         raise HTTPException(
             status_code=400,
-            detail=(f"Agent '{agent.agent_id}' requires x-litellm-trace-id header on all inbound requests."),
+            detail=(f"Agent '{agent.agent_id}' requires x-embrouter-trace-id header on all inbound requests."),
         )
 
 
@@ -248,8 +248,8 @@ async def _forward_jsonrpc(
     body: dict[str, object],
     extra_headers: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     headers: Final = {"Content-Type": "application/json", **(extra_headers or {})}
     handler: Final = get_async_httpx_client(
@@ -279,9 +279,9 @@ async def _a2a_sse_event_source(
     Upstream HTTP/JSON-RPC errors are surfaced as a single JSON-RPC error event
     so the caller can relay them instead of breaking the stream.
     """
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.agents import _normalize_a2a_jsonrpc_response
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.agents import _normalize_a2a_jsonrpc_response
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     headers: Final = {
         "Content-Type": "application/json",
@@ -335,7 +335,7 @@ def _sse_streaming_response(generator: AsyncGenerator[str, None]) -> StreamingRe
     # time-to-first-token and an intermediary with an idle read timeout drops a
     # healthy connection. Off until an operator sets an interval, and the
     # buffering hint only goes out when there are keepalives to protect.
-    keepalive_interval: Final = coerce_keepalive_interval(litellm.sse_keepalive_ping_interval_seconds)
+    keepalive_interval: Final = coerce_keepalive_interval(embrouter.sse_keepalive_ping_interval_seconds)
     if keepalive_interval is None:
         return StreamingResponse(generator, media_type="text/event-stream")
     return StreamingResponse(
@@ -386,7 +386,7 @@ async def _forward_jsonrpc_sse(
         # Route streamed events through the shared streaming generator so the
         # post-call streaming hook (and therefore agent guardrails) inspects
         # tasks/resubscribe output the same way message/stream does.
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -413,7 +413,7 @@ async def _handle_stream_message(
     api_base: str | None,
     request_id: str | int,
     params: dict[str, object],
-    litellm_params: dict[str, object] | None = None,
+    embrouter_params: dict[str, object] | None = None,
     agent_id: str | None = None,
     metadata: dict[str, object] | None = None,
     proxy_server_request: dict[str, object] | None = None,
@@ -433,8 +433,8 @@ async def _handle_stream_message(
     common_request_processing.async_streaming_data_generator so proxy hooks and
     cost injection apply.
     """
-    from litellm.a2a_protocol import asend_message_streaming
-    from litellm.a2a_protocol.main import A2A_SDK_AVAILABLE
+    from embrouter.a2a_protocol import asend_message_streaming
+    from embrouter.a2a_protocol.main import A2A_SDK_AVAILABLE
 
     if not A2A_SDK_AVAILABLE:
 
@@ -487,7 +487,7 @@ async def _handle_stream_message(
             a2a_stream: Final = asend_message_streaming(
                 request=a2a_request,
                 api_base=api_base,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 agent_id=agent_id,
                 metadata=metadata,
                 proxy_server_request=proxy_server_request,
@@ -500,7 +500,7 @@ async def _handle_stream_message(
                 and request_data is not None
                 and proxy_logging_obj is not None
             ):
-                from litellm.proxy.common_request_processing import (
+                from embrouter.proxy.common_request_processing import (
                     ProxyBaseLLMRequestProcessing,
                 )
 
@@ -585,10 +585,10 @@ async def get_agent_card(
     - /.well-known/agent-card.json
     - /.well-known/agent.json
 
-    The URL in the agent card is rewritten to point to the LiteLLM proxy,
-    so all subsequent A2A calls go through LiteLLM for logging and cost tracking.
+    The URL in the agent card is rewritten to point to the EmbRouter proxy,
+    so all subsequent A2A calls go through EmbRouter for logging and cost tracking.
     """
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
         AgentRequestHandler,
     )
 
@@ -660,10 +660,10 @@ async def invoke_agent_a2a(
     - message/send: Send a message and get a response
     - message/stream: Send a message and stream the response
     """
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
         AgentRequestHandler,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         proxy_config,
         proxy_logging_obj,
@@ -691,15 +691,15 @@ async def invoke_agent_a2a(
             method = _PASCAL_TO_WIRE.get(method, method)
 
         if isinstance(params, dict):
-            # extract any litellm params from the params - eg. 'guardrails'
+            # extract any embrouter params from the params - eg. 'guardrails'
             # ``metadata`` is intentionally excluded: it's a first-class A2A
             # ``MessageSendParams`` field that the completion bridge forwards
             # downstream via ``get_forward_metadata``. Stripping it here would
-            # collide with litellm's spend-tracking ``metadata`` kwarg and
+            # collide with embrouter's spend-tracking ``metadata`` kwarg and
             # silently drop the caller's A2A request-level metadata.
             params_to_remove: Final = []
             for key, value in params.items():
-                if key in all_litellm_params and key not in {"id", "metadata"}:
+                if key in all_embrouter_params and key not in {"id", "metadata"}:
                     params_to_remove.append(key)
                     body[key] = value
             for key in params_to_remove:
@@ -731,20 +731,20 @@ async def invoke_agent_a2a(
         agent_url: Final = agent_card_params.get("url")
         agent_name: Final = agent_card_params.get("name", agent_id)
 
-        # Get litellm_params (may include custom_llm_provider for completion bridge)
-        litellm_params: dict[str, object] = agent.litellm_params or {}
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+        # Get embrouter_params (may include custom_llm_provider for completion bridge)
+        embrouter_params: dict[str, object] = agent.embrouter_params or {}
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
 
         # Hand the authenticated key hash to the completion bridge so provider
         # configs can scope provider-side session state per key (e.g. LangFlow
         # session memory) instead of trusting the client-supplied A2A contextId.
         if custom_llm_provider and user_api_key_dict.api_key:
-            from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+            from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
                 A2A_USER_API_KEY_HASH_PARAM,
             )
 
-            litellm_params = {
-                **litellm_params,
+            embrouter_params = {
+                **embrouter_params,
                 A2A_USER_API_KEY_HASH_PARAM: user_api_key_dict.api_key,
             }
 
@@ -757,7 +757,7 @@ async def invoke_agent_a2a(
             "Proxying A2A request to agent '%s' at %s", agent_id, agent_url or "completion-bridge"
         )
 
-        # Set up data dict for litellm processing
+        # Set up data dict for embrouter processing
         if "metadata" not in body:
             body["metadata"] = {}
         body["metadata"]["agent_id"] = agent.agent_id
@@ -774,8 +774,8 @@ async def invoke_agent_a2a(
             }
         )
 
-        # Add litellm data (user_api_key, user_id, team_id, etc.)
-        from litellm.proxy.common_request_processing import (
+        # Add embrouter data (user_api_key, user_id, team_id, etc.)
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -825,14 +825,14 @@ async def invoke_agent_a2a(
                 dynamic_headers=dynamic_headers or None,
                 static_headers=static_headers or None,
             ),
-            backend_auth_header=await _resolve_backend_auth_header(litellm_params, custom_llm_provider),
+            backend_auth_header=await _resolve_backend_auth_header(embrouter_params, custom_llm_provider),
         )
 
         # Merge agent-level guardrails into data so post_call_success_hook and
         # _handle_stream_message both pick them up.  A2A agents use model
         # a2a_agent/*, which is not an llm_router deployment, so
         # _check_and_merge_model_level_guardrails() skips them.
-        _agent_guardrails = litellm_params.get("guardrails")
+        _agent_guardrails = embrouter_params.get("guardrails")
         if _agent_guardrails:
             if not isinstance(_agent_guardrails, list):
                 _agent_guardrails = [_agent_guardrails]
@@ -843,8 +843,8 @@ async def invoke_agent_a2a(
 
         # Route through SDK functions
         if method == "message/send":
-            from litellm.a2a_protocol import asend_message
-            from litellm.a2a_protocol.main import A2A_SDK_AVAILABLE
+            from embrouter.a2a_protocol import asend_message
+            from embrouter.a2a_protocol.main import A2A_SDK_AVAILABLE
 
             if not A2A_SDK_AVAILABLE:
                 return _jsonrpc_error(
@@ -871,11 +871,11 @@ async def invoke_agent_a2a(
                 model=f"a2a_agent/{agent_name}",
                 request=a2a_request,
                 api_base=agent_url,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 agent_id=agent.agent_id,
                 metadata=data.get("metadata", {}),
                 proxy_server_request=data.get("proxy_server_request"),
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 agent_extra_headers=agent_extra_headers,
             )
 
@@ -911,7 +911,7 @@ async def invoke_agent_a2a(
                 api_base=agent_url,
                 request_id=request_id if request_id is not None else "",
                 params=params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 agent_id=agent.agent_id,
                 metadata=data.get("metadata", {}),
                 proxy_server_request=data.get("proxy_server_request"),
@@ -978,9 +978,9 @@ async def invoke_agent_a2a(
                     result["result"] = normalize_agent_card(card, served_version)
             else:
                 result = normalize_jsonrpc_response(result, served_version, method=method)
-            from litellm.types.agents import LiteLLMSendMessageResponse
+            from embrouter.types.agents import EmbRouterSendMessageResponse
 
-            response = LiteLLMSendMessageResponse.from_dict(result, request_id=request_id)
+            response = EmbRouterSendMessageResponse.from_dict(result, request_id=request_id)
             response = await proxy_logging_obj.post_call_success_hook(
                 user_api_key_dict=user_api_key_dict,
                 data=data,
@@ -1029,6 +1029,6 @@ async def invoke_agent_a2a(
             )
         except Exception:
             pass
-        if isinstance(e, litellm.BadRequestError):
+        if isinstance(e, embrouter.BadRequestError):
             return _jsonrpc_error(body.get("id"), -32602, e.message, 400)
         return _jsonrpc_error(body.get("id"), -32603, f"Internal error: {e}", 500)

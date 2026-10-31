@@ -441,7 +441,7 @@ const PromptInfoView: React.FC<PromptInfoProps> = ({
                 <div className="space-y-4">
                   <div>
                     <p className="font-medium">Template ID</p>
-                    <div className="font-mono text-sm bg-muted p-2 rounded-sm">{promptTemplate.litellm_prompt_id}</div>
+                    <div className="font-mono text-sm bg-muted p-2 rounded-sm">{promptTemplate.embrouter_prompt_id}</div>
                   </div>
 
                   <div>

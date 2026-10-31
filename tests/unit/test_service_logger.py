@@ -1,5 +1,5 @@
 """
-Tests for litellm/_service_logger.py
+Tests for embrouter/_service_logger.py
 
 Regression test for KeyError: 'call_type' when async_log_success_event
 is called without call_type in kwargs (e.g. from batch polling callbacks).
@@ -9,9 +9,9 @@ import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
-import litellm
-from litellm._service_logger import ServiceLogging
-from litellm.types.services import ServiceTypes
+import embrouter
+from embrouter._service_logger import ServiceLogging
+from embrouter.types.services import ServiceTypes
 
 
 @pytest.mark.asyncio
@@ -101,7 +101,7 @@ async def test_async_log_success_event_should_handle_float_duration():
 
 @pytest.mark.asyncio
 async def test_async_log_success_event_forwards_start_and_end_time():
-    """The LITELLM service span must carry its real execution window, so
+    """The EMBROUTER service span must carry its real execution window, so
     ``async_log_success_event`` forwards ``start_time``/``end_time`` to the service
     hook. Without forwarding, the span emits with a synthetic now() boundary
     instead of the call's actual timing."""
@@ -138,9 +138,9 @@ def _make_otel_v2_logger():
         InMemorySpanExporter,
     )
 
-    from litellm.integrations.otel import OpenTelemetryV2Config
-    from litellm.integrations.otel.plumbing import providers
-    from litellm.integrations.otel.logger import OpenTelemetryV2
+    from embrouter.integrations.otel import OpenTelemetryV2Config
+    from embrouter.integrations.otel.plumbing import providers
+    from embrouter.integrations.otel.logger import OpenTelemetryV2
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     exporter = InMemorySpanExporter()
@@ -161,7 +161,7 @@ def test_resolve_otel_service_logger_recognizes_otel_string(monkeypatch):
     # The "otel" string path resolves through the proxy's registered logger, so
     # it needs the proxy server module importable.
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
     service_logger = ServiceLogging()
@@ -179,16 +179,16 @@ def test_resolve_otel_service_logger_ignores_unrelated_callback():
 
 @pytest.mark.asyncio
 async def test_service_span_emitted_for_v2_logger_in_service_callback(monkeypatch):
-    """End-to-end: a V2 logger registered in ``litellm.service_callback`` produces
+    """End-to-end: a V2 logger registered in ``embrouter.service_callback`` produces
     a service span when ``async_service_success_hook`` fires with a parent span."""
-    from litellm.integrations.otel.model.spans import SpanRole
+    from embrouter.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
         SpanRole.PROXY_REQUEST, "POST /chat/completions"
     )
 
-    monkeypatch.setattr(litellm, "service_callback", [v2_logger])
+    monkeypatch.setattr(embrouter, "service_callback", [v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_success_hook(
@@ -213,10 +213,10 @@ async def test_service_span_not_duplicated_for_string_and_instance(monkeypatch):
     the dedup guard this produced duplicate ``postgres ...`` / ``redis ...`` spans.
     """
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
-    from litellm.integrations.otel.model.spans import SpanRole
+    from embrouter.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
@@ -226,7 +226,7 @@ async def test_service_span_not_duplicated_for_string_and_instance(monkeypatch):
     # The "otel" string resolves to the proxy's registered logger (the same
     # instance), so the list holds two references to one logger.
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", v2_logger, raising=False)
-    monkeypatch.setattr(litellm, "service_callback", ["otel", v2_logger])
+    monkeypatch.setattr(embrouter, "service_callback", ["otel", v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_success_hook(
@@ -250,10 +250,10 @@ async def test_service_failure_span_not_duplicated_for_string_and_instance(
     """Failure path mirror of the dedup guard — one span per failed service event,
     even with both the ``"otel"`` string and the instance in ``service_callback``."""
     try:
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.proxy_server as proxy_server
     except ImportError:
         pytest.skip("proxy server dependencies not installed")
-    from litellm.integrations.otel.model.spans import SpanRole
+    from embrouter.integrations.otel.model.spans import SpanRole
 
     v2_logger, exporter = _make_otel_v2_logger()
     parent = v2_logger._emitter.start_span(
@@ -261,7 +261,7 @@ async def test_service_failure_span_not_duplicated_for_string_and_instance(
     )
 
     monkeypatch.setattr(proxy_server, "open_telemetry_logger", v2_logger, raising=False)
-    monkeypatch.setattr(litellm, "service_callback", ["otel", v2_logger])
+    monkeypatch.setattr(embrouter, "service_callback", ["otel", v2_logger])
     service_logger = ServiceLogging()
 
     await service_logger.async_service_failure_hook(

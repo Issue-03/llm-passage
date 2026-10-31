@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSecureItem } from "@/utils/secureStorage";
 import { CreateUiSnapshot, readCreateUiSnapshot, writeCreateUiSnapshot } from "./createOAuthUiState";
 
-const STORAGE_KEY = "litellm-mcp-oauth-create-state";
+const STORAGE_KEY = "embrouter-mcp-oauth-create-state";
 
 const fullSnapshot: CreateUiSnapshot = {
   modalVisible: true,

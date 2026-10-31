@@ -12,11 +12,11 @@ Model name format:
 
 from typing import Final
 
-import litellm
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.secret_managers.main import get_secret, get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.secret_managers.main import get_secret, get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class RAGFlowConfig(OpenAIConfig):
@@ -66,7 +66,7 @@ class RAGFlowConfig(OpenAIConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -81,21 +81,21 @@ class RAGFlowConfig(OpenAIConfig):
             api_key: API key (not used in URL construction)
             model: Model name in format ragflow/{endpoint_type}/{id}/{model}
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters (may contain api_base)
+            embrouter_params: EmbRouter parameters (may contain api_base)
             stream: Whether streaming is enabled
 
         Returns:
             Complete URL for the API call
         """
-        # Get api_base from multiple sources: input param, litellm_params, environment, or global litellm setting
-        if litellm_params and hasattr(litellm_params, "api_base") and litellm_params.api_base:
-            api_base = api_base or litellm_params.api_base
+        # Get api_base from multiple sources: input param, embrouter_params, environment, or global embrouter setting
+        if embrouter_params and hasattr(embrouter_params, "api_base") and embrouter_params.api_base:
+            api_base = api_base or embrouter_params.api_base
 
-        api_base = api_base or litellm.api_base or get_secret("RAGFLOW_API_BASE") or get_secret_str("RAGFLOW_API_BASE")
+        api_base = api_base or embrouter.api_base or get_secret("RAGFLOW_API_BASE") or get_secret_str("RAGFLOW_API_BASE")
 
         if api_base is None:
             raise ValueError(
-                "api_base is required for RAGFlow provider. Set it via api_base parameter, RAGFLOW_API_BASE environment variable, or litellm.api_base"
+                "api_base is required for RAGFlow provider. Set it via api_base parameter, RAGFLOW_API_BASE environment variable, or embrouter.api_base"
             )
 
         # Parse model name to extract endpoint type and ID
@@ -144,16 +144,16 @@ class RAGFlowConfig(OpenAIConfig):
             Tuple of (api_base, api_key, custom_llm_provider)
         """
         # Parse model to extract the actual model name
-        # The model name will be stored in litellm_params for use in requests
+        # The model name will be stored in embrouter_params for use in requests
         _, _, actual_model = self._parse_ragflow_model(model)
 
-        # Get api_base from multiple sources: input param, environment, or global litellm setting
+        # Get api_base from multiple sources: input param, environment, or global embrouter setting
         dynamic_api_base: Final = (
-            api_base or litellm.api_base or get_secret("RAGFLOW_API_BASE") or get_secret_str("RAGFLOW_API_BASE")
+            api_base or embrouter.api_base or get_secret("RAGFLOW_API_BASE") or get_secret_str("RAGFLOW_API_BASE")
         )
 
-        # Get api_key from multiple sources: input param, environment, or global litellm setting
-        dynamic_api_key: Final = api_key or litellm.api_key or get_secret_str("RAGFLOW_API_KEY")
+        # Get api_key from multiple sources: input param, environment, or global embrouter setting
+        dynamic_api_key: Final = api_key or embrouter.api_key or get_secret_str("RAGFLOW_API_KEY")
 
         return dynamic_api_base, dynamic_api_key, custom_llm_provider
 
@@ -163,7 +163,7 @@ class RAGFlowConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -175,19 +175,19 @@ class RAGFlowConfig(OpenAIConfig):
             model: Model name
             messages: Chat messages
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters (may contain api_key)
+            embrouter_params: EmbRouter parameters (may contain api_key)
             api_key: API key (from input params)
             api_base: Base API URL
 
         Returns:
             Updated headers dictionary
         """
-        # Use api_key from litellm_params if available, otherwise fall back to other sources
-        if litellm_params and hasattr(litellm_params, "api_key") and litellm_params.api_key:
-            api_key = api_key or litellm_params.api_key
+        # Use api_key from embrouter_params if available, otherwise fall back to other sources
+        if embrouter_params and hasattr(embrouter_params, "api_key") and embrouter_params.api_key:
+            api_key = api_key or embrouter_params.api_key
 
-        # Get api_key from multiple sources: input param, litellm_params, environment, or global litellm setting
-        api_key = api_key or litellm.api_key or get_secret_str("RAGFLOW_API_KEY")
+        # Get api_key from multiple sources: input param, embrouter_params, environment, or global embrouter setting
+        api_key = api_key or embrouter.api_key or get_secret_str("RAGFLOW_API_KEY")
 
         if api_key is not None:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -200,8 +200,8 @@ class RAGFlowConfig(OpenAIConfig):
         # The actual model name should be used in the request body
         try:
             _, _, actual_model = self._parse_ragflow_model(model)
-            # Store the actual model name in litellm_params for use in transform_request
-            litellm_params["_ragflow_actual_model"] = actual_model
+            # Store the actual model name in embrouter_params for use in transform_request
+            embrouter_params["_ragflow_actual_model"] = actual_model
         except ValueError:
             # If parsing fails, use the original model name
             pass
@@ -213,7 +213,7 @@ class RAGFlowConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -225,14 +225,14 @@ class RAGFlowConfig(OpenAIConfig):
             model: Model name in RAGFlow format
             messages: Chat messages
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters (may contain _ragflow_actual_model)
+            embrouter_params: EmbRouter parameters (may contain _ragflow_actual_model)
             headers: Request headers
 
         Returns:
             Transformed request dictionary
         """
-        # Get the actual model name from litellm_params if available
-        actual_model = litellm_params.get("_ragflow_actual_model")
+        # Get the actual model name from embrouter_params if available
+        actual_model = embrouter_params.get("_ragflow_actual_model")
         if actual_model is None:
             # Fallback: try to parse the model name
             try:
@@ -242,4 +242,4 @@ class RAGFlowConfig(OpenAIConfig):
                 actual_model = model
 
         # Use parent's transform_request with the actual model name
-        return super().transform_request(actual_model, messages, optional_params, litellm_params, headers)
+        return super().transform_request(actual_model, messages, optional_params, embrouter_params, headers)

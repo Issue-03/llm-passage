@@ -4,7 +4,7 @@ Gateway-level allowlist of MCP client applications (``general_settings.mcp_allow
 Each entry pairs an admin-chosen ``alias`` (shown in the dashboard and logs) with the ``value`` that
 identifies the client. Only the value is compared, exactly and case-sensitively.
 A caller that authenticated with a JWT is identified by the claim named in
-``litellm_jwtauth.mcp_client_id_jwt_field``, a value asserted by the identity provider.
+``embrouter_jwtauth.mcp_client_id_jwt_field``, a value asserted by the identity provider.
 Every other caller is identified by the header named in ``general_settings.mcp_client_id_header``,
 which the client picks itself, so that source is a policy control rather than a security boundary.
 While the allowlist is set, a caller with no usable identity source is rejected.
@@ -18,14 +18,14 @@ from typing import Final, Literal
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.dot_notation_indexing import get_nested_value
-from litellm.types.mcp import MCPAllowedClient
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.dot_notation_indexing import get_nested_value
+from embrouter.types.mcp import MCPAllowedClient
 
 MCP_ALLOWED_CLIENTS_SETTING: Final = "mcp_allowed_clients"
 MCP_CLIENT_ID_HEADER_SETTING: Final = "mcp_client_id_header"
 MCP_CLIENT_ID_JWT_FIELD_SETTING: Final = "mcp_client_id_jwt_field"
-_JWT_AUTH_SETTING: Final = "litellm_jwtauth"
+_JWT_AUTH_SETTING: Final = "embrouter_jwtauth"
 
 _ALLOWED_CLIENTS_ADAPTER: Final[TypeAdapter[list[MCPAllowedClient]]] = TypeAdapter(list[MCPAllowedClient])
 _OPTIONAL_NAME_ADAPTER: Final[TypeAdapter[str | None]] = TypeAdapter(str | None)
@@ -141,7 +141,7 @@ def resolve_mcp_client_identity(
         )
     if allowlist.header is None:
         configured: Final = (
-            f"litellm_jwtauth.{MCP_CLIENT_ID_JWT_FIELD_SETTING} for JWT callers or {MCP_CLIENT_ID_HEADER_SETTING}"
+            f"embrouter_jwtauth.{MCP_CLIENT_ID_JWT_FIELD_SETTING} for JWT callers or {MCP_CLIENT_ID_HEADER_SETTING}"
         )
         return _unidentified_rejection(
             f"No client identity source is configured for this request; set {configured} in general_settings."

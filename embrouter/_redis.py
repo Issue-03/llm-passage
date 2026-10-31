@@ -21,19 +21,19 @@ import redis
 import redis.asyncio as async_redis
 from redis.credentials import CredentialProvider
 
-from litellm import get_secret, get_secret_str
-from litellm._redis_credential_provider import (
+from embrouter import get_secret, get_secret_str
+from embrouter._redis_credential_provider import (
     AzureADCredentialProvider,
     ElastiCacheIAMCredentialProvider,
     GCPIAMCredentialProvider,
     _generate_gcp_iam_access_token,
 )
-from litellm.constants import (
+from embrouter.constants import (
     REDIS_CLUSTER_HEALTH_CHECK_INTERVAL,
     REDIS_CONNECTION_POOL_TIMEOUT,
     REDIS_SOCKET_TIMEOUT,
 )
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
 from ._logging import verbose_logger
 
@@ -667,7 +667,7 @@ def _get_redis_client_logic(**env_overrides):
     elif "host" not in redis_kwargs or redis_kwargs["host"] is None:
         raise ValueError("Either 'host' or 'url' must be specified for redis.")
 
-    # litellm.print_verbose(f"redis_kwargs: {redis_kwargs}")
+    # embrouter.print_verbose(f"redis_kwargs: {redis_kwargs}")
     coercion_client: Final = (
         (redis.Redis, redis.RedisCluster, async_redis.RedisCluster)
         if redis_kwargs.get("startup_nodes")
@@ -861,11 +861,11 @@ def get_redis_async_client(
 
         # A single node's client-side timeout must reset only that node's connections,
         # not tear down the whole cluster client for every concurrent caller.
-        from litellm.caching.redis_cluster_node_isolation import (
-            get_litellm_async_redis_cluster_class,
+        from embrouter.caching.redis_cluster_node_isolation import (
+            get_embrouter_async_redis_cluster_class,
         )
 
-        async_redis_cluster_class: Final = get_litellm_async_redis_cluster_class()
+        async_redis_cluster_class: Final = get_embrouter_async_redis_cluster_class()
 
         # Create async RedisCluster with IAM token as password if available
         cluster_client: Final = async_redis_cluster_class(

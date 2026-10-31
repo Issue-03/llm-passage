@@ -5,8 +5,8 @@ from typing import Annotated, Final, Protocol
 from fastapi import HTTPException
 from pydantic import BaseModel, BeforeValidator, ValidationError
 
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.types.router_weights import RouterWeights
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.types.router_weights import RouterWeights
 
 
 class _StoredModel(Protocol):
@@ -19,7 +19,7 @@ class _StoredModel(Protocol):
 class _ModelDb(Protocol):
     @property
     @abstractmethod
-    def litellm_proxymodeltable(self) -> TableActions[_StoredModel]:
+    def embrouter_proxymodeltable(self) -> TableActions[_StoredModel]:
         pass
 
 
@@ -112,7 +112,7 @@ async def validate_router_settings_weights(
         return
     if prisma_client is None:
         raise HTTPException(status_code=503, detail="Database unavailable while validating router weights")
-    stored_models: Final = await prisma_client.db.litellm_proxymodeltable.find_many(
+    stored_models: Final = await prisma_client.db.embrouter_proxymodeltable.find_many(
         where={"model_id": {"in": list(deployment_ids)}}
     )
     stored_by_id: Final = {

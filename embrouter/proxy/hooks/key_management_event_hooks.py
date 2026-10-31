@@ -6,29 +6,29 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy._types import (
     GenerateKeyRequest,
     GenerateKeyResponse,
     KeyRequest,
-    LiteLLM_AuditLogs,
-    Litellm_EntityType,
-    LiteLLM_VerificationToken,
-    LitellmTableNames,
+    EmbRouter_AuditLogs,
+    Embrouter_EntityType,
+    EmbRouter_VerificationToken,
+    EmbrouterTableNames,
     RegenerateKeyRequest,
     UpdateKeyRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.utils import _hash_token_if_needed
-from litellm.secret_managers.base_secret_manager import BaseSecretManager
+from embrouter.proxy.utils import _hash_token_if_needed
+from embrouter.secret_managers.base_secret_manager import BaseSecretManager
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
 # NOTE: This is the prefix for all virtual keys stored in AWS Secrets Manager
-LITELLM_PREFIX_STORED_VIRTUAL_KEYS: Final = "litellm/"
+EMBROUTER_PREFIX_STORED_VIRTUAL_KEYS: Final = "embrouter/"
 
 
 class KeyManagementEventHooks:
@@ -37,7 +37,7 @@ class KeyManagementEventHooks:
         data: GenerateKeyRequest,
         response: GenerateKeyResponse,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_changed_by: str | None = None,
+        embrouter_changed_by: str | None = None,
     ):
         """
         Hook that runs after a successful /key/generate request
@@ -47,12 +47,12 @@ class KeyManagementEventHooks:
         - Storing Audit Logs for key generation
         - Storing Generated Key in DB
         """
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             create_audit_log_for_update,
             get_audit_log_changed_by,
             is_audit_logging_enabled,
         )
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
         # Send email notification - non-blocking, independent operation
         if data.send_invite_email is True:
@@ -65,16 +65,16 @@ class KeyManagementEventHooks:
             _updated_values: Final = response.model_dump_json(exclude_none=True)
             asyncio.create_task(
                 create_audit_log_for_update(
-                    request_data=LiteLLM_AuditLogs(
+                    request_data=EmbRouter_AuditLogs(
                         id=str(uuid.uuid4()),
                         updated_at=datetime.now(timezone.utc),
                         changed_by=get_audit_log_changed_by(
-                            litellm_changed_by=litellm_changed_by,
+                            embrouter_changed_by=embrouter_changed_by,
                             user_api_key_dict=user_api_key_dict,
-                            litellm_proxy_admin_name=litellm_proxy_admin_name,
+                            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         ),
                         changed_by_api_key=user_api_key_dict.api_key,
-                        table_name=LitellmTableNames.KEY_TABLE_NAME,
+                        table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                         object_id=response.token_id or "",
                         action="created",
                         updated_values=_updated_values,
@@ -96,10 +96,10 @@ class KeyManagementEventHooks:
     @staticmethod
     async def async_key_updated_hook(
         data: UpdateKeyRequest,
-        existing_key_row: LiteLLM_VerificationToken,
+        existing_key_row: EmbRouter_VerificationToken,
         response: object,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_changed_by: str | None = None,
+        embrouter_changed_by: str | None = None,
     ):
         """
         Post /key/update processing hook
@@ -108,12 +108,12 @@ class KeyManagementEventHooks:
         - Renaming the key's secret in the secret manager when the alias changes
         - Storing Audit Logs for key update
         """
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             create_audit_log_for_update,
             get_audit_log_changed_by,
             is_audit_logging_enabled,
         )
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
         if data.key_alias is not None and data.key_alias != existing_key_row.key_alias:
             try:
@@ -130,16 +130,16 @@ class KeyManagementEventHooks:
                 **data.model_dump(exclude_none=True),
                 **({"project_id": data.project_id} if "project_id" in data.model_fields_set else {}),
             }
-            audit_log: Final = LiteLLM_AuditLogs(
+            audit_log: Final = EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
                 changed_by=get_audit_log_changed_by(
-                    litellm_changed_by=litellm_changed_by,
+                    embrouter_changed_by=embrouter_changed_by,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_proxy_admin_name=litellm_proxy_admin_name,
+                    embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 ),
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.KEY_TABLE_NAME,
+                table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                 object_id=_hash_token_if_needed(data.key),
                 action="updated",
                 updated_values=json.dumps(updated_fields, default=str),
@@ -156,17 +156,17 @@ class KeyManagementEventHooks:
     @staticmethod
     async def async_key_rotated_hook(
         data: RegenerateKeyRequest | None,
-        existing_key_row: LiteLLM_VerificationToken,
+        existing_key_row: EmbRouter_VerificationToken,
         response: GenerateKeyResponse,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_changed_by: str | None = None,
+        embrouter_changed_by: str | None = None,
     ):
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             create_audit_log_for_update,
             get_audit_log_changed_by,
             is_audit_logging_enabled,
         )
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
         # Store the generated key in the secret manager - non-blocking, independent operation
         if response.token_id is not None:
@@ -205,16 +205,16 @@ class KeyManagementEventHooks:
         if is_audit_logging_enabled() and existing_key_row.token is not None:
             asyncio.create_task(
                 create_audit_log_for_update(
-                    request_data=LiteLLM_AuditLogs(
+                    request_data=EmbRouter_AuditLogs(
                         id=str(uuid.uuid4()),
                         updated_at=datetime.now(timezone.utc),
                         changed_by=get_audit_log_changed_by(
-                            litellm_changed_by=litellm_changed_by,
+                            embrouter_changed_by=embrouter_changed_by,
                             user_api_key_dict=user_api_key_dict,
-                            litellm_proxy_admin_name=litellm_proxy_admin_name,
+                            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         ),
                         changed_by_api_key=user_api_key_dict.token,
-                        table_name=LitellmTableNames.KEY_TABLE_NAME,
+                        table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                         object_id=existing_key_row.token,
                         action="rotated",
                         updated_values=response.model_dump_json(exclude_none=True),
@@ -226,10 +226,10 @@ class KeyManagementEventHooks:
     @staticmethod
     async def async_key_deleted_hook(
         data: KeyRequest,
-        keys_being_deleted: list[LiteLLM_VerificationToken],
+        keys_being_deleted: list[EmbRouter_VerificationToken],
         response: dict,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_changed_by: str | None = None,
+        embrouter_changed_by: str | None = None,
     ):
         """
         Post /key/delete processing hook
@@ -240,43 +240,43 @@ class KeyManagementEventHooks:
         KeyManagementEventHooks.create_key_deleted_audit_logs(
             keys_being_deleted=keys_being_deleted,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
         await KeyManagementEventHooks._delete_virtual_keys_from_secret_manager(keys_being_deleted=keys_being_deleted)
 
     @staticmethod
     def create_key_deleted_audit_logs(
-        keys_being_deleted: Sequence["LiteLLM_VerificationToken | prisma_models.LiteLLM_VerificationToken"],
+        keys_being_deleted: Sequence["EmbRouter_VerificationToken | prisma_models.EmbRouter_VerificationToken"],
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_changed_by: str | None = None,
+        embrouter_changed_by: str | None = None,
     ) -> None:
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             create_audit_log_for_update,
             get_audit_log_changed_by,
             is_audit_logging_enabled,
         )
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
         if not is_audit_logging_enabled():
             return
         for key in keys_being_deleted:
-            key_row = LiteLLM_VerificationToken.model_validate(key, from_attributes=True)
+            key_row = EmbRouter_VerificationToken.model_validate(key, from_attributes=True)
             if key_row.token is None:
                 continue
             _key_row = key_row.model_dump_json(exclude_none=True)
 
             asyncio.create_task(
                 create_audit_log_for_update(
-                    request_data=LiteLLM_AuditLogs(
+                    request_data=EmbRouter_AuditLogs(
                         id=str(uuid.uuid4()),
                         updated_at=datetime.now(timezone.utc),
                         changed_by=get_audit_log_changed_by(
-                            litellm_changed_by=litellm_changed_by,
+                            embrouter_changed_by=embrouter_changed_by,
                             user_api_key_dict=user_api_key_dict,
-                            litellm_proxy_admin_name=litellm_proxy_admin_name,
+                            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         ),
                         changed_by_api_key=user_api_key_dict.token,
-                        table_name=LitellmTableNames.KEY_TABLE_NAME,
+                        table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                         object_id=key_row.token,
                         action="deleted",
                         updated_values="{}",
@@ -294,22 +294,22 @@ class KeyManagementEventHooks:
             secret_name: Name of the virtual key
             secret_token: Value of the virtual key (example: sk-1234)
         """
-        if litellm._key_management_settings is not None:
-            if litellm._key_management_settings.store_virtual_keys is True:
-                from litellm.secret_managers.base_secret_manager import (
+        if embrouter._key_management_settings is not None:
+            if embrouter._key_management_settings.store_virtual_keys is True:
+                from embrouter.secret_managers.base_secret_manager import (
                     BaseSecretManager,
                 )
 
                 # store the key in the secret manager
-                if isinstance(litellm.secret_manager_client, BaseSecretManager):
-                    tags: Final = getattr(litellm._key_management_settings, "tags", None)
-                    description: Final = getattr(litellm._key_management_settings, "description", None)
+                if isinstance(embrouter.secret_manager_client, BaseSecretManager):
+                    tags: Final = getattr(embrouter._key_management_settings, "tags", None)
+                    description: Final = getattr(embrouter._key_management_settings, "description", None)
                     optional_params: Final = await KeyManagementEventHooks._get_secret_manager_optional_params(team_id)
                     verbose_proxy_logger.debug(
                         "Creating secret with %s and tags=%s and description=%s", secret_name, tags, description
                     )
 
-                    await litellm.secret_manager_client.async_write_secret(
+                    await embrouter.secret_manager_client.async_write_secret(
                         secret_name=KeyManagementEventHooks._get_secret_name(secret_name),
                         description=description,
                         secret_value=secret_token,
@@ -349,11 +349,11 @@ class KeyManagementEventHooks:
         """
         The secret manager client that stores virtual keys, or None when virtual keys are not stored in one
         """
-        if litellm._key_management_settings is None or litellm._key_management_settings.store_virtual_keys is not True:
+        if embrouter._key_management_settings is None or embrouter._key_management_settings.store_virtual_keys is not True:
             return None
-        if not isinstance(litellm.secret_manager_client, BaseSecretManager):
+        if not isinstance(embrouter.secret_manager_client, BaseSecretManager):
             return None
-        return litellm.secret_manager_client
+        return embrouter.secret_manager_client
 
     @staticmethod
     async def _rename_virtual_key_in_secret_manager(
@@ -396,14 +396,14 @@ class KeyManagementEventHooks:
 
     @staticmethod
     def _get_secret_name(secret_name: str) -> str:
-        if litellm._key_management_settings.prefix_for_stored_virtual_keys.endswith("/"):
-            return f"{litellm._key_management_settings.prefix_for_stored_virtual_keys}{secret_name}"
+        if embrouter._key_management_settings.prefix_for_stored_virtual_keys.endswith("/"):
+            return f"{embrouter._key_management_settings.prefix_for_stored_virtual_keys}{secret_name}"
         else:
-            return f"{litellm._key_management_settings.prefix_for_stored_virtual_keys}/{secret_name}"
+            return f"{embrouter._key_management_settings.prefix_for_stored_virtual_keys}/{secret_name}"
 
     @staticmethod
     async def _delete_virtual_keys_from_secret_manager(
-        keys_being_deleted: list[LiteLLM_VerificationToken],
+        keys_being_deleted: list[EmbRouter_VerificationToken],
     ):
         """
         Deletes virtual keys from the secret manager
@@ -411,13 +411,13 @@ class KeyManagementEventHooks:
         Args:
             keys_being_deleted: List of keys being deleted, this is passed down from the /key/delete operation
         """
-        if litellm._key_management_settings is not None:
-            if litellm._key_management_settings.store_virtual_keys is True:
-                from litellm.secret_managers.base_secret_manager import (
+        if embrouter._key_management_settings is not None:
+            if embrouter._key_management_settings.store_virtual_keys is True:
+                from embrouter.secret_managers.base_secret_manager import (
                     BaseSecretManager,
                 )
 
-                if isinstance(litellm.secret_manager_client, BaseSecretManager):
+                if isinstance(embrouter.secret_manager_client, BaseSecretManager):
                     team_settings_cache: Final[dict[str | None, dict | None]] = {}
                     for key in keys_being_deleted:
                         if key.key_alias is not None:
@@ -427,7 +427,7 @@ class KeyManagementEventHooks:
                                     team_id
                                 ] = await KeyManagementEventHooks._get_secret_manager_optional_params(team_id)
                             optional_params = team_settings_cache[team_id]
-                            await litellm.secret_manager_client.async_delete_secret(
+                            await embrouter.secret_manager_client.async_delete_secret(
                                 secret_name=KeyManagementEventHooks._get_secret_name(key.key_alias),
                                 optional_params=optional_params,
                             )
@@ -445,7 +445,7 @@ class KeyManagementEventHooks:
             return None
 
         try:
-            from litellm.proxy import proxy_server as proxy_server_module
+            from embrouter.proxy import proxy_server as proxy_server_module
         except ImportError:
             return None
 
@@ -456,7 +456,7 @@ class KeyManagementEventHooks:
             return None
 
         try:
-            from litellm.proxy.auth.auth_checks import get_team_object
+            from embrouter.proxy.auth.auth_checks import get_team_object
 
             team_obj: Final = await get_team_object(
                 team_id=team_id,
@@ -493,11 +493,11 @@ class KeyManagementEventHooks:
         """
         # Check v2 enterprise email loggers
         try:
-            from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+            from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
                 BaseEmailLogger,
             )
 
-            initialized_email_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(
+            initialized_email_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(
                 callback_type=BaseEmailLogger
             )
             if len(initialized_email_loggers) > 0:
@@ -506,7 +506,7 @@ class KeyManagementEventHooks:
             pass
 
         # Check v0 alerting config
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         if "email" in general_settings.get("alerting", []):
             return True
@@ -526,27 +526,27 @@ class KeyManagementEventHooks:
             verbose_proxy_logger.debug("Email sending not enabled, skipping key created email")
             return
 
-        from litellm.proxy.proxy_server import general_settings, proxy_logging_obj
+        from embrouter.proxy.proxy_server import general_settings, proxy_logging_obj
 
         ##########################
         # v2 integration for emails (enterprise)
         ##########################
         try:
-            from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+            from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
                 BaseEmailLogger,
             )
-            from litellm_enterprise.types.enterprise_callbacks.send_emails import (
+            from embrouter_enterprise.types.enterprise_callbacks.send_emails import (
                 SendKeyCreatedEmailEvent,
             )
 
-            initialized_email_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(
+            initialized_email_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(
                 callback_type=BaseEmailLogger
             )
             if len(initialized_email_loggers) > 0:
                 event = SendKeyCreatedEmailEvent(
                     virtual_key=response.get("key", ""),
                     event="key_created",
-                    event_group=Litellm_EntityType.KEY,
+                    event_group=Embrouter_EntityType.KEY,
                     event_message="API Key Created",
                     token=response.get("token", ""),
                     spend=response.get("spend", 0.0),
@@ -568,11 +568,11 @@ class KeyManagementEventHooks:
         # v0 integration for emails
         ##########################
         if "email" in general_settings.get("alerting", []):
-            from litellm.proxy._types import WebhookEvent
+            from embrouter.proxy._types import WebhookEvent
 
             event = WebhookEvent(
                 event="key_created",
-                event_group=Litellm_EntityType.KEY,
+                event_group=Embrouter_EntityType.KEY,
                 event_message="API Key Created",
                 token=response.get("token", ""),
                 spend=response.get("spend", 0.0),
@@ -602,7 +602,7 @@ class KeyManagementEventHooks:
             return
 
         try:
-            from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+            from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
                 BaseEmailLogger,
             )
         except ImportError:
@@ -611,7 +611,7 @@ class KeyManagementEventHooks:
             return
 
         try:
-            from litellm_enterprise.types.enterprise_callbacks.send_emails import (
+            from embrouter_enterprise.types.enterprise_callbacks.send_emails import (
                 SendKeyRotatedEmailEvent,
             )
         except ImportError:
@@ -621,7 +621,7 @@ class KeyManagementEventHooks:
         event: Final = SendKeyRotatedEmailEvent(
             virtual_key=response.get("key", ""),
             event="key_rotated",
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
             event_message="API Key Rotated",
             token=response.get("token", ""),
             spend=response.get("spend", 0.0),
@@ -634,7 +634,7 @@ class KeyManagementEventHooks:
         ##########################
         # v2 integration for emails
         ##########################
-        initialized_email_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(
+        initialized_email_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(
             callback_type=BaseEmailLogger
         )
         if len(initialized_email_loggers) > 0:

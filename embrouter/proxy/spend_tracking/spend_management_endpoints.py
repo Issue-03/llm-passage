@@ -26,20 +26,20 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, assert_never
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     EMPTY_MAPPING,
-    LITELLM_TRUNCATED_PAYLOAD_FIELD,
-    LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_TRUNCATED_PAYLOAD_FIELD,
+    EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
     SPEND_CAPTURE_RATE_MAX_RANGE_DAYS,
 )
-from litellm.litellm_core_utils.classifier_logging import classifier_audit_fields, classifier_input_snapshot
-from litellm.proxy._types import *
-from litellm.proxy._types import ProviderBudgetResponse, ProviderBudgetResponseObject
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.spend_tracking.spend_capture_rate import (
+from embrouter.embrouter_core_utils.classifier_logging import classifier_audit_fields, classifier_input_snapshot
+from embrouter.proxy._types import *
+from embrouter.proxy._types import ProviderBudgetResponse, ProviderBudgetResponseObject
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.proxy.spend_tracking.spend_capture_rate import (
     ProviderBillingCredentialMissing,
     ProviderBillingRequestFailed,
     capture_rate_report,
@@ -48,24 +48,24 @@ from litellm.proxy.spend_tracking.spend_capture_rate import (
 # NOTE: Avoid module-level import from common_utils: proxy_server imports this
 # module while common_utils may pull proxy_server during init, which can leave
 # those names undefined. Import the helpers locally where they are used.
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from embrouter.proxy.spend_tracking.spend_tracking_utils import (
     get_spend_by_team,
     get_spend_by_team_and_customer,
 )
-from litellm.proxy.utils import handle_exception_on_proxy
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import SpendLogsRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.proxy.utils import handle_exception_on_proxy
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import SpendLogsRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureProvider
+from embrouter.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureProvider
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy.proxy_server import PrismaClient
-    from litellm.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
+    from embrouter.proxy.proxy_server import PrismaClient
+    from embrouter.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
 else:
     PrismaClient = Any
 
@@ -102,14 +102,14 @@ _SPEND_LOG_LIST_COLUMNS: Final = """
                 cache_hit, cache_key, request_tags, team_id,
                 organization_id, end_user, requester_ip_address,
                 session_id, status, mcp_namespaced_tool_name, agent_id,
-                litellm_call_id,
+                embrouter_call_id,
                 COALESCE(request_duration_ms,
                     (EXTRACT(EPOCH FROM ("endTime" - "startTime")) * 1000)::INTEGER) AS request_duration_ms
 """
 
 _INTERNAL_HEALTH_CHECK_API_KEYS: Final = (
-    LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
-    hash_token(token=LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME),
+    EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+    hash_token(token=EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME),
 )
 
 _RowT = TypeVar("_RowT")
@@ -270,7 +270,7 @@ class _VerificationTokenTable(Protocol):
     async def update_many(self, *, data: Mapping[str, float], where: Mapping[str, object]) -> int: ...
 
 
-def _spend_logs_table(prisma_client: PrismaClient) -> TableActions["prisma_models.LiteLLM_SpendLogs"]:
+def _spend_logs_table(prisma_client: PrismaClient) -> TableActions["prisma_models.EmbRouter_SpendLogs"]:
     return SpendLogsRepository(prisma_client).table
 
 
@@ -310,7 +310,7 @@ SELECT
     "user",
     model,
     SUM(spend) AS spend
-FROM "LiteLLM_SpendLogs"
+FROM "EmbRouter_SpendLogs"
 WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC') AND "startTime" <= ($2::timestamptz AT TIME ZONE 'UTC')
 {filter_sql}
 GROUP BY 1, 2, 3, 4
@@ -352,7 +352,7 @@ async def _find_spend_logs(
     """Read spend log rows as Prisma model instances, capped at ``take`` rows."""
     rows: Final = await _spend_logs_table(prisma_client).find_many(where=where, order=order, take=take)
     if len(rows) == take:
-        http_response.headers["x-litellm-spend-logs-truncated"] = "true"
+        http_response.headers["x-embrouter-spend-logs-truncated"] = "true"
         verbose_proxy_logger.warning(
             "/spend/logs result truncated to the %s most recent rows; use /spend/logs/v2 for paginated access",
             take,
@@ -364,21 +364,21 @@ class _RequestIdEquals(TypedDict):
     request_id: ReadOnly[str]
 
 
-class _LitellmCallIdEquals(TypedDict):
-    litellm_call_id: ReadOnly[str]
+class _EmbrouterCallIdEquals(TypedDict):
+    embrouter_call_id: ReadOnly[str]
 
 
-def _request_id_or_call_id_clause(request_id: str) -> tuple[_RequestIdEquals, _LitellmCallIdEquals]:
+def _request_id_or_call_id_clause(request_id: str) -> tuple[_RequestIdEquals, _EmbrouterCallIdEquals]:
     request_id_clause: Final[_RequestIdEquals] = {"request_id": request_id}
-    call_id_clause: Final[_LitellmCallIdEquals] = {"litellm_call_id": request_id}
+    call_id_clause: Final[_EmbrouterCallIdEquals] = {"embrouter_call_id": request_id}
     return (request_id_clause, call_id_clause)
 
 
 async def _find_spend_log_owners(prisma_client: PrismaClient, request_id: str) -> Sequence[_SpendLogOwnerRow]:
     """Read the distinct ``(user, team_id)`` owner pairs across every spend log row
-    identified by ``request_id`` or ``litellm_call_id``.
+    identified by ``request_id`` or ``embrouter_call_id``.
 
-    ``litellm_call_id`` is populated from the client-settable ``x-litellm-call-id``
+    ``embrouter_call_id`` is populated from the client-settable ``x-embrouter-call-id``
     request header, so it is not guaranteed unique to one tenant: any number of rows
     can match one id. The read is uncapped because a flood of another tenant's rows
     carrying the caller's id could otherwise push the caller's own owner pair past a
@@ -386,8 +386,8 @@ async def _find_spend_log_owners(prisma_client: PrismaClient, request_id: str) -
     """
     sql_query: Final = """
         SELECT DISTINCT "user", team_id
-        FROM "LiteLLM_SpendLogs"
-        WHERE request_id = $1 OR litellm_call_id = $1
+        FROM "EmbRouter_SpendLogs"
+        WHERE request_id = $1 OR embrouter_call_id = $1
     """
     owners: Final[Sequence[_SpendLogOwnerRow] | None] = await _query_raw_or_none(prisma_client, sql_query, request_id)
     return owners if owners is not None else ()
@@ -434,7 +434,7 @@ async def spend_key_fn(
     ```
     """
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -507,7 +507,7 @@ async def spend_user_fn(
 -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -550,7 +550,7 @@ async def spend_user_fn(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def view_spend_tags(
@@ -564,7 +564,7 @@ async def view_spend_tags(
     ),
 ):
     """
-    LiteLLM Enterprise - View Spend Per Request Tag
+    EmbRouter Enterprise - View Spend Per Request Tag
 
     Example Request:
     ```
@@ -579,7 +579,7 @@ async def view_spend_tags(
     ```
     """
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -593,7 +593,7 @@ async def view_spend_tags(
         jsonb_array_elements_text(request_tags) AS individual_request_tag,
         COUNT(*) AS log_count,
         SUM(spend) AS total_spend
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         GROUP BY individual_request_tag;
         """
         response: Final = await get_spend_by_tags(start_date=start_date, end_date=end_date, prisma_client=prisma_client)
@@ -620,7 +620,7 @@ async def view_spend_tags(
 async def get_global_activity_internal_user(
     user_api_key_dict: UserAPIKeyAuth, start_date: datetime, end_date: datetime
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -634,7 +634,7 @@ async def get_global_activity_internal_user(
         date_trunc('day', "startTime") AS date,
         COUNT(*) AS api_requests,
         SUM(total_tokens) AS total_tokens
-    FROM "LiteLLM_SpendLogs"
+    FROM "EmbRouter_SpendLogs"
     WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
       AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
     AND "user" = $3
@@ -652,7 +652,7 @@ async def get_global_activity_internal_user(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
     include_in_schema=False,
 )
@@ -698,7 +698,7 @@ async def get_global_activity(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -708,8 +708,8 @@ async def get_global_activity(
 
         db_response: Sequence[_ActivityRow] | None
         if (
-            user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-            or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+            user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+            or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
         ):
             db_response = await get_global_activity_internal_user(user_api_key_dict, start_date_obj, end_date_obj)
         else:
@@ -718,7 +718,7 @@ async def get_global_activity(
                 date_trunc('day', "startTime") AS date,
                 COUNT(*) AS api_requests,
                 SUM(total_tokens) AS total_tokens
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
               AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
             GROUP BY date_trunc('day', "startTime")
@@ -761,7 +761,7 @@ async def get_global_activity(
 async def get_global_activity_model_internal_user(
     user_api_key_dict: UserAPIKeyAuth, start_date: datetime, end_date: datetime
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -776,7 +776,7 @@ async def get_global_activity_model_internal_user(
         date_trunc('day', "startTime") AS date,
         COUNT(*) AS api_requests,
         SUM(total_tokens) AS total_tokens
-    FROM "LiteLLM_SpendLogs"
+    FROM "EmbRouter_SpendLogs"
     WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
       AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
     AND "user" = $3
@@ -794,7 +794,7 @@ async def get_global_activity_model_internal_user(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
     include_in_schema=False,
 )
@@ -863,7 +863,7 @@ async def get_global_activity_model(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -873,8 +873,8 @@ async def get_global_activity_model(
 
         db_response: Sequence[_ActivityModelRow] | None
         if (
-            user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-            or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+            user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+            or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
         ):
             db_response = await get_global_activity_model_internal_user(user_api_key_dict, start_date_obj, end_date_obj)
         else:
@@ -884,7 +884,7 @@ async def get_global_activity_model(
                 date_trunc('day', "startTime") AS date,
                 COUNT(*) AS api_requests,
                 SUM(total_tokens) AS total_tokens
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
               AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
             GROUP BY model_group, date_trunc('day', "startTime")
@@ -946,7 +946,7 @@ async def get_global_activity_model(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
     include_in_schema=False,
 )
@@ -1011,7 +1011,7 @@ async def get_global_activity_exceptions_per_deployment(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -1025,7 +1025,7 @@ async def get_global_activity_exceptions_per_deployment(
             date_trunc('day', "startTime")::date AS date,
             COUNT(*) AS num_rate_limit_exceptions
         FROM
-            "LiteLLM_ErrorLogs"
+            "EmbRouter_ErrorLogs"
         WHERE
             "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
             AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1093,7 +1093,7 @@ async def get_global_activity_exceptions_per_deployment(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
     include_in_schema=False,
 )
@@ -1138,7 +1138,7 @@ async def get_global_activity_exceptions(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -1151,7 +1151,7 @@ async def get_global_activity_exceptions(
             date_trunc('day', "startTime")::date AS date,
             COUNT(*) AS num_rate_limit_exceptions
         FROM
-            "LiteLLM_ErrorLogs"
+            "EmbRouter_ErrorLogs"
         WHERE
             "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
             AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1218,16 +1218,16 @@ async def get_spend_capture_rate(
         fastapi.Query(
             description=(
                 "Scope the OpenAI bill to these project ids; omit to compare against the whole organization. Captured "
-                "spend is never scoped, so pass every project LiteLLM's OpenAI keys belong to"
+                "spend is never scoped, so pass every project EmbRouter's OpenAI keys belong to"
             )
         ),
     ] = None,
 ) -> CaptureRateReport:
     """
-    Compare the spend LiteLLM captured for a provider against that provider's own bill, per UTC day.
+    Compare the spend EmbRouter captured for a provider against that provider's own bill, per UTC day.
 
     Admin only. Reads the provider's billing API with the billing credential set on the proxy
-    (OpenAI: `OPENAI_ADMIN_KEY`) and sums `LiteLLM_DailyUserSpend` for the same days.
+    (OpenAI: `OPENAI_ADMIN_KEY`) and sums `EmbRouter_DailyUserSpend` for the same days.
 
     Example:
     ```
@@ -1235,7 +1235,7 @@ async def get_spend_capture_rate(
       "http://localhost:4000/spend/capture_rate?provider=openai&start_date=2026-09-17&end_date=2026-09-23"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if not _is_admin_view_safe(user_api_key_dict):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only proxy admins can read the capture rate")
@@ -1280,7 +1280,7 @@ async def get_spend_capture_rate(
     dependencies=[Depends(user_api_key_auth)],
     include_in_schema=False,
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def get_global_spend_provider(
@@ -1322,7 +1322,7 @@ async def get_global_spend_provider(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     try:
         if prisma_client is None:
@@ -1332,8 +1332,8 @@ async def get_global_spend_provider(
 
         db_response: Sequence[_ModelIdSpendRow] | None
         if (
-            user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-            or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+            user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+            or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
         ):
             user_id: Final = user_api_key_dict.user_id
             if user_id is None:
@@ -1343,7 +1343,7 @@ async def get_global_spend_provider(
             SELECT
             model_id,
             SUM(spend) AS spend
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
               AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
             AND length(model_id) > 0
@@ -1356,7 +1356,7 @@ async def get_global_spend_provider(
             SELECT
             model_id,
             SUM(spend) AS spend
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
               AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
               AND length(model_id) > 0
@@ -1381,11 +1381,11 @@ async def get_global_spend_provider(
                 _deployment = llm_router.get_deployment(model_id=_model_id)
                 if _deployment is not None:
                     try:
-                        _, _provider, _, _ = litellm.get_llm_provider(
-                            model=_deployment.litellm_params.model,
-                            custom_llm_provider=_deployment.litellm_params.custom_llm_provider,
-                            api_base=_deployment.litellm_params.api_base,
-                            litellm_params=_deployment.litellm_params,
+                        _, _provider, _, _ = embrouter.get_llm_provider(
+                            model=_deployment.embrouter_params.model,
+                            custom_llm_provider=_deployment.embrouter_params.custom_llm_provider,
+                            api_base=_deployment.embrouter_params.api_base,
+                            embrouter_params=_deployment.embrouter_params,
                         )
                         provider_spend_mapping[_provider] += row["spend"]
                     except Exception:
@@ -1408,7 +1408,7 @@ async def get_global_spend_provider(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def get_global_spend_report(
@@ -1482,7 +1482,7 @@ async def get_global_spend_report(
     start_date_obj: Final = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end_date_obj: Final = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    from litellm.proxy.proxy_server import premium_user, prisma_client
+    from embrouter.proxy.proxy_server import premium_user, prisma_client
 
     try:
         if prisma_client is None:
@@ -1507,7 +1507,7 @@ async def get_global_spend_report(
                         SUM(sl.prompt_tokens) AS model_input_tokens,
                         SUM(sl.completion_tokens) AS model_output_tokens
                     FROM
-                        "LiteLLM_SpendLogs" sl
+                        "EmbRouter_SpendLogs" sl
                     WHERE
                         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
                         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1550,7 +1550,7 @@ async def get_global_spend_report(
                         SUM(sl.prompt_tokens) AS model_input_tokens,
                         SUM(sl.completion_tokens) AS model_output_tokens
                     FROM
-                        "LiteLLM_SpendLogs" sl
+                        "EmbRouter_SpendLogs" sl
                     WHERE
                         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
                         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1603,7 +1603,7 @@ async def get_global_spend_report(
                     SUM(sl.spend) AS model_api_spend,
                     SUM(sl.total_tokens) AS model_api_tokens
                 FROM
-                    "LiteLLM_SpendLogs" sl
+                    "EmbRouter_SpendLogs" sl
                 WHERE
                     sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
                     AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1659,7 +1659,7 @@ async def get_global_spend_report(
                         SUM(sl.prompt_tokens) AS model_input_tokens,
                         SUM(sl.completion_tokens) AS model_output_tokens
                     FROM
-                        "LiteLLM_SpendLogs" sl
+                        "EmbRouter_SpendLogs" sl
                     WHERE
                         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
                         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1721,7 +1721,7 @@ def _scoped_spend_report_sql(scope_column: str) -> str:
                 SUM(sl.prompt_tokens) AS model_input_tokens,
                 SUM(sl.completion_tokens) AS model_output_tokens
             FROM
-                "LiteLLM_SpendLogs" sl
+                "EmbRouter_SpendLogs" sl
             WHERE
                 sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
                 AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1760,7 +1760,7 @@ _ORG_SPEND_REPORT_SQL = """
             SUM(sl.prompt_tokens) AS model_input_tokens,
             SUM(sl.completion_tokens) AS model_output_tokens
         FROM
-            "LiteLLM_SpendLogs" sl
+            "EmbRouter_SpendLogs" sl
         WHERE
             sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
             AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -1798,7 +1798,7 @@ _ORG_SPEND_REPORT_SQL = """
 
 
 def _spend_report_prereqs() -> PrismaClient:
-    from litellm.proxy.proxy_server import premium_user, prisma_client
+    from embrouter.proxy.proxy_server import premium_user, prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -1880,7 +1880,7 @@ async def _resolve_org_spend_report_scope(
     Callable by proxy admins (any organization) and org admins of the target
     organization; every other caller is a 403 from ``_verify_org_access``.
     """
-    from litellm.proxy.management_endpoints.organization_endpoints import _verify_org_access
+    from embrouter.proxy.management_endpoints.organization_endpoints import _verify_org_access
 
     target_org = organization_id or user_api_key_dict.org_id
     if target_org is None:
@@ -1931,7 +1931,7 @@ async def get_key_spend_report(
     scoped_api_key = _resolve_spend_report_scope(
         user_api_key_dict=user_api_key_dict,
         requested=requested,
-        caller_value=LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict),
+        caller_value=EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict),
         scope_name="api_key",
     )
     db_response: Sequence[Mapping[str, object]] | None = await _query_raw_or_none(
@@ -2077,12 +2077,12 @@ async def get_organization_spend_report(
     dependencies=[Depends(user_api_key_auth)],
     include_in_schema=False,
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def global_get_all_tag_names():
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise Exception(
@@ -2092,7 +2092,7 @@ async def global_get_all_tag_names():
         sql_query: Final = """
         SELECT DISTINCT
             jsonb_array_elements_text(request_tags) AS individual_request_tag
-        FROM "LiteLLM_SpendLogs";
+        FROM "EmbRouter_SpendLogs";
         """
 
         db_response: Final[Sequence[_TagNameRow] | None] = await _query_raw_or_none(prisma_client, sql_query)
@@ -2128,7 +2128,7 @@ async def global_get_all_tag_names():
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def global_view_spend_tags(
@@ -2146,7 +2146,7 @@ async def global_view_spend_tags(
     ),
 ):
     """
-    LiteLLM Enterprise - View Spend Per Request Tag. Used by LiteLLM UI
+    EmbRouter Enterprise - View Spend Per Request Tag. Used by EmbRouter UI
 
     Example Request:
     ```
@@ -2162,7 +2162,7 @@ async def global_view_spend_tags(
     """
     import traceback
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -2209,7 +2209,7 @@ async def _get_spend_report_for_time_range(
     start_date: str,
     end_date: str,
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         verbose_proxy_logger.error(
@@ -2231,9 +2231,9 @@ async def _get_spend_report_for_time_range(
             t.team_alias,
             SUM(s.spend) AS total_spend
         FROM
-            "LiteLLM_SpendLogs" s
+            "EmbRouter_SpendLogs" s
         LEFT JOIN
-            "LiteLLM_TeamTable" t ON s.team_id = t.team_id
+            "EmbRouter_TeamTable" t ON s.team_id = t.team_id
         WHERE
             s."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
             AND s."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -2251,7 +2251,7 @@ async def _get_spend_report_for_time_range(
         SELECT
         jsonb_array_elements_text(request_tags) AS individual_request_tag,
         SUM(spend) AS total_spend
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
           AND "startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
         GROUP BY individual_request_tag
@@ -2341,9 +2341,9 @@ async def calculate_spend(request: SpendCalculateRequest):
     ```
     """
     try:
-        from litellm import completion_cost
-        from litellm.cost_calculator import CostPerToken
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter import completion_cost
+        from embrouter.cost_calculator import CostPerToken
+        from embrouter.proxy.proxy_server import llm_router
 
         _cost = None
         if request.model is not None:
@@ -2374,16 +2374,16 @@ async def calculate_spend(request: SpendCalculateRequest):
             """
             3 cases for /spend/calculate
 
-            1. user passes model, and model is defined on litellm config.yaml or in DB. use info on config or in DB in this case
-            2. user passes model, and model is not defined on litellm config.yaml or in DB. Pass model as is to litellm.completion_cost
+            1. user passes model, and model is defined on embrouter config.yaml or in DB. use info on config or in DB in this case
+            2. user passes model, and model is not defined on embrouter config.yaml or in DB. Pass model as is to embrouter.completion_cost
             3. user passes completion_response
             
             """
             if _model_in_llm_router is not None:
-                _litellm_params: Final = _model_in_llm_router.get("litellm_params")
-                _litellm_model_name: Final = _litellm_params.get("model")
-                input_cost_per_token: Final = _litellm_params.get("input_cost_per_token")
-                output_cost_per_token: Final = _litellm_params.get("output_cost_per_token")
+                _embrouter_params: Final = _model_in_llm_router.get("embrouter_params")
+                _embrouter_model_name: Final = _embrouter_params.get("model")
+                input_cost_per_token: Final = _embrouter_params.get("input_cost_per_token")
+                output_cost_per_token: Final = _embrouter_params.get("output_cost_per_token")
                 if input_cost_per_token is not None or output_cost_per_token is not None:
                     cost_per_token = CostPerToken(
                         input_cost_per_token=input_cost_per_token,
@@ -2391,14 +2391,14 @@ async def calculate_spend(request: SpendCalculateRequest):
                     )
 
                 _cost = completion_cost(
-                    model=_litellm_model_name,
+                    model=_embrouter_model_name,
                     messages=request.messages,
                     custom_cost_per_token=cost_per_token,
                 )
             else:
                 _cost = completion_cost(model=request.model, messages=request.messages)
         elif request.completion_response is not None:
-            _completion_response: Final = litellm.ModelResponse(**request.completion_response)
+            _completion_response: Final = embrouter.ModelResponse(**request.completion_response)
             _cost = completion_cost(completion_response=_completion_response)
         else:
             raise HTTPException(
@@ -2414,7 +2414,7 @@ async def calculate_spend(request: SpendCalculateRequest):
                 param=getattr(e, "param", "None"),
                 code=getattr(e, "status_code", status.HTTP_400_BAD_REQUEST),
             )
-        if isinstance(e, litellm.exceptions.ModelNotMappedError):
+        if isinstance(e, embrouter.exceptions.ModelNotMappedError):
             raise ProxyException(
                 message=str(e),
                 type="invalid_request_error",
@@ -2449,7 +2449,7 @@ def _build_spend_log_search_condition(
         f"(request_id = {raw} OR ("
         f"\"startTime\" >= ({window_start}::timestamptz AT TIME ZONE 'UTC') "
         f"AND \"startTime\" <= ({window_end}::timestamptz AT TIME ZONE 'UTC') "
-        f'AND (litellm_call_id = {raw} OR api_key = {raw} OR team_id = {raw} OR "user" = {raw} OR end_user = {raw} '
+        f'AND (embrouter_call_id = {raw} OR api_key = {raw} OR team_id = {raw} OR "user" = {raw} OR end_user = {raw} '
         f"OR session_id = {raw} OR model_id = {raw})))"
     )
     return _SpendLogSearchCondition(sql=sql, params=(search, start_date, end_date))
@@ -2469,7 +2469,7 @@ def _build_spend_log_search_condition(
     dependencies=[Depends(user_api_key_auth)],
     include_in_schema=False,
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def ui_view_spend_logs(
@@ -2527,7 +2527,7 @@ async def ui_view_spend_logs(
     model: str | None = fastapi.Query(default=None, description="Filter logs by model"),
     model_id: str | None = fastapi.Query(
         default=None,
-        description="Filter logs by model ID (litellm model deployment id)",
+        description="Filter logs by model ID (embrouter model deployment id)",
     ),
     model_group: str | None = fastapi.Query(default=None, description="Filter logs by model group"),
     key_alias: str | None = fastapi.Query(default=None, description="Filter logs by key alias"),
@@ -2546,7 +2546,7 @@ async def ui_view_spend_logs(
     ),
     exclude_internal_health_checks: bool = fastapi.Query(
         default=False,
-        description="Exclude LiteLLM internal health check requests from results",
+        description="Exclude EmbRouter internal health check requests from results",
     ),
     group_by_session: bool = fastapi.Query(
         default=False,
@@ -2562,7 +2562,7 @@ async def ui_view_spend_logs(
     search: str | None = fastapi.Query(
         default=None,
         description=(
-            "Match a log whose request_id, litellm_call_id, api_key (hash), team_id, user, end_user, "
+            "Match a log whose request_id, embrouter_call_id, api_key (hash), team_id, user, end_user, "
             "session_id, or model_id equals this value. request_id matches across all time; the other columns "
             "match inside start_date/end_date, which stay required"
         ),
@@ -2580,7 +2580,7 @@ async def ui_view_spend_logs(
 -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise ProxyException(
@@ -2591,7 +2591,7 @@ async def ui_view_spend_logs(
         )
 
     # Inline import — auth_utils participates in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     is_v2: Final = "/spend/logs/v2" in get_request_route(request)
 
@@ -2861,7 +2861,7 @@ async def ui_view_spend_logs(
         request_id_filter: Final = where_conditions.get("request_id")
         exact_request_id_first: Final = f"(request_id = ${p}) DESC, " if isinstance(request_id_filter, str) else ""
         if isinstance(request_id_filter, str):
-            sql_conditions.append(f"(request_id = ${p} OR litellm_call_id = ${p})")
+            sql_conditions.append(f"(request_id = ${p} OR embrouter_call_id = ${p})")
             sql_params.append(request_id_filter)
             p += 1
 
@@ -2937,7 +2937,7 @@ async def ui_view_spend_logs(
                     SELECT session_key, api_key FROM (
                         SELECT DISTINCT ON ({_SESSION_GROUP_KEY_SQL})
                             {_SESSION_KEY_EXPR} AS session_key, api_key, status
-                        FROM "LiteLLM_SpendLogs"
+                        FROM "EmbRouter_SpendLogs"
                         WHERE {session_filter_conditions}
                         ORDER BY {_SESSION_GROUP_KEY_SQL}, {_SESSION_REPRESENTATIVE_ORDER_SQL}
                     ) AS session_outcomes
@@ -2993,7 +2993,7 @@ async def ui_view_spend_logs(
             SELECT COUNT(*) AS total_count
             FROM (
                 SELECT 1
-                FROM "LiteLLM_SpendLogs"
+                FROM "EmbRouter_SpendLogs"
                 WHERE {joined_conditions}
                 {count_group_clause}
                 LIMIT ${p}
@@ -3011,7 +3011,7 @@ async def ui_view_spend_logs(
                 SELECT * FROM (
                     SELECT DISTINCT ON ({_SESSION_GROUP_KEY_SQL})
                         {_SPEND_LOG_LIST_COLUMNS}
-                    FROM "LiteLLM_SpendLogs"
+                    FROM "EmbRouter_SpendLogs"
                     WHERE {joined_conditions}
                     ORDER BY {_SESSION_GROUP_KEY_SQL}, {_SESSION_REPRESENTATIVE_ORDER_SQL}
                 ) AS session_representatives
@@ -3022,7 +3022,7 @@ async def ui_view_spend_logs(
             else f"""
             SELECT
                 {_SPEND_LOG_LIST_COLUMNS}
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE {joined_conditions}
             ORDER BY {exact_request_id_first}{_order_expr} {_sql_dir}{_nulls_clause}
             LIMIT ${p} OFFSET ${p + 1}
@@ -3090,7 +3090,7 @@ async def _fetch_session_representatives(
         SELECT * FROM (
             SELECT DISTINCT ON ({_SESSION_GROUP_KEY_SQL})
                 {_SPEND_LOG_LIST_COLUMNS}
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE {where_clause}
               AND ({_SESSION_GROUP_KEY_SQL}) IN (
                   SELECT * FROM unnest(${next_param_index}::text[], ${next_param_index + 1}::text[])
@@ -3122,7 +3122,7 @@ async def _count_grouped_sessions(
         SELECT COUNT(*) AS total_count
         FROM (
             SELECT 1
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE {where_clause}
             GROUP BY {_SESSION_GROUP_KEY_SQL}
             LIMIT ${next_param_index}
@@ -3150,7 +3150,7 @@ async def _ui_session_grouped_spend_logs(
     """
     One row per session, keyset-paginated by session last activity.
 
-    Sessions are derived on the fly from ``LiteLLM_SpendLogs`` (no extra
+    Sessions are derived on the fly from ``EmbRouter_SpendLogs`` (no extra
     table): rows sharing a ``session_id`` and ``api_key`` form a session, rows
     without a session id are singletons keyed by ``request_id``. A page is the
     next ``page_size`` sessions ordered by ``(MAX(startTime), session_key,
@@ -3192,7 +3192,7 @@ async def _ui_session_grouped_spend_logs(
         SELECT {_SESSION_KEY_EXPR} AS session_key,
                api_key,
                MAX("startTime")::text AS last_activity
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         WHERE {where_clause}
         GROUP BY {_SESSION_GROUP_KEY_SQL}
         {having_clause}
@@ -3323,7 +3323,7 @@ async def _resolve_request_response_payload(
     pg_payload: Final = RequestResponsePayload(messages, response, proxy_server_request)
     stored_request: Final = classifier_input_snapshot(proxy_server_request)
     truncated_audit: Final = bool(stored_request and classifier_audit_fields(stored_request)) and (
-        LITELLM_TRUNCATED_PAYLOAD_FIELD in str(proxy_server_request)
+        EMBROUTER_TRUNCATED_PAYLOAD_FIELD in str(proxy_server_request)
     )
     if not truncated_audit and (
         _spend_log_field_has_content(messages)
@@ -3393,7 +3393,7 @@ async def ui_view_request_response_for_request_id(
     - goes through all callbacks, checks if any of them have a @property -> has_request_response_payload
     - if so, it will return the request and response payload
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     caller_is_admin: Final = _is_admin_view_safe(user_api_key_dict=user_api_key_dict)
     if not caller_is_admin:
@@ -3413,7 +3413,7 @@ async def ui_view_request_response_for_request_id(
             request_id=request_id,
         )
 
-    custom_loggers: Final = litellm.logging_callback_manager.get_active_additional_logging_utils_from_custom_logger()
+    custom_loggers: Final = embrouter.logging_callback_manager.get_active_additional_logging_utils_from_custom_logger()
     start_date_obj: datetime | None = None
     end_date_obj: datetime | None = None
     if start_date is not None:
@@ -3456,7 +3456,7 @@ async def ui_view_request_response_for_request_id(
     # serve them here. When prompts were offloaded to cold storage the DB holds
     # only placeholders, so _resolve_request_response_payload fetches the real
     # payload from the configured cold storage backend by object key.
-    from litellm.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
+    from embrouter.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
 
     resolved: Final = await _resolve_request_response_payload(spend_log_row, cold_storage_handler=ColdStorageHandler())
     return resolved._asdict()
@@ -3467,7 +3467,7 @@ async def ui_view_request_response_for_request_id(
     tags=["Budget & Spend Tracking"],
     dependencies=[Depends(user_api_key_auth)],
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def view_spend_logs(
@@ -3540,11 +3540,11 @@ async def view_spend_logs(
 -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-        or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+        user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+        or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
     ):
         user_id = user_api_key_dict.user_id
 
@@ -3683,14 +3683,14 @@ async def global_spend_reset():
     """
     ADMIN ONLY / MASTER KEY Only Endpoint
 
-    Globally reset spend for All API Keys and Teams, maintain LiteLLM_SpendLogs
+    Globally reset spend for All API Keys and Teams, maintain EmbRouter_SpendLogs
 
-    1. LiteLLM_SpendLogs will maintain the logs on spend, no data gets deleted from there
-    2. LiteLLM_VerificationTokens spend will be set = 0
-    3. LiteLLM_TeamTable spend will be set = 0
+    1. EmbRouter_SpendLogs will maintain the logs on spend, no data gets deleted from there
+    2. EmbRouter_VerificationTokens spend will be set = 0
+    3. EmbRouter_TeamTable spend will be set = 0
 
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise ProxyException(
@@ -3721,7 +3721,7 @@ async def global_spend_refresh():
 
     Globally refresh spend MonthlyGlobalSpend view
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise ProxyException(
@@ -3758,9 +3758,9 @@ async def global_spend_refresh():
         REFRESH MATERIALIZED VIEW "MonthlyGlobalSpend";    
         """
         try:
-            from litellm.proxy._types import CommonProxyErrors
-            from litellm.proxy.proxy_server import proxy_logging_obj
-            from litellm.proxy.utils import PrismaClient
+            from embrouter.proxy._types import CommonProxyErrors
+            from embrouter.proxy.proxy_server import proxy_logging_obj
+            from embrouter.proxy.utils import PrismaClient
 
             db_url: Final = os.getenv("DATABASE_URL")
             if db_url is None:
@@ -3792,7 +3792,7 @@ async def global_spend_for_internal_user(
     api_key: str | None = None,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise ProxyException(
@@ -3848,11 +3848,11 @@ async def global_spend_logs(
     """
     import traceback
 
-    from litellm.integrations.prometheus_helpers.prometheus_api import (
+    from embrouter.integrations.prometheus_helpers.prometheus_api import (
         get_daily_spend_from_prometheus,
         is_prometheus_connected,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -3865,8 +3865,8 @@ async def global_spend_logs(
 
         response: Sequence[Mapping[str, object]]
         if (
-            user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-            or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+            user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+            or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
         ):
             response = await global_spend_for_internal_user(api_key=api_key, user_api_key_dict=user_api_key_dict)
 
@@ -3930,7 +3930,7 @@ async def global_spend():
     """
     import traceback
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         total_spend = 0.0
@@ -3943,7 +3943,7 @@ async def global_spend():
             if isinstance(response, list) and len(response) > 0:
                 total_spend = response[0].get("total_spend", 0.0)
 
-        return {"spend": total_spend, "max_budget": litellm.max_budget}
+        return {"spend": total_spend, "max_budget": embrouter.max_budget}
     except Exception as e:
         error_trace: Final = traceback.format_exc()
         error_str: Final = str(e) + "\n" + error_trace
@@ -3965,7 +3965,7 @@ async def global_spend():
 
 
 async def global_spend_key_internal_user(user_api_key_dict: UserAPIKeyAuth, limit: int = 10):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -3980,7 +3980,7 @@ async def global_spend_key_internal_user(user_api_key_dict: UserAPIKeyAuth, limi
                 api_key,
                 SUM(spend) as total_spend
             FROM 
-                "LiteLLM_SpendLogs"
+                "EmbRouter_SpendLogs"
             WHERE 
                 "user" = $1
             GROUP BY 
@@ -3997,7 +3997,7 @@ async def global_spend_key_internal_user(user_api_key_dict: UserAPIKeyAuth, limi
         FROM 
             top_api_keys t
         LEFT JOIN 
-            "LiteLLM_VerificationToken" v ON t.api_key = v.token
+            "EmbRouter_VerificationToken" v ON t.api_key = v.token
         ORDER BY 
             t.total_spend DESC;
     
@@ -4026,12 +4026,12 @@ async def global_spend_keys(
 
     Use this to get the top 'n' keys with the highest spend, ordered by spend.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     response: Sequence[Mapping[str, object]]
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-        or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+        user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+        or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
     ):
         response = await global_spend_key_internal_user(user_api_key_dict=user_api_key_dict)
 
@@ -4067,7 +4067,7 @@ async def global_spend_per_team():
 
     Use this to get daily spend, grouped by `team_id` and `date`
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -4077,9 +4077,9 @@ async def global_spend_per_team():
             DATE(s."startTime") AS spend_date,
             SUM(s.spend) AS total_spend
         FROM
-            "LiteLLM_SpendLogs" s
+            "EmbRouter_SpendLogs" s
         LEFT JOIN
-            "LiteLLM_TeamTable" t ON s.team_id = t.team_id
+            "EmbRouter_TeamTable" t ON s.team_id = t.team_id
         WHERE
             s."startTime" >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY
@@ -4156,13 +4156,13 @@ async def global_view_all_end_users():
 
     Use this to just get all the unique `end_users`
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
 
     sql_query: Final = """
-    SELECT DISTINCT end_user FROM "LiteLLM_SpendLogs"
+    SELECT DISTINCT end_user FROM "EmbRouter_SpendLogs"
     """
 
     db_response: Final[Sequence[_EndUserRow] | None] = await _query_raw_or_none(prisma_client, sql_query)
@@ -4188,7 +4188,7 @@ async def global_spend_end_users(data: GlobalEndUsersSpend | None = None):
 
     Use this to get the top 'n' keys with the highest spend, ordered by spend.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -4209,7 +4209,7 @@ async def global_spend_end_users(data: GlobalEndUsersSpend | None = None):
 
     sql_query: Final = """
 SELECT end_user, COUNT(*) AS total_count, SUM(spend) AS total_spend
-FROM "LiteLLM_SpendLogs"
+FROM "EmbRouter_SpendLogs"
 WHERE "startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
   AND "startTime" <  ($2::timestamptz AT TIME ZONE 'UTC')
   AND (
@@ -4230,7 +4230,7 @@ LIMIT 100
 
 
 async def global_spend_models_internal_user(user_api_key_dict: UserAPIKeyAuth, limit: int = 10):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -4245,7 +4245,7 @@ async def global_spend_models_internal_user(user_api_key_dict: UserAPIKeyAuth, l
             SUM(spend) as total_spend,
             SUM(total_tokens) as total_tokens
         FROM 
-            "LiteLLM_SpendLogs"
+            "EmbRouter_SpendLogs"
         WHERE 
             "user" = $1
         GROUP BY 
@@ -4278,11 +4278,11 @@ async def global_spend_models(
 
     Use this to get the top 'n' models with the highest spend, ordered by spend.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER
-        or user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+        user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER
+        or user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
     ):
         response = await global_spend_models_internal_user(user_api_key_dict=user_api_key_dict, limit=limit)
         return response
@@ -4350,7 +4350,7 @@ async def provider_budgets() -> ProviderBudgetResponse:
     ```
 
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         if llm_router is None:
@@ -4391,7 +4391,7 @@ async def get_spend_by_tags(prisma_client: PrismaClient, start_date=None, end_da
         jsonb_array_elements_text(request_tags) AS individual_request_tag,
         COUNT(*) AS log_count,
         SUM(spend) AS total_spend
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         GROUP BY individual_request_tag;
         """,
     )
@@ -4497,7 +4497,7 @@ async def ui_get_spend_by_tags(
     dependencies=[Depends(user_api_key_auth)],
     include_in_schema=False,
     responses={
-        200: {"model": list[LiteLLM_SpendLogs]},
+        200: {"model": list[EmbRouter_SpendLogs]},
     },
 )
 async def ui_view_session_spend_logs(
@@ -4522,14 +4522,14 @@ async def ui_view_session_spend_logs(
 
     Returns:
         {
-            "data": List[LiteLLM_SpendLogs],
+            "data": List[EmbRouter_SpendLogs],
             "total": int,
             "page": int,
             "page_size": int,
             "total_pages": int,
         }
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -4585,7 +4585,7 @@ async def ui_view_session_spend_logs(
                 cache_hit, cache_key, request_tags, team_id,
                 organization_id, end_user, requester_ip_address,
                 session_id, status, mcp_namespaced_tool_name, agent_id
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE session_id = $1{scope_sql}
             ORDER BY "startTime" DESC
             LIMIT $2 OFFSET $3
@@ -4707,7 +4707,7 @@ async def _build_ui_spend_logs_response(
                            COALESCE(SUM(prompt_tokens), 0)::bigint AS session_total_prompt_tokens,
                            COALESCE(SUM(completion_tokens), 0)::bigint AS session_total_completion_tokens,
                            COALESCE(SUM(total_tokens), 0)::bigint AS session_total_tokens
-                    FROM "LiteLLM_SpendLogs"
+                    FROM "EmbRouter_SpendLogs"
                     WHERE session_id = ANY($1::text[])
                       AND api_key = ANY($2::text[])
                     GROUP BY session_id, api_key
@@ -4716,7 +4716,7 @@ async def _build_ui_spend_logs_response(
                     SELECT ARRAY_AGG(d.model ORDER BY d.model) AS session_models
                     FROM (
                         SELECT DISTINCT LEFT(model, $3::int) AS model
-                        FROM "LiteLLM_SpendLogs"
+                        FROM "EmbRouter_SpendLogs"
                         WHERE session_id = s.session_id
                           AND api_key = s.api_key
                           AND model IS NOT NULL AND model <> ''
@@ -4831,8 +4831,8 @@ def _is_admin_view_safe(user_api_key_dict: UserAPIKeyAuth) -> bool:
         if user_role is None:
             return False
         return user_role in (
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
         )
     except Exception:
         return False
@@ -4848,7 +4848,7 @@ async def _can_team_member_view_log(
     Returns True if the team exists and the user is either a team admin or
     a team member with the ``/spend/logs`` permission.
     """
-    from litellm.proxy.management_endpoints.common_utils import (
+    from embrouter.proxy.management_endpoints.common_utils import (
         _is_user_team_admin,
         _team_member_has_permission,
     )
@@ -4858,7 +4858,7 @@ async def _can_team_member_view_log(
     team_row: Final = await _find_team_row(prisma_client, team_id)
     if team_row is None:
         return False
-    team_obj: Final = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+    team_obj: Final = EmbRouter_TeamTable.model_validate(team_row.model_dump())
     if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj):
         return True
     return _team_member_has_permission(
@@ -4877,8 +4877,8 @@ def _can_user_view_spend_log(user_api_key_dict: UserAPIKeyAuth) -> bool:
     return (
         user_role
         in (
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         )
         and user_id is not None
     )
@@ -4915,7 +4915,7 @@ async def _assert_user_can_view_request_id(
 ) -> None:
     """
     Verify the requesting non-admin user is allowed to view at least one spend-log
-    row identified by ``request_id`` or ``litellm_call_id``. The latter is
+    row identified by ``request_id`` or ``embrouter_call_id``. The latter is
     client-settable, so an id lookup can match rows across different tenants; the
     data queries scope a non-admin's results to rows they own directly or via a
     permitted team, so a colliding foreign row can neither be served nor deny the
@@ -4960,15 +4960,15 @@ def _viewer_scope_clause(viewer: _SpendLogViewer | None) -> tuple[str, tuple[obj
 def _spend_log_payload_query(request_id: str, viewer: _SpendLogViewer | None) -> tuple[str, tuple[object, ...]]:
     """
     Fetch the one row an id lookup resolves to, preferring the exact ``request_id``
-    match over rows that merely carry the id as their client-set ``litellm_call_id``.
+    match over rows that merely carry the id as their client-set ``embrouter_call_id``.
     A non-admin viewer only ever gets rows they own or rows of a team they may view.
     """
     scope, scope_params = _viewer_scope_clause(viewer)
     return (
         f"""
             SELECT request_id, messages, response, proxy_server_request, metadata, "user", team_id
-            FROM "LiteLLM_SpendLogs"
-            WHERE (request_id = $1 OR litellm_call_id = $1){scope}
+            FROM "EmbRouter_SpendLogs"
+            WHERE (request_id = $1 OR embrouter_call_id = $1){scope}
             ORDER BY (request_id = $1) DESC
             LIMIT 1
         """,
@@ -4986,7 +4986,7 @@ async def _resolve_spend_log_payload_row(
     Resolve an id lookup to the caller's own spend-log row before any payload
     store is consulted. Cold storage is keyed by the provider ``request_id``, so
     asking it for the raw lookup id could hand back another tenant's payload when
-    that id is only the caller's ``litellm_call_id``; the row's stored
+    that id is only the caller's ``embrouter_call_id``; the row's stored
     ``request_id`` is the key that names the caller's own request.
     """
     viewer: Final = None if caller_is_admin else await _spend_log_viewer(prisma_client, user_api_key_dict)
@@ -5077,12 +5077,12 @@ async def _get_permitted_team_ids_for_spend_logs(
     ``/spend/logs`` permission, allowing them to view team-wide spend logs.
     """
     # Imported here to avoid circular import: proxy_server imports this module.
-    from litellm.proxy.auth.auth_checks import get_user_object
-    from litellm.proxy.management_endpoints.common_utils import (
+    from embrouter.proxy.auth.auth_checks import get_user_object
+    from embrouter.proxy.management_endpoints.common_utils import (
         _is_user_team_admin,
         _team_member_has_permission,
     )
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     user_obj: Final = await get_user_object(
         user_id=user_api_key_dict.user_id,
@@ -5098,7 +5098,7 @@ async def _get_permitted_team_ids_for_spend_logs(
 
     permitted: Final[list[str]] = []
     for team_row in team_rows:
-        team_obj = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+        team_obj = EmbRouter_TeamTable.model_validate(team_row.model_dump())
         if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj) or _team_member_has_permission(
             user_api_key_dict=user_api_key_dict,
             team_obj=team_obj,

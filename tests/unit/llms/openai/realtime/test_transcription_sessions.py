@@ -11,11 +11,11 @@ import httpx
 import pytest
 
 
-from litellm.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
-from litellm.types.realtime import RealtimeTranscriptionSessionRequest
+from embrouter.llms.azure.realtime.http_transformation import AzureRealtimeHTTPConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.openai.realtime.http_transformation import OpenAIRealtimeHTTPConfig
+from embrouter.types.realtime import RealtimeTranscriptionSessionRequest
 
 
 def test_openai_transcription_session_url():
@@ -71,7 +71,7 @@ def test_request_resolves_model_from_input_audio_transcription():
 
 
 def test_request_passthrough_excludes_routing_hint():
-    """Unknown fields pass through; the litellm-only `model` hint is not forwarded."""
+    """Unknown fields pass through; the embrouter-only `model` hint is not forwarded."""
     req = RealtimeTranscriptionSessionRequest(
         model="openai/gpt-realtime-whisper",
         input_audio_format="pcm16",
@@ -144,10 +144,10 @@ async def test_client_secret_handler_still_targets_client_secrets_url():
 @pytest.mark.asyncio
 async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     """
-    litellm.acreate_realtime_transcription_session resolves the OpenAI provider
+    embrouter.acreate_realtime_transcription_session resolves the OpenAI provider
     from the transcription model and POSTs to the OpenAI transcription_sessions URL.
     """
-    import litellm
+    import embrouter
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-unit-test")
 
@@ -155,7 +155,7 @@ async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     mock_client = MagicMock(spec=AsyncHTTPHandler)
     mock_client.post = AsyncMock(return_value=mock_response)
 
-    result = await litellm.acreate_realtime_transcription_session(
+    result = await embrouter.acreate_realtime_transcription_session(
         model="openai/gpt-realtime-whisper",
         transcription_session={
             "input_audio_format": "pcm16",
@@ -167,7 +167,7 @@ async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
     assert result is mock_response
     _, kwargs = mock_client.post.call_args
     assert kwargs["url"].endswith("/v1/realtime/transcription_sessions")
-    # The litellm-only routing hint must not be forwarded upstream.
+    # The embrouter-only routing hint must not be forwarded upstream.
     assert "model" not in kwargs["json"]
     assert kwargs["json"]["input_audio_transcription"] == {
         "model": "gpt-realtime-whisper"
@@ -175,7 +175,7 @@ async def test_sdk_fn_routes_openai_transcription_session(monkeypatch):
 
 
 def test_append_query_params_skips_existing_keys():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime?model=gpt-4o"
     result = BaseLLMHTTPHandler._append_query_params(
@@ -186,7 +186,7 @@ def test_append_query_params_skips_existing_keys():
 
 
 def test_append_query_params_no_params_returns_unchanged():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime?model=gpt-4o"
     assert BaseLLMHTTPHandler._append_query_params(url, None) == url
@@ -194,7 +194,7 @@ def test_append_query_params_no_params_returns_unchanged():
 
 
 def test_append_query_params_encodes_special_chars():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     url = "wss://example.com/v1/realtime"
     result = BaseLLMHTTPHandler._append_query_params(url, {"intent": "a&b=c"})
@@ -204,7 +204,7 @@ def test_append_query_params_encodes_special_chars():
 
 def test_azure_construct_url_encodes_model_and_api_version():
     """model and api-version must be URL-encoded to prevent query-string injection."""
-    from litellm.llms.azure.realtime.handler import AzureOpenAIRealtime
+    from embrouter.llms.azure.realtime.handler import AzureOpenAIRealtime
 
     h = AzureOpenAIRealtime()
     url = h._construct_url(

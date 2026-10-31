@@ -11,30 +11,30 @@ from urllib.parse import urlparse
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.litellm_core_utils.token_counter import high_detail_image_token_upper_bound
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.llms.openai.openai import OpenAIConfig as OpenAIConfigType
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler import (
+from embrouter.embrouter_core_utils.token_counter import high_detail_image_token_upper_bound
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.llms.openai.openai import OpenAIConfig as OpenAIConfigType
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler import (
     BasePassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     EndpointType,
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import EmbeddingResponse, ImageResponse, LlmProviders, PassthroughCallTypes
-from litellm.utils import ModelResponse, TextCompletionResponse, convert_to_model_response_object
+from embrouter.types.utils import EmbeddingResponse, ImageResponse, LlmProviders, PassthroughCallTypes
+from embrouter.utils import ModelResponse, TextCompletionResponse, convert_to_model_response_object
 
 # Hostnames that route to OpenAI-compatible APIs.
 #
@@ -49,7 +49,7 @@ _OPENAI_HOSTNAMES: Final = ("api.openai.com",)
 _AZURE_OPENAI_HOSTNAMES: Final = ("openai.azure.com", "cognitiveservices.azure.com")
 # Path markers that identify an Azure request as Azure OpenAI rather than Speech
 # / Vision / Language / ... `/openai/` is the native Azure OpenAI path prefix;
-# `/v1/` is the OpenAI-v1 surface used by LiteLLM's pass-through routing. Other
+# `/v1/` is the OpenAI-v1 surface used by EmbRouter's pass-through routing. Other
 # Cognitive Services use service-named prefixes and versions like `/v3.1/`,
 # `/v1.0/`, so they do not collide with these markers.
 _AZURE_OPENAI_PATH_MARKERS: Final = ("/openai/", "/v1/")
@@ -134,7 +134,7 @@ def count_relayed_prompt_tokens(model: str, messages: Sequence[Mapping[str, obje
         _without_remote_high_detail_images(message) for message in messages
     ]
     return (
-        litellm.token_counter(model=model, messages=local_messages)
+        embrouter.token_counter(model=model, messages=local_messages)
         + high_detail_image_token_upper_bound() * remote_high_detail_images
     )
 
@@ -221,8 +221,8 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
             size: Final = request_body.get("size", "1024x1024")
             quality: Final = request_body.get("quality", None)
 
-            # Use LiteLLM's default image cost calculator
-            from litellm.cost_calculator import default_image_cost_calculator
+            # Use EmbRouter's default image cost calculator
+            from embrouter.cost_calculator import default_image_cost_calculator
 
             cost: Final = default_image_cost_calculator(
                 model=model,
@@ -255,8 +255,8 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 n = 1
             size: Final = request_body.get("size", "1024x1024")
 
-            # Use LiteLLM's default image cost calculator
-            from litellm.cost_calculator import default_image_cost_calculator
+            # Use EmbRouter's default image cost calculator
+            from embrouter.cost_calculator import default_image_cost_calculator
 
             cost: Final = default_image_cost_calculator(
                 model=model,
@@ -274,13 +274,13 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
 
     @staticmethod
     def _calculate_embeddings_cost(
-        litellm_model_response: EmbeddingResponse,
+        embrouter_model_response: EmbeddingResponse,
         model: str,
         custom_llm_provider: str,
     ) -> float:
         try:
-            return litellm.completion_cost(
-                completion_response=litellm_model_response,
+            return embrouter.completion_cost(
+                completion_response=embrouter_model_response,
                 model=model,
                 custom_llm_provider=custom_llm_provider,
                 call_type="aembedding",
@@ -295,7 +295,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
     def _build_responses_api_response_and_cost(
         model: str,
         httpx_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str,
     ) -> tuple[ResponsesAPIResponse, float]:
         """Transform a Responses API raw response into a ResponsesAPIResponse
@@ -307,31 +307,31 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
         a Responses payload. Use the dedicated Responses-API transformer
         (`OpenAIResponsesAPIConfig.transform_response_api_response`) here.
 
-        Returns (litellm_model_response, response_cost) — symmetric with the
+        Returns (embrouter_model_response, response_cost) — symmetric with the
         chat-completions branch which produces the same two values inline,
         and analogous to the image branches' `_calculate_image_*_cost` helpers
         (which return cost only because the image-response object is trivial
         to build inline; the Responses payload needs a real transformer).
         """
         responses_config: Final = OpenAIResponsesAPIConfig()
-        litellm_model_response: Final = responses_config.transform_response_api_response(
+        embrouter_model_response: Final = responses_config.transform_response_api_response(
             model=model,
             raw_response=httpx_response,
             logging_obj=logging_obj,
         )
-        response_cost: Final = litellm.completion_cost(
-            completion_response=litellm_model_response,
+        response_cost: Final = embrouter.completion_cost(
+            completion_response=embrouter_model_response,
             model=model,
             custom_llm_provider=custom_llm_provider,
             call_type="responses",
         )
-        return litellm_model_response, response_cost
+        return embrouter_model_response, response_cost
 
     @staticmethod
     def openai_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -375,7 +375,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
 
         try:
             response_cost = 0.0
-            litellm_model_response: (
+            embrouter_model_response: (
                 ModelResponse | TextCompletionResponse | EmbeddingResponse | ImageResponse | ResponsesAPIResponse | None
             ) = None
             handler_instance: Final = OpenAIPassthroughLoggingHandler()
@@ -385,40 +385,40 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
             if is_chat_completions:
                 # Handle chat completions with existing logic
                 provider_config: Final = handler_instance.get_provider_config(model=model)
-                # Preserve existing litellm_params to maintain metadata tags
-                existing_litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-                litellm_model_response = provider_config.transform_response(
+                # Preserve existing embrouter_params to maintain metadata tags
+                existing_embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+                embrouter_model_response = provider_config.transform_response(
                     raw_response=httpx_response,
-                    model_response=litellm.ModelResponse(),
+                    model_response=embrouter.ModelResponse(),
                     model=model,
                     messages=request_body.get("messages", []),
                     logging_obj=logging_obj,
                     optional_params=request_body.get("optional_params", {}),
                     api_key="",
                     request_data=request_body,
-                    encoding=getattr(litellm, "encoding", None),
+                    encoding=getattr(embrouter, "encoding", None),
                     json_mode=request_body.get("response_format", {}).get("type") == "json_object",
-                    litellm_params=existing_litellm_params,
+                    embrouter_params=existing_embrouter_params,
                 )
 
-                # Calculate cost using LiteLLM's cost calculator
-                response_cost = litellm.completion_cost(
-                    completion_response=litellm_model_response,
+                # Calculate cost using EmbRouter's cost calculator
+                response_cost = embrouter.completion_cost(
+                    completion_response=embrouter_model_response,
                     model=model,
                     custom_llm_provider=custom_llm_provider,
                 )
             elif is_embeddings:
-                litellm_model_response = convert_to_model_response_object(
+                embrouter_model_response = convert_to_model_response_object(
                     response_object=response_body,
                     model_response_object=EmbeddingResponse(),
                     response_type="embedding",
                 )
                 response_cost = OpenAIPassthroughLoggingHandler._calculate_embeddings_cost(
-                    litellm_model_response=litellm_model_response,
+                    embrouter_model_response=embrouter_model_response,
                     model=model,
                     custom_llm_provider=custom_llm_provider,
                 )
-                litellm_model_response._hidden_params["response_cost"] = response_cost
+                embrouter_model_response._hidden_params["response_cost"] = response_cost
             elif is_image_generation:
                 # Handle image generation cost calculation
                 response_cost = OpenAIPassthroughLoggingHandler._calculate_image_generation_cost(
@@ -432,14 +432,14 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 except Exception:
                     pass
                 # Create a simple response object for logging
-                litellm_model_response = ImageResponse(
+                embrouter_model_response = ImageResponse(
                     data=response_body.get("data", []),
                     model=model,
                 )
                 # Set the calculated cost in _hidden_params to prevent recalculation
-                if not hasattr(litellm_model_response, "_hidden_params"):
-                    litellm_model_response._hidden_params = {}
-                litellm_model_response._hidden_params["response_cost"] = response_cost
+                if not hasattr(embrouter_model_response, "_hidden_params"):
+                    embrouter_model_response._hidden_params = {}
+                embrouter_model_response._hidden_params["response_cost"] = response_cost
             elif is_image_editing:
                 # Handle image editing cost calculation
                 response_cost = OpenAIPassthroughLoggingHandler._calculate_image_editing_cost(
@@ -453,21 +453,21 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 except Exception:
                     pass
                 # Create a simple response object for logging
-                litellm_model_response = ImageResponse(
+                embrouter_model_response = ImageResponse(
                     data=response_body.get("data", []),
                     model=model,
                 )
                 # Set the calculated cost in _hidden_params to prevent recalculation
-                if not hasattr(litellm_model_response, "_hidden_params"):
-                    litellm_model_response._hidden_params = {}
-                litellm_model_response._hidden_params["response_cost"] = response_cost
+                if not hasattr(embrouter_model_response, "_hidden_params"):
+                    embrouter_model_response._hidden_params = {}
+                embrouter_model_response._hidden_params["response_cost"] = response_cost
             elif is_responses:
                 # Responses-API cost tracking — see
                 # `_build_responses_api_response_and_cost` for why this needs
                 # a dedicated transformer (the chat-completions transform
                 # crashes on the Responses payload shape).
                 (
-                    litellm_model_response,
+                    embrouter_model_response,
                     response_cost,
                 ) = OpenAIPassthroughLoggingHandler._build_responses_api_response_and_cost(
                     model=model,
@@ -490,15 +490,15 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                     passthrough_logging_payload=passthrough_logging_payload,
                 )
                 if user:
-                    kwargs["litellm_params"].setdefault("proxy_server_request", {}).setdefault("body", {})["user"] = (
+                    kwargs["embrouter_params"].setdefault("proxy_server_request", {}).setdefault("body", {})["user"] = (
                         user
                     )
 
             # Create standard logging object
-            if litellm_model_response is not None:
+            if embrouter_model_response is not None:
                 get_standard_logging_object_payload(
                     kwargs=kwargs,
-                    init_response_obj=litellm_model_response,
+                    init_response_obj=embrouter_model_response,
                     start_time=start_time,
                     end_time=end_time,
                     logging_obj=logging_obj,
@@ -526,7 +526,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
             )
 
             return {
-                "result": litellm_model_response,
+                "result": embrouter_model_response,
                 "kwargs": kwargs,
             }
 
@@ -556,7 +556,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
     def _build_complete_streaming_response(
         self,
         all_chunks: Sequence[str],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         messages: Sequence[Mapping[str, object]] | None = None,
     ) -> ModelResponse | TextCompletionResponse | None:
@@ -564,12 +564,12 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
         Builds complete response from raw chunks for OpenAI streaming responses.
 
         - Converts str chunks to generic chunks
-        - Converts generic chunks to litellm chunks (OpenAI format)
-        - Builds complete response from litellm chunks
+        - Converts generic chunks to embrouter chunks (OpenAI format)
+        - Builds complete response from embrouter chunks
         """
         try:
             # OpenAI's response iterator to parse chunks
-            from litellm.llms.openai.openai import OpenAIChatCompletionResponseIterator
+            from embrouter.llms.openai.openai import OpenAIChatCompletionResponseIterator
 
             openai_iterator: Final = OpenAIChatCompletionResponseIterator(
                 streaming_response=None,
@@ -580,7 +580,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
             for chunk_str in all_chunks:
                 try:
                     # Parse the string chunk using the base iterator's string parser
-                    from litellm.llms.base_llm.base_model_iterator import (
+                    from embrouter.llms.base_llm.base_model_iterator import (
                         BaseModelResponseIterator,
                     )
 
@@ -602,7 +602,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 return None
 
             # Build complete response from chunks
-            complete_streaming_response: Final = litellm.stream_chunk_builder(
+            complete_streaming_response: Final = embrouter.stream_chunk_builder(
                 chunks=all_openai_chunks,
                 messages=messages,
                 count_prompt_tokens=lambda: count_relayed_prompt_tokens(model, messages),
@@ -616,7 +616,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
 
     @staticmethod
     def _handle_logging_openai_collected_chunks(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         passthrough_success_handler_obj: PassThroughEndpointLogging,
         url_route: str,
         request_body: dict,
@@ -642,7 +642,7 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 if is_responses
                 else handler._build_complete_streaming_response(
                     all_chunks=all_chunks,
-                    litellm_logging_obj=litellm_logging_obj,
+                    embrouter_logging_obj=embrouter_logging_obj,
                     model=model,
                 )
             )
@@ -654,46 +654,46 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                     "kwargs": {},
                 }
 
-            custom_llm_provider: Final = litellm_logging_obj.model_call_details.get("custom_llm_provider", "openai")
-            # Calculate cost using LiteLLM's cost calculator
+            custom_llm_provider: Final = embrouter_logging_obj.model_call_details.get("custom_llm_provider", "openai")
+            # Calculate cost using EmbRouter's cost calculator
             response_cost: Final = (
-                litellm.completion_cost(
+                embrouter.completion_cost(
                     completion_response=complete_response,
                     model=model,
                     custom_llm_provider=custom_llm_provider,
                     call_type="responses",
                 )
                 if is_responses
-                else litellm.completion_cost(
+                else embrouter.completion_cost(
                     completion_response=complete_response,
                     model=model,
                     custom_llm_provider=custom_llm_provider,
                 )
             )
 
-            # Preserve existing litellm_params to maintain metadata tags
-            existing_litellm_params: Final = litellm_logging_obj.model_call_details.get("litellm_params", {}) or {}
+            # Preserve existing embrouter_params to maintain metadata tags
+            existing_embrouter_params: Final = embrouter_logging_obj.model_call_details.get("embrouter_params", {}) or {}
 
             # Prepare kwargs for logging
             kwargs: Final = {
                 "response_cost": response_cost,
                 "model": model,
                 "custom_llm_provider": custom_llm_provider,
-                "call_type": litellm_logging_obj.call_type,
-                "messages": litellm_logging_obj.model_call_details.get("messages"),
-                "litellm_params": existing_litellm_params.copy(),
+                "call_type": embrouter_logging_obj.call_type,
+                "messages": embrouter_logging_obj.model_call_details.get("messages"),
+                "embrouter_params": existing_embrouter_params.copy(),
             }
 
             # Extract user information for tracking
             passthrough_logging_payload: Final[PassthroughStandardLoggingPayload | None] = (
-                litellm_logging_obj.model_call_details.get("passthrough_logging_payload")
+                embrouter_logging_obj.model_call_details.get("passthrough_logging_payload")
             )
             if passthrough_logging_payload:
                 user: Final = handler_instance._get_user_from_metadata(
                     passthrough_logging_payload=passthrough_logging_payload,
                 )
                 if user:
-                    kwargs["litellm_params"].setdefault("proxy_server_request", {}).setdefault("body", {})["user"] = (
+                    kwargs["embrouter_params"].setdefault("proxy_server_request", {}).setdefault("body", {})["user"] = (
                         user
                     )
 
@@ -706,16 +706,16 @@ class OpenAIPassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 init_response_obj=complete_response,
                 start_time=start_time,
                 end_time=end_time,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 status="success",
             )
             if standard_logging_object is not None:
                 kwargs["standard_logging_object"] = standard_logging_object
 
             # Update logging object with cost information
-            litellm_logging_obj.model_call_details["model"] = model
-            litellm_logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
-            litellm_logging_obj.model_call_details["response_cost"] = response_cost
+            embrouter_logging_obj.model_call_details["model"] = model
+            embrouter_logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
+            embrouter_logging_obj.model_call_details["response_cost"] = response_cost
 
             verbose_proxy_logger.debug(
                 f"OpenAI streaming passthrough cost tracking - Model: {model}, Cost: ${response_cost:.6f}"

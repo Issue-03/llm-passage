@@ -1,5 +1,5 @@
 """
-Utils used for litellm.ahealth_check()
+Utils used for embrouter.ahealth_check()
 """
 
 from typing import Final

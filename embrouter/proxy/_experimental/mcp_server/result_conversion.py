@@ -16,7 +16,7 @@ from typing import Final, TypeAlias
 from mcp.types import CallToolResult, ContentBlock, InputRequiredResult, TextContent, Tool
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-from litellm.proxy._experimental.mcp_server.tool_outcome import (
+from embrouter.proxy._experimental.mcp_server.tool_outcome import (
     JsonResult,
     TextResult,
     WireCompat,

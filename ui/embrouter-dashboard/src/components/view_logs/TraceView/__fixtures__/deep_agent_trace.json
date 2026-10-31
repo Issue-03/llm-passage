@@ -49,7 +49,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -65,7 +65,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -81,7 +81,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -97,7 +97,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -113,7 +113,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -129,7 +129,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -145,7 +145,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -161,7 +161,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -177,7 +177,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 3332,
       "output_tokens": 467,
-      "litellm_request_id": "chatcmpl-4077bb36-9380-4a3b-9481-245700cef09a",
+      "embrouter_request_id": "chatcmpl-4077bb36-9380-4a3b-9481-245700cef09a",
       "error": null
     },
     {
@@ -193,7 +193,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -209,7 +209,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -225,7 +225,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -241,7 +241,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -257,7 +257,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -273,7 +273,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -289,7 +289,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -305,7 +305,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -321,7 +321,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -337,7 +337,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -353,7 +353,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -369,7 +369,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -385,7 +385,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -401,7 +401,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 2986,
       "output_tokens": 427,
-      "litellm_request_id": "chatcmpl-aaaa4b78-17dc-4364-8fa5-2d83369f1dbc",
+      "embrouter_request_id": "chatcmpl-aaaa4b78-17dc-4364-8fa5-2d83369f1dbc",
       "error": null
     },
     {
@@ -417,7 +417,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -433,7 +433,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -449,7 +449,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -465,7 +465,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -481,7 +481,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -497,7 +497,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -513,7 +513,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -529,7 +529,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -545,7 +545,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -561,7 +561,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -577,7 +577,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -593,7 +593,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -609,7 +609,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -625,7 +625,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -641,7 +641,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -657,7 +657,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -673,7 +673,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -689,7 +689,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -705,7 +705,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -721,7 +721,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -737,7 +737,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -753,7 +753,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -769,7 +769,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -785,7 +785,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -801,7 +801,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -817,7 +817,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -833,7 +833,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -849,7 +849,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -865,7 +865,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -881,7 +881,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 4013,
       "output_tokens": 297,
-      "litellm_request_id": "chatcmpl-09ff3e21-7ac8-452f-bc08-71651da0ffee",
+      "embrouter_request_id": "chatcmpl-09ff3e21-7ac8-452f-bc08-71651da0ffee",
       "error": null
     },
     {
@@ -897,7 +897,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -913,7 +913,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -929,7 +929,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -945,7 +945,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -961,7 +961,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -977,7 +977,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -993,7 +993,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1009,7 +1009,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1025,7 +1025,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1041,7 +1041,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1057,7 +1057,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1073,7 +1073,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1089,7 +1089,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1105,7 +1105,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1121,7 +1121,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1137,7 +1137,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1153,7 +1153,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1169,7 +1169,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1185,7 +1185,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1201,7 +1201,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1217,7 +1217,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1233,7 +1233,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1249,7 +1249,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1265,7 +1265,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 4634,
       "output_tokens": 246,
-      "litellm_request_id": "chatcmpl-67cda920-0fea-4e56-8e37-d1bb2061bb0c",
+      "embrouter_request_id": "chatcmpl-67cda920-0fea-4e56-8e37-d1bb2061bb0c",
       "error": null
     },
     {
@@ -1281,7 +1281,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1297,7 +1297,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1313,7 +1313,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1329,7 +1329,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1345,7 +1345,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1361,7 +1361,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1377,7 +1377,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1393,7 +1393,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1409,7 +1409,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1425,7 +1425,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1441,7 +1441,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1457,7 +1457,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1473,7 +1473,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1489,7 +1489,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1505,7 +1505,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1521,7 +1521,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1537,7 +1537,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1553,7 +1553,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1569,7 +1569,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1585,7 +1585,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1601,7 +1601,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 5104,
       "output_tokens": 242,
-      "litellm_request_id": "chatcmpl-706f846d-b28a-40e4-8db8-c5bbd9f29eb2",
+      "embrouter_request_id": "chatcmpl-706f846d-b28a-40e4-8db8-c5bbd9f29eb2",
       "error": null
     },
     {
@@ -1617,7 +1617,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1633,7 +1633,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1649,7 +1649,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1665,7 +1665,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1681,7 +1681,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1697,7 +1697,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1713,7 +1713,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1729,7 +1729,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1745,7 +1745,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1761,7 +1761,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1777,7 +1777,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1793,7 +1793,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1809,7 +1809,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1825,7 +1825,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1841,7 +1841,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1857,7 +1857,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1873,7 +1873,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1889,7 +1889,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1905,7 +1905,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1921,7 +1921,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1937,7 +1937,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 5536,
       "output_tokens": 700,
-      "litellm_request_id": "chatcmpl-3c20e808-9b16-4427-994f-5ce7e8b1b94d",
+      "embrouter_request_id": "chatcmpl-3c20e808-9b16-4427-994f-5ce7e8b1b94d",
       "error": null
     },
     {
@@ -1953,7 +1953,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1969,7 +1969,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1985,7 +1985,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2001,7 +2001,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2017,7 +2017,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2033,7 +2033,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2049,7 +2049,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 4570,
       "output_tokens": 241,
-      "litellm_request_id": "chatcmpl-f26ccb45-ab1b-44c6-bd9e-41a02ca5f14d",
+      "embrouter_request_id": "chatcmpl-f26ccb45-ab1b-44c6-bd9e-41a02ca5f14d",
       "error": null
     }
   ]

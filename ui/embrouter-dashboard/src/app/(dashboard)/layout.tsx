@@ -60,7 +60,7 @@ export function AgentControlPlaneView() {
     const iframe = iframeRef.current;
     if (!iframe || !auth || auth.plugin !== activePluginName || !agentPlatformUrl) return;
     const send = () => {
-      iframe.contentWindow?.postMessage({ type: "litellm-auth", session_claim: auth.claim }, agentPlatformUrl);
+      iframe.contentWindow?.postMessage({ type: "embrouter-auth", session_claim: auth.claim }, agentPlatformUrl);
     };
     // Cover both orderings: the iframe may have already fired `load` before the
     // claim arrived (send now), or it may load/reload later (send on the event).

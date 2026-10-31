@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from litellm.llms.base_llm.responses.codex_compat import normalize_codex_input_items
+from embrouter.llms.base_llm.responses.codex_compat import normalize_codex_input_items
 
 USER = {"role": "user", "content": "hi"}
 

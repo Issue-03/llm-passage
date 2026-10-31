@@ -1,7 +1,7 @@
 """
 Test A2A model routing in proxy.
 
-Maps to: litellm/proxy/agent_endpoints/a2a_routing.py
+Maps to: embrouter/proxy/agent_endpoints/a2a_routing.py
 """
 
 
@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from litellm.proxy.agent_endpoints.a2a_routing import route_a2a_agent_request
-from litellm.proxy.route_llm_request import route_request
+from embrouter.proxy.agent_endpoints.a2a_routing import route_a2a_agent_request
+from embrouter.proxy.route_llm_request import route_request
 
 
 @pytest.mark.asyncio
 async def test_route_a2a_model_bypasses_router():
-    """Test that a2a/ prefixed models bypass router and go directly to litellm with api_base"""
+    """Test that a2a/ prefixed models bypass router and go directly to embrouter with api_base"""
 
     # Mock data for chat completion with a2a model
     data = {
@@ -37,25 +37,25 @@ async def test_route_a2a_model_bypasses_router():
     mock_router.map_team_model = Mock(return_value=None)
 
     # Mock agent in registry
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     mock_agent = AgentResponse(
         agent_id="test-agent-id",
         agent_name="test-agent",
         agent_card_params={"url": "http://agent.example.com"},
-        litellm_params=None,
+        embrouter_params=None,
     )
 
     mock_registry = Mock()
     mock_registry.get_agent_by_id = Mock(return_value=None)
     mock_registry.get_agent_by_name = Mock(return_value=mock_agent)
 
-    # Mock litellm.acompletion to verify it's called
+    # Mock embrouter.acompletion to verify it's called
     mock_acompletion = AsyncMock(return_value={"id": "test-response"})
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         with patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ):
             result = await route_request(
@@ -65,7 +65,7 @@ async def test_route_a2a_model_bypasses_router():
                 route_type="acompletion",
             )
 
-            # Verify litellm.acompletion was called with api_base injected
+            # Verify embrouter.acompletion was called with api_base injected
             mock_acompletion.assert_called_once()
             call_kwargs = mock_acompletion.call_args.kwargs
             assert call_kwargs["model"] == "a2a/test-agent"
@@ -95,7 +95,7 @@ async def test_route_non_a2a_model_raises_error_if_not_in_router():
     mock_router.map_team_model = Mock(return_value=None)
 
     # Should raise ProxyModelNotFoundError
-    from litellm.proxy.route_llm_request import ProxyModelNotFoundError
+    from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
 
     with pytest.raises(ProxyModelNotFoundError):
         await route_request(
@@ -118,7 +118,7 @@ class _DbAgentRow:
             "agent_id": self.agent_id,
             "agent_name": self.agent_name,
             "agent_card_params": {"name": self.agent_name, "url": "http://sibling-db-agent.example.com"},
-            "litellm_params": {},
+            "embrouter_params": {},
             "object_permission": None,
             "spend": self.spend,
         }
@@ -141,15 +141,15 @@ def _router_without_models():
 
 @pytest.mark.asyncio
 async def test_route_a2a_model_read_through_recovers_agent_created_on_sibling_replica(monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     agent_name = "a2a-sibling-replica-agent"
     prisma_client = Mock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         side_effect=[None, _DbAgentRow("a2a-sibling-replica-agent-id", agent_name)]
     )
-    prisma_client.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.writer_db.embrouter_agentstable.find_unique = AsyncMock(
         return_value=_DbAgentRow("a2a-sibling-replica-agent-id", agent_name)
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -167,7 +167,7 @@ async def test_route_a2a_model_read_through_recovers_agent_created_on_sibling_re
     mock_acompletion = AsyncMock(return_value={"id": "read-through-response"})
 
     try:
-        with patch("litellm.acompletion", mock_acompletion):
+        with patch("embrouter.acompletion", mock_acompletion):
             await route_request(
                 data=data,
                 llm_router=_router_without_models(),
@@ -182,4 +182,4 @@ async def test_route_a2a_model_read_through_recovers_agent_created_on_sibling_re
     call_kwargs = mock_acompletion.call_args.kwargs
     assert call_kwargs["model"] == f"a2a/{agent_name}"
     assert call_kwargs["api_base"] == "http://sibling-db-agent.example.com"
-    prisma_client.db.litellm_agentstable.find_unique.assert_awaited()
+    prisma_client.db.embrouter_agentstable.find_unique.assert_awaited()

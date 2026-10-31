@@ -1,4 +1,4 @@
-from litellm.llms.openai_like.responses.transformation import (
+from embrouter.llms.openai_like.responses.transformation import (
     OpenAILikeResponsesConfig,
 )
 

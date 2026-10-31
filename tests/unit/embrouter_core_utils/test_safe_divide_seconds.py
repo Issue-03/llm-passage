@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from litellm.litellm_core_utils.core_helpers import safe_divide_seconds
+from embrouter.embrouter_core_utils.core_helpers import safe_divide_seconds
 
 
 def test_safe_divide_seconds_basic():

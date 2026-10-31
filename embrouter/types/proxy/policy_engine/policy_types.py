@@ -31,7 +31,7 @@ Key concepts:
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
+from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Policy Condition

@@ -3,10 +3,10 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.caching_handler import create_cache_write_task
-from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching_handler import create_cache_write_task
+from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
     AnthropicMessagesStreamingResponse,
     BaseAnthropicMessagesStreamingIterator,
     _is_message_stop_chunk,
@@ -15,12 +15,12 @@ from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
 )
 
 if TYPE_CHECKING:
-    from litellm.caching.caching_handler import LLMCachingHandler
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.caching.caching_handler import LLMCachingHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.utils import ModelResponseStream
 
-CACHED_STREAM_EVENTS_KEY: Final = "litellm_cached_anthropic_sse_events"
+CACHED_STREAM_EVENTS_KEY: Final = "embrouter_cached_anthropic_sse_events"
 
 _EMPTY_MAPPING: Final[Mapping[str, object]] = MappingProxyType({})
 
@@ -87,7 +87,7 @@ class AnthropicMessagesStreamCacheWriter:
         await aclose_if_supported(self.stream)
 
     def _persist(self) -> None:
-        cache: Final = litellm.cache
+        cache: Final = embrouter.cache
         if self.persisted or cache is None:
             return
         collected_stream: Final = b"".join(self.collected_chunks)
@@ -129,16 +129,16 @@ class CachedAnthropicMessagesStreamIterator(BaseAnthropicMessagesStreamingIterat
     def __init__(
         self,
         events: Sequence[str],
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         request_body: Mapping[str, object],
     ) -> None:
         body: Final = dict(request_body)  # mutable-ok: the base iterator takes a plain dict
-        super().__init__(litellm_logging_obj=litellm_logging_obj, request_body=body)
+        super().__init__(embrouter_logging_obj=embrouter_logging_obj, request_body=body)
         self.chunks: Final[tuple[bytes, ...]] = tuple(event.encode("utf-8") for event in events)
         self.current_index = 0
         self.logged = False
         self._hidden_params: dict[str, object] = {"cache_hit": True}  # mutable-ok: callers stamp cache_key in here
-        litellm_logging_obj.model_call_details["cache_hit"] = True
+        embrouter_logging_obj.model_call_details["cache_hit"] = True
 
     def __aiter__(self) -> "CachedAnthropicMessagesStreamIterator":
         return self
@@ -164,7 +164,7 @@ def get_cached_stream_events(cached_result: Mapping[str, object]) -> tuple[str, 
 
 def convert_cached_anthropic_messages_result(
     cached_result: Mapping[str, object],
-    logging_obj: "LiteLLMLoggingObj",
+    logging_obj: "EmbRouterLoggingObj",
     kwargs: Mapping[str, object],
 ) -> Mapping[str, object] | CachedAnthropicMessagesStreamIterator:
     events: Final = get_cached_stream_events(cached_result)
@@ -172,6 +172,6 @@ def convert_cached_anthropic_messages_result(
         return cached_result
     return CachedAnthropicMessagesStreamIterator(
         events=events,
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         request_body=kwargs,
     )

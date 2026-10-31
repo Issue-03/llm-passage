@@ -8,19 +8,19 @@ High-level convenience:
     acode_interpreter_tool  (ephemeral: create -> run -> delete)
 
 Each entrypoint is `@client`-decorated, so every operation is logged the same
-way `litellm.asearch` is.
+way `embrouter.asearch` is.
 """
 
 from typing import Final
 
-import litellm
-from litellm.llms.base_llm.sandbox.transformation import (
+import embrouter
+from embrouter.llms.base_llm.sandbox.transformation import (
     BaseSandboxConfig,
     CodeExecutionResult,
     ContainerHandle,
 )
-from litellm.types.utils import SandboxProviders
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.utils import SandboxProviders
+from embrouter.utils import ProviderConfigManager, client
 
 __all__ = [
     "acode_interpreter_tool",
@@ -29,11 +29,11 @@ __all__ = [
     "arun_code",
 ]
 
-_LITELLM_INTERNAL_KWARGS: Final = {
-    "litellm_logging_obj",
-    "litellm_call_id",
-    "litellm_trace_id",
-    "litellm_metadata",
+_EMBROUTER_INTERNAL_KWARGS: Final = {
+    "embrouter_logging_obj",
+    "embrouter_call_id",
+    "embrouter_trace_id",
+    "embrouter_metadata",
 }
 
 
@@ -45,18 +45,18 @@ def _get_config(provider: str) -> BaseSandboxConfig:
 
 
 def _forward_kwargs(kwargs: dict) -> dict:
-    return {k: v for k, v in kwargs.items() if k not in _LITELLM_INTERNAL_KWARGS}
+    return {k: v for k, v in kwargs.items() if k not in _EMBROUTER_INTERNAL_KWARGS}
 
 
 def _update_logging(kwargs: dict, provider: str, operation: str) -> None:
-    logging_obj: Final = kwargs.get("litellm_logging_obj")
+    logging_obj: Final = kwargs.get("embrouter_logging_obj")
     if logging_obj is None:
         return
     logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=f"{provider}/{operation}",
         optional_params={},
-        litellm_params={"litellm_call_id": kwargs.get("litellm_call_id")},
+        embrouter_params={"embrouter_call_id": kwargs.get("embrouter_call_id")},
         custom_llm_provider=provider,
     )
 
@@ -143,4 +143,4 @@ async def acode_interpreter_tool(
         try:
             await config.adelete_sandbox(container=container, api_key=api_key, api_base=api_base, **forwarded)
         except Exception as e:
-            litellm._logging.verbose_logger.debug("sandbox: failed to delete ephemeral container: %s", e)
+            embrouter._logging.verbose_logger.debug("sandbox: failed to delete ephemeral container: %s", e)

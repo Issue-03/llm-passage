@@ -1,5 +1,5 @@
 """
-RAG Endpoints for LiteLLM Proxy.
+RAG Endpoints for EmbRouter Proxy.
 
 Provides:
 - /rag/ingest: All-in-one document ingestion pipeline (Upload -> Chunk -> Embed -> Vector Store)
@@ -17,45 +17,45 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import ORJSONResponse, StreamingResponse
 from starlette.datastructures import UploadFile
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
-    LiteLLM_ManagedVectorStore,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    EmbRouter_ManagedVectorStore,
 )
-from litellm.proxy._types import *
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.auth_utils import is_request_body_safe
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     open_sse_before_first_byte,
     ttft_keepalive_interval,
 )
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_headers,
     get_form_data,
 )
-from litellm.proxy.rag_endpoints.upload_security import (
+from embrouter.proxy.rag_endpoints.upload_security import (
     MAX_UPLOAD_SIZE_BYTES,
     EicarTestMalwareScanner,
     MalwareScanner,
     RejectedUpload,
     validate_upload,
 )
-from litellm.proxy.vector_store_endpoints.endpoints import (
+from embrouter.proxy.vector_store_endpoints.endpoints import (
     build_request_data_from_managed_vector_store,
     reject_caller_embedding_selection_params,
 )
-from litellm.proxy.vector_store_endpoints.utils import (
+from embrouter.proxy.vector_store_endpoints.utils import (
     assert_user_can_access_vector_store_id,
 )
-from litellm.rag.main import get_ingestion_class
-from litellm.repositories.table_repositories import ManagedVectorStoresRepository
-from litellm.types.utils import ModelResponse
+from embrouter.rag.main import get_ingestion_class
+from embrouter.repositories.table_repositories import ManagedVectorStoresRepository
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 router: Final = APIRouter()
 
@@ -138,7 +138,7 @@ def _collect_vector_store_ids_from_payload(payload: object) -> set[str]:
 async def _authorize_nested_vector_store_ids(
     payload: object,
     user_api_key_dict: UserAPIKeyAuth,
-) -> Mapping[str, LiteLLM_ManagedVectorStore]:
+) -> Mapping[str, EmbRouter_ManagedVectorStore]:
     """Authorize every nested vector store id and return the managed stores it resolved."""
     return MappingProxyType(
         {
@@ -181,7 +181,7 @@ _MANAGED_STORE_CALLER_OPTIONS: Final = frozenset(
 
 def _caller_vector_store_options(
     request_vector_store_config: Mapping[str, object],
-    managed_store: LiteLLM_ManagedVectorStore | None,
+    managed_store: EmbRouter_ManagedVectorStore | None,
 ) -> Mapping[str, object]:
     if managed_store is None:
         return request_vector_store_config
@@ -190,7 +190,7 @@ def _caller_vector_store_options(
     )
 
 
-def _managed_store_overrides(managed_store: LiteLLM_ManagedVectorStore | None) -> Mapping[str, object]:
+def _managed_store_overrides(managed_store: EmbRouter_ManagedVectorStore | None) -> Mapping[str, object]:
     if managed_store is None:
         return MappingProxyType({})
     return MappingProxyType(
@@ -211,7 +211,7 @@ def _build_file_metadata_entry(
     Build a file metadata entry for storing in vector_store_metadata.
 
     Args:
-        response: The response from litellm.aingest containing file_id
+        response: The response from embrouter.aingest containing file_id
         file_data: Optional tuple of (filename, content, content_type)
         file_url: Optional URL if file was ingested from URL
 
@@ -275,14 +275,14 @@ async def _save_vector_store_to_db_from_rag_ingest(
     - Tracks team_id and user_id for access control
 
     Args:
-        response: The response from litellm.aingest()
+        response: The response from embrouter.aingest()
         ingest_options: The ingest options containing vector store config
         prisma_client: The Prisma database client
         user_api_key_dict: User API key authentication info
         store_is_managed: True when the requested id resolved to a managed store, so a missing row means
             the store is config-registered and must not get a database row
     """
-    from litellm.proxy.vector_store_endpoints.management_endpoints import (
+    from embrouter.proxy.vector_store_endpoints.management_endpoints import (
         create_vector_store_in_db,
     )
 
@@ -303,12 +303,12 @@ async def _save_vector_store_to_db_from_rag_ingest(
     vector_store_config: Final = ingest_options.get("vector_store", {})
     custom_llm_provider: Final = vector_store_config.get("custom_llm_provider")
 
-    # Extract litellm_vector_store_params for custom name and description
-    litellm_vector_store_params: Final = ingest_options.get("litellm_vector_store_params", {})
-    custom_vector_store_name: Final = litellm_vector_store_params.get("vector_store_name")
-    custom_vector_store_description: Final = litellm_vector_store_params.get("vector_store_description")
+    # Extract embrouter_vector_store_params for custom name and description
+    embrouter_vector_store_params: Final = ingest_options.get("embrouter_vector_store_params", {})
+    custom_vector_store_name: Final = embrouter_vector_store_params.get("vector_store_name")
+    custom_vector_store_description: Final = embrouter_vector_store_params.get("vector_store_description")
 
-    # Extract provider-specific params from vector_store_config to save as litellm_params
+    # Extract provider-specific params from vector_store_config to save as embrouter_params
     # This ensures params like aws_region_name, embedding_model, etc. are available for search
     provider_specific_params: Final = {}
     excluded_keys: Final = {"custom_llm_provider", "vector_store_id"}
@@ -351,7 +351,7 @@ async def _save_vector_store_to_db_from_rag_ingest(
                 vector_store_name=vector_store_name,
                 vector_store_description=vector_store_description,
                 vector_store_metadata=initial_metadata,
-                litellm_params=(provider_specific_params if provider_specific_params else None),
+                embrouter_params=(provider_specific_params if provider_specific_params else None),
                 team_id=user_api_key_dict.team_id,
                 user_id=user_api_key_dict.user_id,
             )
@@ -371,7 +371,7 @@ async def _save_vector_store_to_db_from_rag_ingest(
             existing_metadata["ingested_files"] = ingested_files
 
             # Update the vector store
-            from litellm.proxy.utils import safe_dumps
+            from embrouter.proxy.utils import safe_dumps
 
             await ManagedVectorStoresRepository(prisma_client).table.update(
                 where={"vector_store_id": vector_store_id},
@@ -574,8 +574,8 @@ async def rag_ingest(
         -F 'ingest_options={"vector_store": {"custom_llm_provider": "bedrock"}}'
     ```
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         prisma_client,
@@ -590,7 +590,7 @@ async def rag_ingest(
         )
 
         # INTERNAL_USER_VIEW_ONLY can ingest to existing vector stores only
-        if user_api_key_dict.user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value and not ingest_options.get(
+        if user_api_key_dict.user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value and not ingest_options.get(
             "vector_store", {}
         ).get("vector_store_id"):
             raise HTTPException(
@@ -622,7 +622,7 @@ async def rag_ingest(
             **_caller_vector_store_options(request_vector_store_config, managed_store),
             **_managed_store_overrides(managed_store),
         }
-        merged_ingest_options: Final = {  # mutable-ok: litellm.aingest takes a plain dict payload
+        merged_ingest_options: Final = {  # mutable-ok: embrouter.aingest takes a plain dict payload
             **ingest_options,
             "vector_store": merged_vector_store_config,
         }
@@ -634,9 +634,9 @@ async def rag_ingest(
                 detail={"error": provider_error},  # mutable-ok: FastAPI serializes the detail as JSON
             )
 
-        # Add litellm data
+        # Add embrouter data
         request_data: dict[str, Any] = {}
-        request_data = await add_litellm_data_to_request(
+        request_data = await add_embrouter_data_to_request(
             data=request_data,
             request=request,
             general_settings=general_settings,
@@ -652,7 +652,7 @@ async def rag_ingest(
         )
 
         # Call ingest
-        response: Final = await litellm.aingest(
+        response: Final = await embrouter.aingest(
             ingest_options=merged_ingest_options,
             file_data=file_data,
             file_url=file_url,
@@ -729,7 +729,7 @@ async def rag_query(
         -H "Content-Type: application/json" \\
         -d '{
             "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+            "messages": [{"role": "user", "content": "What is EmbRouter?"}],
             "retrieval_config": {
                 "vector_store_id": "vs_abc123",
                 "custom_llm_provider": "openai",
@@ -745,7 +745,7 @@ async def rag_query(
         -H "Content-Type: application/json" \\
         -d '{
             "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+            "messages": [{"role": "user", "content": "What is EmbRouter?"}],
             "retrieval_config": {
                 "vector_store_id": "vs_abc123",
                 "custom_llm_provider": "openai",
@@ -759,8 +759,8 @@ async def rag_query(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -811,7 +811,7 @@ async def rag_query(
             user_api_key_dict=user_api_key_dict,
         )
 
-        # Merge litellm-managed vector store params (provider, region, embedding
+        # Merge embrouter-managed vector store params (provider, region, embedding
         # model, credentials, ...) from the registry: the same source the direct
         # /vector_stores/{id}/search endpoint uses. Store-managed keys win on
         # conflict so callers cannot override the store's provider or credentials.
@@ -826,9 +826,9 @@ async def rag_query(
             **store_data,
         }
 
-        # Add litellm data
+        # Add embrouter data
         request_data: dict[str, object] = {}
-        request_data = await add_litellm_data_to_request(
+        request_data = await add_embrouter_data_to_request(
             data=request_data,
             request=request,
             general_settings=general_settings,
@@ -845,7 +845,7 @@ async def rag_query(
         )
 
         async def query() -> ModelResponse:
-            return await litellm.aquery(
+            return await embrouter.aquery(
                 model=model,
                 messages=messages,
                 retrieval_config=merged_retrieval_config,
@@ -860,7 +860,7 @@ async def rag_query(
             hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
             return ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=user_api_key_dict,
-                call_id=hidden_params.get("litellm_call_id", None) or "",
+                call_id=hidden_params.get("embrouter_call_id", None) or "",
                 model_id=hidden_params.get("model_id", None) or "",
                 cache_key=hidden_params.get("cache_key", None) or "",
                 api_base=hidden_params.get("api_base", None) or "",

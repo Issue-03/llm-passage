@@ -1,28 +1,28 @@
 """
 Expired UI session key cleanup manager.
 
-Deletes expired virtual keys created for LiteLLM dashboard sessions.
+Deletes expired virtual keys created for EmbRouter dashboard sessions.
 """
 
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any, Final, Protocol
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME,
-    LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
-    LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
+    EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
     UI_SESSION_TOKEN_TEAM_ID,
 )
-from litellm.proxy._types import KeyRequest, UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy._types import KeyRequest, UserAPIKeyAuth
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     delete_verification_tokens,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.verification_token_repository import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 
@@ -80,19 +80,19 @@ class ExpiredUISessionKeyCleanupManager:
             if not tokens:
                 return 0
 
-            system_user: Final = UserAPIKeyAuth.get_litellm_internal_jobs_user_api_key_auth()
+            system_user: Final = UserAPIKeyAuth.get_embrouter_internal_jobs_user_api_key_auth()
             response, keys_being_deleted = await delete_verification_tokens(
                 tokens=tokens,
                 user_api_key_cache=self.user_api_key_cache,
                 user_api_key_dict=system_user,
-                litellm_changed_by=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+                embrouter_changed_by=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
             )
             await KeyManagementEventHooks.async_key_deleted_hook(
                 data=KeyRequest(keys=tokens),
                 keys_being_deleted=keys_being_deleted,
                 response=response or {},
                 user_api_key_dict=system_user,
-                litellm_changed_by=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+                embrouter_changed_by=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
             )
             deleted_count: Final = self._get_deleted_token_count(
                 tokens=tokens,
@@ -146,7 +146,7 @@ class ExpiredUISessionKeyCleanupManager:
 
     async def _find_expired_ui_session_keys(self) -> Sequence[_ExpiredSessionKeyRow]:
         """
-        Find expired LiteLLM dashboard session keys.
+        Find expired EmbRouter dashboard session keys.
         """
         now: Final = datetime.now(timezone.utc)
         return await VerificationTokenRepository(self.prisma_client).table.find_many(
@@ -154,5 +154,5 @@ class ExpiredUISessionKeyCleanupManager:
                 "team_id": UI_SESSION_TOKEN_TEAM_ID,
                 "expires": {"lt": now},
             },
-            take=LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
+            take=EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE,
         )

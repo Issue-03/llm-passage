@@ -10,18 +10,18 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
-from litellm.llms.anthropic.cache_aware_routing import AnthropicCacheRouting, TokenCounter
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
-from litellm.types.router import Deployment, PreRoutingHookResponse
-from litellm.types.utils import StandardLoggingRoutingDecision
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.embrouter_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
+from embrouter.llms.anthropic.cache_aware_routing import AnthropicCacheRouting, TokenCounter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import can_key_call_resolved_model
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig
+from embrouter.types.router import Deployment, PreRoutingHookResponse
+from embrouter.types.utils import StandardLoggingRoutingDecision
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 _MESSAGES: Final = TypeAdapter(list[Mapping[str, object]])
 _MAPPING: Final = TypeAdapter(Mapping[str, object])
@@ -87,7 +87,7 @@ def eligible_models(
         or config.adaptive
         or config.session_affinity
         or config.classification_mode != "every_request"
-        or any(entry.litellm_params for entry in tier_entries)
+        or any(entry.embrouter_params for entry in tier_entries)
         or any(not isinstance(model, str) for model in config.tiers.values())
     ):
         return ()
@@ -137,8 +137,8 @@ def supported_router_marker(router: Router, alias: str, request_kwargs: Mapping[
         Deployment.model_validate(entry) for entry in router.deployments_for_request(alias, request_kwargs)
     )
     return bool(markers) and all(
-        marker.litellm_params.model == "auto_router/complexity_router"
-        and not frozenset(marker.litellm_params.model_dump(exclude_defaults=True, exclude_none=True)) - _MARKER_OPTIONS
+        marker.embrouter_params.model == "auto_router/complexity_router"
+        and not frozenset(marker.embrouter_params.model_dump(exclude_defaults=True, exclude_none=True)) - _MARKER_OPTIONS
         for marker in markers
     )
 
@@ -239,12 +239,12 @@ async def _choose_cached_model(
         return None
     if not eligible_models(config, response.routing_decision):
         return None
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.prompt_cache_prediction import has_request_transforms
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.common_utils.prompt_cache_prediction import has_request_transforms
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
         _PROXY_MaxParallelRequestsHandler_v3,  # pyright: ignore[reportPrivateUsage]  # use the configured proxy limiter's shared capacity owner
     )
-    from litellm.router_strategy.complexity_router.context_compaction import compaction_pending
+    from embrouter.router_strategy.complexity_router.context_compaction import compaction_pending
 
     if (
         proxy_server.llm_router is not router

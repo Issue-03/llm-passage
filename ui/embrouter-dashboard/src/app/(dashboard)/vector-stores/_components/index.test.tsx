@@ -121,7 +121,7 @@ describe("VectorStoreManagement Indexes tab", () => {
         {
           id: "idx-1",
           index_name: "support-docs-index",
-          litellm_params: { vector_store_index: "pinecone-support-docs", vector_store_name: "support-docs-store" },
+          embrouter_params: { vector_store_index: "pinecone-support-docs", vector_store_name: "support-docs-store" },
         },
       ],
     });
@@ -158,7 +158,7 @@ describe("VectorStoreManagement Indexes tab", () => {
         {
           id: "idx-1",
           index_name: "support-docs-index",
-          litellm_params: { vector_store_index: "pinecone-support-docs", vector_store_name: "support-docs-store" },
+          embrouter_params: { vector_store_index: "pinecone-support-docs", vector_store_name: "support-docs-store" },
         },
       ],
     });

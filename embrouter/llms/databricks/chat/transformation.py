@@ -9,20 +9,20 @@ from typing import TYPE_CHECKING, Any, Final, Literal, cast, overload
 import httpx
 from pydantic import BaseModel
 
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _handle_invalid_parallel_tool_calls,
     _should_convert_tool_call_to_json_mode,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _extract_reasoning_content,  # pyright: ignore[reportPrivateUsage]  # same import as the OpenAI transformation
     merge_consecutive_system_messages,
-    strip_litellm_internal_message_fields,
+    strip_embrouter_internal_message_fields,
     strip_name_from_message,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.types.llms.anthropic import AllAnthropicToolsValues
-from litellm.types.llms.databricks import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.types.llms.anthropic import AllAnthropicToolsValues
+from embrouter.types.llms.databricks import (
     AllDatabricksContentValues,
     DatabricksChoice,
     DatabricksDelta,
@@ -31,7 +31,7 @@ from litellm.types.llms.databricks import (
     DatabricksResponse,
     DatabricksTool,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionAssistantToolCall,
@@ -42,7 +42,7 @@ from litellm.types.llms.openai import (
     ChatCompletionToolMessage,
     ChatCompletionToolParam,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message,
@@ -149,12 +149,12 @@ def _split_parallel_tool_calls(messages: list[AllMessageValues]) -> list[AllMess
 
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
@@ -214,18 +214,18 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         # Check for custom user agent in optional_params or environment
-        # This allows partners building on LiteLLM to set their own telemetry
+        # This allows partners building on EmbRouter to set their own telemetry
         # Use pop() to remove these keys so they don't get sent to the API
         custom_user_agent: Final = (
             optional_params.pop("user_agent", None)
             or optional_params.pop("databricks_user_agent", None)
-            or litellm_params.get("user_agent")
-            or os.getenv("LITELLM_USER_AGENT")
+            or embrouter_params.get("user_agent")
+            or os.getenv("EMBROUTER_USER_AGENT")
             or os.getenv("DATABRICKS_USER_AGENT")
         )
 
@@ -247,7 +247,7 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         use_ai_gateway: Final = model.removeprefix("databricks/").count(".") >= 2
@@ -274,7 +274,7 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
 
     @staticmethod
     def _uses_anthropic_thinking_param(model: str) -> bool:
-        from litellm.utils import supports_anthropic_thinking_payload
+        from embrouter.utils import supports_anthropic_thinking_payload
 
         normalized: Final = model.lower().replace(".", "-")
         return "claude" in normalized or supports_anthropic_thinking_payload(
@@ -446,7 +446,7 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
         """
         Databricks does not support:
         - 'name' in user message.
-        - litellm's internal `thinking_blocks` / `reasoning_content` on assistant messages.
+        - embrouter's internal `thinking_blocks` / `reasoning_content` on assistant messages.
         """
         new_messages = []
         for idx, message in enumerate(messages):
@@ -455,7 +455,7 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
             else:
                 _message = message
             _message = strip_name_from_message(_message, allowed_name_roles=["user"])
-            _message = strip_litellm_internal_message_fields(_message)
+            _message = strip_embrouter_internal_message_fields(_message)
             # Move message-level cache_control into a content block when content is a string.
             if "cache_control" in _message and isinstance(_message.get("content"), str):
                 _message = self._move_cache_control_into_string_content_block(_message)
@@ -645,11 +645,11 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -676,7 +676,7 @@ class DatabricksConfig(DatabricksBase, OpenAILikeChatConfig, AnthropicConfig):
                 headers=response_headers,
             )
 
-        _custom_llm_provider: Final = litellm_params.get("custom_llm_provider") or "databricks"
+        _custom_llm_provider: Final = embrouter_params.get("custom_llm_provider") or "databricks"
         _response_model: Final = completion_response.get("model") or ""
         model_response.model = f"{_custom_llm_provider}/{_response_model}"
         model_response.id = completion_response["id"]
@@ -727,8 +727,8 @@ class DatabricksChatResponseIterator(BaseModelResponseIterator):
                     # 4. Convert json to message
                     # 5. Set content to message.content
                     # 6. Set tool_calls to None
-                    from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-                    from litellm.llms.base_llm.base_utils import (
+                    from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+                    from embrouter.llms.base_llm.base_utils import (
                         _convert_tool_response_to_message,
                     )
 

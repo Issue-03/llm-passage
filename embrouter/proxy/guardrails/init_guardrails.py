@@ -1,12 +1,12 @@
 from typing import Any, Final, cast
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
+import embrouter
+from embrouter import Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
 
 # v2 implementation
-from litellm.types.guardrails import Guardrail, GuardrailItem, GuardrailItemSpec
+from embrouter.types.guardrails import Guardrail, GuardrailItem, GuardrailItemSpec
 
 all_guardrails: list[GuardrailItem] = []
 
@@ -21,7 +21,7 @@ def init_guardrails_v2(
     config_file_path: str | None = None,
     llm_router: Router | None = None,
 ):
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     guardrail_list: Final[list[Guardrail]] = []
 
@@ -56,9 +56,9 @@ def _populate_router_guardrail_list(guardrail_list: list[Guardrail]) -> None:
     This enables load balancing across multiple guardrail deployments
     with the same guardrail_name.
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import llm_router
-    from litellm.types.router import GuardrailTypedDict
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import llm_router
+    from embrouter.types.router import GuardrailTypedDict
 
     if llm_router is None:
         verbose_proxy_logger.debug("Router not initialized yet, skipping guardrail_list population")
@@ -69,19 +69,19 @@ def _populate_router_guardrail_list(guardrail_list: list[Guardrail]) -> None:
     for guardrail in guardrail_list:
         guardrail_id = guardrail.get("guardrail_id")
         guardrail_name = guardrail.get("guardrail_name")
-        litellm_params: Any = guardrail.get("litellm_params", {})
+        embrouter_params: Any = guardrail.get("embrouter_params", {})
 
         # Get the callback instance from the registry
         callback = None
         if guardrail_id:
             callback = IN_MEMORY_GUARDRAIL_HANDLER.guardrail_id_to_custom_guardrail.get(guardrail_id)
 
-        # Build litellm_params dict for the router
-        params_dict = litellm_params.model_dump() if hasattr(litellm_params, "model_dump") else dict(litellm_params)
+        # Build embrouter_params dict for the router
+        params_dict = embrouter_params.model_dump() if hasattr(embrouter_params, "model_dump") else dict(embrouter_params)
 
         router_guardrail: GuardrailTypedDict = GuardrailTypedDict(
             guardrail_name=guardrail_name or "",
-            litellm_params={
+            embrouter_params={
                 "guardrail": params_dict.get("guardrail", ""),
                 "mode": params_dict.get("mode", ""),
                 "api_key": params_dict.get("api_key"),
@@ -102,7 +102,7 @@ def initialize_guardrails(
     guardrails_config: list[dict[str, GuardrailItemSpec]],
     premium_user: bool,
     config_file_path: str,
-    litellm_settings: dict,
+    embrouter_settings: dict,
 ) -> dict[str, GuardrailItem]:
     try:
         verbose_proxy_logger.debug("validating  guardrails passed %s", guardrails_config)
@@ -116,7 +116,7 @@ def initialize_guardrails(
             for k, v in item.items():
                 guardrail_item = GuardrailItem(**v, guardrail_name=k)
                 all_guardrails.append(guardrail_item)
-                litellm.guardrail_name_config_map[k] = guardrail_item
+                embrouter.guardrail_name_config_map[k] = guardrail_item
 
         # set appropriate callbacks if they are default on
         default_on_callbacks: Final = set()
@@ -128,9 +128,9 @@ def initialize_guardrails(
             callback_specific_params.update(guardrail.callback_args)
 
             if guardrail.default_on is True:
-                # add these to litellm callbacks if they don't exist
+                # add these to embrouter callbacks if they don't exist
                 for callback in guardrail.callbacks:
-                    if callback not in litellm.callbacks:
+                    if callback not in embrouter.callbacks:
                         default_on_callbacks.add(callback)
 
                     if guardrail.logging_only is True:
@@ -143,11 +143,11 @@ def initialize_guardrails(
                 value=default_on_callbacks_list,
                 premium_user=premium_user,
                 config_file_path=config_file_path,
-                litellm_settings=litellm_settings,
+                embrouter_settings=embrouter_settings,
                 callback_specific_params=callback_specific_params,
             )
 
-        return litellm.guardrail_name_config_map
+        return embrouter.guardrail_name_config_map
     except Exception as e:
         verbose_proxy_logger.exception("error initializing guardrails %s", e)
         raise e

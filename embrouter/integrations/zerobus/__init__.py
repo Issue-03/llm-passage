@@ -1,5 +1,5 @@
-"""Databricks Zerobus logging integration for LiteLLM."""
+"""Databricks Zerobus logging integration for EmbRouter."""
 
-from litellm.integrations.zerobus.logger import ZerobusLogger
+from embrouter.integrations.zerobus.logger import ZerobusLogger
 
 __all__ = ("ZerobusLogger",)

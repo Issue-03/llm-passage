@@ -3,10 +3,10 @@ from types import MappingProxyType
 from typing import Final
 from urllib.parse import urlparse
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.deepgram.common_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.deepgram.common_utils import (
     deepgram_listen_addon_pricing_models,
     deepgram_listen_audio_seconds,
     deepgram_listen_channel_count,
@@ -16,18 +16,18 @@ from litellm.llms.deepgram.common_utils import (
     deepgram_listen_registry_key,
     deepgram_listen_transcript,
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import TranscriptionResponse
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import TranscriptionResponse
 
 DEEPGRAM_LISTEN_ROUTE_SUFFIX: Final = "/listen"
 
 
 def _registry_cost(response: TranscriptionResponse, pricing_model: str) -> float | None:
     try:
-        return litellm.completion_cost(
+        return embrouter.completion_cost(
             completion_response=response,
             model=pricing_model,
-            custom_llm_provider=litellm.LlmProviders.DEEPGRAM.value,
+            custom_llm_provider=embrouter.LlmProviders.DEEPGRAM.value,
             call_type="transcription",
         )
     except Exception as e:  # noqa: BLE001  # an unpriced entry must not lose the spend row, only its cost
@@ -59,7 +59,7 @@ class DeepgramListenPassthroughLoggingHandler:
     def deepgram_listen_passthrough_handler(
         self,
         websocket_messages: Sequence[Mapping[str, object]],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         upstream_url: str,
         kwargs: Mapping[str, object] = MappingProxyType({}),
     ) -> PassThroughEndpointLoggingTypedDict:
@@ -72,7 +72,7 @@ class DeepgramListenPassthroughLoggingHandler:
         response_cost: Final = _audio_cost(response, upstream_url)
         response._hidden_params["response_cost"] = response_cost  # pyright: ignore[reportPrivateUsage]  # the logger reads a precomputed cost off the response's hidden params
 
-        provider: Final = litellm.LlmProviders.DEEPGRAM.value
+        provider: Final = embrouter.LlmProviders.DEEPGRAM.value
         logging_obj.model = model  # rebind-ok: the spend logger reads model and cost off the shared logging object
         logging_obj.model_call_details["model"] = model  # rebind-ok: same shared logging object
         logging_obj.model_call_details["custom_llm_provider"] = provider  # rebind-ok: same shared logging object

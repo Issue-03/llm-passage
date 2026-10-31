@@ -2,8 +2,8 @@ from typing import Final
 
 from pydantic import Field, model_validator
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.guardrails import GuardrailParamUITypes
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.guardrails import GuardrailParamUITypes
 
 from .base import GuardrailConfigModel
 

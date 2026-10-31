@@ -31,18 +31,18 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
+import embrouter
 
-from litellm.proxy.guardrails.guardrail_hooks.headroom.headroom import (
+from embrouter.proxy.guardrails.guardrail_hooks.headroom.headroom import (
     HeadroomGuardrail,
     has_headroom_retrieve_tool,
     HEADROOM_RETRIEVE_TOOL_NAME,
 )
-from litellm.proxy.spend_tracking.compression_savings import (
+from embrouter.proxy.spend_tracking.compression_savings import (
     extract_compression_saved_tokens,
 )
-from litellm.types.integrations.custom_logger import HEADROOM_CONVERTED_STREAM_KEY
-from litellm.types.utils import (
+from embrouter.types.integrations.custom_logger import HEADROOM_CONVERTED_STREAM_KEY
+from embrouter.types.utils import (
     CallTypes,
     GenericGuardrailAPIInputs,
 )
@@ -147,7 +147,7 @@ def guardrail() -> HeadroomGuardrail:
 
 
 def _recorded_guardrail_entries(request_data: dict) -> list:
-    for container_key in ("metadata", "litellm_metadata"):
+    for container_key in ("metadata", "embrouter_metadata"):
         container = request_data.get(container_key)
         if isinstance(container, dict):
             entries = container.get("standard_logging_guardrail_information")
@@ -157,7 +157,7 @@ def _recorded_guardrail_entries(request_data: dict) -> list:
 
 
 def _applied_guardrails(request_data: dict) -> list:
-    for container_key in ("metadata", "litellm_metadata"):
+    for container_key in ("metadata", "embrouter_metadata"):
         container = request_data.get(container_key)
         if isinstance(container, dict) and isinstance(container.get("applied_guardrails"), list):
             return container["applied_guardrails"]
@@ -528,7 +528,7 @@ async def test_async_build_agentic_loop_plan_calls_retrieve_and_builds_messages(
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-1"},
+            kwargs={"embrouter_call_id": "call-1"},
         )
 
     assert plan.run_agentic_loop is True
@@ -594,7 +594,7 @@ async def test_async_build_agentic_loop_plan_handles_retrieve_404(
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-1"},
+            kwargs={"embrouter_call_id": "call-1"},
         )
 
     follow_up = plan.request_patch.messages  # type: ignore[union-attr]
@@ -639,7 +639,7 @@ async def test_async_build_agentic_loop_plan_rejects_hash_with_no_known_call(
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-unknown"},
+            kwargs={"embrouter_call_id": "call-unknown"},
         )
 
     mock_get.assert_not_called()
@@ -656,7 +656,7 @@ async def test_async_build_agentic_loop_plan_rejects_hash_issued_for_different_c
 ):
     """A hash issued for one request must not be retrievable by a different
     request just because the second request echoes that hash-shaped string
-    back in its own messages -- retrieval must be scoped per litellm_call_id,
+    back in its own messages -- retrieval must be scoped per embrouter_call_id,
     not derived by re-scanning attacker-controlled message text."""
     guardrail._issued_hashes_by_call_id["call-A"] = (
         frozenset({"b573993006976af767214fac"}),
@@ -691,7 +691,7 @@ async def test_async_build_agentic_loop_plan_rejects_hash_issued_for_different_c
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-B"},
+            kwargs={"embrouter_call_id": "call-B"},
         )
 
     mock_get.assert_not_called()
@@ -754,7 +754,7 @@ async def test_async_build_agentic_loop_plan_builds_responses_api_function_call_
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-1"},
+            kwargs={"embrouter_call_id": "call-1"},
         )
 
     follow_up = plan.request_patch.messages  # type: ignore[union-attr]
@@ -828,7 +828,7 @@ async def test_async_build_agentic_loop_plan_builds_anthropic_tool_result_messag
             anthropic_messages_optional_request_params={},
             logging_obj=None,
             stream=False,
-            kwargs={"litellm_call_id": "call-1"},
+            kwargs={"embrouter_call_id": "call-1"},
         )
 
     follow_up = plan.request_patch.messages  # type: ignore[union-attr]
@@ -908,12 +908,12 @@ async def test_service_declared_ccr_hashes_drive_injection_and_validation(guardr
 async def test_ccr_retrieval_disabled_ignores_service_declared_hashes(monkeypatch: pytest.MonkeyPatch):
     """`ccr_retrieval: false` in config.yaml compresses without any retrieval
     round trip, so it has to reach the instance through the initializer."""
-    from litellm.proxy.guardrails.guardrail_hooks.headroom import initialize_guardrail
-    from litellm.types.guardrails import LitellmParams
+    from embrouter.proxy.guardrails.guardrail_hooks.headroom import initialize_guardrail
+    from embrouter.types.guardrails import EmbrouterParams
 
-    monkeypatch.setattr(litellm.logging_callback_manager, "add_litellm_callback", lambda callback: None)
-    params = LitellmParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE, ccr_retrieval=False)
-    guardrail = initialize_guardrail(params, {"guardrail_name": "headroom", "litellm_params": params})
+    monkeypatch.setattr(embrouter.logging_callback_manager, "add_embrouter_callback", lambda callback: None)
+    params = EmbrouterParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE, ccr_retrieval=False)
+    guardrail = initialize_guardrail(params, {"guardrail_name": "headroom", "embrouter_params": params})
 
     result = await _apply(guardrail, HASH_SHAPED_HISTORY, ccr_hashes=["b573993006976af767214fac"])
 
@@ -927,7 +927,7 @@ async def test_anthropic_assistant_history_never_reaches_compression_service(gua
     """The public Anthropic handler translates assistant content blocks to a
     string before Headroom sees them, so model-authored rows must be excluded
     from the compression payload rather than protected by their content shape."""
-    from litellm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
+    from embrouter.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
 
     table = "| Guardrail | Model |\n|---|---|\n" + "\n".join(f"| gr-{i} | model-{i} |" for i in range(40))
     messages = [
@@ -1044,7 +1044,7 @@ async def test_passthrough_handler_does_not_log_headroom_as_run(
     shape and no-ops, so it must not appear in the spend log's
     standard_logging_guardrail_information as a successful run.
     """
-    from litellm.llms.pass_through.guardrail_translation.handler import (
+    from embrouter.llms.pass_through.guardrail_translation.handler import (
         PassThroughEndpointHandler,
     )
 
@@ -1054,7 +1054,7 @@ async def test_passthrough_handler_does_not_log_headroom_as_run(
         await PassThroughEndpointHandler().process_input_messages(
             data=data,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
         mock_post.assert_not_called()
 
@@ -1069,7 +1069,7 @@ async def test_responses_request_sends_compressed_input_and_retrieve_tool_upstre
     """Regression for LIT-6494: on /v1/responses the compressed messages must be
     written back into `input`, not only the retrieve tool into `tools`, or the
     model keeps reading the full document and never calls headroom_retrieve."""
-    from litellm.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
+    from embrouter.llms.openai.responses.guardrail_translation.handler import OpenAIResponsesHandler
 
     data = {
         "model": "gpt-5.6",
@@ -1161,7 +1161,7 @@ def _make_http_status_error(status: int, body: str) -> httpx.HTTPStatusError:
 
 @pytest.mark.asyncio
 async def test_apply_guardrail_http_status_error_raises():
-    """Regression test: litellm's async httpx client calls raise_for_status()
+    """Regression test: embrouter's async httpx client calls raise_for_status()
     internally, so a non-2xx /v1/compress response surfaces as
     httpx.HTTPStatusError, not as a returned MagicMock with status_code set.
     A prior version of _call_compress only checked response.status_code and
@@ -1718,7 +1718,7 @@ async def test_async_should_run_agentic_loop_detects_responses_api_output_format
 
 
 @pytest.mark.asyncio
-async def test_apply_guardrail_litellm_timeout_raises_when_fail_closed():
+async def test_apply_guardrail_embrouter_timeout_raises_when_fail_closed():
     guardrail = _make_guardrail()
 
     inputs = GenericGuardrailAPIInputs(
@@ -1730,10 +1730,10 @@ async def test_apply_guardrail_litellm_timeout_raises_when_fail_closed():
         guardrail.async_handler,
         "post",
         new_callable=AsyncMock,
-        side_effect=litellm.Timeout(
+        side_effect=embrouter.Timeout(
             message="Connection timed out after 10 seconds.",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="embrouter-httpx-handler",
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -1748,7 +1748,7 @@ async def test_apply_guardrail_litellm_timeout_raises_when_fail_closed():
 
 
 @pytest.mark.asyncio
-async def test_apply_guardrail_litellm_timeout_fail_open_forwards_uncompressed():
+async def test_apply_guardrail_embrouter_timeout_fail_open_forwards_uncompressed():
     guardrail = _make_guardrail(unreachable_fallback="fail_open")
 
     inputs = GenericGuardrailAPIInputs(
@@ -1760,10 +1760,10 @@ async def test_apply_guardrail_litellm_timeout_fail_open_forwards_uncompressed()
         guardrail.async_handler,
         "post",
         new_callable=AsyncMock,
-        side_effect=litellm.Timeout(
+        side_effect=embrouter.Timeout(
             message="Connection timed out after 10 seconds.",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="embrouter-httpx-handler",
         ),
     ):
         result = await guardrail.apply_guardrail(
@@ -2258,8 +2258,8 @@ async def test_streaming_chat_completion_resolves_ccr_retrieval_end_to_end(
     )
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     upstream = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         side_effect=[
             httpx.Response(200, json=_openai_tool_call_payload()),
@@ -2273,12 +2273,12 @@ async def test_streaming_chat_completion_resolves_ccr_retrieval_end_to_end(
         new_callable=AsyncMock,
         return_value=_make_retrieve_response(original_content),
     ) as mock_get:
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="openai/gpt-4o",
             messages=[{"role": "user", "content": f"summarize hash={CCR_HASH}"}],
             tools=[_retrieve_tool_definition()],
             stream=True,
-            litellm_call_id="ccr-call-id",
+            embrouter_call_id="ccr-call-id",
         )
         chunks = [chunk async for chunk in response]
 
@@ -2312,8 +2312,8 @@ async def test_streaming_responses_resolves_ccr_retrieval_end_to_end(
     )
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     upstream = respx_mock.post("https://api.openai.com/v1/responses").mock(
         side_effect=[
             httpx.Response(200, json=_openai_responses_retrieve_call_payload()),
@@ -2327,12 +2327,12 @@ async def test_streaming_responses_resolves_ccr_retrieval_end_to_end(
         new_callable=AsyncMock,
         return_value=_make_retrieve_response(original_content),
     ) as mock_get:
-        response = await litellm.aresponses(
+        response = await embrouter.aresponses(
             model="openai/gpt-4o",
             input=[{"role": "user", "content": f"summarize hash={CCR_HASH}"}],
             tools=[_responses_retrieve_tool_definition()],
             stream=True,
-            litellm_call_id="ccr-call-id",
+            embrouter_call_id="ccr-call-id",
         )
         events = [event async for event in response]
 
@@ -2368,8 +2368,8 @@ def test_sync_streaming_responses_resolves_ccr_retrieval_end_to_end(
     )
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
     upstream = respx_mock.post("https://api.openai.com/v1/responses").mock(
         side_effect=[
             httpx.Response(200, json=_openai_responses_retrieve_call_payload()),
@@ -2383,12 +2383,12 @@ def test_sync_streaming_responses_resolves_ccr_retrieval_end_to_end(
         new_callable=AsyncMock,
         return_value=_make_retrieve_response(original_content),
     ) as mock_get:
-        response = litellm.responses(
+        response = embrouter.responses(
             model="openai/gpt-4o",
             input=[{"role": "user", "content": f"summarize hash={CCR_HASH}"}],
             tools=[_responses_retrieve_tool_definition()],
             stream=True,
-            litellm_call_id="ccr-call-id",
+            embrouter_call_id="ccr-call-id",
         )
         events = list(response)
 
@@ -2650,7 +2650,7 @@ async def test_retrieved_content_protected_when_mcp_tool_name_is_truncated(guard
     the OpenAI-translated view the guardrail scans, dropping the suffix. The call
     id read from the request's own Anthropic tool_use (never truncated) still
     pairs the retrieved row so it is held back."""
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
         truncate_tool_name,
     )
 
@@ -2701,7 +2701,7 @@ def test_raw_retrieve_call_ids_covers_both_shapes_and_ignores_others():
     """Retrieve ids are read from OpenAI tool_calls and Anthropic tool_use blocks;
     non-retrieve calls, non-tool_use blocks, string content, and non-list inputs
     yield nothing."""
-    from litellm.proxy.guardrails.guardrail_hooks.headroom.headroom import _raw_retrieve_call_ids
+    from embrouter.proxy.guardrails.guardrail_hooks.headroom.headroom import _raw_retrieve_call_ids
 
     messages = [
         {
@@ -2790,7 +2790,7 @@ def _anthropic_response_with_text_and_tool_call() -> dict:
 async def _plan_for(guardrail: HeadroomGuardrail, response, messages: list):
     guardrail._issued_hashes_by_call_id["call-1"] = (frozenset({"h" * 24}), time.monotonic() + 60)
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "call-1"
+    logging_obj.embrouter_call_id = "call-1"
     logging_obj.model_call_details = {}
     with patch.object(
         guardrail.async_handler,
@@ -2914,7 +2914,7 @@ async def test_retrieve_call_passes_bounded_timeout(guardrail: HeadroomGuardrail
 
 @pytest.mark.asyncio
 async def test_configured_timeout_overrides_the_default():
-    """Headroom accepted litellm_params.timeout and ignored it."""
+    """Headroom accepted embrouter_params.timeout and ignored it."""
     guardrail = _make_guardrail(timeout=3.5)
     inputs = GenericGuardrailAPIInputs(texts=["A" * 5000], structured_messages=ORIGINAL_MESSAGES)
 
@@ -2968,15 +2968,15 @@ async def test_read_timeout_forwards_uncompressed_under_fail_open():
 
 def test_initializer_forwards_configured_timeout(monkeypatch: pytest.MonkeyPatch):
     """Wiring it only in __init__ leaves `timeout:` in config.yaml silently ignored."""
-    from litellm.proxy.guardrails.guardrail_hooks.headroom import initialize_guardrail
-    from litellm.types.guardrails import LitellmParams
+    from embrouter.proxy.guardrails.guardrail_hooks.headroom import initialize_guardrail
+    from embrouter.types.guardrails import EmbrouterParams
 
     monkeypatch.setattr(
-        litellm.logging_callback_manager,
-        "add_litellm_callback",
+        embrouter.logging_callback_manager,
+        "add_embrouter_callback",
         lambda callback: None,
     )
-    params = LitellmParams(
+    params = EmbrouterParams(
         guardrail="headroom",
         mode="pre_call",
         api_base=FAKE_API_BASE,
@@ -2990,19 +2990,19 @@ def test_initializer_forwards_configured_timeout(monkeypatch: pytest.MonkeyPatch
 
 def test_in_place_update_keeps_the_timeout_resolved():
     """The base implementation copies every attribute over, nulling an unset timeout."""
-    from litellm.types.guardrails import LitellmParams
+    from embrouter.types.guardrails import EmbrouterParams
 
     guardrail = _make_guardrail(timeout=5.0)
     assert guardrail.timeout.read == 5.0
 
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE)
+    guardrail.update_in_memory_embrouter_params(
+        EmbrouterParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE)
     )
     assert isinstance(guardrail.timeout, httpx.Timeout)
     assert guardrail.timeout.read == 60.0
 
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE, timeout=7.0)
+    guardrail.update_in_memory_embrouter_params(
+        EmbrouterParams(guardrail="headroom", mode="pre_call", api_base=FAKE_API_BASE, timeout=7.0)
     )
     assert guardrail.timeout.read == 7.0
 

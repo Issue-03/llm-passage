@@ -7,32 +7,32 @@ from typing import Final, Protocol
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LiteLLM_AccessGroupTable,
-    LitellmUserRoles,
+    EmbRouter_AccessGroupTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+from embrouter.proxy.auth.auth_checks import (
     _cache_access_object,
     _cache_key_object,
     _cache_team_object,
     _get_team_object_from_cache,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.management_helpers.access_group_team_sync import invalidate_access_group_cache
-from litellm.proxy.management_helpers.resource_display_names import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.management_helpers.access_group_team_sync import invalidate_access_group_cache
+from embrouter.proxy.management_helpers.resource_display_names import (
     agent_display_names,
     key_display_names,
     mcp_server_display_names,
 )
-from litellm.proxy.utils import PrismaClient, get_prisma_client_or_throw
-from litellm.repositories.table_repositories import AccessGroupRepository, TeamRepository
-from litellm.types.access_group import (
+from embrouter.proxy.utils import PrismaClient, get_prisma_client_or_throw
+from embrouter.repositories.table_repositories import AccessGroupRepository, TeamRepository
+from embrouter.types.access_group import (
     AccessGroupCreateRequest,
     AccessGroupResource,
     AccessGroupResponse,
@@ -142,20 +142,20 @@ class _AgentAccessGroupsData(TypedDict):
 
 class _AccessGroupTx(Protocol):
     @property
-    def litellm_accessgrouptable(self) -> _AccessGroupTable: ...
+    def embrouter_accessgrouptable(self) -> _AccessGroupTable: ...
 
     @property
-    def litellm_teamtable(self) -> _TeamTable: ...
+    def embrouter_teamtable(self) -> _TeamTable: ...
 
     @property
-    def litellm_verificationtoken(self) -> _KeyTable: ...
+    def embrouter_verificationtoken(self) -> _KeyTable: ...
 
     @property
-    def litellm_agentstable(self) -> _AgentTable: ...
+    def embrouter_agentstable(self) -> _AgentTable: ...
 
 
 def _require_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> None:
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -164,7 +164,7 @@ def _require_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> None:
 
 def _require_admin_view(user_api_key_dict: UserAPIKeyAuth) -> None:
     """Admin Viewer parity: PROXY_ADMIN or PROXY_ADMIN_VIEW_ONLY may read."""
-    from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
+    from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
 
     if not _user_has_admin_view(user_api_key_dict):
         raise HTTPException(
@@ -277,7 +277,7 @@ async def _require_teams_exist(tx: _AccessGroupTx, team_ids: Sequence[str]) -> N
     if not team_ids:
         return
     where: Final = {"team_id": {"in": team_ids}}  # mutable-ok: prisma where is a dict
-    found: Final = await tx.litellm_teamtable.find_many(where=where)
+    found: Final = await tx.embrouter_teamtable.find_many(where=where)
     missing: Final = frozenset(team_ids) - frozenset(team.team_id for team in found)
     if missing:
         raise HTTPException(
@@ -286,9 +286,9 @@ async def _require_teams_exist(tx: _AccessGroupTx, team_ids: Sequence[str]) -> N
         )
 
 
-def _record_to_access_group_table(record: _AccessGroupRecord) -> LiteLLM_AccessGroupTable:
-    """Convert a Prisma record to a LiteLLM_AccessGroupTable pydantic object for caching."""
-    return LiteLLM_AccessGroupTable.model_validate(record.dict())
+def _record_to_access_group_table(record: _AccessGroupRecord) -> EmbRouter_AccessGroupTable:
+    """Convert a Prisma record to a EmbRouter_AccessGroupTable pydantic object for caching."""
+    return EmbRouter_AccessGroupTable.model_validate(record.dict())
 
 
 async def _cache_access_group_record(record: _AccessGroupRecord) -> None:
@@ -298,7 +298,7 @@ async def _cache_access_group_record(record: _AccessGroupRecord) -> None:
     Uses a lazy import of user_api_key_cache and proxy_logging_obj from proxy_server
     to avoid circular imports, following the same pattern as key_management_endpoints.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     access_group_table: Final = _record_to_access_group_table(record)
     await _cache_access_object(
@@ -317,9 +317,9 @@ async def _cache_access_group_record(record: _AccessGroupRecord) -> None:
 async def _sync_add_access_group_to_teams(tx: _AccessGroupTx, team_ids: list[str], access_group_id: str) -> None:
     """Add access_group_id to each team's access_group_ids (idempotent)."""
     for team_id in team_ids:
-        team = await tx.litellm_teamtable.find_unique(where={"team_id": team_id})
+        team = await tx.embrouter_teamtable.find_unique(where={"team_id": team_id})
         if team is not None and access_group_id not in (team.access_group_ids or []):
-            await tx.litellm_teamtable.update(
+            await tx.embrouter_teamtable.update(
                 where={"team_id": team_id},
                 data={"access_group_ids": list(team.access_group_ids or []) + [access_group_id]},
             )
@@ -328,9 +328,9 @@ async def _sync_add_access_group_to_teams(tx: _AccessGroupTx, team_ids: list[str
 async def _sync_remove_access_group_from_teams(tx: _AccessGroupTx, team_ids: list[str], access_group_id: str) -> None:
     """Remove access_group_id from each team's access_group_ids (idempotent)."""
     for team_id in team_ids:
-        team = await tx.litellm_teamtable.find_unique(where={"team_id": team_id})
+        team = await tx.embrouter_teamtable.find_unique(where={"team_id": team_id})
         if team is not None and access_group_id in (team.access_group_ids or []):
-            await tx.litellm_teamtable.update(
+            await tx.embrouter_teamtable.update(
                 where={"team_id": team_id},
                 data={"access_group_ids": [ag for ag in (team.access_group_ids or ()) if ag != access_group_id]},
             )
@@ -339,9 +339,9 @@ async def _sync_remove_access_group_from_teams(tx: _AccessGroupTx, team_ids: lis
 async def _sync_add_access_group_to_keys(tx: _AccessGroupTx, key_tokens: list[str], access_group_id: str) -> None:
     """Add access_group_id to each key's access_group_ids (idempotent)."""
     for token in key_tokens:
-        key = await tx.litellm_verificationtoken.find_unique(where={"token": token})
+        key = await tx.embrouter_verificationtoken.find_unique(where={"token": token})
         if key is not None and access_group_id not in (key.access_group_ids or []):
-            await tx.litellm_verificationtoken.update(
+            await tx.embrouter_verificationtoken.update(
                 where={"token": token},
                 data={"access_group_ids": list(key.access_group_ids or []) + [access_group_id]},
             )
@@ -350,9 +350,9 @@ async def _sync_add_access_group_to_keys(tx: _AccessGroupTx, key_tokens: list[st
 async def _sync_remove_access_group_from_keys(tx: _AccessGroupTx, key_tokens: list[str], access_group_id: str) -> None:
     """Remove access_group_id from each key's access_group_ids (idempotent)."""
     for token in key_tokens:
-        key = await tx.litellm_verificationtoken.find_unique(where={"token": token})
+        key = await tx.embrouter_verificationtoken.find_unique(where={"token": token})
         if key is not None and access_group_id in (key.access_group_ids or []):
-            await tx.litellm_verificationtoken.update(
+            await tx.embrouter_verificationtoken.update(
                 where={"token": token},
                 data={"access_group_ids": [ag for ag in (key.access_group_ids or ()) if ag != access_group_id]},
             )
@@ -363,11 +363,11 @@ def _without_access_group(access_group_ids: Sequence[str] | None, access_group_i
 
 
 async def _detach_access_group_from_agents(tx: _AccessGroupTx, access_group_id: str) -> tuple[str, ...]:
-    agents_with_group: Final = await tx.litellm_agentstable.find_many(
+    agents_with_group: Final = await tx.embrouter_agentstable.find_many(
         where=_AgentAccessGroupsWhere(access_group_ids=_HasSomeFilter(hasSome=(access_group_id,)))
     )
     for agent in agents_with_group:
-        await tx.litellm_agentstable.update(
+        await tx.embrouter_agentstable.update(
             where=_AgentIdWhere(agent_id=agent.agent_id),
             data=_AgentAccessGroupsData(
                 access_group_ids=_without_access_group(agent.access_group_ids, access_group_id)
@@ -520,7 +520,7 @@ async def create_access_group(
     try:
         tx: _AccessGroupTx
         async with prisma_client.db.tx() as tx:
-            existing: Final = await tx.litellm_accessgrouptable.find_unique(
+            existing: Final = await tx.embrouter_accessgrouptable.find_unique(
                 where={"access_group_name": data.access_group_name}
             )
             if existing is not None:
@@ -530,7 +530,7 @@ async def create_access_group(
                 )
             await _require_teams_exist(tx, data.assigned_team_ids or ())
 
-            record: Final = await tx.litellm_accessgrouptable.create(
+            record: Final = await tx.embrouter_accessgrouptable.create(
                 data={
                     "access_group_name": data.access_group_name,
                     "description": data.description,
@@ -558,7 +558,7 @@ async def create_access_group(
             )
         raise
 
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     await _cache_access_group_record(record)
     await _patch_team_caches_add_access_group(
@@ -654,7 +654,7 @@ async def update_access_group(
         async with prisma_client.db.tx() as tx:
             # Read inside the transaction so delta computation is consistent with the write,
             # avoiding a TOCTOU race where a concurrent update could make deltas stale.
-            existing: Final = await tx.litellm_accessgrouptable.find_unique(where={"access_group_id": access_group_id})
+            existing: Final = await tx.embrouter_accessgrouptable.find_unique(where={"access_group_id": access_group_id})
             if existing is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -662,7 +662,7 @@ async def update_access_group(
                 )
             await _require_teams_exist(tx, data.assigned_team_ids or ())
 
-            attached: Final = await _attached_team_ids_for(tx.litellm_teamtable, (existing,))
+            attached: Final = await _attached_team_ids_for(tx.embrouter_teamtable, (existing,))
             old_team_ids: Final[set[str]] = set(attached[access_group_id])
             old_key_ids: Final[set[str]] = set(existing.assigned_key_ids or [])
             new_team_ids: Final[set[str]] = (
@@ -677,7 +677,7 @@ async def update_access_group(
             keys_to_add = list(new_key_ids - old_key_ids)
             keys_to_remove = list(old_key_ids - new_key_ids)
 
-            record: Final = await tx.litellm_accessgrouptable.update(
+            record: Final = await tx.embrouter_accessgrouptable.update(
                 where={"access_group_id": access_group_id},
                 data=update_data,
             )
@@ -697,7 +697,7 @@ async def update_access_group(
             )
         raise
 
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     await _cache_access_group_record(record)
     await _patch_team_caches_add_access_group(teams_to_add, access_group_id, user_api_key_cache, proxy_logging_obj)
@@ -727,7 +727,7 @@ async def delete_access_group(
 
         tx: _AccessGroupTx
         async with prisma_client.db.tx() as tx:
-            existing: Final = await tx.litellm_accessgrouptable.find_unique(where={"access_group_id": access_group_id})
+            existing: Final = await tx.embrouter_accessgrouptable.find_unique(where={"access_group_id": access_group_id})
             if existing is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -736,7 +736,7 @@ async def delete_access_group(
 
             # Union of: teams that have this access_group_id in their own access_group_ids
             # AND teams listed in assigned_team_ids (handles out-of-sync data from before this sync was added)
-            teams_with_group: Final = await tx.litellm_teamtable.find_many(
+            teams_with_group: Final = await tx.embrouter_teamtable.find_many(
                 where={"access_group_ids": {"hasSome": [access_group_id]}}
             )
             all_affected_team_ids: Final[set[str]] = {team.team_id for team in teams_with_group} | set(
@@ -746,7 +746,7 @@ async def delete_access_group(
 
             # Union of: keys that have this access_group_id in their own access_group_ids
             # AND keys listed in assigned_key_ids (handles out-of-sync data)
-            keys_with_group: Final = await tx.litellm_verificationtoken.find_many(
+            keys_with_group: Final = await tx.embrouter_verificationtoken.find_many(
                 where={"access_group_ids": {"hasSome": [access_group_id]}}
             )
             all_affected_key_tokens: Final[set[str]] = {key.token for key in keys_with_group} | set(
@@ -756,7 +756,7 @@ async def delete_access_group(
 
             # Update teams returned by find_many directly — we already have their data.
             for team in teams_with_group:
-                await tx.litellm_teamtable.update(
+                await tx.embrouter_teamtable.update(
                     where={"team_id": team.team_id},
                     data={"access_group_ids": [ag for ag in (team.access_group_ids or ()) if ag != access_group_id]},
                 )
@@ -766,7 +766,7 @@ async def delete_access_group(
 
             # Update keys returned by find_many directly — we already have their data.
             for key in keys_with_group:
-                await tx.litellm_verificationtoken.update(
+                await tx.embrouter_verificationtoken.update(
                     where={"token": key.token},
                     data={"access_group_ids": [ag for ag in (key.access_group_ids or ()) if ag != access_group_id]},
                 )
@@ -776,9 +776,9 @@ async def delete_access_group(
 
             detached_agent_ids: Final = await _detach_access_group_from_agents(tx, access_group_id)
 
-            await tx.litellm_accessgrouptable.delete(where={"access_group_id": access_group_id})
+            await tx.embrouter_accessgrouptable.delete(where={"access_group_id": access_group_id})
 
-        from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
         await invalidate_access_group_cache(access_group_id)
         _detach_access_group_from_agent_registry(detached_agent_ids, access_group_id)

@@ -2,14 +2,14 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.llms.azure_ai.common_utils import (
+import embrouter
+from embrouter.llms.azure_ai.common_utils import (
     AzureFoundryModelInfo,
     get_azure_ai_auth_headers,
 )
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.utils import _add_path_to_api_base
+from embrouter.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.utils import _add_path_to_api_base
 
 
 class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
@@ -28,7 +28,7 @@ class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         """
@@ -38,7 +38,7 @@ class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
         headers.update(
             get_azure_ai_auth_headers(
                 api_key=AzureFoundryModelInfo.get_api_key(api_key),
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 api_key_header="Api-Key",
             )
         )
@@ -48,7 +48,7 @@ class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Constructs a complete URL for Azure AI Foundry image edits API request.
@@ -59,7 +59,7 @@ class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
         Args:
         - model: Model name (deployment name for Azure AI Foundry)
         - api_base: Base URL for Azure AI endpoint
-        - litellm_params: Additional parameters including api_version
+        - embrouter_params: Additional parameters including api_version
 
         Returns:
         - Complete URL for the image edits endpoint
@@ -71,7 +71,7 @@ class AzureFoundryFluxImageEditConfig(OpenAIImageEditConfig):
                 "Azure AI API base is required. Set AZURE_AI_API_BASE environment variable or pass api_base parameter."
             )
 
-        api_version = litellm_params.get("api_version") or litellm.api_version or get_secret_str("AZURE_AI_API_VERSION")
+        api_version = embrouter_params.get("api_version") or embrouter.api_version or get_secret_str("AZURE_AI_API_VERSION")
         if api_version is None:
             # API version is mandatory for Azure AI Foundry
             raise ValueError(

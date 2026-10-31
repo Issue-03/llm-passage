@@ -5,7 +5,7 @@ from typing import Annotated, Any, Final, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 from typing_extensions import Self
 
-from litellm.types.mcp import (
+from embrouter.types.mcp import (
     DEFAULT_SUBJECT_TOKEN_TYPE,
     MCPAuth,
     MCPAuthType,
@@ -49,11 +49,11 @@ class MCPOAuthMetadata(BaseModel):
 
 
 class MCPOAuthIdentityBinding(BaseModel):
-    """Per-server policy binding stored per-user OAuth credentials to the authenticated LiteLLM caller.
+    """Per-server policy binding stored per-user OAuth credentials to the authenticated EmbRouter caller.
 
     When enabled for an interactive oauth2 server, the token relay validates the upstream OIDC
     ``id_token`` (signature via the pinned issuer's JWKS, issuer, audience, expiry, nonce) and compares its
-    principal claim to the LiteLLM caller's trusted identity before the token is returned, stored,
+    principal claim to the EmbRouter caller's trusted identity before the token is returned, stored,
     or cached. ``audit`` logs mismatches without changing behavior; ``enforce`` fails closed with
     403 ``oauth_principal_mismatch`` and disables the direct ``oauth-user-credential`` POST, which
     would otherwise bypass validation with an arbitrary opaque token.
@@ -137,7 +137,7 @@ class MCPServer(BaseModel):
     # today's behavior; "auto" derives the canonical URI from ``url``; any other value is sent
     # verbatim. Resolved by ``oauth_utils.resolve_upstream_resource``.
     upstream_resource: str | None = None
-    # Which upstream header carries the credential LiteLLM resolves for this server (the minted
+    # Which upstream header carries the credential EmbRouter resolves for this server (the minted
     # OAuth token, or the static key). None keeps RFC 6750's default, ``Authorization``. An ESB or
     # API gateway that terminates its own credential in a private header needs this so a second,
     # operator-configured ``Authorization`` can pass through to the origin untouched.
@@ -185,7 +185,7 @@ class MCPServer(BaseModel):
     allow_all_keys: bool = False
     available_on_public_internet: bool = True
     # Legacy opt-in to upstream-delegated authentication for ``oauth2``
-    # servers. LiteLLM admission still applies; use ``oauth_delegate`` for the
+    # servers. EmbRouter admission still applies; use ``oauth_delegate`` for the
     # supported client-forwarded OAuth flow.
     #
     # Honored only for ``auth_type == oauth2``; ignored for any other
@@ -231,7 +231,7 @@ class MCPServer(BaseModel):
     # Max concurrent outbound tool calls to this server; excess calls queue.
     # None or a value <= 0 means unlimited.
     max_concurrent_requests: int | None = None
-    # Resolved short-ID tool prefix when LITELLM_USE_SHORT_MCP_TOOL_PREFIX is
+    # Resolved short-ID tool prefix when EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX is
     # enabled.  Set by ``MCPServerManager._assign_unique_short_prefix`` at
     # registration time so that natural-hash collisions between two
     # different ``server_id`` values are bumped deterministically.  Left
@@ -335,13 +335,13 @@ class MCPServer(BaseModel):
 
     @property
     def is_true_passthrough(self) -> bool:
-        """True for the transparent-proxy mode: LiteLLM performs no admission auth and forwards the
+        """True for the transparent-proxy mode: EmbRouter performs no admission auth and forwards the
         client's ``Authorization`` to the upstream unchanged."""
         return self.auth_type == MCPAuth.true_passthrough
 
     @property
     def is_oauth_delegate(self) -> bool:
-        """True for the delegated-upstream-OAuth mode: LiteLLM still admits the caller (API key / SSO /
+        """True for the delegated-upstream-OAuth mode: EmbRouter still admits the caller (API key / SSO /
         JWT) but forwards the caller's separate upstream ``Authorization`` unchanged, minting nothing."""
         return self.auth_type == MCPAuth.oauth_delegate
 

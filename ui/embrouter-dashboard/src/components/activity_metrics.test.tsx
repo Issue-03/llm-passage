@@ -679,8 +679,8 @@ describe("processActivityData", () => {
           ...EMPTY_BREAKDOWN,
           api_keys: {
             key1: createMockKeyMetricWithMetadata({ key_alias: "test-key-1" }, metrics),
-            litellm_proxy_master_key: createMockKeyMetricWithMetadata({}, metrics),
-            "litellm-internal-health-check": createMockKeyMetricWithMetadata({}, metrics),
+            embrouter_proxy_master_key: createMockKeyMetricWithMetadata({}, metrics),
+            "embrouter-internal-health-check": createMockKeyMetricWithMetadata({}, metrics),
           },
         }),
       ],

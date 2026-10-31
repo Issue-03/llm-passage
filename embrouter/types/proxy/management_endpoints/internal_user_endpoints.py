@@ -4,13 +4,13 @@ from typing import Any, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.proxy._types import (
-    LiteLLM_UserTableWithKeyCount,
+from embrouter.proxy._types import (
+    EmbRouter_UserTableWithKeyCount,
     NewUserRequest,
     UpdateUserRequest,
     UpdateUserRequestNoUserIDorEmail,
 )
-from litellm.types.proxy.management_endpoints.management_v1 import ResourceResponse
+from embrouter.types.proxy.management_endpoints.management_v1 import ResourceResponse
 
 MAX_BULK_DELETE_USERS: Final = 500
 
@@ -33,7 +33,7 @@ class UserListResponse(BaseModel):
     Response model for the user list endpoint
     """
 
-    users: list[LiteLLM_UserTableWithKeyCount]
+    users: list[EmbRouter_UserTableWithKeyCount]
     total: int
     page: int
     page_size: int

@@ -12,8 +12,8 @@ class EmbeddingRequest(BaseModel):
     caching: bool = False
     user: str | None = None
     custom_llm_provider: str | dict | None = None
-    litellm_call_id: str | None = None
-    litellm_logging_obj: dict | None = None
+    embrouter_call_id: str | None = None
+    embrouter_logging_obj: dict | None = None
     logger_fn: str | None = None
 
     model_config = ConfigDict(extra="allow")

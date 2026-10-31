@@ -8,17 +8,17 @@ to define custom costs per agent query or per token.
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LitellmLoggingObject,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbrouterLoggingObject,
     )
 else:
-    LitellmLoggingObject = Any
+    EmbrouterLoggingObject = Any
 
 
 class A2ACostCalculator:
     @staticmethod
     def calculate_a2a_cost(
-        litellm_logging_obj: LitellmLoggingObject | None,
+        embrouter_logging_obj: EmbrouterLoggingObject | None,
     ) -> float:
         """
         Calculate the cost of an A2A send_message call.
@@ -34,31 +34,31 @@ class A2ACostCalculator:
         4. Default to 0.0
 
         Args:
-            litellm_logging_obj: The LiteLLM logging object containing call details
+            embrouter_logging_obj: The EmbRouter logging object containing call details
 
         Returns:
             float: The cost of the A2A call
         """
-        if litellm_logging_obj is None:
+        if embrouter_logging_obj is None:
             return 0.0
 
-        model_call_details: Final = litellm_logging_obj.model_call_details
+        model_call_details: Final = embrouter_logging_obj.model_call_details
 
         # Check if user set a custom response cost (backward compatibility)
         response_cost: Final = model_call_details.get("response_cost", None)
         if response_cost is not None:
             return float(response_cost)
 
-        # Get litellm_params for cost parameters
-        litellm_params: Final = model_call_details.get("litellm_params", {}) or {}
+        # Get embrouter_params for cost parameters
+        embrouter_params: Final = model_call_details.get("embrouter_params", {}) or {}
 
         # Check for cost_per_query (fixed cost per query)
-        if litellm_params.get("cost_per_query") is not None:
-            return float(litellm_params["cost_per_query"])
+        if embrouter_params.get("cost_per_query") is not None:
+            return float(embrouter_params["cost_per_query"])
 
         # Check for token-based pricing
-        input_cost_per_token: Final = litellm_params.get("input_cost_per_token")
-        output_cost_per_token: Final = litellm_params.get("output_cost_per_token")
+        input_cost_per_token: Final = embrouter_params.get("input_cost_per_token")
+        output_cost_per_token: Final = embrouter_params.get("output_cost_per_token")
 
         if input_cost_per_token is not None or output_cost_per_token is not None:
             return A2ACostCalculator._calculate_token_based_cost(

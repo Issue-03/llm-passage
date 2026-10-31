@@ -10,13 +10,13 @@ from typing import Final
 import httpx
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.anthropic.common_utils import AnthropicError
-from litellm.llms.anthropic.count_tokens.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.anthropic.common_utils import AnthropicError
+from embrouter.llms.anthropic.count_tokens.transformation import (
     AnthropicCountTokensConfig,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
 _COUNT_RESPONSE: Final = TypeAdapter(dict[str, JsonValue])
 
@@ -47,7 +47,7 @@ class AnthropicCountTokensHandler(AnthropicCountTokensConfig):
             messages: The messages to count tokens for
             api_key: The Anthropic API key
             api_base: Optional custom API base URL
-            timeout: Optional timeout for the request (defaults to litellm.request_timeout)
+            timeout: Optional timeout for the request (defaults to embrouter.request_timeout)
 
         Returns:
             Dictionary containing token count response
@@ -80,11 +80,11 @@ class AnthropicCountTokensHandler(AnthropicCountTokensConfig):
             # Get required headers
             headers: Final = self.get_required_headers(api_key)
 
-            # Use LiteLLM's async httpx client
-            async_client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.ANTHROPIC)
+            # Use EmbRouter's async httpx client
+            async_client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.ANTHROPIC)
 
-            # Use provided timeout or fall back to litellm.request_timeout
-            request_timeout: Final = timeout if timeout is not None else litellm.request_timeout
+            # Use provided timeout or fall back to embrouter.request_timeout
+            request_timeout: Final = timeout if timeout is not None else embrouter.request_timeout
 
             response: Final = await async_client.post(
                 endpoint_url,

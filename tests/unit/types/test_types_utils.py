@@ -4,17 +4,17 @@ from typing import Final
 import pytest
 
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     HiddenParams,
     ImageObject,
     ImageResponse,
-    all_litellm_params,
+    all_embrouter_params,
     text_tokens_without_nested_reasoning,
 )
 
 
-def test_rust_is_a_known_litellm_param():
-    assert "rust" in all_litellm_params
+def test_rust_is_a_known_embrouter_param():
+    assert "rust" in all_embrouter_params
 
 
 def test_hidden_params_response_ms():
@@ -25,7 +25,7 @@ def test_hidden_params_response_ms():
 
 
 def test_chat_completion_delta_tool_call():
-    from litellm.types.utils import ChatCompletionDeltaToolCall, Function
+    from embrouter.types.utils import ChatCompletionDeltaToolCall, Function
 
     tool = ChatCompletionDeltaToolCall(
         id="call_m87w",
@@ -41,13 +41,13 @@ def test_chat_completion_delta_tool_call():
 
 
 def test_empty_choices():
-    from litellm.types.utils import Choices
+    from embrouter.types.utils import Choices
 
     Choices()
 
 
 def test_usage_dump():
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         CompletionTokensDetailsWrapper,
         PromptTokensDetailsWrapper,
         Usage,
@@ -85,7 +85,7 @@ def test_prompt_tokens_details_maps_nested_cache_creation_input_tokens():
     cache_creation_input_tokens inside prompt_tokens_details. It must populate
     the canonical cache_write_tokens/cache_creation_tokens pair, without
     overriding an explicitly provided canonical value."""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     nested: Final = PromptTokensDetailsWrapper(
         cached_tokens=0, text_tokens=2059, cache_creation_input_tokens=2048
@@ -104,7 +104,7 @@ def test_prompt_tokens_details_maps_nested_cache_creation_input_tokens():
 
 
 def test_usage_server_tool_use_dict_is_coerced_and_round_trips():
-    from litellm.types.utils import ServerToolUse, Usage
+    from embrouter.types.utils import ServerToolUse, Usage
 
     current_usage = Usage(
         completion_tokens=1,
@@ -122,7 +122,7 @@ def test_usage_server_tool_use_dict_is_coerced_and_round_trips():
 
 
 def test_usage_converts_server_tool_use_dict():
-    from litellm.types.utils import ServerToolUse, Usage
+    from embrouter.types.utils import ServerToolUse, Usage
 
     usage = Usage(
         completion_tokens=2,
@@ -146,7 +146,7 @@ def test_usage_converts_server_tool_use_dict():
 
 
 def test_usage_completion_tokens_details_text_tokens():
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     # Test data from the reported issue
     usage_data = {
@@ -209,7 +209,7 @@ def test_chat_completion_token_logprob_null_top_logprobs():
 
 
     """
-    from litellm.types.utils import ChatCompletionTokenLogprob
+    from embrouter.types.utils import ChatCompletionTokenLogprob
 
     logprob = ChatCompletionTokenLogprob(
         token="Hello",
@@ -225,7 +225,7 @@ def test_chat_completion_token_logprob_valid_top_logprobs():
     """
     Test that ChatCompletionTokenLogprob still accepts valid top_logprobs arrays.
     """
-    from litellm.types.utils import ChatCompletionTokenLogprob, TopLogprob
+    from embrouter.types.utils import ChatCompletionTokenLogprob, TopLogprob
 
     logprob = ChatCompletionTokenLogprob(
         token="Hello",
@@ -249,7 +249,7 @@ def test_choice_logprobs_with_null_top_logprobs():
 
 
     """
-    from litellm.types.utils import ChoiceLogprobs
+    from embrouter.types.utils import ChoiceLogprobs
 
     logprobs_dict = {
         "content": [
@@ -284,7 +284,7 @@ def test_chat_completion_token_logprob_invalid_top_logprobs_rejected():
     """
     from pydantic import ValidationError
 
-    from litellm.types.utils import ChatCompletionTokenLogprob
+    from embrouter.types.utils import ChatCompletionTokenLogprob
 
     with pytest.raises(ValidationError):
         ChatCompletionTokenLogprob(
@@ -305,21 +305,21 @@ class TestNativeFinishReason:
     when it differs from the mapped OpenAI-compatible value."""
 
     def test_provider_reason_exposed_when_mapped(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="end_turn")
         assert choice.finish_reason == "stop"
         assert choice.provider_specific_fields["native_finish_reason"] == "end_turn"
 
     def test_provider_reason_not_set_when_already_openai(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="stop")
         assert choice.finish_reason == "stop"
         assert not hasattr(choice, "provider_specific_fields")
 
     def test_provider_reason_merged_with_existing_fields(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(
             finish_reason="max_tokens",
@@ -332,21 +332,21 @@ class TestNativeFinishReason:
         ]
 
     def test_gemini_safety_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="SAFETY")
         assert choice.finish_reason == "content_filter"
         assert choice.provider_specific_fields["native_finish_reason"] == "SAFETY"
 
     def test_anthropic_tool_use_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="tool_use")
         assert choice.finish_reason == "tool_calls"
         assert choice.provider_specific_fields["native_finish_reason"] == "tool_use"
 
     def test_max_tokens_reason_exposed(self):
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="MAX_TOKENS")
         assert choice.finish_reason == "length"
@@ -358,9 +358,9 @@ def test_delta_maps_reasoning_to_reasoning_content():
     Test that Delta maps 'reasoning' field to 'reasoning_content'.
 
     Providers like Cerebras and Groq return delta.reasoning for gpt-oss models,
-    but LiteLLM expects delta.reasoning_content.
+    but EmbRouter expects delta.reasoning_content.
     """
-    from litellm.types.utils import Delta
+    from embrouter.types.utils import Delta
 
     # When provider sends 'reasoning' (e.g., Cerebras gpt-oss streaming)
     delta = Delta(content=None, role="assistant", reasoning="thinking step by step")
@@ -388,7 +388,7 @@ def test_message_accepts_thinking_block_with_null_signature():
     success-logging handler can build the StandardLoggingObject instead of silently
     dropping the log record. Regression for LIT-4007.
     """
-    from litellm.types.utils import Choices, Message
+    from embrouter.types.utils import Choices, Message
 
     thinking_blocks = [
         {"type": "thinking", "thinking": "step by step reasoning", "signature": None}
@@ -439,7 +439,7 @@ def test_delta_serialization_contract():
     images, annotations) absent unless explicitly provided. This guards that
     contract for both the default dump and the exclude_unset dump.
     """
-    from litellm.types.utils import Delta
+    from embrouter.types.utils import Delta
 
     base_keys = {"content", "role", "function_call", "tool_calls", "audio"}
 
@@ -543,7 +543,7 @@ def test_safe_attribute_model_delattr():
     is omitted from model_dump (OpenAI spec), whether the field is a declared
     model field or an extra, and deleting a missing attribute must be a no-op.
     """
-    from litellm.types.utils import Message
+    from embrouter.types.utils import Message
 
     # Unset optional declared fields are dropped during __init__ -> absent from dump
     msg = Message(content="hi", role="assistant")
@@ -582,7 +582,7 @@ def test_delattr_fast_path_matches_pydantic_exactly():
     __pydantic_fields_set__ the two diverge and this fails rather than silently
     shifting the serialization contract.
     """
-    from litellm.types.utils import Message, SafeAttributeModel
+    from embrouter.types.utils import Message, SafeAttributeModel
 
     def observe(m: Message) -> tuple:
         return (
@@ -616,7 +616,7 @@ def test_delattr_fast_path_missing_attribute_is_noop():
     _VanishingDict reports every key as present (passing the guard) while storing
     nothing, so the real object.__delattr__ still raises AttributeError.
     """
-    from litellm.types.utils import SafeAttributeModel
+    from embrouter.types.utils import SafeAttributeModel
 
     class _VanishingDict(dict):
         def __contains__(self, key: object) -> bool:
@@ -636,7 +636,7 @@ def test_delattr_fast_path_missing_attribute_is_noop():
     del racy.x
     del racy.x
 def test_chat_completion_tool_call_from_dict_custom():
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionMessageCustomToolCall,
         ChatCompletionMessageToolCall,
         chat_completion_tool_call_from_dict,
@@ -658,7 +658,7 @@ def test_chat_completion_tool_call_from_dict_custom():
 
 
 def test_chat_completion_tool_call_from_dict_custom_strips_null_function():
-    from litellm.types.utils import chat_completion_tool_call_from_dict
+    from embrouter.types.utils import chat_completion_tool_call_from_dict
 
     sdk_shaped = {
         "id": "call_x",
@@ -676,7 +676,7 @@ def test_chat_completion_tool_call_from_dict_typeless_custom_payload():
     Classifying on ``type == "custom"`` alone sent these to the function branch,
     which raised TypeError (missing ``function``) on a payload the streaming path
     accepts as custom."""
-    from litellm.types.utils import ChatCompletionMessageCustomToolCall, chat_completion_tool_call_from_dict
+    from embrouter.types.utils import ChatCompletionMessageCustomToolCall, chat_completion_tool_call_from_dict
 
     typeless = {"id": "call_1", "custom": {"name": "ApplyPatch", "input": "*** Begin Patch"}}
     parsed = chat_completion_tool_call_from_dict(typeless)
@@ -692,7 +692,7 @@ def test_custom_tool_call_classification_agrees_across_streaming_and_non_streami
     """The streaming Delta coercion and the non-streaming from_dict parser must
     classify the same tool-call dict identically, or a provider payload becomes a
     custom tool call mid-stream and something else on the completed message."""
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionDeltaCustomToolCall,
         ChatCompletionMessageCustomToolCall,
         Delta,
@@ -713,7 +713,7 @@ def test_custom_tool_call_classification_agrees_across_streaming_and_non_streami
 
 
 def test_message_with_mixed_function_and_custom_tool_calls():
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionMessageCustomToolCall,
         ChatCompletionMessageToolCall,
         Message,
@@ -735,7 +735,7 @@ def test_message_with_mixed_function_and_custom_tool_calls():
 
 
 def test_delta_custom_tool_call_first_and_continuation_chunks():
-    from litellm.types.utils import ChatCompletionDeltaCustomToolCall, Delta
+    from embrouter.types.utils import ChatCompletionDeltaCustomToolCall, Delta
 
     first_chunk_tc = {
         "index": 0,
@@ -761,7 +761,7 @@ def test_delta_custom_tool_call_first_and_continuation_chunks():
 
 
 def test_delta_function_tool_call_unchanged_by_custom_support():
-    from litellm.types.utils import ChatCompletionDeltaToolCall, Delta
+    from embrouter.types.utils import ChatCompletionDeltaToolCall, Delta
 
     delta = Delta(tool_calls=[{"index": 0, "id": "c2", "type": "function", "function": {"name": "g", "arguments": ""}}])
     assert isinstance(delta.tool_calls[0], ChatCompletionDeltaToolCall)

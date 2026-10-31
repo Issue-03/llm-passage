@@ -8,7 +8,7 @@ const team = { team_id: "team-1", team_alias: "Platform", max_budget: 1200, budg
 const organization = {
   organization_id: "org-1",
   organization_alias: "Acme",
-  litellm_budget_table: { max_budget: 5000, budget_duration: null },
+  embrouter_budget_table: { max_budget: 5000, budget_duration: null },
 };
 const user = {
   user_id: "user-1",
@@ -30,7 +30,7 @@ describe("inheritedBudgetGates", () => {
     expect(inheritedBudgetGates({ ...team, max_budget: null }, organization)).toEqual([
       { scope: "Organization", alias: "Acme", maxBudget: 5000, budgetDuration: null },
     ]);
-    expect(inheritedBudgetGates(team, { ...organization, litellm_budget_table: { max_budget: null } })).toEqual([
+    expect(inheritedBudgetGates(team, { ...organization, embrouter_budget_table: { max_budget: null } })).toEqual([
       { scope: "Team", alias: "Platform", maxBudget: 1200, budgetDuration: "30d" },
     ]);
   });
@@ -38,7 +38,7 @@ describe("inheritedBudgetGates", () => {
   it("returns nothing when team and org are missing or budgetless", () => {
     expect(inheritedBudgetGates(null, undefined)).toEqual([]);
     expect(
-      inheritedBudgetGates({ ...team, max_budget: null }, { ...organization, litellm_budget_table: null }),
+      inheritedBudgetGates({ ...team, max_budget: null }, { ...organization, embrouter_budget_table: null }),
     ).toEqual([]);
   });
 

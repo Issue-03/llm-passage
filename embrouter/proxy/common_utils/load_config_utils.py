@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Final, Protocol
 import yaml
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.common_utils.config_includes import resolve_includes
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.common_utils.config_includes import resolve_includes
 
 if TYPE_CHECKING:
-    from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+    from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
 
 _BUCKET_CONFIG_ADAPTER: Final = TypeAdapter(dict[str, object])
 
@@ -47,7 +47,7 @@ def s3_object_reader(bucket_name: str) -> SyncBucketObjectReader:
         import boto3
         from botocore.credentials import Credentials
 
-        from litellm.main import bedrock_converse_chat_completion
+        from embrouter.main import bedrock_converse_chat_completion
 
         credentials: Final[Credentials] = bedrock_converse_chat_completion.get_credentials()
         s3_client: Final = boto3.client(
@@ -57,7 +57,7 @@ def s3_object_reader(bucket_name: str) -> SyncBucketObjectReader:
             aws_session_token=credentials.token,  # Optional, if using temporary credentials
         )
     except ImportError as e:
-        # this is most likely if a user is not using the litellm docker container
+        # this is most likely if a user is not using the embrouter docker container
         verbose_proxy_logger.error("ImportError: %s", e)
         return lambda object_key: None
     except Exception as e:
@@ -90,7 +90,7 @@ def gcs_config_bucket(bucket_name: str) -> "GCSBucketBase | None":
     that gate covers nor the batching task the logger starts and never stops.
     """
     try:
-        from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+        from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
 
         return GCSBucketBase(bucket_name=bucket_name)
     except Exception as e:  # noqa: BLE001  # an unbuildable client must read as an unreadable bucket
@@ -218,7 +218,7 @@ def download_python_file_from_s3(
         import boto3
         from botocore.credentials import Credentials
 
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         base_aws_llm: Final = BaseAWSLLM()
 
@@ -272,7 +272,7 @@ async def download_python_file_from_gcs(
         bool: True if successful, False otherwise
     """
     try:
-        from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+        from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
 
         gcs_bucket: Final = GCSBucketBase(bucket_name=bucket_name)
         file_contents = await gcs_bucket.download_gcs_object(object_key)
@@ -298,5 +298,5 @@ async def download_python_file_from_gcs(
 
 
 # # Example usage
-# bucket_name = 'litellm-proxy'
-# object_key = 'litellm_proxy_config.yaml'
+# bucket_name = 'embrouter-proxy'
+# object_key = 'embrouter_proxy_config.yaml'

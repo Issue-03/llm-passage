@@ -7,37 +7,37 @@ Used when the target model is an OpenAI or Azure model.
 from collections.abc import AsyncIterator, Coroutine, Mapping
 from typing import Any, Final, TypeAlias
 
-import litellm
-from litellm.types.llms.anthropic import (
+import embrouter
+from embrouter.types.llms.anthropic import (
     AllAnthropicMessageValues,
     AllAnthropicToolsValues,
     AnthropicMessagesRequest,
     AnthropicOutputConfig,
     AnthropicOutputSchema,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.utils import ProviderConfigManager
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.utils import ProviderConfigManager
 
-from ..utils import litellm_logging_obj_from_kwargs, local_model_name
+from ..utils import embrouter_logging_obj_from_kwargs, local_model_name
 from .streaming_iterator import AnthropicResponsesStreamWrapper
-from .transformation import LiteLLMAnthropicToResponsesAPIAdapter
+from .transformation import EmbRouterAnthropicToResponsesAPIAdapter
 
 AnthropicRequestMessages: TypeAlias = list[AllAnthropicMessageValues] | list[dict[str, object]]
 
-_ADAPTER: Final = LiteLLMAnthropicToResponsesAPIAdapter()
+_ADAPTER: Final = EmbRouterAnthropicToResponsesAPIAdapter()
 
 
 def _forwarded_kwargs(extra_kwargs: Mapping[str, object] | None) -> Mapping[str, object]:
-    """The litellm-specific kwargs forwarded verbatim onto the Responses API request."""
+    """The embrouter-specific kwargs forwarded verbatim onto the Responses API request."""
     return extra_kwargs or {}
 
 
 def _provider_returns_encrypted_reasoning(model: str, custom_llm_provider: object) -> bool:
     provider: Final = (
-        custom_llm_provider if isinstance(custom_llm_provider, str) else litellm.get_llm_provider(model=model)[1]
+        custom_llm_provider if isinstance(custom_llm_provider, str) else embrouter.get_llm_provider(model=model)[1]
     )
     provider_model: Final = local_model_name(model, provider)
     responses_config: Final = ProviderConfigManager.get_provider_responses_api_config(provider, provider_model)
@@ -65,7 +65,7 @@ def _build_responses_kwargs(
     extra_kwargs: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
     """
-    Build the kwargs dict to pass directly to litellm.responses() / litellm.aresponses().
+    Build the kwargs dict to pass directly to embrouter.responses() / embrouter.aresponses().
     """
     # Build a typed AnthropicMessagesRequest for the adapter
     request_data: Final[AnthropicMessagesRequest] = {
@@ -109,7 +109,7 @@ def _build_responses_kwargs(
     if isinstance(reasoning, dict):
         effort: Final[object] = reasoning.get("effort")
         if isinstance(effort, str):
-            from litellm.llms.anthropic.pass_through.utils import (
+            from embrouter.llms.anthropic.pass_through.utils import (
                 normalize_reasoning_effort_value,
             )
 
@@ -125,16 +125,16 @@ def _build_responses_kwargs(
     if stream:
         responses_kwargs["stream"] = True
 
-    # Forward litellm-specific kwargs (api_key, api_base, logging obj, etc.)
+    # Forward embrouter-specific kwargs (api_key, api_base, logging obj, etc.)
     excluded: Final = frozenset(("anthropic_messages",))
     for key, value in forwarded_kwargs.items():
-        if key == "litellm_logging_obj" and value is not None:
-            from litellm.litellm_core_utils.litellm_logging import (
-                Logging as LiteLLMLoggingObject,
+        if key == "embrouter_logging_obj" and value is not None:
+            from embrouter.embrouter_core_utils.embrouter_logging import (
+                Logging as EmbRouterLoggingObject,
             )
-            from litellm.types.utils import CallTypes
+            from embrouter.types.utils import CallTypes
 
-            if isinstance(value, LiteLLMLoggingObject):
+            if isinstance(value, EmbRouterLoggingObject):
                 # Keep call_type as anthropic_messages so spend_logs are billed
                 # against /v1/messages; the success handler translates the
                 # Responses API result back to a ModelResponse for the row.
@@ -158,10 +158,10 @@ def _build_responses_kwargs(
     return responses_kwargs
 
 
-class LiteLLMMessagesToResponsesAPIHandler:
+class EmbRouterMessagesToResponsesAPIHandler:
     """
     Handles Anthropic /v1/messages requests for OpenAI / Azure models by
-    calling litellm.responses() / litellm.aresponses() directly and translating
+    calling embrouter.responses() / embrouter.aresponses() directly and translating
     the response back to Anthropic format.
     """
 
@@ -205,13 +205,13 @@ class LiteLLMMessagesToResponsesAPIHandler:
             extra_kwargs=kwargs,
         )
 
-        result: Final = await litellm.aresponses(**responses_kwargs)
+        result: Final = await embrouter.aresponses(**responses_kwargs)
 
         if stream:
             wrapper: Final = AnthropicResponsesStreamWrapper(
                 responses_stream=result,
                 model=local_model_name(model, kwargs.get("custom_llm_provider")),
-                litellm_logging_obj=litellm_logging_obj_from_kwargs(responses_kwargs),
+                embrouter_logging_obj=embrouter_logging_obj_from_kwargs(responses_kwargs),
             )
             return wrapper.async_anthropic_sse_wrapper()
 
@@ -246,7 +246,7 @@ class LiteLLMMessagesToResponsesAPIHandler:
         | Coroutine[None, None, AnthropicMessagesResponse | AsyncIterator[bytes]]
     ):
         if _is_async:
-            return LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+            return EmbRouterMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
                 max_tokens=max_tokens,
                 messages=messages,
                 model=model,
@@ -287,13 +287,13 @@ class LiteLLMMessagesToResponsesAPIHandler:
             extra_kwargs=kwargs,
         )
 
-        result: Final = litellm.responses(**responses_kwargs)
+        result: Final = embrouter.responses(**responses_kwargs)
 
         if stream:
             wrapper: Final = AnthropicResponsesStreamWrapper(
                 responses_stream=result,
                 model=local_model_name(model, kwargs.get("custom_llm_provider")),
-                litellm_logging_obj=litellm_logging_obj_from_kwargs(responses_kwargs),
+                embrouter_logging_obj=embrouter_logging_obj_from_kwargs(responses_kwargs),
             )
             return wrapper.async_anthropic_sse_wrapper()
 

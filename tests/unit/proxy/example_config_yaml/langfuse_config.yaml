@@ -1,7 +1,7 @@
 model_list:
   - model_name: gpt-3.5-turbo
 
-litellm_settings:
+embrouter_settings:
   drop_params: True
   success_callback: ["langfuse"] #
 

@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
-from litellm.types.router import DeploymentTypedDict, LiteLLMParamsTypedDict
+from embrouter import Router
+from embrouter.caching.dual_cache import DualCache
+from embrouter.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
+from embrouter.types.router import DeploymentTypedDict, EmbRouterParamsTypedDict
 
 MODEL_GROUP: Final = "lowest-tpm-router"
 HIGH_USAGE_DEPLOYMENT_ID: Final = "highest-usage"
@@ -15,14 +15,14 @@ LOW_USAGE_DEPLOYMENT_ID: Final = "lowest-usage"
 
 
 def _deployment(deployment_id: str) -> DeploymentTypedDict:
-    params: LiteLLMParamsTypedDict = {
+    params: EmbRouterParamsTypedDict = {
         "model": "gpt-4o",
         "api_key": "key",
         "mock_response": f"from {deployment_id}",
     }
     return {
         "model_name": MODEL_GROUP,
-        "litellm_params": params,
+        "embrouter_params": params,
         "model_info": {"id": deployment_id},
     }
 
@@ -65,8 +65,8 @@ async def test_v2_async_selection_uses_prefetched_counters_only_when_they_cover_
     router_cache.async_batch_get_cache = AsyncMock(return_value=[100, 10, None, None])  # type: ignore[method-assign]
     strategy = LowestTPMLoggingHandler_v2(router_cache=router_cache)
     deployments = [
-        {"model_name": "g", "litellm_params": {"model": "m"}, "model_info": {"id": "a"}},
-        {"model_name": "g", "litellm_params": {"model": "m"}, "model_info": {"id": "b"}},
+        {"model_name": "g", "embrouter_params": {"model": "m"}, "model_info": {"id": "a"}},
+        {"model_name": "g", "embrouter_params": {"model": "m"}, "model_info": {"id": "b"}},
     ]
     tpm_keys, rpm_keys = strategy.usage_counter_keys(deployments)
     keys = tpm_keys + rpm_keys

@@ -10,9 +10,9 @@ from typing import Dict, Any
 
 # Add the path to find the modules
 
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp import MCPAuth
-from litellm.proxy._types import LiteLLM_MCPServerTable
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+from embrouter.types.mcp import MCPAuth
+from embrouter.proxy._types import EmbRouter_MCPServerTable
 
 
 class TestMCPCustomFields:
@@ -67,7 +67,7 @@ class TestMCPCustomFields:
         manager = config_only_mcp_manager_factory()
 
         # Mock database record with custom fields
-        mock_server = LiteLLM_MCPServerTable(
+        mock_server = EmbRouter_MCPServerTable(
             server_id="test-server-id",
             server_name="Test Server",
             alias=None,

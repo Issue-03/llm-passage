@@ -4,17 +4,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm_enterprise.enterprise_callbacks.callback_controls import (
+from embrouter_enterprise.enterprise_callbacks.callback_controls import (
     EnterpriseCallbackControls,
 )
-from litellm.constants import X_LITELLM_DISABLE_CALLBACKS
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.integrations.langfuse.langfuse_prompt_management import (
+from embrouter.constants import X_EMBROUTER_DISABLE_CALLBACKS
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.datadog.datadog import DataDogLogger
+from embrouter.integrations.langfuse.langfuse_prompt_management import (
     LangfusePromptManagement,
 )
-from litellm.integrations.s3_v2 import S3Logger
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.s3_v2 import S3Logger
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 class TestEnterpriseCallbackControls:
@@ -43,7 +43,7 @@ class TestEnterpriseCallbackControls:
     def mock_request_headers(self):
         """Fixture to mock get_proxy_server_request_headers"""
         with patch(
-            "litellm_enterprise.enterprise_callbacks.callback_controls.get_proxy_server_request_headers"
+            "embrouter_enterprise.enterprise_callbacks.callback_controls.get_proxy_server_request_headers"
         ) as mock_headers:
             yield mock_headers
 
@@ -51,12 +51,12 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that 'langfuse' string callback is disabled when specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is True
 
@@ -64,13 +64,13 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that LangfusePromptManagement CustomLogger instance is disabled when 'langfuse' specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         langfuse_logger = LangfusePromptManagement()
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            langfuse_logger, litellm_params, standard_callback_dynamic_params
+            langfuse_logger, embrouter_params, standard_callback_dynamic_params
         )
         assert result is True
 
@@ -78,12 +78,12 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that 's3_v2' string callback is disabled when specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "s3_v2"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "s3_v2"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "s3_v2", litellm_params, standard_callback_dynamic_params
+            "s3_v2", embrouter_params, standard_callback_dynamic_params
         )
         assert result is True
 
@@ -91,15 +91,15 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that S3Logger CustomLogger instance is disabled when 's3_v2' specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "s3_v2"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "s3_v2"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         # Mock S3Logger to avoid async initialization issues
-        with patch("litellm.integrations.s3_v2.S3Logger.__init__", return_value=None):
+        with patch("embrouter.integrations.s3_v2.S3Logger.__init__", return_value=None):
             s3_logger = S3Logger()
             result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                s3_logger, litellm_params, standard_callback_dynamic_params
+                s3_logger, embrouter_params, standard_callback_dynamic_params
             )
             assert result is True
 
@@ -107,12 +107,12 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that 'datadog' string callback is disabled when specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "datadog"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "datadog"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "datadog", litellm_params, standard_callback_dynamic_params
+            "datadog", embrouter_params, standard_callback_dynamic_params
         )
         assert result is True
 
@@ -120,45 +120,45 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that DataDogLogger CustomLogger instance is disabled when 'datadog' specified in headers"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "datadog"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "datadog"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         # Mock DataDogLogger to avoid async initialization issues
         with patch(
-            "litellm.integrations.datadog.datadog.DataDogLogger.__init__",
+            "embrouter.integrations.datadog.datadog.DataDogLogger.__init__",
             return_value=None,
         ):
             datadog_logger = DataDogLogger()
             result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                datadog_logger, litellm_params, standard_callback_dynamic_params
+                datadog_logger, embrouter_params, standard_callback_dynamic_params
             )
             assert result is True
 
     def test_multiple_callbacks_disabled(self, mock_premium_user, mock_request_headers):
         """Test that multiple callbacks can be disabled with comma-separated list"""
         mock_request_headers.return_value = {
-            X_LITELLM_DISABLE_CALLBACKS: "langfuse,datadog,s3_v2"
+            X_EMBROUTER_DISABLE_CALLBACKS: "langfuse,datadog,s3_v2"
         }
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         # Test each callback is disabled
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "langfuse", litellm_params, standard_callback_dynamic_params
+                "langfuse", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "datadog", litellm_params, standard_callback_dynamic_params
+                "datadog", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "s3_v2", litellm_params, standard_callback_dynamic_params
+                "s3_v2", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
@@ -166,7 +166,7 @@ class TestEnterpriseCallbackControls:
         # Test non-disabled callback is not disabled
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "prometheus", litellm_params, standard_callback_dynamic_params
+                "prometheus", embrouter_params, standard_callback_dynamic_params
             )
             is False
         )
@@ -175,12 +175,12 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that callbacks not in the disabled list are not disabled"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "datadog", litellm_params, standard_callback_dynamic_params
+            "datadog", embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
@@ -189,11 +189,11 @@ class TestEnterpriseCallbackControls:
     ):
         """Test that callbacks are not disabled when the header is not present"""
         mock_request_headers.return_value = {}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
@@ -201,12 +201,12 @@ class TestEnterpriseCallbackControls:
         self, mock_premium_user, mock_request_headers
     ):
         """Test that callbacks are not disabled when the header value is None"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: None}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: None}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
@@ -214,12 +214,12 @@ class TestEnterpriseCallbackControls:
         self, mock_non_premium_user, mock_request_headers
     ):
         """Test that non-premium users cannot disable callbacks even with the header"""
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
@@ -228,21 +228,21 @@ class TestEnterpriseCallbackControls:
     ):
         """Test that callback matching is case insensitive"""
         mock_request_headers.return_value = {
-            X_LITELLM_DISABLE_CALLBACKS: "LANGFUSE,DataDog"
+            X_EMBROUTER_DISABLE_CALLBACKS: "LANGFUSE,DataDog"
         }
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         # Test lowercase callbacks are disabled
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "langfuse", litellm_params, standard_callback_dynamic_params
+                "langfuse", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "datadog", litellm_params, standard_callback_dynamic_params
+                "datadog", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
@@ -252,26 +252,26 @@ class TestEnterpriseCallbackControls:
     ):
         """Test that whitespace around callback names is handled correctly"""
         mock_request_headers.return_value = {
-            X_LITELLM_DISABLE_CALLBACKS: " langfuse , datadog , s3_v2 "
+            X_EMBROUTER_DISABLE_CALLBACKS: " langfuse , datadog , s3_v2 "
         }
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "langfuse", litellm_params, standard_callback_dynamic_params
+                "langfuse", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "datadog", litellm_params, standard_callback_dynamic_params
+                "datadog", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "s3_v2", litellm_params, standard_callback_dynamic_params
+                "s3_v2", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
@@ -281,9 +281,9 @@ class TestEnterpriseCallbackControls:
     ):
         """Test that CustomLogger not in registry is not disabled"""
         mock_request_headers.return_value = {
-            X_LITELLM_DISABLE_CALLBACKS: "unknown_logger"
+            X_EMBROUTER_DISABLE_CALLBACKS: "unknown_logger"
         }
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         # Create a mock CustomLogger that's not in the registry
@@ -292,7 +292,7 @@ class TestEnterpriseCallbackControls:
 
         unknown_logger = UnknownLogger()
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            unknown_logger, litellm_params, standard_callback_dynamic_params
+            unknown_logger, embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
@@ -300,26 +300,26 @@ class TestEnterpriseCallbackControls:
         """Test that exceptions are handled gracefully and return False"""
         # Make get_proxy_server_request_headers raise an exception
         mock_request_headers.side_effect = Exception("Test exception")
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is False
 
     def test_callback_disabled_via_request_body_langfuse(
         self, mock_premium_user, mock_request_headers
     ):
-        """Test that callbacks can be disabled via request body litellm_disabled_callbacks"""
+        """Test that callbacks can be disabled via request body embrouter_disabled_callbacks"""
         mock_request_headers.return_value = {}  # No headers
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams(
-            litellm_disabled_callbacks=["langfuse"]
+            embrouter_disabled_callbacks=["langfuse"]
         )
 
         result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-            "langfuse", litellm_params, standard_callback_dynamic_params
+            "langfuse", embrouter_params, standard_callback_dynamic_params
         )
         assert result is True
 
@@ -328,27 +328,27 @@ class TestEnterpriseCallbackControls:
     ):
         """Test that multiple callbacks can be disabled via request body"""
         mock_request_headers.return_value = {}  # No headers
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams(
-            litellm_disabled_callbacks=["langfuse", "datadog", "s3_v2"]
+            embrouter_disabled_callbacks=["langfuse", "datadog", "s3_v2"]
         )
 
         # Test each callback is disabled
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "langfuse", litellm_params, standard_callback_dynamic_params
+                "langfuse", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "datadog", litellm_params, standard_callback_dynamic_params
+                "datadog", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "s3_v2", litellm_params, standard_callback_dynamic_params
+                "s3_v2", embrouter_params, standard_callback_dynamic_params
             )
             is True
         )
@@ -356,7 +356,7 @@ class TestEnterpriseCallbackControls:
         # Test non-disabled callback is not disabled
         assert (
             EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "prometheus", litellm_params, standard_callback_dynamic_params
+                "prometheus", embrouter_params, standard_callback_dynamic_params
             )
             is False
         )
@@ -366,15 +366,15 @@ class TestEnterpriseCallbackControls:
         Test that when admin sets allow_dynamic_callback_disabling to False,
         callbacks cannot be disabled dynamically even for premium users
         """
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
-        # Mock litellm.allow_dynamic_callback_disabling set to False
-        with patch("litellm.allow_dynamic_callback_disabling", False):
-            with patch("litellm.proxy.proxy_server.premium_user", True):
+        # Mock embrouter.allow_dynamic_callback_disabling set to False
+        with patch("embrouter.allow_dynamic_callback_disabling", False):
+            with patch("embrouter.proxy.proxy_server.premium_user", True):
                 result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                    "langfuse", litellm_params, standard_callback_dynamic_params
+                    "langfuse", embrouter_params, standard_callback_dynamic_params
                 )
                 assert result is False
 
@@ -383,15 +383,15 @@ class TestEnterpriseCallbackControls:
         Test that when admin sets allow_dynamic_callback_disabling to True,
         callbacks can be disabled dynamically for premium users
         """
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
-        # Mock litellm.allow_dynamic_callback_disabling set to True
-        with patch("litellm.allow_dynamic_callback_disabling", True):
-            with patch("litellm.proxy.proxy_server.premium_user", True):
+        # Mock embrouter.allow_dynamic_callback_disabling set to True
+        with patch("embrouter.allow_dynamic_callback_disabling", True):
+            with patch("embrouter.proxy.proxy_server.premium_user", True):
                 result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                    "langfuse", litellm_params, standard_callback_dynamic_params
+                    "langfuse", embrouter_params, standard_callback_dynamic_params
                 )
                 assert result is True
 
@@ -402,13 +402,13 @@ class TestEnterpriseCallbackControls:
         Test that when allow_dynamic_callback_disabling is not set,
         it defaults to True and allows dynamic callback disabling for premium users
         """
-        mock_request_headers.return_value = {X_LITELLM_DISABLE_CALLBACKS: "langfuse"}
-        litellm_params = {"proxy_server_request": {"url": "test"}}
+        mock_request_headers.return_value = {X_EMBROUTER_DISABLE_CALLBACKS: "langfuse"}
+        embrouter_params = {"proxy_server_request": {"url": "test"}}
         standard_callback_dynamic_params = StandardCallbackDynamicParams()
 
-        # litellm.allow_dynamic_callback_disabling should default to True
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        # embrouter.allow_dynamic_callback_disabling should default to True
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             result = EnterpriseCallbackControls.is_callback_disabled_dynamically(
-                "langfuse", litellm_params, standard_callback_dynamic_params
+                "langfuse", embrouter_params, standard_callback_dynamic_params
             )
             assert result is True

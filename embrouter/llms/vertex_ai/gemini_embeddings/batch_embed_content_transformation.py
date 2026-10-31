@@ -9,7 +9,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.types.llms.vertex_ai import (
+from embrouter.types.llms.vertex_ai import (
     BlobType,
     ContentType,
     EmbedContentRequest,
@@ -21,13 +21,13 @@ from litellm.types.llms.vertex_ai import (
     VertexAIBatchEmbeddingsRequestBody,
     VertexAIBatchEmbeddingsResponseObject,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Embedding,
     EmbeddingResponse,
     PromptTokensDetailsWrapper,
     Usage,
 )
-from litellm.utils import get_formatted_prompt, token_counter
+from embrouter.utils import get_formatted_prompt, token_counter
 
 SUPPORTED_EMBEDDING_MIME_TYPES: Final = {
     "image/png",

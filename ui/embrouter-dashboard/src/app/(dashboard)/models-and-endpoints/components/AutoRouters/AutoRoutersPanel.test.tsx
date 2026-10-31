@@ -53,13 +53,13 @@ const DEPLOYMENTS = [
     // DB-created adaptive router: no editor for its shape, but it must stay deletable, since
     // auto-routers are excluded from Models + Endpoints and this tab is the only delete path.
     model_name: "adaptive-router",
-    litellm_params: { model: "auto_router/adaptive_router" },
+    embrouter_params: { model: "auto_router/adaptive_router" },
     model_info: { id: "auto-3", db_model: true },
   },
   {
     // config.yaml row: the API refuses both update and delete, so neither control may appear.
     model_name: "config-router",
-    litellm_params: {
+    embrouter_params: {
       model: "auto_router/complexity_router",
       complexity_router_config: { tiers: {}, classifier_type: "llm" },
     },
@@ -67,12 +67,12 @@ const DEPLOYMENTS = [
   },
   {
     model_name: "gpt-4o-mini",
-    litellm_params: { model: "openai/gpt-4o-mini" },
+    embrouter_params: { model: "openai/gpt-4o-mini" },
     model_info: { id: "plain-1" },
   },
   {
     model_name: "tri-tier-router",
-    litellm_params: {
+    embrouter_params: {
       model: "auto_router/complexity_router",
       complexity_router_config: { tiers: { SIMPLE: ["gpt-4o-mini"] }, classifier_type: "heuristic" },
       complexity_router_default_model: "gpt-4o-mini",
@@ -81,12 +81,12 @@ const DEPLOYMENTS = [
   },
   {
     model_name: "anthropic-opus-4-6",
-    litellm_params: { model: "anthropic/claude-opus-4-6" },
+    embrouter_params: { model: "anthropic/claude-opus-4-6" },
     model_info: { id: "plain-2" },
   },
   {
     model_name: "support-router",
-    litellm_params: {
+    embrouter_params: {
       model: "auto_router/support-router",
       auto_router_config: JSON.stringify({ routes: [{ name: "gpt-4o-mini" }] }),
       auto_router_default_model: "gpt-4o-mini",
@@ -116,7 +116,7 @@ const BULK_ROUTER_NAMES = [
 
 const A_FULL_PAGE_AND_TWO_MORE = Array.from({ length: 12 }, (_, index) => ({
   model_name: BULK_ROUTER_NAMES[index],
-  litellm_params: {
+  embrouter_params: {
     model: "auto_router/complexity_router",
     complexity_router_config: { tiers: {}, classifier_type: "heuristic" },
   },
@@ -259,7 +259,7 @@ describe("AutoRoutersPanel", () => {
 
   it("renders an empty state when the proxy has models but no auto routers", async () => {
     modelInfoCall.mockResolvedValue(
-      pageOf(DEPLOYMENTS.filter((d) => !d.litellm_params.model.startsWith("auto_router/"))),
+      pageOf(DEPLOYMENTS.filter((d) => !d.embrouter_params.model.startsWith("auto_router/"))),
     );
 
     renderPanel();

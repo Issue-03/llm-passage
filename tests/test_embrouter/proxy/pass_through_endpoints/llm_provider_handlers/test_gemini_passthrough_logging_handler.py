@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler import (
     GeminiPassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
 
@@ -73,12 +73,12 @@ class TestGeminiPassthroughLoggingHandler:
         mock_response.headers = {"content-type": "application/json"}
         return mock_response
 
-    def _create_mock_logging_obj(self) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self) -> EmbRouterLoggingObj:
         """Create a mock logging object for testing"""
-        mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
         mock_logging_obj.model_call_details = {}
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.embrouter_call_id = "test-call-id-123"
         return mock_logging_obj
 
     def _create_passthrough_logging_payload(self) -> PassthroughStandardLoggingPayload:
@@ -91,7 +91,7 @@ class TestGeminiPassthroughLoggingHandler:
 
     def test_is_gemini_route(self):
         """Test that Gemini routes are correctly identified"""
-        from litellm.proxy.pass_through_endpoints.success_handler import (
+        from embrouter.proxy.pass_through_endpoints.success_handler import (
             PassThroughEndpointLogging,
         )
 
@@ -138,9 +138,9 @@ class TestGeminiPassthroughLoggingHandler:
         )
         assert model == "gemini-1.5-pro"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     @patch(
-        "litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload"
+        "embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload"
     )
     def test_gemini_passthrough_handler_success(
         self, mock_get_standard_logging, mock_completion_cost
@@ -189,7 +189,7 @@ class TestGeminiPassthroughLoggingHandler:
         assert mock_logging_obj.model_call_details["model"] == "gemini-1.5-flash"
         assert mock_logging_obj.model_call_details["custom_llm_provider"] == "gemini"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_gemini_passthrough_handler_streaming(self, mock_completion_cost):
         """Test cost tracking for Gemini streaming endpoint"""
         # Arrange
@@ -270,7 +270,7 @@ class TestGeminiPassthroughLoggingHandler:
 
     @pytest.mark.asyncio
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler.litellm.completion_cost",
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.gemini_passthrough_logging_handler.embrouter.completion_cost",
         return_value=0.000050,
     )
     async def test_pass_through_success_handler_gemini_routing(
@@ -321,7 +321,7 @@ class TestGeminiPassthroughLoggingHandler:
         assert call_kwargs["model"] == "gemini-2.0-flash"
         assert call_kwargs["custom_llm_provider"] == "gemini"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_veo3_passthrough_cost_tracking(self, mock_completion_cost):
         """Test Veo3 video generation cost tracking for passthrough requests"""
         # Mock the completion_cost to return the expected video generation cost
@@ -419,9 +419,9 @@ class TestGeminiPassthroughLoggingHandler:
             "status": "completed",
             "usage": usage,
         }
-        mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
         mock_logging_obj.model_call_details = {}
-        mock_logging_obj.litellm_call_id = "call-6896"
+        mock_logging_obj.embrouter_call_id = "call-6896"
 
         result = GeminiPassthroughLoggingHandler.gemini_passthrough_handler(
             httpx_response=mock_httpx_response,
@@ -435,7 +435,7 @@ class TestGeminiPassthroughLoggingHandler:
             request_body={"model": "gemini-omni-flash-preview", "input": "make a clip"},
         )
 
-        model_info = litellm.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="gemini")
+        model_info = embrouter.get_model_info(model="gemini-omni-flash-preview", custom_llm_provider="gemini")
         expected_cost = (
             10 * model_info["input_cost_per_token"]
             + 20 * model_info["output_cost_per_token"]

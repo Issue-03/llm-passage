@@ -63,10 +63,10 @@ const nestedProviderParams = {
   },
 };
 
-const guardrail = (litellmParams: Record<string, unknown>, guardrailInfo?: Record<string, unknown>) => ({
+const guardrail = (embrouterParams: Record<string, unknown>, guardrailInfo?: Record<string, unknown>) => ({
   guardrail_id: "123",
   guardrail_name: "Test Guardrail",
-  litellm_params: { guardrail: "bedrock", mode: "pre_call", default_on: true, ...litellmParams },
+  embrouter_params: { guardrail: "bedrock", mode: "pre_call", default_on: true, ...embrouterParams },
   guardrail_info: guardrailInfo,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
@@ -108,7 +108,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     expect(networking.updateGuardrailCall).not.toHaveBeenCalled();
   });
 
-  it("sends only guardrail_name and drops the empty litellm_params object", async () => {
+  it("sends only guardrail_name and drops the empty embrouter_params object", async () => {
     const user = userEvent.setup({ delay: null });
     renderView();
     await openEditor(user);
@@ -122,7 +122,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     expect(lastPayload()).toEqual({ guardrail_name: "Renamed Guardrail" });
   });
 
-  it("never leaks the seeded guardrail, mode or created_at keys into litellm_params", async () => {
+  it("never leaks the seeded guardrail, mode or created_at keys into embrouter_params", async () => {
     const user = userEvent.setup({ delay: null });
     renderView();
     await openEditor(user);
@@ -133,7 +133,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { guardrailIdentifier: "gr-new" } });
+    expect(lastPayload()).toEqual({ embrouter_params: { guardrailIdentifier: "gr-new" } });
   });
 
   it("sends null for a provider param the user cleared", async () => {
@@ -145,7 +145,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { api_key: null } });
+    expect(lastPayload()).toEqual({ embrouter_params: { api_key: null } });
   });
 
   it("maps the skip system message choice to an explicit boolean", async () => {
@@ -161,7 +161,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { skip_system_message_in_guardrail: true } });
+    expect(lastPayload()).toEqual({ embrouter_params: { skip_system_message_in_guardrail: true } });
   });
 
   it("parses the guardrail information textarea into an object", async () => {
@@ -188,7 +188,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { severity_threshold: 4 } });
+    expect(lastPayload()).toEqual({ embrouter_params: { severity_threshold: 4 } });
   });
 
   it("keeps a dotted nested provider field out of the payload entirely", async () => {
@@ -204,7 +204,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { guardrailIdentifier: "gr-new" } });
+    expect(lastPayload()).toEqual({ embrouter_params: { guardrailIdentifier: "gr-new" } });
   });
 
   it("clears a stored nested param to null because no form field ever binds it", async () => {
@@ -222,7 +222,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { guardrailIdentifier: "gr-new", tuning: null } });
+    expect(lastPayload()).toEqual({ embrouter_params: { guardrailIdentifier: "gr-new", tuning: null } });
   });
 
   it("sends an unnormalised numeric provider field as the raw string the input produced", async () => {
@@ -235,7 +235,7 @@ describe("GuardrailInfoView update payload characterization", () => {
     await saveChanges(user);
 
     await waitFor(() => expect(networking.updateGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(lastPayload()).toEqual({ litellm_params: { max_tokens: "5" } });
+    expect(lastPayload()).toEqual({ embrouter_params: { max_tokens: "5" } });
   });
 
   it("blocks the save when the required guardrail name is cleared", async () => {

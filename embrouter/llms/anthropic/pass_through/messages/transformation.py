@@ -3,22 +3,22 @@ from typing import Any, Final
 
 import httpx
 
-from litellm.exceptions import AuthenticationError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import verbose_logger
-from litellm.llms.base_llm.anthropic_messages.transformation import (
+from embrouter.exceptions import AuthenticationError
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import verbose_logger
+from embrouter.llms.base_llm.anthropic_messages.transformation import (
     BaseAnthropicMessagesConfig,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_ADVISOR_TOOL_TYPE,
     ANTHROPIC_BETA_HEADER_VALUES,
     AnthropicMessagesRequest,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.llms.anthropic_tool_search import get_tool_search_beta_header
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.llms.anthropic_tool_search import get_tool_search_beta_header
+from embrouter.types.router import GenericEmbRouterParams
 
 from ...common_utils import (
     AnthropicError,
@@ -192,7 +192,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         Subclasses whose upstream rejects the role opt in by calling this from
         their ``transform_anthropic_messages_request``; the first-party Anthropic
         path forwards ``messages`` untouched and never calls it."""
-        from litellm.utils import _supports_factory
+        from embrouter.utils import _supports_factory
 
         messages: Final = anthropic_messages_request.get("messages")
         if not isinstance(messages, list):
@@ -233,7 +233,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = AnthropicModelInfo.get_api_base(api_base) or "https://api.anthropic.com"
@@ -247,7 +247,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -292,8 +292,8 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         thinking budget is capped below ``max_tokens`` and dropped when even
         the minimum budget cannot fit.
         """
-        from litellm.exceptions import BadRequestError as _BadRequestError
-        from litellm.llms.anthropic.chat.transformation import (
+        from embrouter.exceptions import BadRequestError as _BadRequestError
+        from embrouter.llms.anthropic.chat.transformation import (
             REASONING_EFFORT_TO_OUTPUT_CONFIG_EFFORT,
             AnthropicConfig,
         )
@@ -384,8 +384,8 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         ``output_config``; any residual (e.g. ``format``) is left for provider
         subclasses to handle.
         """
-        from litellm.exceptions import BadRequestError as _BadRequestError
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+        from embrouter.exceptions import BadRequestError as _BadRequestError
+        from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
         if AnthropicConfig._is_adaptive_thinking_model(model, custom_llm_provider):
             return
@@ -479,7 +479,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -538,7 +538,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         # Transform context_management from OpenAI format to Anthropic format if needed
         context_management_param: Final = anthropic_messages_optional_request_params.get("context_management")
         if context_management_param is not None:
-            from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+            from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
             transformed_context_management: Final = AnthropicConfig.map_openai_context_management_to_anthropic(
                 context_management_param
@@ -571,7 +571,7 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> AnthropicMessagesResponse:
         """
         No transformation is needed for Anthropic messages, since we want the response in the Anthropic /v1/messages API spec
@@ -587,22 +587,22 @@ class AnthropicMessagesConfig(BaseAnthropicMessagesConfig):
         model: str,
         httpx_response: httpx.Response,
         request_body: dict,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> AsyncIterator:
         """Helper function to handle Anthropic streaming responses using the existing logging handlers"""
-        from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
             BaseAnthropicMessagesStreamingIterator,
         )
 
         # Use the shared streaming handler for Anthropic
         handler: Final = BaseAnthropicMessagesStreamingIterator(
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             request_body=request_body,
         )
         return handler.get_async_streaming_response_iterator(
             httpx_response=httpx_response,
             request_body=request_body,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
         )
 
     @staticmethod

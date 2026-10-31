@@ -17,10 +17,10 @@ from datetime import datetime
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.types.utils import Choices, Message, ModelResponse
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.responses.utils import ResponseAPILoggingUtils
+from embrouter.types.utils import Choices, Message, ModelResponse
 
 MODEL = "gpt-5.6"
 
@@ -32,7 +32,7 @@ def _logging_obj() -> Logging:
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="responses-cache-breakdown",
+        embrouter_call_id="responses-cache-breakdown",
         function_id="f",
     )
 
@@ -63,18 +63,18 @@ def _responses_completion(cached_tokens: int, cache_write_tokens: int, fresh_tok
 def test_responses_api_cache_costs_are_itemized_in_the_breakdown(local_model_cost_map):
     """Cache-read and cache-write dollars are broken out for an OpenAI Responses
     request, at the model's own cache rates."""
-    rates = litellm.model_cost[MODEL]
+    rates = embrouter.model_cost[MODEL]
     cached_tokens = 4012
     cache_write_tokens = 5000
     fresh_tokens = 1000
     output_tokens = 200
 
     logging_obj = _logging_obj()
-    total = litellm.completion_cost(
+    total = embrouter.completion_cost(
         completion_response=_responses_completion(cached_tokens, cache_write_tokens, fresh_tokens, output_tokens),
         model=MODEL,
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
 
     breakdown = logging_obj.cost_breakdown
@@ -97,17 +97,17 @@ def test_cache_fields_stay_unset_when_there_was_no_cache_activity(local_model_co
     """A request that neither read nor wrote the cache leaves both break-out fields
     off the breakdown, so they serialize as null rather than a misleading $0."""
     logging_obj = _logging_obj()
-    litellm.completion_cost(
+    embrouter.completion_cost(
         completion_response=_responses_completion(
             cached_tokens=0, cache_write_tokens=0, fresh_tokens=1000, output_tokens=200
         ),
         model=MODEL,
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
 
     breakdown = logging_obj.cost_breakdown
     assert breakdown is not None
     assert "cache_read_cost" not in breakdown
     assert "cache_creation_cost" not in breakdown
-    assert breakdown["input_cost"] == pytest.approx(1000 * litellm.model_cost[MODEL]["input_cost_per_token"])
+    assert breakdown["input_cost"] == pytest.approx(1000 * embrouter.model_cost[MODEL]["input_cost_per_token"])

@@ -210,7 +210,7 @@ describe("parseExistingPrompt", () => {
       const prompt = parseExistingPrompt({
         prompt_spec: {
           prompt_id: "unassigned-prompt",
-          litellm_params: { dotprompt_content: `---\n${modelLine}temperature: 0\n---\nUser: Keep this message` },
+          embrouter_params: { dotprompt_content: `---\n${modelLine}temperature: 0\n---\nUser: Keep this message` },
         },
       });
 
@@ -222,7 +222,7 @@ describe("parseExistingPrompt", () => {
   it("should parse basic dotprompt content", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 input:
@@ -246,7 +246,7 @@ User: Hello world`,
   it("should parse with config parameters", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 temperature: 0.7
@@ -273,7 +273,7 @@ User: Hello`,
   it("should parse with developer message", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 input:
@@ -297,7 +297,7 @@ User: Hello`,
   it("should parse multiple messages", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 input:
@@ -329,7 +329,7 @@ User: Great!`,
   it("should handle prompt with version suffix", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 input:
@@ -351,7 +351,7 @@ User: Hello`,
   it("should throw error when no dotprompt_content", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {},
+        embrouter_params: {},
       },
     };
 
@@ -361,7 +361,7 @@ User: Hello`,
   it("should throw error for invalid dotprompt format", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: "invalid format",
         },
       },
@@ -373,7 +373,7 @@ User: Hello`,
   it("should provide default values when parsing fails", () => {
     const apiResponse = {
       prompt_spec: {
-        litellm_params: {
+        embrouter_params: {
           dotprompt_content: `---
 model: gpt-4
 input:

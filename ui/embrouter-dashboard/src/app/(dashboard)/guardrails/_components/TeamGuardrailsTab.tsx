@@ -55,7 +55,7 @@ const submitGuardrailSchema = z.object({
   guardrail_name: z.string().min(1, "Enter a guardrail name"),
   mode: z.string().min(1, "Select a mode"),
   api_base: z.string().min(1, "Enter the API base URL").refine(isValidUrl, "Must be a valid URL"),
-  extra_litellm_params: z.string().superRefine((value, ctx) => {
+  extra_embrouter_params: z.string().superRefine((value, ctx) => {
     if (!value) return;
     try {
       const parsed: unknown = JSON.parse(value);
@@ -83,7 +83,7 @@ const EMPTY_SUBMIT_VALUES: SubmitGuardrailValues = {
   guardrail_name: "",
   mode: "pre_call",
   api_base: "",
-  extra_litellm_params: "",
+  extra_embrouter_params: "",
   guardrail_info: "",
 };
 
@@ -139,7 +139,7 @@ function formatSubmissionDate(value: string | null | undefined): string {
 }
 
 function submissionToTeamGuardrail(item: GuardrailSubmissionItem): TeamGuardrail {
-  const params = item.litellm_params ?? {};
+  const params = item.embrouter_params ?? {};
   const info = item.guardrail_info ?? {};
   const headers = params.headers;
   const customHeaders: { key: string; value: string }[] = Array.isArray(headers)
@@ -212,10 +212,10 @@ const TEAM_COLORS: Record<string, string> = {
 
 function buildEquivalentConfigYaml(g: TeamGuardrail): string {
   const lines: string[] = [
-    "litellm_settings:",
+    "embrouter_settings:",
     "  guardrails:",
     `    - guardrail_name: "${g.name.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
-    "      litellm_params:",
+    "      embrouter_params:",
     `        guardrail: ${g.guardrailType ?? "generic_guardrail_api"}`,
     `        mode: ${g.mode ?? "pre_call"}  # or post_call, during_call`,
     `        api_base: ${g.endpoint || "https://your-guardrail-api.com"}`,
@@ -858,8 +858,8 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
   }, [fetchSubmissions]);
 
   const handleSubmitGuardrail = submitForm.handleSubmit(async (values) => {
-    const litellm_params: Record<string, unknown> = {
-      ...(values.extra_litellm_params ? JSON.parse(values.extra_litellm_params) : {}),
+    const embrouter_params: Record<string, unknown> = {
+      ...(values.extra_embrouter_params ? JSON.parse(values.extra_embrouter_params) : {}),
       guardrail: "generic_guardrail_api",
       mode: values.mode,
       api_base: values.api_base,
@@ -868,7 +868,7 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
       await registerGuardrail.mutateAsync({
         team_id: values.team_id,
         guardrail_name: values.guardrail_name,
-        litellm_params,
+        embrouter_params,
         guardrail_info: values.guardrail_info ? JSON.parse(values.guardrail_info) : undefined,
       });
       toast.success("Guardrail submitted for review");
@@ -894,7 +894,7 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
     const newValue = !g.forwardKey;
     try {
       await updateGuardrailCall(accessToken, id, {
-        litellm_params: { forward_api_key: newValue },
+        embrouter_params: { forward_api_key: newValue },
       });
       setGuardrails((prev) => prev.map((x) => (x.id === id ? { ...x, forwardKey: newValue } : x)));
       toast.success(newValue ? "Forward API key enabled" : "Forward API key disabled");
@@ -911,7 +911,7 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
     }
     try {
       await updateGuardrailCall(accessToken, id, {
-        litellm_params: { headers: headersObj },
+        embrouter_params: { headers: headersObj },
       });
       setGuardrails((prev) =>
         prev.map((x) =>
@@ -933,7 +933,7 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
     if (!accessToken) return;
     try {
       await updateGuardrailCall(accessToken, id, {
-        litellm_params: { extra_headers: extraHeaders },
+        embrouter_params: { extra_headers: extraHeaders },
       });
       setGuardrails((prev) => prev.map((x) => (x.id === id ? { ...x, extraHeaders } : x)));
       toast.success("Forward client headers updated");
@@ -1122,10 +1122,10 @@ export function TeamGuardrailsTab({ accessToken }: TeamGuardrailsTabProps) {
                 </FormField>
                 <FormField
                   control={submitForm.control}
-                  name="extra_litellm_params"
+                  name="extra_embrouter_params"
                   label={labelWithHint(
-                    "Additional litellm_params (optional)",
-                    "JSON object merged into litellm_params. e.g. forward_api_key, headers, model, unreachable_fallback",
+                    "Additional embrouter_params (optional)",
+                    "JSON object merged into embrouter_params. e.g. forward_api_key, headers, model, unreachable_fallback",
                   )}
                 >
                   {({ ref, ...field }) => (

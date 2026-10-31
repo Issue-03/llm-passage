@@ -173,7 +173,7 @@ def chat(
     # Display welcome message
     console.print(
         Panel.fit(
-            f"[bold blue]LiteLLM Interactive Chat[/bold blue]\n"
+            f"[bold blue]EmbRouter Interactive Chat[/bold blue]\n"
             f"Model: [green]{model}[/green]\n"
             f"Temperature: [yellow]{temperature}[/yellow]\n"
             f"Max Tokens: [yellow]{max_tokens or 'unlimited'}[/yellow]\n\n"

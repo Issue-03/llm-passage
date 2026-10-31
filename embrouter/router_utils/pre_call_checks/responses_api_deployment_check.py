@@ -13,9 +13,9 @@ If previous_response_id is provided, route to the deployment that returned the p
 import warnings
 from typing import Final
 
-from litellm.integrations.custom_logger import CustomLogger, Span
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.integrations.custom_logger import CustomLogger, Span
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class ResponsesApiDeploymentCheck(CustomLogger):

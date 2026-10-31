@@ -2,16 +2,16 @@ import importlib
 import os
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_logger
-from litellm.types.utils import CallTypes
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import CallTypes
 
 from . import *
 
 if TYPE_CHECKING:
-    from litellm.llms.base_llm.guardrail_translation.base_translation import (
+    from embrouter.llms.base_llm.guardrail_translation.base_translation import (
         BaseTranslation,
     )
-    from litellm.types.utils import ModelInfo, Usage
+    from embrouter.types.utils import ModelInfo, Usage
 
 
 def get_cost_for_google_maps_grounding_request(
@@ -107,9 +107,9 @@ def discover_guardrail_translation_mappings() -> dict[CallTypes, type["BaseTrans
 
             # Check if this is a guardrail_translation directory with __init__.py
             if os.path.basename(root) == "guardrail_translation" and "__init__.py" in files:
-                # Build the module path relative to litellm
+                # Build the module path relative to embrouter
                 rel_path = os.path.relpath(root, os.path.dirname(llms_dir))
-                module_path = "litellm." + rel_path.replace(os.sep, ".")
+                module_path = "embrouter." + rel_path.replace(os.sep, ".")
 
                 try:
                     # Import the module
@@ -134,7 +134,7 @@ def discover_guardrail_translation_mappings() -> dict[CallTypes, type["BaseTrans
                     continue
 
         try:
-            from litellm.proxy._experimental.mcp_server.guardrail_translation import (
+            from embrouter.proxy._experimental.mcp_server.guardrail_translation import (
                 guardrail_translation_mappings as mcp_guardrail_translation_mappings,
             )
 

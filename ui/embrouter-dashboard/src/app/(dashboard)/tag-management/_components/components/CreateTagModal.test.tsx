@@ -9,12 +9,12 @@ describe("CreateTagModal", () => {
   const mockAvailableModels = [
     {
       model_name: "GPT-4",
-      litellm_params: { model: "gpt-4" },
+      embrouter_params: { model: "gpt-4" },
       model_info: { id: "model-1" },
     },
     {
       model_name: "Claude-3",
-      litellm_params: { model: "claude-3" },
+      embrouter_params: { model: "claude-3" },
       model_info: { id: "model-2" },
     },
   ];

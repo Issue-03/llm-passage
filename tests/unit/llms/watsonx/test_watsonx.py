@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-import litellm
+import embrouter
 
 
 @pytest.mark.parametrize("tokenizer_config_cached", [False, True], ids=["tokenizer_config", "cached_config_jinja"])
@@ -12,18 +12,18 @@ async def test_watsonx_text_gpt_oss_async_completion_fetches_hf_template_off_the
 ):
     import httpx
 
-    from litellm._uuid import uuid
-    from litellm.litellm_core_utils.prompt_templates import huggingface_template_handler
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter._uuid import uuid
+    from embrouter.embrouter_core_utils.prompt_templates import huggingface_template_handler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     hf_model = f"openai/gpt-oss-{uuid.uuid4()}"
     chat_template = "{% for m in messages %}<|{{ m['role'] }}|>{{ m['content'] }}{% endfor %}"
     if tokenizer_config_cached:
         cached_config = {"status": "success", "tokenizer": {"bos_token": None, "eos_token": None}}
-        monkeypatch.setattr(litellm, "known_tokenizer_config", {hf_model: cached_config})
+        monkeypatch.setattr(embrouter, "known_tokenizer_config", {hf_model: cached_config})
         expected_fetch = f"https://huggingface.co/{hf_model}/raw/main/chat_template.jinja"
     else:
-        monkeypatch.setattr(litellm, "known_tokenizer_config", {})
+        monkeypatch.setattr(embrouter, "known_tokenizer_config", {})
         expected_fetch = f"https://huggingface.co/{hf_model}/raw/main/tokenizer_config.json"
     hf_fetched = []
     captured = {}
@@ -60,7 +60,7 @@ async def test_watsonx_text_gpt_oss_async_completion_fetches_hf_template_off_the
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model=f"watsonx_text/{hf_model}",
         messages=[{"role": "user", "content": "Hi there"}],
         api_base="https://test-api.watsonx.ai",

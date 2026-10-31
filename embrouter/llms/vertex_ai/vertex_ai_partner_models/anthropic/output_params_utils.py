@@ -26,7 +26,7 @@ def _model_accepts_output_config_effort(model: str) -> bool:
     ``output_config.effort: Extra inputs are not permitted``. Imported lazily
     so this stays a leaf module (see module docstring).
     """
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
     return AnthropicConfig._model_supports_effort_param(model, "vertex_ai")
 
@@ -57,7 +57,7 @@ def sanitize_vertex_anthropic_output_params(data: dict, model: str) -> None:
 
     drop_keys: Final = set(VERTEX_UNSUPPORTED_OUTPUT_CONFIG_KEYS)
     if "effort" in output_config and not _model_accepts_output_config_effort(model):
-        from litellm._logging import verbose_logger
+        from embrouter._logging import verbose_logger
 
         verbose_logger.debug(
             "Dropping unsupported output_config.effort for vertex_ai model=%s "

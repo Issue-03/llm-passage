@@ -13,10 +13,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.utils import ProxyLogging
 
 
 class MockStreamingCallback(CustomLogger):
@@ -69,7 +69,7 @@ async def test_streaming_hook_is_async_generator():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [callback]):
+    with patch.object(embrouter, "callbacks", [callback]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -103,7 +103,7 @@ async def test_streaming_hook_chains_multiple_callbacks():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [callback1, callback2]):
+    with patch.object(embrouter, "callbacks", [callback1, callback2]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -135,7 +135,7 @@ async def test_streaming_hook_handles_empty_callbacks():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", []):
+    with patch.object(embrouter, "callbacks", []):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),
@@ -173,7 +173,7 @@ async def test_streaming_hook_propagates_callback_errors():
     user_api_key_dict = UserAPIKeyAuth(api_key="test_key")
     request_data = {"model": "gpt-4", "messages": []}
 
-    with patch.object(litellm, "callbacks", [failing_callback]):
+    with patch.object(embrouter, "callbacks", [failing_callback]):
         # Act
         result = proxy_logging.async_post_call_streaming_iterator_hook(
             response=mock_streaming_response(),

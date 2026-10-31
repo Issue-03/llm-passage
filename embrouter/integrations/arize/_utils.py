@@ -4,20 +4,20 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import ReadOnly, TypedDict, override
 
-from litellm._logging import verbose_logger
-from litellm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
     BaseLLMObsOTELAttributes,
     safe_set_attribute,
 )
-from litellm.litellm_core_utils.redact_messages import (
+from embrouter.embrouter_core_utils.redact_messages import (
     should_redact_message_logging,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.types.utils import CallTypes, StandardLoggingMCPToolCall, StandardLoggingPayload
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.types.utils import CallTypes, StandardLoggingMCPToolCall, StandardLoggingPayload
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
-from litellm.integrations._types.open_inference import (
+from embrouter.integrations._types.open_inference import (
     AudioAttributes,
     EmbeddingAttributes,
     ImageAttributes,
@@ -226,7 +226,7 @@ def _safe_get(obj, key, default=None):
     """Read ``key`` from a dict-like or Pydantic-model-like object.
 
     The arize/langfuse_otel logger receives ``usage`` objects from many sources:
-    plain dicts, litellm ``Usage`` (which exposes ``.get``), and raw OpenAI
+    plain dicts, embrouter ``Usage`` (which exposes ``.get``), and raw OpenAI
     Pydantic models (e.g. ``openai.types.completion_usage.CompletionUsage`` and
     nested ``CompletionTokensDetails`` / ``OutputTokensDetails``) which do NOT
     expose ``.get``. Calling ``.get`` on the latter raised ``AttributeError`` —
@@ -306,7 +306,7 @@ def _set_usage_outputs(span: "Span", response_obj, span_attrs):
 
 def _infer_open_inference_span_kind(call_type: str | None) -> str:
     """
-    Map LiteLLM call types to OpenInference span kinds.
+    Map EmbRouter call types to OpenInference span kinds.
     """
 
     if not call_type:
@@ -428,7 +428,7 @@ def set_attributes(span: "Span", kwargs, response_obj, attributes: type[BaseLLMO
 
     try:
         optional_params: Final = _sanitize_optional_params(kwargs.get("optional_params"))
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
         standard_logging_payload: Final[StandardLoggingPayload | None] = kwargs.get("standard_logging_object")
         if standard_logging_payload is None:
             raise ValueError("standard_logging_object not found in kwargs")
@@ -444,7 +444,7 @@ def set_attributes(span: "Span", kwargs, response_obj, attributes: type[BaseLLMO
             kwargs=kwargs,
             standard_logging_payload=standard_logging_payload,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             response_obj=response_obj_for_attrs,
             span_attrs=SpanAttributes,
         )
@@ -515,7 +515,7 @@ def _set_request_attributes(
     kwargs,
     standard_logging_payload: StandardLoggingPayload,
     optional_params: dict,
-    litellm_params: dict,
+    embrouter_params: dict,
     response_obj,
     span_attrs,
 ):
@@ -526,7 +526,7 @@ def _set_request_attributes(
     safe_set_attribute(
         span,
         span_attrs.LLM_PROVIDER,
-        litellm_params.get("custom_llm_provider", "Unknown"),
+        embrouter_params.get("custom_llm_provider", "Unknown"),
     )
 
     if optional_params.get("max_tokens"):
@@ -728,7 +728,7 @@ def _emit_message_tool_calls(span: "Span", prefix: str, message) -> None:
     """Emit ``MESSAGE_TOOL_CALLS.*`` for an assistant message that requested
     tool calls. Pure addition: only writes when ``tool_calls`` is non-empty.
 
-    Accepts dicts or Pydantic message objects (e.g. ``litellm.Message``); the
+    Accepts dicts or Pydantic message objects (e.g. ``embrouter.Message``); the
     same applies to each tool_call entry.
     """
     tool_calls: Final = _get_tool_calls(message)
@@ -840,7 +840,7 @@ def _set_session_and_user_attrs(span: "Span", kwargs: dict, standard_logging_pay
     (`metadata.user_api_key_end_user_id`). We deliberately do NOT fall back
     to `trace_id`, because that would create a distinct "session" for every
     single request and distort Arize's Session-grouping analytics. The
-    `trace_id` is still emitted under its own `litellm.trace_id` key so
+    `trace_id` is still emitted under its own `embrouter.trace_id` key so
     spans remain filterable by trace.
 
     USER_ID is *only* emitted when no upstream path (model_params.user or
@@ -859,7 +859,7 @@ def _set_session_and_user_attrs(span: "Span", kwargs: dict, standard_logging_pay
 
     trace_id: Final = standard_logging_payload.get("trace_id")
     if trace_id:
-        safe_set_attribute(span, "litellm.trace_id", str(trace_id))
+        safe_set_attribute(span, "embrouter.trace_id", str(trace_id))
 
     optional_params: Final = kwargs.get("optional_params") or {}
     model_params: Final = standard_logging_payload.get("model_parameters") or {}
@@ -874,20 +874,20 @@ def _set_session_and_user_attrs(span: "Span", kwargs: dict, standard_logging_pay
 
     team_id: Final = metadata.get("user_api_key_team_id")
     if team_id:
-        safe_set_attribute(span, "litellm.team_id", str(team_id))
+        safe_set_attribute(span, "embrouter.team_id", str(team_id))
     team_alias: Final = metadata.get("user_api_key_team_alias")
     if team_alias:
-        safe_set_attribute(span, "litellm.team_alias", str(team_alias))
+        safe_set_attribute(span, "embrouter.team_alias", str(team_alias))
     key_alias: Final = metadata.get("user_api_key_alias")
     if key_alias:
-        safe_set_attribute(span, "litellm.key_alias", str(key_alias))
+        safe_set_attribute(span, "embrouter.key_alias", str(key_alias))
 
 
 def _set_response_cost_attr(span: "Span", standard_logging_payload) -> None:
     """Emit cost attributes from the StandardLoggingPayload when present.
 
     Uses the OpenInference `llm.cost.total` key so Arize / Phoenix can
-    surface the cost in their "Total Cost" column. LiteLLM only tracks a
+    surface the cost in their "Total Cost" column. EmbRouter only tracks a
     single total in `StandardLoggingPayload.response_cost`, so we cannot
     split it into prompt/completion. We also keep the legacy
     `llm.response.cost` key for back-compat with any consumer querying it.
@@ -943,7 +943,7 @@ def _maybe_normalize_passthrough(
     if not _is_passthrough_call_type(call_type):
         return
 
-    # Respect LiteLLM's central message-redaction contract. The normal
+    # Respect EmbRouter's central message-redaction contract. The normal
     # chat/completion path is redacted by `perform_redaction` before
     # callbacks run, but `complete_input_dict` (read below) is NOT covered by
     # that layer — so without this gate, an operator who enabled redaction

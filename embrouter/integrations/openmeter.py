@@ -7,9 +7,9 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -49,13 +49,13 @@ class OpenMeterLogger(CustomLogger):
             raise Exception(f"Missing keys={missing_keys} in environment.")
 
     def _common_logic(self, kwargs: dict, response_obj):
-        call_id: Final = response_obj.get("id", kwargs.get("litellm_call_id"))
+        call_id: Final = response_obj.get("id", kwargs.get("embrouter_call_id"))
         dt: Final = get_utc_datetime().isoformat()
         cost: Final = kwargs.get("response_cost", None)
         model: Final = kwargs.get("model")
         usage = {}
         if (
-            isinstance(response_obj, litellm.ModelResponse) or isinstance(response_obj, litellm.EmbeddingResponse)
+            isinstance(response_obj, embrouter.ModelResponse) or isinstance(response_obj, embrouter.EmbeddingResponse)
         ) and hasattr(response_obj, "usage"):
             usage = {
                 "prompt_tokens": response_obj["usage"].get("prompt_tokens", 0),
@@ -74,8 +74,8 @@ class OpenMeterLogger(CustomLogger):
         # If no user provided directly, try to get it from token user_id
         if user_param is None:
             # Check if user_id is available from the API key metadata
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            metadata: Final = litellm_params.get("metadata", {})
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            metadata: Final = embrouter_params.get("metadata", {})
             user_api_key_user_id: Final = metadata.get("user_api_key_user_id", None)
 
             if user_api_key_user_id is not None:
@@ -88,11 +88,11 @@ class OpenMeterLogger(CustomLogger):
 
         return {
             "specversion": "1.0",
-            "type": os.getenv("OPENMETER_EVENT_TYPE", "litellm_tokens"),
+            "type": os.getenv("OPENMETER_EVENT_TYPE", "embrouter_tokens"),
             "id": call_id,
             "time": dt,
             "subject": subject,
-            "source": "litellm-proxy",
+            "source": "embrouter-proxy",
             "data": {"model": model, "cost": cost, **usage},
         }
 

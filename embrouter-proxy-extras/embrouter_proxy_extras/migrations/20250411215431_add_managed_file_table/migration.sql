@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedFileTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedFileTable" (
     "id" TEXT NOT NULL,
     "unified_file_id" TEXT NOT NULL,
     "file_object" JSONB NOT NULL,
@@ -7,12 +7,12 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedFileTable" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_ManagedFileTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_ManagedFileTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ManagedFileTable_unified_file_id_key" ON "LiteLLM_ManagedFileTable"("unified_file_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_unified_file_id_key" ON "EmbRouter_ManagedFileTable"("unified_file_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedFileTable_unified_file_id_idx" ON "LiteLLM_ManagedFileTable"("unified_file_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_unified_file_id_idx" ON "EmbRouter_ManagedFileTable"("unified_file_id");
 

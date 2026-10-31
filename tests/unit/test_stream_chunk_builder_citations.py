@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm import stream_chunk_builder
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+from embrouter import stream_chunk_builder
+from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
 _CITATION_ONE: Final = {
     "type": "char_location",

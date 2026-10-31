@@ -13,9 +13,9 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from litellm.experimental_mcp_client.client import MCPClient
-from litellm.proxy._experimental.mcp_server.exceptions import MCPServerURLCredentialsError
-from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+from embrouter.experimental_mcp_client.client import MCPClient
+from embrouter.proxy._experimental.mcp_server.exceptions import MCPServerURLCredentialsError
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
     oauth_protected_resource_path,
     raise_public,
     raise_user_oauth_challenge,
@@ -23,8 +23,8 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import 
     to_subject,
     validate_static_credential,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ApiKeyConfig,
     AuthorizationCodeConfig,
     ClientCredentialsConfig,
@@ -37,8 +37,8 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
     SharedKey,
     TokenExchangeConfig,
 )
-from litellm.types.mcp import MCPAuth, MCPAuthType, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp import MCPAuth, MCPAuthType, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @pytest.mark.parametrize("auth_type,header,value", [
@@ -83,8 +83,8 @@ def _id_jag_server(**overrides) -> MCPServer:
     defaults = dict(
         auth_type=MCPAuth.oauth2_id_jag,
         url="https://mcp.example.com/mcp",
-        client_id="litellm-client-id",
-        client_secret="litellm-client-secret",
+        client_id="embrouter-client-id",
+        client_secret="embrouter-client-secret",
         token_exchange_endpoint="https://idp.example.com/token",
         id_jag_resource_token_endpoint="https://mcp-as.example.com/token",
         audience="api://mcp-server",
@@ -600,7 +600,7 @@ def test_raise_user_oauth_challenge_per_request_prefix_is_routable(monkeypatch):
 
 
 def test_raise_token_exchange_challenge_is_rfc9728_invalid_token():
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -616,7 +616,7 @@ def test_raise_token_exchange_challenge_is_rfc9728_invalid_token():
 
 
 def test_raise_token_exchange_challenge_includes_server_root_path(monkeypatch):
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -628,7 +628,7 @@ def test_raise_token_exchange_challenge_includes_server_root_path(monkeypatch):
 
 
 def test_raise_token_exchange_challenge_per_request_prefix_is_routable(monkeypatch):
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -640,7 +640,7 @@ def test_raise_token_exchange_challenge_per_request_prefix_is_routable(monkeypat
 
 
 def test_raise_token_exchange_challenge_static_form_is_unchanged_without_step_up():
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -656,7 +656,7 @@ def test_raise_token_exchange_challenge_static_form_is_unchanged_without_step_up
 def test_raise_token_exchange_challenge_uses_insufficient_claims_with_claims_present():
     # Per the Microsoft claims-challenge format, a claims challenge MUST use error=insufficient_claims
     # (the value MSAL-family clients key on), and the claims ride base64-encoded, never raw.
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
         raise_token_exchange_challenge,
     )
 
@@ -676,13 +676,13 @@ def test_id_jag_client_secret_maps_to_config():
     assert spec is not None and isinstance(spec.config, IdJagConfig)
     assert spec.config.org_token_endpoint == "https://idp.example.com/token"
     assert spec.config.resource_token_endpoint == "https://mcp-as.example.com/token"
-    assert spec.config.client_id == "litellm-client-id"
+    assert spec.config.client_id == "embrouter-client-id"
     assert spec.config.audience == "api://mcp-server"
     assert spec.config.scopes == ("mcp.read", "mcp.write")
     # ID-JAG asserts the user's id_token; the access_token default maps to id_token.
     assert spec.config.subject_token_type == "urn:ietf:params:oauth:token-type:id_token"
     assert isinstance(spec.config.client_auth, ClientSecretAuth)
-    assert spec.config.client_auth.client_secret.get_secret_value() == ("litellm-client-secret")
+    assert spec.config.client_auth.client_secret.get_secret_value() == ("embrouter-client-secret")
 
 
 def test_id_jag_private_key_maps_to_private_key_jwt_auth():

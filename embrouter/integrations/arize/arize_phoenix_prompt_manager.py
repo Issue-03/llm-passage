@@ -1,5 +1,5 @@
 """
-Arize Phoenix prompt manager that integrates with LiteLLM's prompt management system.
+Arize Phoenix prompt manager that integrates with EmbRouter's prompt management system.
 Fetches prompt versions from Arize Phoenix and provides workspace-based access control.
 """
 
@@ -10,14 +10,14 @@ from jinja2 import DictLoader, select_autoescape
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.integrations.prompt_management_base import (
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.integrations.prompt_management_base import (
     PromptManagementBase,
     PromptManagementClient,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 from .arize_phoenix_client import ArizePhoenixClient
 
@@ -220,10 +220,10 @@ class ArizePhoenixTemplateManager:
 
 class ArizePhoenixPromptManager(CustomPromptManagement):
     """
-    Arize Phoenix prompt manager that integrates with LiteLLM's prompt management system.
+    Arize Phoenix prompt manager that integrates with EmbRouter's prompt management system.
 
     This class enables using prompt versions from Arize Phoenix with the
-    litellm completion() function by implementing the PromptManagementBase interface.
+    embrouter completion() function by implementing the PromptManagementBase interface.
 
     Usage:
         # Configure Arize Phoenix access
@@ -233,7 +233,7 @@ class ArizePhoenixPromptManager(CustomPromptManagement):
         }
 
         # Use with completion
-        response = litellm.completion(
+        response = embrouter.completion(
             model="arize/gpt-4o",
             prompt_id="UHJvbXB0VmVyc2lvbjox",
             prompt_variables={"question": "What is AI?"},
@@ -321,7 +321,7 @@ class ArizePhoenixPromptManager(CustomPromptManagement):
         user_id: str | None,
         messages: list[AllMessageValues],
         function_call: dict[str, object] | str | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
         prompt_id: str | None = None,
         prompt_variables: dict[str, object] | None = None,
         **kwargs,
@@ -330,7 +330,7 @@ class ArizePhoenixPromptManager(CustomPromptManagement):
         Pre-call hook that processes the prompt template before making the LLM call.
         """
         if not prompt_id:
-            return messages, litellm_params
+            return messages, embrouter_params
 
         try:
             # Get the rendered messages and metadata
@@ -343,13 +343,13 @@ class ArizePhoenixPromptManager(CustomPromptManagement):
             else:
                 final_messages = messages
 
-            # Update litellm_params with prompt metadata
-            if litellm_params is None:
-                litellm_params = {}
+            # Update embrouter_params with prompt metadata
+            if embrouter_params is None:
+                embrouter_params = {}
 
             # Apply model and parameters from prompt metadata
             if prompt_metadata.get("model") and not self.ignore_prompt_manager_model:
-                litellm_params["model"] = prompt_metadata["model"]
+                embrouter_params["model"] = prompt_metadata["model"]
 
             if not self.ignore_prompt_manager_optional_params:
                 for param in [
@@ -360,16 +360,16 @@ class ArizePhoenixPromptManager(CustomPromptManagement):
                     "presence_penalty",
                 ]:
                     if param in prompt_metadata:
-                        litellm_params[param] = prompt_metadata[param]
+                        embrouter_params[param] = prompt_metadata[param]
 
-            return final_messages, litellm_params
+            return final_messages, embrouter_params
 
         except Exception as e:
             # Log error but don't fail the call
-            from litellm._logging import verbose_proxy_logger
+            from embrouter._logging import verbose_proxy_logger
 
             verbose_proxy_logger.error("Error in Arize Phoenix prompt pre_call_hook: %s", e)
-            return messages, litellm_params
+            return messages, embrouter_params
 
     def get_available_prompts(self) -> list[str]:
         """Get list of available prompt IDs."""

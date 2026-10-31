@@ -9,12 +9,12 @@ import httpx
 import pytest
 
 
-from litellm.llms.dashscope.common_utils import DashScopeError
-from litellm.llms.dashscope.rerank.transformation import (
+from embrouter.llms.dashscope.common_utils import DashScopeError
+from embrouter.llms.dashscope.rerank.transformation import (
     DEFAULT_RERANK_URL,
     DashScopeRerankConfig,
 )
-from litellm.types.rerank import RerankResponse
+from embrouter.types.rerank import RerankResponse
 
 
 class TestDashScopeRerankURL:
@@ -337,12 +337,12 @@ class TestDashScopeRerankResponse:
 
 class TestProviderConfigManagerDispatch:
     def test_dashscope_returns_rerank_config(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import embrouter
+        from embrouter.utils import ProviderConfigManager
 
         cfg = ProviderConfigManager.get_provider_rerank_config(
             model="qwen3-rerank",
-            provider=litellm.LlmProviders.DASHSCOPE,
+            provider=embrouter.LlmProviders.DASHSCOPE,
             api_base=None,
             present_version_params=[],
         )

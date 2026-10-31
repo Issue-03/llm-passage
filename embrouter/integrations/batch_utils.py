@@ -4,8 +4,8 @@ from typing import Final, Generic, TypeVar
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import MaskedHTTPStatusError
 
 _BatchItem = TypeVar("_BatchItem")
 

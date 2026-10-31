@@ -19,9 +19,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.proxy.proxy_server as proxy_server
-from litellm.constants import BACKGROUND_HEALTH_CHECK_DB_SAVE_JOB_NAME
-from litellm.proxy.proxy_server import (
+import embrouter.proxy.proxy_server as proxy_server
+from embrouter.constants import BACKGROUND_HEALTH_CHECK_DB_SAVE_JOB_NAME
+from embrouter.proxy.proxy_server import (
     _adaptive_router_flusher_loop,
     _get_endpoint_exception_status,
     _get_process_rss_mb,
@@ -176,7 +176,7 @@ async def test_schedule_background_health_check_db_save_creates_task(monkeypatch
         captured["unhealthy"] = unhealthy
         captured["checked_by"] = checked_by
 
-    import litellm.proxy.health_endpoints._health_endpoints as he
+    import embrouter.proxy.health_endpoints._health_endpoints as he
 
     monkeypatch.setattr(he, "_save_background_health_checks_to_db", _fake_save)
 
@@ -225,7 +225,7 @@ async def test_schedule_background_health_check_db_save_invalid_no_event_loop_ra
     async def _fake_save(*_args, **_kwargs):
         return None
 
-    import litellm.proxy.health_endpoints._health_endpoints as he
+    import embrouter.proxy.health_endpoints._health_endpoints as he
 
     monkeypatch.setattr(he, "_save_background_health_checks_to_db", _fake_save)
 
@@ -259,7 +259,7 @@ def _capture_saves(monkeypatch, persisted=True):
         saves.append(kwargs)
         return persisted
 
-    import litellm.proxy.health_endpoints._health_endpoints as he
+    import embrouter.proxy.health_endpoints._health_endpoints as he
 
     monkeypatch.setattr(he, "_save_background_health_checks_to_db", _fake_save)
     return saves
@@ -269,7 +269,7 @@ def _cancel_during_save(monkeypatch):
     async def _fake_save(*_args, **_kwargs):
         raise asyncio.CancelledError()
 
-    import litellm.proxy.health_endpoints._health_endpoints as he
+    import embrouter.proxy.health_endpoints._health_endpoints as he
 
     monkeypatch.setattr(he, "_save_background_health_checks_to_db", _fake_save)
 
@@ -427,15 +427,15 @@ def test_write_health_state_to_router_cache_sets_states(monkeypatch):
 
     fake_states = {"m1": {"is_healthy": True}, "m2": {"is_healthy": False}}
 
-    import litellm.proxy.health_check as hc
+    import embrouter.proxy.health_check as hc
 
     monkeypatch.setattr(hc, "build_deployment_health_states", lambda **_kw: fake_states)
 
-    import litellm.router_utils.cooldown_handlers as cd
+    import embrouter.router_utils.cooldown_handlers as cd
 
     monkeypatch.setattr(cd, "_set_cooldown_deployments", lambda **_kw: None)
 
-    import litellm.router_utils.router_callbacks.track_deployment_metrics as tdm
+    import embrouter.router_utils.router_callbacks.track_deployment_metrics as tdm
 
     monkeypatch.setattr(
         tdm,
@@ -497,13 +497,13 @@ def test_write_health_state_to_router_cache_populates_for_listing_filter(monkeyp
 
     fake_states = {"m1": {"is_healthy": True}, "m2": {"is_healthy": False}}
 
-    import litellm.proxy.health_check as hc
+    import embrouter.proxy.health_check as hc
 
     monkeypatch.setattr(hc, "build_deployment_health_states", lambda **_kw: fake_states)
 
     cooldowns: list[str] = []
 
-    import litellm.router_utils.cooldown_handlers as cd
+    import embrouter.router_utils.cooldown_handlers as cd
 
     monkeypatch.setattr(
         cd,
@@ -513,7 +513,7 @@ def test_write_health_state_to_router_cache_populates_for_listing_filter(monkeyp
 
     failures: list[str] = []
 
-    import litellm.router_utils.router_callbacks.track_deployment_metrics as tdm
+    import embrouter.router_utils.router_callbacks.track_deployment_metrics as tdm
 
     monkeypatch.setattr(
         tdm,
@@ -541,7 +541,7 @@ def test_write_health_state_to_router_cache_swallows_internal_failures(monkeypat
 
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
 
-    import litellm.proxy.health_check as hc
+    import embrouter.proxy.health_check as hc
 
     monkeypatch.setattr(
         hc,
@@ -564,7 +564,7 @@ async def test_adaptive_router_flusher_loop_flushes_each_router(monkeypatch):
     fake_ar.queue.flush_state_to_db = AsyncMock()
     fake_ar.queue.flush_session_to_db = AsyncMock()
 
-    from litellm.types.router import TaggedPreRoutingStrategy
+    from embrouter.types.router import TaggedPreRoutingStrategy
 
     fake_router = MagicMock()
     fake_router.adaptive_routers = {"alpha": [TaggedPreRoutingStrategy(tags=(), strategy=fake_ar)]}

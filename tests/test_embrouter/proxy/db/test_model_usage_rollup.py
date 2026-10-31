@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.model_usage_rollup import increment_daily_model_usage, model_usage_task_type
+from embrouter.proxy.db.model_usage_rollup import increment_daily_model_usage, model_usage_task_type
 
 
 def test_model_usage_task_type_reads_task_tag_or_defaults() -> None:
@@ -19,7 +19,7 @@ async def test_increment_daily_model_usage_uses_atomic_prisma_upsert() -> None:
     table = MagicMock()
     table.upsert = AsyncMock()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_dailymodelusage = table
+    prisma_client.db.embrouter_dailymodelusage = table
     payload = {
         "request_id": "request-1",
         "call_type": "acompletion",
@@ -53,7 +53,7 @@ async def test_increment_daily_model_usage_uses_atomic_prisma_upsert() -> None:
         "session_id": None,
         "request_duration_ms": 20,
         "status": "success",
-        "litellm_call_id": None,
+        "embrouter_call_id": None,
     }
 
     await increment_daily_model_usage(prisma_client, payload)
@@ -69,7 +69,7 @@ async def test_increment_daily_model_usage_records_task_from_request_tags() -> N
     table = MagicMock()
     table.upsert = AsyncMock()
     prisma_client = MagicMock()
-    prisma_client.db.litellm_dailymodelusage = table
+    prisma_client.db.embrouter_dailymodelusage = table
     payload = {
         "call_type": "acompletion",
         "spend": 0.1,

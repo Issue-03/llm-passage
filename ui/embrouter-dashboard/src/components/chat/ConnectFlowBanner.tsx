@@ -80,7 +80,7 @@ const ConnectFlowBanner: React.FC<Props> = ({ flowHandle, flow, accessToken, onC
               accessToken={accessToken}
               onConnect={onConnected}
               variant="button"
-              autoStartKey={`litellm-mcp-autostart:${flowHandle}`}
+              autoStartKey={`embrouter-mcp-autostart:${flowHandle}`}
             />
           )}
           <form method="POST" action={action}>

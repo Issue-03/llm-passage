@@ -3,7 +3,7 @@ from typing import Final
 
 from typing_extensions import NotRequired, TypedDict
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 DD_MAX_BATCH_SIZE: Final = 1000
 DD_MAX_PAYLOAD_SIZE_BYTES: Final = 4_000_000
@@ -37,7 +37,7 @@ class DD_ERRORS(Enum):
 
 class DatadogInitParams(StandardCustomLoggerInitParams):
     """
-    Params for initializing a DataDog logger on litellm
+    Params for initializing a DataDog logger on embrouter
     """
 
 

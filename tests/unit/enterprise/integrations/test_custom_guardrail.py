@@ -1,11 +1,11 @@
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
 
 
 def test_custom_guardrail_with_mode_default_list(monkeypatch):
     """Test Mode with default as a list of modes (e.g. default: ["pre_call", "post_call"])"""
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
     cg = CustomGuardrail(
         guardrail_name="test_guardrail",
         supported_event_hooks=[
@@ -52,7 +52,7 @@ def test_custom_guardrail_with_mode_default_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.logging_only,
         )
@@ -64,7 +64,7 @@ def test_custom_guardrail_with_mode_default_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.pre_call,
         )
@@ -76,7 +76,7 @@ def test_custom_guardrail_with_mode_default_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.post_call,
         )
@@ -86,7 +86,7 @@ def test_custom_guardrail_with_mode_default_list(monkeypatch):
 
 def test_custom_guardrail_with_mode_no_default(monkeypatch):
     """Test Mode with no default — guardrail only fires when tag matches"""
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
     cg = CustomGuardrail(
         guardrail_name="test_guardrail",
         supported_event_hooks=[
@@ -121,7 +121,7 @@ def test_custom_guardrail_with_mode_no_default(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.logging_only,
         )
@@ -131,7 +131,7 @@ def test_custom_guardrail_with_mode_no_default(monkeypatch):
 
 def test_custom_guardrail_with_mode_tag_value_list(monkeypatch):
     """Test Mode with tag value as a list of modes (e.g. tags: {"tag": ["pre_call", "post_call"]})"""
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
     cg = CustomGuardrail(
         guardrail_name="test_guardrail",
         supported_event_hooks=[
@@ -151,7 +151,7 @@ def test_custom_guardrail_with_mode_tag_value_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.pre_call,
         )
@@ -163,7 +163,7 @@ def test_custom_guardrail_with_mode_tag_value_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.post_call,
         )
@@ -175,7 +175,7 @@ def test_custom_guardrail_with_mode_tag_value_list(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.logging_only,
         )
@@ -203,7 +203,7 @@ def test_custom_guardrail_with_mode_tag_value_list(monkeypatch):
 
 def test_custom_guardrail_with_mode(monkeypatch):
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.premium_user", True
+        "embrouter.proxy.proxy_server.premium_user", True
     )  # Set premium_user to True
     cg = CustomGuardrail(
         guardrail_name="test_guardrail",
@@ -222,7 +222,7 @@ def test_custom_guardrail_with_mode(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test_message"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.pre_call,
         )
@@ -243,7 +243,7 @@ def test_custom_guardrail_with_mode(monkeypatch):
         cg.should_run_guardrail(
             data={
                 "messages": [{"role": "user", "content": "test_message"}],
-                "litellm_metadata": {"tags": ["test_tag"]},
+                "embrouter_metadata": {"tags": ["test_tag"]},
             },
             event_type=GuardrailEventHooks.logging_only,
         )

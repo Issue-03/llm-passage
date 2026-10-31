@@ -22,7 +22,7 @@ export const buildPlaygroundHeaders = (
   tags?: readonly string[],
   customHeaders?: CustomHeaders,
 ): Record<string, string> => ({
-  ...(tags && tags.length > 0 ? { "x-litellm-tags": tags.join(",") } : {}),
+  ...(tags && tags.length > 0 ? { "x-embrouter-tags": tags.join(",") } : {}),
   ...customHeaders,
 });
 

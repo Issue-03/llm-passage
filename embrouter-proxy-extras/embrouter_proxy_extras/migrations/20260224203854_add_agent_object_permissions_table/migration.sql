@@ -1,14 +1,14 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_AgentsTable" ADD COLUMN IF NOT EXISTS "object_permission_id" TEXT;
+ALTER TABLE "EmbRouter_AgentsTable" ADD COLUMN IF NOT EXISTS "object_permission_id" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_MCPServerTable" DROP COLUMN IF EXISTS "spec_path";
+ALTER TABLE "EmbRouter_MCPServerTable" DROP COLUMN IF EXISTS "spec_path";
 
 -- AlterTable
-ALTER TABLE "LiteLLM_VerificationToken" ADD COLUMN IF NOT EXISTS "agent_id" TEXT;
+ALTER TABLE "EmbRouter_VerificationToken" ADD COLUMN IF NOT EXISTS "agent_id" TEXT;
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ToolTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ToolTable" (
     "tool_id" TEXT NOT NULL,
     "tool_name" TEXT NOT NULL,
     "origin" TEXT,
@@ -23,23 +23,23 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ToolTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_ToolTable_pkey" PRIMARY KEY ("tool_id")
+    CONSTRAINT "EmbRouter_ToolTable_pkey" PRIMARY KEY ("tool_id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ToolTable_tool_name_key" ON "LiteLLM_ToolTable"("tool_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ToolTable_tool_name_key" ON "EmbRouter_ToolTable"("tool_name");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ToolTable_call_policy_idx" ON "LiteLLM_ToolTable"("call_policy");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ToolTable_call_policy_idx" ON "EmbRouter_ToolTable"("call_policy");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ToolTable_team_id_idx" ON "LiteLLM_ToolTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ToolTable_team_id_idx" ON "EmbRouter_ToolTable"("team_id");
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_AgentsTable_object_permission_id_fkey') THEN
-        ALTER TABLE "LiteLLM_AgentsTable" ADD CONSTRAINT "LiteLLM_AgentsTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "LiteLLM_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_AgentsTable_object_permission_id_fkey') THEN
+        ALTER TABLE "EmbRouter_AgentsTable" ADD CONSTRAINT "EmbRouter_AgentsTable_object_permission_id_fkey" FOREIGN KEY ("object_permission_id") REFERENCES "EmbRouter_ObjectPermissionTable"("object_permission_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 

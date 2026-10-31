@@ -11,7 +11,7 @@ are correctly routed to different providers:
 
 import pytest
 
-import litellm
+import embrouter
 
 
 class TestCodestralProviderRouting:
@@ -23,7 +23,7 @@ class TestCodestralProviderRouting:
 
         The chat/completions endpoint should be handled by the codestral provider.
         """
-        model, custom_llm_provider, _, api_base = litellm.get_llm_provider(
+        model, custom_llm_provider, _, api_base = embrouter.get_llm_provider(
             model="codestral-latest",
             api_base="https://codestral.mistral.ai/v1/chat/completions",
         )
@@ -37,7 +37,7 @@ class TestCodestralProviderRouting:
         The fim/completions endpoint should be handled by the
         text-completion-codestral provider for fill-in-the-middle completions.
         """
-        model, custom_llm_provider, _, api_base = litellm.get_llm_provider(
+        model, custom_llm_provider, _, api_base = embrouter.get_llm_provider(
             model="codestral-latest",
             api_base="https://codestral.mistral.ai/v1/fim/completions",
         )
@@ -51,12 +51,12 @@ class TestCodestralProviderRouting:
         This is the core fix for issue #18464 - previously both endpoints
         would route to 'codestral' due to duplicate conditions.
         """
-        _, chat_provider, _, _ = litellm.get_llm_provider(
+        _, chat_provider, _, _ = embrouter.get_llm_provider(
             model="codestral-latest",
             api_base="https://codestral.mistral.ai/v1/chat/completions",
         )
 
-        _, fim_provider, _, _ = litellm.get_llm_provider(
+        _, fim_provider, _, _ = embrouter.get_llm_provider(
             model="codestral-latest",
             api_base="https://codestral.mistral.ai/v1/fim/completions",
         )

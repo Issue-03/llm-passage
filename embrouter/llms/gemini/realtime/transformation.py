@@ -9,18 +9,18 @@ from typing import Any, Final, cast
 
 from typing_extensions import ReadOnly, Required, TypedDict
 
-import litellm
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.llms.gemini import (
+from embrouter.types.llms.gemini import (
     AutomaticActivityDetection,
     BidiGenerateContentRealtimeInput,
     BidiGenerateContentRealtimeInputConfig,
@@ -28,7 +28,7 @@ from litellm.types.llms.gemini import (
     BidiGenerateContentServerMessage,
     BidiGenerateContentSetup,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     OpenAIRealtimeContentPartDone,
     OpenAIRealtimeDoneEvent,
     OpenAIRealtimeEvents,
@@ -48,19 +48,19 @@ from litellm.types.llms.openai import (
     OpenAIRealtimeTurnDetection,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.llms.vertex_ai import (
+from embrouter.types.llms.vertex_ai import (
     GeminiResponseModalities,
     HttpxBlobType,
     HttpxContentType,
 )
-from litellm.types.realtime import (
+from embrouter.types.realtime import (
     ALL_DELTA_TYPES,
     RealtimeInputAudioTranscriptionUsage,
     RealtimeModalityResponseTransformOutput,
     RealtimeResponseTransformInput,
     RealtimeResponseTypedDict,
 )
-from litellm.utils import get_empty_usage
+from embrouter.utils import get_empty_usage
 
 from ..common_utils import encode_unserializable_types, get_api_key_from_env
 
@@ -325,7 +325,7 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
                     modality.upper() for modality in cast(list[str], value)
                 ]
             elif key == "tools":
-                from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+                from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
                     VertexGeminiConfig,
                 )
 
@@ -420,10 +420,10 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
 
     @staticmethod
     def _model_cost_entry(model: str) -> dict:
-        entry = litellm.model_cost.get(model)
+        entry = embrouter.model_cost.get(model)
         if entry is None:
             stripped: Final = model.split("/", 1)[-1]
-            entry = litellm.model_cost.get(stripped) or litellm.model_cost.get(f"gemini/{stripped}")
+            entry = embrouter.model_cost.get(stripped) or embrouter.model_cost.get(f"gemini/{stripped}")
         return entry or {}
 
     @staticmethod
@@ -1070,7 +1070,7 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
         else:
             _chat_completion_usage = get_empty_usage()
 
-        responses_api_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        responses_api_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             _chat_completion_usage,
         )
         _usage_dict: Final = responses_api_usage.model_dump()
@@ -1235,7 +1235,7 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
         self,
         message: str | bytes,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         realtime_response_transform_input: RealtimeResponseTransformInput,
     ) -> RealtimeResponseTypedDict:
         """
@@ -1255,7 +1255,7 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
             (sorted(json_message.keys()) if isinstance(json_message, dict) else type(json_message).__name__),
         )
 
-        logging_session_id: Final = logging_obj.litellm_trace_id
+        logging_session_id: Final = logging_obj.embrouter_trace_id
 
         current_output_item_id = realtime_response_transform_input["current_output_item_id"]
         current_response_id = realtime_response_transform_input["current_response_id"]
@@ -1496,7 +1496,7 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
                 else:
                     _tool_call_chat_completion_usage = get_empty_usage()
                 tool_call_responses_api_usage = (
-                    LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+                    EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
                         _tool_call_chat_completion_usage,
                     )
                 )
@@ -1644,8 +1644,8 @@ class GeminiRealtimeConfig(BaseRealtimeConfig):
         }
 
     def requires_session_configuration(self) -> bool:
-        # Deferred setup opt-in: litellm.gemini_live_defer_setup = True
-        return not litellm.gemini_live_defer_setup
+        # Deferred setup opt-in: embrouter.gemini_live_defer_setup = True
+        return not embrouter.gemini_live_defer_setup
 
     def session_configuration_request(self, model: str) -> str:
         """

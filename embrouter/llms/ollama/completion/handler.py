@@ -9,8 +9,8 @@ from typing import Any, Final, Protocol, TypedDict
 
 from typing_extensions import NotRequired, ReadOnly
 
-import litellm
-from litellm.types.utils import EmbeddingResponse
+import embrouter
+from embrouter.types.utils import EmbeddingResponse
 
 
 class TokenEncoder(Protocol):
@@ -71,7 +71,7 @@ def _process_ollama_embedding_response(
     model_response.object = "list"
     model_response.data = output_data
     model_response.model = "ollama/" + model
-    model_response.usage = litellm.Usage(
+    model_response.usage = embrouter.Usage(
         prompt_tokens=input_tokens,
         completion_tokens=0,
         total_tokens=input_tokens,
@@ -95,7 +95,7 @@ async def ollama_aembeddings(
 
     data: Final = _prepare_ollama_embedding_payload(model, prompts, optional_params)
 
-    response: Final = await litellm.module_level_aclient.post(url=api_base, json=data)
+    response: Final = await embrouter.module_level_aclient.post(url=api_base, json=data)
     response_json: Final[OllamaEmbeddingResponse] = response.json()
 
     return _process_ollama_embedding_response(
@@ -122,7 +122,7 @@ def ollama_embeddings(
 
     data: Final = _prepare_ollama_embedding_payload(model, prompts, optional_params)
 
-    response: Final = litellm.module_level_client.post(url=api_base, json=data)
+    response: Final = embrouter.module_level_client.post(url=api_base, json=data)
     response_json: Final[OllamaEmbeddingResponse] = response.json()
 
     return _process_ollama_embedding_response(

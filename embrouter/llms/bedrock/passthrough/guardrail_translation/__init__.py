@@ -1,4 +1,4 @@
-from litellm.llms.bedrock.passthrough.guardrail_translation.handler import (
+from embrouter.llms.bedrock.passthrough.guardrail_translation.handler import (
     BedrockPassthroughGuardrailHandler,
 )
 

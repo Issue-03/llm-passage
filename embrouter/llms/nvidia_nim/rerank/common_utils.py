@@ -17,10 +17,10 @@ def get_nvidia_nim_rerank_config(model: str):
         - "ranking/nvidia/llama-3.2-nv-rerankqa-1b-v2" -> NvidiaNimRankingConfig
         - "nvidia/llama-3.2-nv-rerankqa-1b-v2" -> NvidiaNimRerankConfig
     """
-    from litellm.llms.nvidia_nim.rerank.ranking_transformation import (
+    from embrouter.llms.nvidia_nim.rerank.ranking_transformation import (
         NvidiaNimRankingConfig,
     )
-    from litellm.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
+    from embrouter.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
 
     if model.startswith("ranking/"):
         return NvidiaNimRankingConfig()

@@ -1,11 +1,11 @@
-# tests/litellm/proxy/common_utils/test_upsert_budget_membership.py
+# tests/embrouter/proxy/common_utils/test_upsert_budget_membership.py
 import types
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.management_endpoints.common_utils import (
     _upsert_budget_and_membership,
 )
 
@@ -30,8 +30,8 @@ def mock_tx():
     budget.create = AsyncMock(return_value=types.SimpleNamespace(budget_id="new-budget-123"))
 
     tx = MagicMock()
-    tx.litellm_teammembership = membership
-    tx.litellm_budgettable = budget
+    tx.embrouter_teammembership = membership
+    tx.embrouter_budgettable = budget
     return tx
 
 
@@ -42,7 +42,7 @@ def fake_user():
 
 
 def budget_row(**fields):
-    """A fake litellm_budgettable row whose model_dump returns the given fields."""
+    """A fake embrouter_budgettable row whose model_dump returns the given fields."""
     row = MagicMock()
     row.model_dump.return_value = fields
     return row
@@ -59,7 +59,7 @@ def assert_future_reset_time(value):
 
 def stored_budget_row(mock_tx):
     """The budget row the create call persists, minus the audit columns."""
-    data = mock_tx.litellm_budgettable.create.await_args.kwargs["data"]
+    data = mock_tx.embrouter_budgettable.create.await_args.kwargs["data"]
     return {k: v for k, v in data.items() if k not in ("created_by", "updated_by")}
 
 
@@ -77,17 +77,17 @@ async def test_empty_patch_is_noop(mock_tx, fake_user):
         budget_patch={},
     )
 
-    mock_tx.litellm_teammembership.update.assert_not_called()
-    mock_tx.litellm_teammembership.upsert.assert_not_called()
-    mock_tx.litellm_budgettable.update.assert_not_called()
-    mock_tx.litellm_budgettable.create.assert_not_called()
+    mock_tx.embrouter_teammembership.update.assert_not_called()
+    mock_tx.embrouter_teammembership.upsert.assert_not_called()
+    mock_tx.embrouter_budgettable.update.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
 
 
 # TEST: clearing every limit on a member's private budget disconnects it, so the
 # member falls back to the team default instead of keeping an empty private row.
 @pytest.mark.asyncio
 async def test_clearing_all_limits_disconnects(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=100.0))
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=100.0))
 
     await _upsert_budget_and_membership(
         mock_tx,
@@ -98,19 +98,19 @@ async def test_clearing_all_limits_disconnects(mock_tx, fake_user):
         budget_patch={"max_budget": None},
     )
 
-    mock_tx.litellm_teammembership.update.assert_awaited_once_with(
+    mock_tx.embrouter_teammembership.update.assert_awaited_once_with(
         where={"user_id_team_id": {"user_id": "user-1", "team_id": "team-1"}},
-        data={"litellm_budget_table": {"disconnect": True}},
+        data={"embrouter_budget_table": {"disconnect": True}},
     )
-    mock_tx.litellm_budgettable.update.assert_not_called()
-    mock_tx.litellm_budgettable.create.assert_not_called()
+    mock_tx.embrouter_budgettable.update.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
 
 
 # TEST: clearing one field on a budget that still has another limit updates in
 # place (clears just that column + its reset time) and does NOT disconnect.
 @pytest.mark.asyncio
 async def test_clear_one_field_keeps_others(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(max_budget=100.0, budget_duration="24h")
     )
 
@@ -123,8 +123,8 @@ async def test_clear_one_field_keeps_others(mock_tx, fake_user):
         budget_patch={"budget_duration": None},
     )
 
-    mock_tx.litellm_teammembership.update.assert_not_called()
-    mock_tx.litellm_budgettable.update.assert_awaited_once_with(
+    mock_tx.embrouter_teammembership.update.assert_not_called()
+    mock_tx.embrouter_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "bud-1"},
         data={
             "updated_by": fake_user.user_id,
@@ -138,7 +138,7 @@ async def test_clear_one_field_keeps_others(mock_tx, fake_user):
 # budget_reset_at, so the budget rolls over without waiting for the reset cron.
 @pytest.mark.asyncio
 async def test_update_in_place_seeds_reset_at(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=20.0))
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=20.0))
 
     await _upsert_budget_and_membership(
         mock_tx,
@@ -149,21 +149,21 @@ async def test_update_in_place_seeds_reset_at(mock_tx, fake_user):
         budget_patch={"budget_duration": "30d"},
     )
 
-    mock_tx.litellm_budgettable.update.assert_awaited_once()
-    call = mock_tx.litellm_budgettable.update.await_args
+    mock_tx.embrouter_budgettable.update.assert_awaited_once()
+    call = mock_tx.embrouter_budgettable.update.await_args
     assert call.kwargs["where"] == {"budget_id": "bud-dur"}
     data = call.kwargs["data"]
     assert data["budget_duration"] == "30d"
     assert data["updated_by"] == fake_user.user_id
     assert_future_reset_time(data["budget_reset_at"])
-    mock_tx.litellm_budgettable.create.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
 
 
 # TEST: updating a single limit in place only writes that field; an untouched
 # budget_duration must not get a (re)computed reset time.
 @pytest.mark.asyncio
 async def test_update_in_place_single_field_leaves_reset_at_alone(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=50.0))
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=50.0))
 
     await _upsert_budget_and_membership(
         mock_tx,
@@ -174,11 +174,11 @@ async def test_update_in_place_single_field_leaves_reset_at_alone(mock_tx, fake_
         budget_patch={"rpm_limit": 100},
     )
 
-    mock_tx.litellm_budgettable.update.assert_awaited_once_with(
+    mock_tx.embrouter_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "bud-rpm"},
         data={"updated_by": fake_user.user_id, "rpm_limit": 100},
     )
-    mock_tx.litellm_budgettable.create.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
 
 
 # TEST: with no existing budget, a duration-only patch creates a budget carrying
@@ -194,24 +194,24 @@ async def test_create_seeds_reset_at_and_links(mock_tx, fake_user):
         budget_patch={"budget_duration": "7d"},
     )
 
-    mock_tx.litellm_budgettable.create.assert_awaited_once()
-    data = mock_tx.litellm_budgettable.create.await_args.kwargs["data"]
+    mock_tx.embrouter_budgettable.create.assert_awaited_once()
+    data = mock_tx.embrouter_budgettable.create.await_args.kwargs["data"]
     assert data["budget_duration"] == "7d"
     assert data["created_by"] == fake_user.user_id
     assert data["updated_by"] == fake_user.user_id
     assert_future_reset_time(data["budget_reset_at"])
 
-    new_budget_id = mock_tx.litellm_budgettable.create.return_value.budget_id
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once_with(
+    new_budget_id = mock_tx.embrouter_budgettable.create.return_value.budget_id
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once_with(
         where={"user_id_team_id": {"user_id": "user-new", "team_id": "team-new"}},
         data={
             "create": {
                 "user_id": "user-new",
                 "team_id": "team-new",
-                "litellm_budget_table": {"connect": {"budget_id": new_budget_id}},
+                "embrouter_budget_table": {"connect": {"budget_id": new_budget_id}},
             },
             "update": {
-                "litellm_budget_table": {"connect": {"budget_id": new_budget_id}},
+                "embrouter_budget_table": {"connect": {"budget_id": new_budget_id}},
             },
         },
     )
@@ -229,16 +229,16 @@ async def test_create_from_temp_budget_pair_only(mock_tx, fake_user):
         budget_patch={"temp_budget_increase": 5.0, "temp_budget_expiry": expiry},
     )
 
-    mock_tx.litellm_budgettable.create.assert_awaited_once()
+    mock_tx.embrouter_budgettable.create.assert_awaited_once()
     assert stored_budget_row(mock_tx) == {"temp_budget_increase": 5.0, "temp_budget_expiry": expiry}
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once()
-    mock_tx.litellm_teammembership.update.assert_not_called()
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once()
+    mock_tx.embrouter_teammembership.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_create_from_temp_pair_never_snapshots_team_default(mock_tx, fake_user):
     expiry = datetime(2100, 1, 1, tzinfo=timezone.utc)
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(budget_id="team-default-budget-1", max_budget=0.4, rpm_limit=10)
     )
     await _upsert_budget_and_membership(
@@ -251,15 +251,15 @@ async def test_create_from_temp_pair_never_snapshots_team_default(mock_tx, fake_
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.find_unique.assert_not_awaited()
+    mock_tx.embrouter_budgettable.find_unique.assert_not_awaited()
     assert stored_budget_row(mock_tx) == {"temp_budget_increase": 1.0, "temp_budget_expiry": expiry}
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once()
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_temp_pair_on_shared_default_member_creates_bare_row(mock_tx, fake_user):
     expiry = datetime(2100, 1, 1, tzinfo=timezone.utc)
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(budget_id="team-default-budget-1", max_budget=0.4, rpm_limit=10)
     )
     await _upsert_budget_and_membership(
@@ -272,10 +272,10 @@ async def test_temp_pair_on_shared_default_member_creates_bare_row(mock_tx, fake
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.find_unique.assert_not_awaited()
-    mock_tx.litellm_budgettable.update.assert_not_called()
+    mock_tx.embrouter_budgettable.find_unique.assert_not_awaited()
+    mock_tx.embrouter_budgettable.update.assert_not_called()
     assert stored_budget_row(mock_tx) == {"temp_budget_increase": 1.0, "temp_budget_expiry": expiry}
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once()
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -290,16 +290,16 @@ async def test_clearing_temp_pair_on_shared_default_member_is_noop(mock_tx, fake
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.create.assert_not_called()
-    mock_tx.litellm_budgettable.update.assert_not_called()
-    mock_tx.litellm_teammembership.update.assert_not_called()
-    mock_tx.litellm_teammembership.upsert.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
+    mock_tx.embrouter_budgettable.update.assert_not_called()
+    mock_tx.embrouter_teammembership.update.assert_not_called()
+    mock_tx.embrouter_teammembership.upsert.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_temp_pair_with_permanent_field_still_clones_shared_default(mock_tx, fake_user):
     expiry = datetime(2100, 1, 1, tzinfo=timezone.utc)
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(budget_id="team-default-budget-1", max_budget=0.4, rpm_limit=10)
     )
     await _upsert_budget_and_membership(
@@ -312,18 +312,18 @@ async def test_temp_pair_with_permanent_field_still_clones_shared_default(mock_t
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.find_unique.assert_awaited_once_with(where={"budget_id": "team-default-budget-1"})
-    data = mock_tx.litellm_budgettable.create.await_args.kwargs["data"]
+    mock_tx.embrouter_budgettable.find_unique.assert_awaited_once_with(where={"budget_id": "team-default-budget-1"})
+    data = mock_tx.embrouter_budgettable.create.await_args.kwargs["data"]
     assert data["max_budget"] == 0.4
     assert data["rpm_limit"] == 10
     assert data["tpm_limit"] == 500
     assert data["temp_budget_increase"] == 1.0
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once()
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_create_from_plain_patch_does_not_snapshot_team_default(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(budget_id="team-default-budget-1", max_budget=0.4, rpm_limit=10)
     )
     await _upsert_budget_and_membership(
@@ -336,9 +336,9 @@ async def test_create_from_plain_patch_does_not_snapshot_team_default(mock_tx, f
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.find_unique.assert_not_awaited()
+    mock_tx.embrouter_budgettable.find_unique.assert_not_awaited()
     assert stored_budget_row(mock_tx) == {"tpm_limit": 500}
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once()
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once()
 
 
 # TEST: clone-on-write when the membership still points at the team's shared
@@ -348,7 +348,7 @@ async def test_create_from_plain_patch_does_not_snapshot_team_default(mock_tx, f
 async def test_clone_on_write_from_shared_default(mock_tx, fake_user):
     shared_default_id = "team-default-budget-1"
     shared_reset_at = datetime.now(timezone.utc) + timedelta(hours=3)
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(
             budget_id=shared_default_id,
             max_budget=200.0,
@@ -373,9 +373,9 @@ async def test_clone_on_write_from_shared_default(mock_tx, fake_user):
         team_default_budget_id=shared_default_id,
     )
 
-    mock_tx.litellm_budgettable.update.assert_not_called()
-    mock_tx.litellm_budgettable.create.assert_awaited_once()
-    create_data = mock_tx.litellm_budgettable.create.await_args.kwargs["data"]
+    mock_tx.embrouter_budgettable.update.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_awaited_once()
+    create_data = mock_tx.embrouter_budgettable.create.await_args.kwargs["data"]
     assert create_data.pop("budget_reset_at") == shared_reset_at
     assert create_data == {
         "created_by": fake_user.user_id,
@@ -385,17 +385,17 @@ async def test_clone_on_write_from_shared_default(mock_tx, fake_user):
         "budget_duration": "1d",  # cloned from default
     }
 
-    new_budget_id = mock_tx.litellm_budgettable.create.return_value.budget_id
-    mock_tx.litellm_teammembership.upsert.assert_awaited_once_with(
+    new_budget_id = mock_tx.embrouter_budgettable.create.return_value.budget_id
+    mock_tx.embrouter_teammembership.upsert.assert_awaited_once_with(
         where={"user_id_team_id": {"user_id": "user-shared", "team_id": "team-shared"}},
         data={
             "create": {
                 "user_id": "user-shared",
                 "team_id": "team-shared",
-                "litellm_budget_table": {"connect": {"budget_id": new_budget_id}},
+                "embrouter_budget_table": {"connect": {"budget_id": new_budget_id}},
             },
             "update": {
-                "litellm_budget_table": {"connect": {"budget_id": new_budget_id}},
+                "embrouter_budget_table": {"connect": {"budget_id": new_budget_id}},
             },
         },
     )
@@ -406,7 +406,7 @@ async def test_clone_on_write_from_shared_default(mock_tx, fake_user):
 @pytest.mark.asyncio
 async def test_clone_on_write_clears_duration(mock_tx, fake_user):
     shared_default_id = "team-default-budget-1"
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(
         return_value=budget_row(
             budget_id=shared_default_id,
             max_budget=200.0,
@@ -426,8 +426,8 @@ async def test_clone_on_write_clears_duration(mock_tx, fake_user):
         team_default_budget_id=shared_default_id,
     )
 
-    mock_tx.litellm_budgettable.update.assert_not_called()
-    create_data = mock_tx.litellm_budgettable.create.await_args.kwargs["data"]
+    mock_tx.embrouter_budgettable.update.assert_not_called()
+    create_data = mock_tx.embrouter_budgettable.create.await_args.kwargs["data"]
     assert create_data == {
         "created_by": fake_user.user_id,
         "updated_by": fake_user.user_id,
@@ -442,7 +442,7 @@ async def test_clone_on_write_clears_duration(mock_tx, fake_user):
 # team default), we update it in place rather than forking another row.
 @pytest.mark.asyncio
 async def test_private_budget_updates_in_place(mock_tx, fake_user):
-    mock_tx.litellm_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=10.0))
+    mock_tx.embrouter_budgettable.find_unique = AsyncMock(return_value=budget_row(max_budget=10.0))
 
     await _upsert_budget_and_membership(
         mock_tx,
@@ -454,9 +454,9 @@ async def test_private_budget_updates_in_place(mock_tx, fake_user):
         team_default_budget_id="team-default-budget-1",
     )
 
-    mock_tx.litellm_budgettable.update.assert_awaited_once_with(
+    mock_tx.embrouter_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "private-budget-xyz"},
         data={"max_budget": 75.0, "updated_by": fake_user.user_id},
     )
-    mock_tx.litellm_budgettable.create.assert_not_called()
-    mock_tx.litellm_teammembership.upsert.assert_not_called()
+    mock_tx.embrouter_budgettable.create.assert_not_called()
+    mock_tx.embrouter_teammembership.upsert.assert_not_called()

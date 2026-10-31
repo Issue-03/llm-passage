@@ -1,4 +1,4 @@
-"""Config repository for database operations on LiteLLM_Config."""
+"""Config repository for database operations on EmbRouter_Config."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Final, Protocol, cast
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 def _decoded_json(raw: str) -> object:
@@ -55,7 +55,7 @@ class ConfigRepository:
 
     @property
     def _config_table(self) -> _ConfigTable:
-        return cast(_ConfigTable, self.prisma_client.db.litellm_config)
+        return cast(_ConfigTable, self.prisma_client.db.embrouter_config)
 
     @property
     def table(self) -> _ConfigTable:

@@ -1,1 +1,1 @@
-"""Surface-neutral machinery for LiteLLM's own paginated list endpoints."""
+"""Surface-neutral machinery for EmbRouter's own paginated list endpoints."""

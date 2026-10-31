@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLM_UserTable
-from litellm.proxy.management_endpoints.scim.scim_v2 import _apply_patch_ops, patch_user
-from litellm.types.proxy.management_endpoints.scim_v2 import (
+from embrouter.proxy._types import EmbRouter_UserTable
+from embrouter.proxy.management_endpoints.scim.scim_v2 import _apply_patch_ops, patch_user
+from embrouter.types.proxy.management_endpoints.scim_v2 import (
     SCIMPatchOp,
     SCIMPatchOperation,
     SCIMUser,
@@ -16,7 +16,7 @@ from litellm.types.proxy.management_endpoints.scim_v2 import (
 
 @pytest.mark.asyncio
 async def test_patch_user_updates_fields():
-    mock_user = LiteLLM_UserTable(
+    mock_user = EmbRouter_UserTable(
         user_id="user-1",
         user_email="test@example.com",
         user_alias="Old",
@@ -25,7 +25,7 @@ async def test_patch_user_updates_fields():
     )
 
     # Create a proper copy to track updates
-    updated_user = LiteLLM_UserTable(
+    updated_user = EmbRouter_UserTable(
         user_id="user-1",
         user_email="test@example.com",
         user_alias="New Name",
@@ -40,12 +40,12 @@ async def test_patch_user_updates_fields():
     mock_client = MagicMock()
     mock_db = MagicMock()
     mock_client.db = mock_db
-    mock_db.litellm_usertable.find_unique = AsyncMock(return_value=mock_user)
-    mock_db.litellm_usertable.update = AsyncMock(side_effect=mock_update)
-    mock_db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_db.embrouter_usertable.find_unique = AsyncMock(return_value=mock_user)
+    mock_db.embrouter_usertable.update = AsyncMock(side_effect=mock_update)
+    mock_db.embrouter_teamtable.find_unique = AsyncMock(return_value=None)
     # active=False triggers cascading key-block. No keys here, so return [].
-    mock_db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_verificationtoken.update_many = AsyncMock(return_value=None)
+    mock_db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_db.embrouter_verificationtoken.update_many = AsyncMock(return_value=None)
 
     # Mock the transformation function to return a proper SCIMUser
     mock_scim_user = SCIMUser(
@@ -66,22 +66,22 @@ async def test_patch_user_updates_fields():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_client),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_embrouter_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
     ):
         result = await patch_user(user_id="user-1", patch_ops=patch_ops)
 
-    mock_db.litellm_usertable.update.assert_called_once()
+    mock_db.embrouter_usertable.update.assert_called_once()
     assert result.displayName == "New Name"
     assert result.active is False
 
 
 @pytest.mark.asyncio
 async def test_patch_user_manages_group_memberships():
-    mock_user = LiteLLM_UserTable(
+    mock_user = EmbRouter_UserTable(
         user_id="user-2",
         user_email="test@example.com",
         user_alias="Old",
@@ -90,7 +90,7 @@ async def test_patch_user_manages_group_memberships():
     )
 
     # Create updated user with final teams
-    updated_user = LiteLLM_UserTable(
+    updated_user = EmbRouter_UserTable(
         user_id="user-2",
         user_email="test@example.com",
         user_alias="Old",
@@ -105,9 +105,9 @@ async def test_patch_user_manages_group_memberships():
     mock_client = MagicMock()
     mock_db = MagicMock()
     mock_client.db = mock_db
-    mock_db.litellm_usertable.find_unique = AsyncMock(return_value=mock_user)
-    mock_db.litellm_usertable.update = AsyncMock(side_effect=mock_update)
-    mock_db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_db.embrouter_usertable.find_unique = AsyncMock(return_value=mock_user)
+    mock_db.embrouter_usertable.update = AsyncMock(side_effect=mock_update)
+    mock_db.embrouter_teamtable.find_unique = AsyncMock(return_value=None)
 
     # Mock the transformation function to return a proper SCIMUser
     mock_scim_user = SCIMUser(
@@ -138,17 +138,17 @@ async def test_patch_user_manages_group_memberships():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_client),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.team_member_add",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.team_member_add",
             AsyncMock(side_effect=mock_add),
         ) as mock_add_fn,
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.team_member_delete",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.team_member_delete",
             AsyncMock(side_effect=mock_delete),
         ) as mock_del_fn,
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_embrouter_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
     ):
@@ -157,7 +157,7 @@ async def test_patch_user_manages_group_memberships():
     assert mock_add_fn.called
     assert mock_del_fn.called
     # Check that the database update was called with the correct teams
-    call_args = mock_db.litellm_usertable.update.call_args
+    call_args = mock_db.embrouter_usertable.update.call_args
     assert "new-team" in call_args[1]["data"]["teams"]
     assert result == mock_scim_user
 
@@ -168,7 +168,7 @@ async def test_patch_user_deprovision_without_path():
     Test SCIM deprovisioning when operation has no path field.
     Some SCIM providers send: {"op": "replace", "value": {"active": false}}
     """
-    mock_user = LiteLLM_UserTable(
+    mock_user = EmbRouter_UserTable(
         user_id="user-3",
         user_email="test@example.com",
         user_alias="Test User",
@@ -179,7 +179,7 @@ async def test_patch_user_deprovision_without_path():
         },
     )
 
-    updated_user = LiteLLM_UserTable(
+    updated_user = EmbRouter_UserTable(
         user_id="user-3",
         user_email="test@example.com",
         user_alias="Test User",
@@ -196,10 +196,10 @@ async def test_patch_user_deprovision_without_path():
     mock_client = MagicMock()
     mock_db = MagicMock()
     mock_client.db = mock_db
-    mock_db.litellm_usertable.find_unique = AsyncMock(return_value=mock_user)
-    mock_db.litellm_usertable.update = AsyncMock(side_effect=mock_update)
-    mock_db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_verificationtoken.update_many = AsyncMock(return_value=None)
+    mock_db.embrouter_usertable.find_unique = AsyncMock(return_value=mock_user)
+    mock_db.embrouter_usertable.update = AsyncMock(side_effect=mock_update)
+    mock_db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_db.embrouter_verificationtoken.update_many = AsyncMock(return_value=None)
 
     mock_scim_user = SCIMUser(
         schemas=["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -219,16 +219,16 @@ async def test_patch_user_deprovision_without_path():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_client),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_embrouter_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
     ):
         result = await patch_user(user_id="user-3", patch_ops=patch_ops)
 
     # Verify metadata was updated correctly
-    call_args = mock_db.litellm_usertable.update.call_args
+    call_args = mock_db.embrouter_usertable.update.call_args
     metadata = call_args[1]["data"]["metadata"]
 
     # Parse JSON string back to dict if needed
@@ -247,7 +247,7 @@ async def test_patch_user_multiple_fields_without_path():
     """
     Test SCIM operations without path containing multiple fields.
     """
-    mock_user = LiteLLM_UserTable(
+    mock_user = EmbRouter_UserTable(
         user_id="user-4",
         user_email="old@example.com",
         user_alias="Old Name",
@@ -258,7 +258,7 @@ async def test_patch_user_multiple_fields_without_path():
         },
     )
 
-    updated_user = LiteLLM_UserTable(
+    updated_user = EmbRouter_UserTable(
         user_id="user-4",
         user_email="old@example.com",
         user_alias="New Display Name",
@@ -275,10 +275,10 @@ async def test_patch_user_multiple_fields_without_path():
     mock_client = MagicMock()
     mock_db = MagicMock()
     mock_client.db = mock_db
-    mock_db.litellm_usertable.find_unique = AsyncMock(return_value=mock_user)
-    mock_db.litellm_usertable.update = AsyncMock(side_effect=mock_update)
-    mock_db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_db.litellm_verificationtoken.update_many = AsyncMock(return_value=None)
+    mock_db.embrouter_usertable.find_unique = AsyncMock(return_value=mock_user)
+    mock_db.embrouter_usertable.update = AsyncMock(side_effect=mock_update)
+    mock_db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_db.embrouter_verificationtoken.update_many = AsyncMock(return_value=None)
 
     mock_scim_user = SCIMUser(
         schemas=["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -305,16 +305,16 @@ async def test_patch_user_multiple_fields_without_path():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_client),
         patch(
-            "litellm.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_litellm_user_to_scim_user",
+            "embrouter.proxy.management_endpoints.scim.scim_v2.ScimTransformations.transform_embrouter_user_to_scim_user",
             AsyncMock(return_value=mock_scim_user),
         ),
     ):
         result = await patch_user(user_id="user-4", patch_ops=patch_ops)
 
     # Verify all fields were updated correctly
-    call_args = mock_db.litellm_usertable.update.call_args
+    call_args = mock_db.embrouter_usertable.update.call_args
     update_data = call_args[1]["data"]
     metadata = update_data["metadata"]
 
@@ -333,7 +333,7 @@ async def test_patch_user_multiple_fields_without_path():
 
 
 def _user_with_metadata(metadata):
-    return LiteLLM_UserTable(
+    return EmbRouter_UserTable(
         user_id="user-mva",
         user_email="mva@example.com",
         user_alias=None,
@@ -486,7 +486,7 @@ def test_apply_patch_ops_filtered_path_raises_400_instead_of_junk_metadata():
 def test_apply_patch_ops_remove_group_filtered_path_without_value():
     """Okta removes a user from a team with groups[value eq "..."] and no body
     value; the team id must be parsed from the filter so the remove takes effect"""
-    user = LiteLLM_UserTable(
+    user = EmbRouter_UserTable(
         user_id="user-fp",
         user_email="fp@example.com",
         teams=["team-1", "team-2"],
@@ -503,7 +503,7 @@ def test_apply_patch_ops_remove_group_filtered_path_without_value():
 
 def test_apply_patch_ops_add_group_filtered_path_without_value():
     """A filtered add path with no body value adds the team id from the filter."""
-    user = LiteLLM_UserTable(
+    user = EmbRouter_UserTable(
         user_id="user-fp",
         user_email="fp@example.com",
         teams=["team-1"],
@@ -521,7 +521,7 @@ def test_apply_patch_ops_add_group_filtered_path_without_value():
 def test_apply_patch_ops_replace_groups_empty_value_does_not_use_path_filter():
     """A filtered replace with an explicit empty value must not resurrect the
     filter id; the team set is replaced with the empty value as given."""
-    user = LiteLLM_UserTable(
+    user = EmbRouter_UserTable(
         user_id="user-fp",
         user_email="fp@example.com",
         teams=["team-1", "team-2"],

@@ -51,7 +51,7 @@ _proxy_module_globals_snapshot = pytest.StashKey[Dict[str, object]]()
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_setup(item):
     """
-    Snapshot module-level globals on litellm.proxy.proxy_server before any
+    Snapshot module-level globals on embrouter.proxy.proxy_server before any
     fixture runs, and restore them in pytest_runtest_teardown after every
     fixture finalizer has run.
 
@@ -69,7 +69,7 @@ def pytest_runtest_setup(item):
     "original", and monkeypatch.undo re-plants that mock after all restores
     have run, poisoning the global for the rest of the xdist worker.
     """
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     item.stash[_proxy_module_globals_snapshot] = {
         name: getattr(proxy_server, name, _MODULE_GLOBAL_MISSING)
@@ -84,7 +84,7 @@ def pytest_runtest_teardown(item, nextitem):
     snapshot = item.stash.get(_proxy_module_globals_snapshot, None)
     if snapshot is None:
         return
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     for name, value in snapshot.items():
         if value is _MODULE_GLOBAL_MISSING:
@@ -97,7 +97,7 @@ def pytest_runtest_teardown(item, nextitem):
 @pytest.fixture(autouse=True)
 def _reset_graceful_shutdown_state():
     """Graceful shutdown state is process-scoped; keep it from leaking between tests."""
-    from litellm.proxy.shutdown.graceful_shutdown_manager import (
+    from embrouter.proxy.shutdown.graceful_shutdown_manager import (
         GracefulShutdownManager,
     )
 
@@ -155,7 +155,7 @@ def build_minimal_proxy_config(
     """
     config = {
         "general_settings": {"master_key": init_options.get("master_key", "sk-1234")},
-        "litellm_settings": {},
+        "embrouter_settings": {},
     }
 
     # Configure database
@@ -167,15 +167,15 @@ def build_minimal_proxy_config(
     enable_cache = init_options.get("enable_cache", True)
     cache_config = build_cache_config(enable_cache=enable_cache)
     if cache_config:
-        config["litellm_settings"].update(cache_config)
+        config["embrouter_settings"].update(cache_config)
 
     # Add success_callback if provided (for realistic readiness endpoint)
     if init_options.get("success_callback") is not None:
-        config["litellm_settings"]["success_callback"] = init_options[
+        config["embrouter_settings"]["success_callback"] = init_options[
             "success_callback"
         ]
 
-    # Add any other litellm_settings from init_options
+    # Add any other embrouter_settings from init_options
     excluded_keys = {
         "master_key",
         "debug",
@@ -184,8 +184,8 @@ def build_minimal_proxy_config(
         "enable_cache",
     }
     for key, value in init_options.items():
-        if key not in excluded_keys and key not in config["litellm_settings"]:
-            config["litellm_settings"][key] = value
+        if key not in excluded_keys and key not in config["embrouter_settings"]:
+            config["embrouter_settings"][key] = value
 
     return config
 
@@ -233,7 +233,7 @@ def create_proxy_test_client(
     Returns:
         TestClient: FastAPI test client for the proxy server
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         cleanup_router_config_variables,
         initialize,
         app,
@@ -268,7 +268,7 @@ def create_proxy_test_client(
 
     # Set environment variables
     set_proxy_environment_variables(monkeypatch, database_url=database_url)
-    monkeypatch.setenv("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
+    monkeypatch.setenv("EMBROUTER_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", "true")
 
     # Initialize proxy
     asyncio.run(initialize(config=config_fp, debug=init_options.get("debug", False)))
@@ -277,7 +277,7 @@ def create_proxy_test_client(
 
 @pytest.fixture
 def fresh_agent_read_through(monkeypatch):
-    from litellm.proxy.common_utils import registry_read_through
+    from embrouter.proxy.common_utils import registry_read_through
 
     read_through = registry_read_through.RegistryReadThrough(resync=registry_read_through._resync_agents)
     monkeypatch.setattr(registry_read_through, "agent_registry_read_through", read_through)

@@ -3,7 +3,7 @@ from typing import Final
 
 from pydantic import Field
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 RETRYABLE_UPLOAD_STATUS_CODES: Final = frozenset({429, 500, 502, 503, 504})
 
@@ -12,7 +12,7 @@ DEFAULT_API_URL: Final = "https://api.pointfive.co/api/v1/ingestion"
 
 class PointFiveInitParams(StandardCustomLoggerInitParams):
     """
-    Params for initializing a PointFive logger on litellm.
+    Params for initializing a PointFive logger on embrouter.
 
     Defaults trade freshness for fewer, larger uploads: every flush becomes one object, so
     the interval is minutes rather than seconds. ``batch_size`` also bounds how much a busy

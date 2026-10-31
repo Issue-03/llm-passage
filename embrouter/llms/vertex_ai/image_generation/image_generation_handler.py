@@ -4,18 +4,18 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from openai.types.image import Image
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.utils import ImageResponse
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.utils import ImageResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class VertexImageGeneration(VertexLLM):
@@ -26,7 +26,7 @@ class VertexImageGeneration(VertexLLM):
         model: str | None = None,
     ) -> ImageResponse:
         if "predictions" not in json_response:
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 message=f"image generation response does not contain 'predictions', got {json_response}",
                 llm_provider="vertex_ai",
                 model=model,
@@ -77,7 +77,7 @@ class VertexImageGeneration(VertexLLM):
         vertex_location: str | None,
         vertex_credentials: VERTEX_CREDENTIALS_TYPES | None,
         model_response: ImageResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         model: str = "imagegeneration",  # vertex ai uses imagegeneration as the default model
         client: Any | None = None,
         optional_params: dict | None = None,
@@ -176,7 +176,7 @@ class VertexImageGeneration(VertexLLM):
         vertex_location: str | None,
         vertex_credentials: VERTEX_CREDENTIALS_TYPES | None,
         model_response: ImageResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         model: str = "imagegeneration",  # vertex ai uses imagegeneration as the default model
         client: AsyncHTTPHandler | None = None,
         optional_params: dict | None = None,
@@ -194,7 +194,7 @@ class VertexImageGeneration(VertexLLM):
                 _params["timeout"] = httpx.Timeout(timeout=600.0, connect=5.0)
 
             self.async_handler = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.VERTEX_AI,
+                llm_provider=embrouter.LlmProviders.VERTEX_AI,
                 params={"timeout": timeout},
             )
         else:

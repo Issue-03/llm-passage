@@ -16,10 +16,10 @@ import openai
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
 
 class TestUseResponsesApiBridgeFlag:
@@ -30,10 +30,10 @@ class TestUseResponsesApiBridgeFlag:
         respond: Final = MagicMock(side_effect=AssertionError("Incompatible classifier sent an upstream request"))
         with httpx.Client(transport=httpx.MockTransport(respond)) as client:
             with pytest.raises(
-                litellm.APIConnectionError,
+                embrouter.APIConnectionError,
                 match="Encrypted task classification requires a compatible native Responses deployment",
             ) as error:
-                litellm.responses(
+                embrouter.responses(
                     model=model,
                     input="Delegated task",
                     api_key="test-key",
@@ -46,45 +46,45 @@ class TestUseResponsesApiBridgeFlag:
         respond.assert_not_called()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_bridge_used_when_use_chat_completions_api_true(
         self, mock_get_config, mock_bridge_handler
     ):
         """When use_chat_completions_api=True, the bridge handler should be called."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_provider_affinity_header_is_forwarded_through_bridge(self, mock_get_config, mock_bridge_handler):
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_session_id="session-bridge",
+            embrouter_session_id="session-bridge",
             provider_affinity_header="X-Conversation-Id",
             extra_headers={"X-Customer-Header": "customer-value"},
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         forwarded_headers = mock_bridge_handler.call_args.kwargs["extra_headers"]
@@ -92,64 +92,64 @@ class TestUseResponsesApiBridgeFlag:
         assert forwarded_headers["X-Customer-Header"] == "customer-value"
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_bridge_used_when_model_uses_chat_completions_prefix(
         self, mock_get_config, mock_bridge_handler
     ):
         """`openai/chat_completions/<name>` normalizes to `openai/<name>` and uses the bridge."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/chat_completions/my-custom-model",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
         # Model string is provider-normalized after resolution; prefix only forces the bridge.
         assert mock_bridge_handler.call_args.kwargs["model"].endswith("my-custom-model")
 
-    @patch.object(import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler")
+    @patch.object(import_module("embrouter.responses.main").base_llm_http_handler, "response_api_handler")
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_native_forwarding_when_flag_absent(
         self, mock_get_config, mock_native_handler
     ):
         """When use_chat_completions_api is not set, openai/ models should use
         native responses API forwarding (existing behavior)."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_native_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/gpt-4o",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_native_handler.assert_called_once()
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_flag_does_not_leak_into_kwargs(self, mock_get_config, mock_bridge_handler):
         """use_chat_completions_api should be popped and not passed to the bridge handler."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         call_kwargs = mock_bridge_handler.call_args
@@ -157,10 +157,10 @@ class TestUseResponsesApiBridgeFlag:
         assert "use_chat_completions_api" not in all_kwargs
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     def test_bridge_used_when_provider_config_none(
         self, mock_get_config, mock_bridge_handler
@@ -170,25 +170,25 @@ class TestUseResponsesApiBridgeFlag:
         mock_get_config.return_value = None
         mock_bridge_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="anthropic/claude-3-haiku",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_bridge_handler.assert_called_once()
 
-    @patch("litellm.acompletion")
+    @patch("embrouter.acompletion")
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     async def test_allowed_openai_params_forwarded_through_bridge(
         self, mock_get_config, mock_acompletion
     ):
         """allowed_openai_params is a named param of responses(), so it must be
-        explicitly forwarded to the bridge; otherwise litellm.acompletion raises
+        explicitly forwarded to the bridge; otherwise embrouter.acompletion raises
         UnsupportedParamsError for params the caller explicitly allowed."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_acompletion.return_value = ModelResponse(
             id="chatcmpl_123",
             model="openai/my-custom-model",
@@ -202,13 +202,13 @@ class TestUseResponsesApiBridgeFlag:
             usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
         )
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
             allowed_openai_params=["reasoning_effort"],
             reasoning={"effort": "high"},
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_acompletion.assert_called_once()
@@ -270,7 +270,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = embrouter.responses(
             model=model,
             input="Hello",
             use_chat_completions_api=use_chat_completions_api,
@@ -306,7 +306,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = embrouter.responses(
             model="openai/my-custom-model",
             input="Hello",
             use_chat_completions_api=True,
@@ -339,7 +339,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = embrouter.responses(
             model="databricks/my-custom-model",
             instructions="You are terse.",
             input=[
@@ -383,7 +383,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        response: Final = litellm.responses(
+        response: Final = embrouter.responses(
             model="databricks/my-custom-model",
             input="Hello",
             client_metadata={
@@ -427,7 +427,7 @@ class TestUseResponsesApiBridgeFlag:
             )
         )
 
-        litellm.responses(
+        embrouter.responses(
             model="azure/my-deployment",
             input="Hello",
             use_chat_completions_api=True,
@@ -443,9 +443,9 @@ class TestUseResponsesApiBridgeFlag:
         assert request.headers["authorization"] == "Bearer fake-azure-ad-token"
         assert "chat_template_kwargs" not in json.loads(request.read())
 
-    @patch.object(import_module("litellm.responses.file_search.emulated_handler"), "_call_aresponses")
+    @patch.object(import_module("embrouter.responses.file_search.emulated_handler"), "_call_aresponses")
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     async def test_bridge_flag_forwarded_to_file_search_emulation(
         self, mock_get_config, mock_call_aresponses
@@ -454,7 +454,7 @@ class TestUseResponsesApiBridgeFlag:
         the flag should be forwarded to the inner aresponses call in the
         file_search emulation path."""
         # Setup: provider has native responses API support
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
 
         # Mock the inner aresponses call to return a valid response
         mock_response = ResponsesAPIResponse(
@@ -470,12 +470,12 @@ class TestUseResponsesApiBridgeFlag:
         )
         mock_call_aresponses.return_value = mock_response
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/my-custom-model",
             input="Search for information",
             tools=[{"type": "file_search"}],
             use_chat_completions_api=True,
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         # Verify _call_aresponses was called with use_chat_completions_api=True
@@ -486,11 +486,11 @@ class TestUseResponsesApiBridgeFlag:
         ), "use_chat_completions_api should be forwarded to inner aresponses call"
 
     @patch.object(
-        import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler"
+        import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler"
     )
-    @patch("litellm.vector_stores.main.asearch")
+    @patch("embrouter.vector_stores.main.asearch")
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     async def test_bridge_flag_prevents_native_responses_endpoint_call(
         self, mock_get_config, mock_asearch, mock_bridge_handler
@@ -500,7 +500,7 @@ class TestUseResponsesApiBridgeFlag:
         file_search → emulation must still route inner calls through the bridge
         (chat completions), not POST to api_base /v1/responses.
         """
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_asearch.return_value = []
 
         first_response = ResponsesAPIResponse(
@@ -510,7 +510,7 @@ class TestUseResponsesApiBridgeFlag:
             output=[
                 {
                     "type": "function_call",
-                    "name": "litellm_file_search",
+                    "name": "embrouter_file_search",
                     "call_id": "call_123",
                     "arguments": '{"queries": ["test query"]}',
                 }
@@ -535,7 +535,7 @@ class TestUseResponsesApiBridgeFlag:
         )
         mock_bridge_handler.side_effect = [first_response, second_response]
 
-        result = await litellm.aresponses(
+        result = await embrouter.aresponses(
             model="openai/my-local-model",
             input="Search for information",
             tools=[
@@ -546,7 +546,7 @@ class TestUseResponsesApiBridgeFlag:
             ],
             use_chat_completions_api=True,
             api_base="http://localhost:8080/v1",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         assert mock_bridge_handler.call_count == 2, (
@@ -559,16 +559,16 @@ class TestUseResponsesApiBridgeFlag:
         assert result is not None
         assert result.id is not None
 
-    @patch.object(import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler")
-    @patch("litellm.vector_stores.main.asearch")
+    @patch.object(import_module("embrouter.responses.main").base_llm_http_handler, "response_api_handler")
+    @patch("embrouter.vector_stores.main.asearch")
     @patch.object(
-        import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
+        import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config"
     )
     async def test_without_bridge_flag_uses_native_endpoint(
         self, mock_get_config, mock_asearch, mock_native_handler
     ):
         """Without the bridge flag, openai/ with native config uses the native handler."""
-        mock_get_config.return_value = litellm.OpenAIResponsesAPIConfig()
+        mock_get_config.return_value = embrouter.OpenAIResponsesAPIConfig()
         mock_asearch.return_value = []
         mock_native_handler.return_value = ResponsesAPIResponse(
             id="resp_native",
@@ -585,10 +585,10 @@ class TestUseResponsesApiBridgeFlag:
             ),
         )
 
-        result = await litellm.aresponses(
+        result = await embrouter.aresponses(
             model="openai/gpt-4o",
             input="Hello",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_native_handler.assert_called_once()
@@ -598,8 +598,8 @@ class TestUseResponsesApiBridgeFlag:
         send: Final = MagicMock(return_value=httpx.Response(200))
         client: Final = openai.OpenAI(api_key="fake-key", http_client=httpx.Client(transport=httpx.MockTransport(send)))
 
-        with pytest.raises(litellm.BadRequestError) as exc_info:
-            litellm.responses(
+        with pytest.raises(embrouter.BadRequestError) as exc_info:
+            embrouter.responses(
                 model="openai/gpt-4.1-mini",
                 input="hi",
                 use_chat_completions_api=True,

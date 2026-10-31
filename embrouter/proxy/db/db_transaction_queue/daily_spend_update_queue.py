@@ -3,14 +3,14 @@ from collections.abc import Coroutine
 from copy import deepcopy
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import LITELLM_ASYNCIO_QUEUE_MAXSIZE
-from litellm.proxy._types import BaseDailySpendTransaction
-from litellm.proxy.db.db_transaction_queue.base_update_queue import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
+from embrouter.proxy._types import BaseDailySpendTransaction
+from embrouter.proxy.db.db_transaction_queue.base_update_queue import (
     BaseUpdateQueue,
     service_logger_obj,
 )
-from litellm.types.services import ServiceTypes
+from embrouter.types.services import ServiceTypes
 
 
 class DailySpendUpdateQueue(BaseUpdateQueue):
@@ -56,7 +56,7 @@ class DailySpendUpdateQueue(BaseUpdateQueue):
     def __init__(self):
         super().__init__()
         self.update_queue: asyncio.Queue[dict[str, BaseDailySpendTransaction]] = asyncio.Queue(
-            maxsize=LITELLM_ASYNCIO_QUEUE_MAXSIZE
+            maxsize=EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
         )
         self.interrupted_commits: set[asyncio.Task[None]] = (
             set()

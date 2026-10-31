@@ -3,7 +3,7 @@ What is this?
 
 Provider-specific Pass-Through Endpoints
 
-Use litellm with Anthropic SDK, Vertex AI SDK, Cohere SDK, etc.
+Use embrouter with Anthropic SDK, Vertex AI SDK, Cohere SDK, etc.
 """
 
 from __future__ import annotations
@@ -27,10 +27,10 @@ from fastapi.responses import StreamingResponse
 from starlette.websockets import WebSocketState
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm import get_llm_provider
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter import get_llm_provider
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     ALLOWED_VERTEX_AI_PASSTHROUGH_HEADERS,
     AZURE_SPEECH_BATCH_PATH_PREFIX,
     AZURE_SPEECH_COGNITIVE_SERVICES_DOMAIN,
@@ -42,34 +42,34 @@ from litellm.constants import (
     AZURE_SPEECH_SUBSCRIPTION_KEY_HEADER,
     BEDROCK_AGENT_RUNTIME_PASS_THROUGH_ROUTES,
 )
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.azure.passthrough.transformation import foreign_azure_deployment
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.llms.deepgram.common_utils import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+from embrouter.llms.azure.passthrough.transformation import foreign_azure_deployment
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.llms.deepgram.common_utils import (
     deepgram_listen_callback_params,
     deepgram_listen_is_priced,
     deepgram_listen_registry_key,
     deepgram_listen_requested_model,
     deepgram_listen_websocket_target,
 )
-from litellm.llms.fal_ai.cost_calculator import fal_ai_passthrough_cost, fal_ai_queue_base
-from litellm.llms.nvidia_nim.passthrough.transformation import nvidia_nim_model_group_in_path
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.passthrough.main import AsyncPassthroughStreamingResponse
-from litellm.proxy._types import *
-from litellm.proxy.auth.auth_checks import enforced_model_allowlists
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.llms.fal_ai.cost_calculator import fal_ai_passthrough_cost, fal_ai_queue_base
+from embrouter.llms.nvidia_nim.passthrough.transformation import nvidia_nim_model_group_in_path
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.auth_checks import enforced_model_allowlists
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.auth.user_api_key_auth import (
     _get_bearer_token,
     is_no_auth_dev_mode,
     user_api_key_auth,
     user_api_key_auth_websocket,
     user_api_key_auth_websocket_for_model,
 )
-from litellm.proxy.common_request_processing import open_sse_before_first_byte
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_request_processing import open_sse_before_first_byte
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_headers,
     _safe_set_request_parsed_body,
@@ -77,48 +77,48 @@ from litellm.proxy.common_utils.http_parsing_utils import (
     get_request_body,
     is_json_content_type,
 )
-from litellm.proxy.common_utils.resource_ownership import is_proxy_admin
-from litellm.proxy.common_utils.sse_keepalive import (
+from embrouter.proxy.common_utils.resource_ownership import is_proxy_admin
+from embrouter.proxy.common_utils.sse_keepalive import (
     wrap_passthrough_sse_bytes_with_keepalive_pings,
 )
-from litellm.proxy.pass_through_endpoints.common_utils import get_litellm_virtual_key
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from embrouter.proxy.pass_through_endpoints.common_utils import get_embrouter_virtual_key
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     HttpPassThroughEndpointHelpers,
     create_pass_through_route,
     create_websocket_passthrough_route,
     websocket_passthrough_request,
 )
-from litellm.proxy.utils import ProxyLogging as ProxyLoggingType
-from litellm.proxy.utils import is_known_model
-from litellm.proxy.vector_store_endpoints.utils import (
+from embrouter.proxy.utils import ProxyLogging as ProxyLoggingType
+from embrouter.proxy.utils import is_known_model
+from embrouter.proxy.vector_store_endpoints.utils import (
     assert_proxy_admin_for_vector_store_index_management,
     assert_user_can_access_vector_store,
-    get_litellm_managed_vector_store,
+    get_embrouter_managed_vector_store,
     is_allowed_to_call_vector_store_endpoint,
 )
-from litellm.secret_managers.main import get_secret_str, str_to_bool
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-    LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
-    LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
-    LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+from embrouter.secret_managers.main import get_secret_str, str_to_bool
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+    EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY,
 )
-from litellm.types.passthrough_endpoints.tinyfish import (
+from embrouter.types.passthrough_endpoints.tinyfish import (
     TINYFISH_AUTHENTICATED_RUN_FIELDS,
     TINYFISH_PASSTHROUGH_TIMEOUT_SECONDS,
     TINYFISH_REJECTED_ENVELOPE_FIELDS,
     is_allowed_tinyfish_endpoint,
 )
-from litellm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
-from litellm.types.router import LiteLLMParamsTypedDict
-from litellm.types.utils import LlmProviders
-from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
-from litellm.utils import ProviderConfigManager
+from embrouter.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
+from embrouter.types.router import EmbRouterParamsTypedDict
+from embrouter.types.utils import LlmProviders
+from embrouter.types.vector_stores import EmbRouter_ManagedVectorStore
+from embrouter.utils import ProviderConfigManager
 
 from .passthrough_endpoint_router import PassthroughEndpointRouter
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import ProxyConfig as _ProxyConfig
-    from litellm.router import Router
+    from embrouter.proxy.proxy_server import ProxyConfig as _ProxyConfig
+    from embrouter.router import Router
 
     ProxyConfig = _ProxyConfig  # rebind-ok: conditional type alias
 else:
@@ -140,7 +140,7 @@ def create_request_copy(request: Request):
     }
 
 
-def is_passthrough_request_using_router_model(request_body: dict, llm_router: litellm.Router | None) -> bool:
+def is_passthrough_request_using_router_model(request_body: dict, llm_router: embrouter.Router | None) -> bool:
     """
     Returns True if the model is in the llm_router model names
     """
@@ -155,17 +155,17 @@ class RelayRejection(TypedDict):
     error: ReadOnly[str]
 
 
-def _deployment_model_name(litellm_params: LiteLLMParamsTypedDict) -> str:
-    model: Final = litellm_params.get("model", "")
+def _deployment_model_name(embrouter_params: EmbRouterParamsTypedDict) -> str:
+    model: Final = embrouter_params.get("model", "")
     try:
-        return get_llm_provider(model=model, custom_llm_provider=litellm_params.get("custom_llm_provider"))[0]
-    except litellm.BadRequestError:
+        return get_llm_provider(model=model, custom_llm_provider=embrouter_params.get("custom_llm_provider"))[0]
+    except embrouter.BadRequestError:
         return model
 
 
-def _models_served_by_group(llm_router: litellm.Router, model_group: str) -> frozenset[str]:
+def _models_served_by_group(llm_router: embrouter.Router, model_group: str) -> frozenset[str]:
     return frozenset(
-        _deployment_model_name(row["litellm_params"]) for row in llm_router.get_model_list(model_name=model_group) or ()
+        _deployment_model_name(row["embrouter_params"]) for row in llm_router.get_model_list(model_name=model_group) or ()
     )
 
 
@@ -201,28 +201,28 @@ def get_passthrough_router_request_metadata(user_api_key_dict: UserAPIKeyAuth) -
     pre-call budget reservation for a router-model passthrough request.
 
     Router-model passthrough branches call ``allm_passthrough_route`` directly,
-    bypassing ``add_litellm_data_to_request``. Without this metadata the cost
+    bypassing ``add_embrouter_data_to_request``. Without this metadata the cost
     callback cannot attribute spend to the calling key and never releases the
     budget reservation minted at auth time, so the shared spend counter drifts
     up until the key falsely trips ``BudgetExceededError``.
 
-    The payload rides the ``litellm_metadata`` bucket, not ``metadata``: the
+    The payload rides the ``embrouter_metadata`` bucket, not ``metadata``: the
     router hop ``_ageneric_api_call_with_fallbacks`` canonicalises this call
-    type into ``litellm_metadata``, and the cost callback reads spend
+    type into ``embrouter_metadata``, and the cost callback reads spend
     attribution from that bucket while only backfilling ``user_api_key*`` keys
     from ``metadata``. Passing ``metadata=`` would silently drop the secondary
     attribution fields the helper sets (``agent_id``,
     ``user_api_end_user_max_budget``) before the callback ever sees them.
     """
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-    request_data: Final = {"litellm_metadata": {}}  # mutable-ok: builder + litellm mutate this in place
-    LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    request_data: Final = {"embrouter_metadata": {}}  # mutable-ok: builder + embrouter mutate this in place
+    EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data=request_data,
         user_api_key_dict=user_api_key_dict,
-        _metadata_variable_name="litellm_metadata",
+        _metadata_variable_name="embrouter_metadata",
     )
-    return request_data["litellm_metadata"]
+    return request_data["embrouter_metadata"]
 
 
 async def llm_passthrough_factory_proxy_route(
@@ -235,8 +235,8 @@ async def llm_passthrough_factory_proxy_route(
     """
     Factory function for creating pass-through endpoints for LLM providers.
     """
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from embrouter.types.utils import LlmProviders
+    from embrouter.utils import ProviderConfigManager
 
     provider_config: Final = ProviderConfigManager.get_provider_model_info(
         provider=LlmProviders(custom_llm_provider),
@@ -274,7 +274,7 @@ async def llm_passthrough_factory_proxy_route(
         model="",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=provider_api_key,
         api_base=base_target_url,
     )
@@ -320,7 +320,7 @@ async def gemini_proxy_route(
     """
 
     """
-    ## CHECK FOR LITELLM API KEY IN THE QUERY PARAMS - ?..key=LITELLM_API_KEY
+    ## CHECK FOR EMBROUTER API KEY IN THE QUERY PARAMS - ?..key=EMBROUTER_API_KEY
     google_ai_studio_api_key: Final = request.query_params.get("key") or request.headers.get("x-goog-api-key")
 
     user_api_key_dict: Final = await user_api_key_auth(request=request, api_key=f"Bearer {google_ai_studio_api_key}")
@@ -489,7 +489,7 @@ async def vllm_proxy_route(
     """
 
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     request_body: Final = await get_request_body(request)
     is_router_model: Final = is_passthrough_request_using_router_model(request_body, llm_router)
@@ -511,7 +511,7 @@ async def vllm_proxy_route(
                 params=None,
                 headers=None,
                 cookies=None,
-                litellm_metadata=get_passthrough_router_request_metadata(user_api_key_dict),
+                embrouter_metadata=get_passthrough_router_request_metadata(user_api_key_dict),
             ),
         )
 
@@ -710,21 +710,21 @@ async def milvus_proxy_route(
             detail=f"Collection name is required. Got {request_body}",
         )
 
-    if not litellm.vector_store_index_registry or not litellm.vector_store_registry:
+    if not embrouter.vector_store_index_registry or not embrouter.vector_store_registry:
         raise HTTPException(
             status_code=500,
             detail="Unable to find Milvus vector store index registry or vector store registry.",
         )
 
     # check if vector store index
-    is_vector_store_index: Final = litellm.vector_store_index_registry.is_vector_store_index(
+    is_vector_store_index: Final = embrouter.vector_store_index_registry.is_vector_store_index(
         vector_store_index_name=collection_name
     )
 
     if not is_vector_store_index:
         raise HTTPException(
             status_code=400,
-            detail=f"Collection {collection_name} is not a litellm managed vector store index. Only litellm managed vector store indexes are supported.",
+            detail=f"Collection {collection_name} is not a embrouter managed vector store index. Only embrouter managed vector store indexes are supported.",
         )
 
     is_allowed_to_call_vector_store_endpoint(
@@ -736,22 +736,22 @@ async def milvus_proxy_route(
     # get the vector store name from index registry
 
     index_object: Final = (
-        (litellm.vector_store_index_registry.get_vector_store_index_by_name(vector_store_index_name=collection_name))
-        if litellm.vector_store_index_registry is not None
+        (embrouter.vector_store_index_registry.get_vector_store_index_by_name(vector_store_index_name=collection_name))
+        if embrouter.vector_store_index_registry is not None
         else None
     )
     if index_object is None:
         raise Exception(f"Vector store index not found for {collection_name}")
 
-    vector_store_name: Final = index_object.litellm_params.vector_store_name
-    vector_store_index: Final = index_object.litellm_params.vector_store_index
+    vector_store_name: Final = index_object.embrouter_params.vector_store_name
+    vector_store_index: Final = index_object.embrouter_params.vector_store_index
 
     request_body["collectionName"] = vector_store_index
 
     # Update the request object with the modified collection name
     _safe_set_request_parsed_body(request, request_body)
 
-    vector_store: Final = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry_by_name(
+    vector_store: Final = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry_by_name(
         vector_store_name=vector_store_name
     )
     if vector_store is None:
@@ -760,15 +760,15 @@ async def milvus_proxy_route(
         vector_store=vector_store,
         user_api_key_dict=user_api_key_dict,
     )
-    litellm_params = vector_store.get("litellm_params") or {}
-    auth_credentials: Final = provider_config.get_auth_credentials(litellm_params=litellm_params)
+    embrouter_params = vector_store.get("embrouter_params") or {}
+    auth_credentials: Final = provider_config.get_auth_credentials(embrouter_params=embrouter_params)
 
     extra_headers = auth_credentials.get("headers") or {}
 
-    litellm_params = vector_store.get("litellm_params") or {}
+    embrouter_params = vector_store.get("embrouter_params") or {}
 
     base_target_url = provider_config.get_complete_url(
-        api_base=litellm_params.get("api_base"), litellm_params=litellm_params
+        api_base=embrouter_params.get("api_base"), embrouter_params=embrouter_params
     )
 
     if base_target_url is None:
@@ -968,7 +968,7 @@ async def handle_bedrock_passthrough_router_model(
     endpoint: str,
     request: Request,
     request_body: dict,
-    llm_router: litellm.Router,
+    llm_router: embrouter.Router,
     user_api_key_dict: UserAPIKeyAuth,
     proxy_logging_obj,
     general_settings: dict,
@@ -992,7 +992,7 @@ async def handle_bedrock_passthrough_router_model(
         endpoint: The Bedrock endpoint path (e.g., "/model/{modelId}/invoke")
         request: The FastAPI request object
         request_body: The parsed request body
-        llm_router: The LiteLLM router instance
+        llm_router: The EmbRouter router instance
         user_api_key_dict: The user API key authentication dictionary
         (additional args for common processing)
 
@@ -1001,7 +1001,7 @@ async def handle_bedrock_passthrough_router_model(
     """
     from fastapi import Response as FastAPIResponse
 
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     # Detect streaming based on endpoint
     is_streaming: Final = any(action in endpoint for action in BEDROCK_STREAMING_ACTIONS)
@@ -1065,9 +1065,9 @@ async def handle_bedrock_count_tokens(
     - /v1/messages/count_tokens
     - /v1/messages/count-tokens
     """
-    from litellm.llms.bedrock.common_utils import BedrockError
-    from litellm.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.llms.bedrock.common_utils import BedrockError
+    from embrouter.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         # Initialize the handler
@@ -1079,7 +1079,7 @@ async def handle_bedrock_count_tokens(
             raise HTTPException(status_code=400, detail={"error": "Model is required in request body"})
 
         # Get model parameters from router
-        litellm_params: Final = {"user_api_key_dict": user_api_key_dict}
+        embrouter_params: Final = {"user_api_key_dict": user_api_key_dict}
         resolved_model = model  # Default fallback
 
         if llm_router:
@@ -1087,24 +1087,24 @@ async def handle_bedrock_count_tokens(
             if deployments and len(deployments) > 0:
                 # Get the first matching deployment
                 deployment: Final = deployments[0]
-                model_litellm_params: Final = deployment.get("litellm_params", {})
+                model_embrouter_params: Final = deployment.get("embrouter_params", {})
 
                 # Get the resolved model ID from the configuration
-                if "model" in model_litellm_params:
-                    resolved_model = model_litellm_params["model"]
+                if "model" in model_embrouter_params:
+                    resolved_model = model_embrouter_params["model"]
 
-                # Copy all litellm_params - BaseAWSLLM will handle AWS credential discovery
-                for key, value in model_litellm_params.items():
+                # Copy all embrouter_params - BaseAWSLLM will handle AWS credential discovery
+                for key, value in model_embrouter_params.items():
                     if key != "user_api_key_dict":  # Don't overwrite user_api_key_dict
-                        litellm_params[key] = value
+                        embrouter_params[key] = value
 
-        verbose_proxy_logger.debug("Count tokens litellm_params: %s", litellm_params)
+        verbose_proxy_logger.debug("Count tokens embrouter_params: %s", embrouter_params)
         verbose_proxy_logger.debug("Resolved model: %s", resolved_model)
 
         # Handle the count tokens request
         result: Final = await handler.handle_count_tokens_request(
             request_data=request_body,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             resolved_model=resolved_model,
         )
 
@@ -1113,7 +1113,7 @@ async def handle_bedrock_count_tokens(
     except BedrockError as e:
         # Convert BedrockError to HTTPException for FastAPI
         verbose_proxy_logger.error("BedrockError in handle_bedrock_count_tokens: %s", e)
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import get_response_headers
+        from embrouter.embrouter_core_utils.llm_response_utils.get_headers import get_response_headers
 
         provider_headers: Final = getattr(getattr(e, "response", None), "headers", None)
         raise HTTPException(
@@ -1147,8 +1147,8 @@ async def bedrock_llm_proxy_route(
     - /model/{modelId}/converse-stream
     - /model/application-inference-profile/{profileId}/{action}
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -1296,8 +1296,8 @@ async def bedrock_proxy_route(
     )
 
     # Add or update query parameters
-    from litellm.llms.bedrock.base_aws_llm import run_aws_signing, sign_aws_json_post
-    from litellm.llms.bedrock.chat import BedrockConverseLLM
+    from embrouter.llms.bedrock.base_aws_llm import run_aws_signing, sign_aws_json_post
+    from embrouter.llms.bedrock.chat import BedrockConverseLLM
 
     bedrock_llm: Final = BedrockConverseLLM()
     # Assuming the body contains JSON data, parse it
@@ -1327,10 +1327,10 @@ async def bedrock_proxy_route(
         custom_headers=_upstream_headers_for_bedrock_agent_runtime_route(request, user_api_key_dict, prepped.headers),
         is_streaming_request=is_streaming_request,
     )  # dynamically construct pass-through endpoint based on incoming path
-    setattr(request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, data)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, data)
     # SigV4 signs an exact payload; pass-through must send prepped.body, not json.dumps
     # of a dict that hooks may mutate (logging_obj, metadata, etc.).
-    setattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
     received_value: Final = await endpoint_func(
         request,
         fastapi_response,
@@ -1344,7 +1344,7 @@ COMPREHEND_MEDICAL_TARGET_PREFIX: Final = "ComprehendMedical_20181030"
 
 
 def _proxy_general_settings() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings
 
@@ -1406,7 +1406,7 @@ async def comprehend_medical_proxy_route(
     if "stream" in data:
         raise HTTPException(status_code=400, detail="'stream' is not a Comprehend Medical request member")
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
 
     target_url: Final = f"https://comprehendmedical.{aws_region_name}.{get_aws_dns_suffix(aws_region_name)}/"
     prepped: Final = await run_aws_signing(
@@ -1430,8 +1430,8 @@ async def comprehend_medical_proxy_route(
         custom_headers=prepped.headers,
         custom_llm_provider="comprehendmedical",
     )
-    setattr(request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, data)
-    setattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, data)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
     return await endpoint_func(request, fastapi_response, user_api_key_dict)
 
 
@@ -1536,7 +1536,7 @@ async def azure_speech_proxy_route(
     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
 
     The body is forwarded byte for byte and the proxy injects its own
-    `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+    `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
     and is never forwarded.
 
 
@@ -1601,7 +1601,7 @@ async def azure_speech_proxy_route(
         custom_headers=upstream_headers,
         custom_llm_provider=AZURE_SPEECH_CUSTOM_LLM_PROVIDER,
     )
-    setattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_body)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_body)
     return await endpoint_func(request, fastapi_response, user_api_key_dict)
 
 
@@ -1700,7 +1700,7 @@ async def transcribe_proxy_route(
     if access_refusal is not None:
         raise HTTPException(status_code=access_refusal.status_code, detail=access_refusal.detail)
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
 
     target_url: Final = f"https://transcribe.{aws_region_name}.{get_aws_dns_suffix(aws_region_name)}/"
     prepped: Final = await run_aws_signing(
@@ -1724,8 +1724,8 @@ async def transcribe_proxy_route(
         custom_headers=prepped.headers,
         custom_llm_provider=TRANSCRIBE_CUSTOM_LLM_PROVIDER,
     )
-    setattr(request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, request_body)
-    setattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, request_body)
+    setattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, prepped.body)
     return await endpoint_func(request, fastapi_response, user_api_key_dict)
 
 
@@ -1768,7 +1768,7 @@ async def transcribe_sdk_proxy_route(
 
 def _resolve_vertex_model_from_router(
     model_id: str,
-    llm_router: litellm.Router | None,
+    llm_router: embrouter.Router | None,
     encoded_endpoint: str,
     endpoint: str,
     vertex_project: str | None,
@@ -1779,7 +1779,7 @@ def _resolve_vertex_model_from_router(
 
     Args:
         model_id: The model ID extracted from the URL (e.g., "gcp/google/gemini-2.5-flash")
-        llm_router: The LiteLLM router instance
+        llm_router: The EmbRouter router instance
         encoded_endpoint: The encoded endpoint path
         endpoint: The original endpoint path
         vertex_project: Current vertex project (may be from URL)
@@ -1798,13 +1798,13 @@ def _resolve_vertex_model_from_router(
         if not deployment:
             return encoded_endpoint, endpoint, vertex_project, vertex_location, None
 
-        litellm_params: Final = deployment.get("litellm_params", {})
+        embrouter_params: Final = deployment.get("embrouter_params", {})
         model_info: Final = deployment.get("model_info")
         deployment_model_info: Final = model_info if isinstance(model_info, Mapping) else None
 
         # Always override with router config values (they take precedence over URL values)
-        config_vertex_project: Final = litellm_params.get("vertex_project")
-        config_vertex_location: Final = litellm_params.get("vertex_location")
+        config_vertex_project: Final = embrouter_params.get("vertex_project")
+        config_vertex_location: Final = embrouter_params.get("vertex_location")
         if config_vertex_project:
             vertex_project = config_vertex_project
         if config_vertex_location:
@@ -1812,7 +1812,7 @@ def _resolve_vertex_model_from_router(
 
         # Get the actual Vertex AI model name by stripping the provider prefix
         # e.g., "vertex_ai/gemini-2.0-flash-exp" -> "gemini-2.0-flash-exp"
-        model_from_config: Final = litellm_params.get("model", "")
+        model_from_config: Final = embrouter_params.get("model", "")
         if model_from_config:
             # get_llm_provider returns (model, custom_llm_provider, dynamic_api_key, api_base)
             # For "vertex_ai/gemini-2.0-flash-exp" it returns:
@@ -1859,7 +1859,7 @@ def _is_bedrock_agent_runtime_route(endpoint: str) -> bool:
 
 
 def _is_bedrock_agent_runtime_passthrough_disabled() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     setting: Final = general_settings.get("disable_bedrock_agent_runtime_passthrough")
     if isinstance(setting, str):
@@ -1883,7 +1883,7 @@ async def assemblyai_proxy_route(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.assembly_passthrough_logging_handler import (
+    from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.assembly_passthrough_logging_handler import (
         AssemblyAIPassthroughLoggingHandler,
     )
 
@@ -1983,7 +1983,7 @@ async def _relay_upstream_response(upstream: httpx.Response) -> Response:
 
 
 async def _relay_azure_router_model(
-    llm_router: litellm.Router,
+    llm_router: embrouter.Router,
     model: str,
     endpoint: str,
     request: Request,
@@ -2012,7 +2012,7 @@ async def _relay_azure_router_model(
 
 
 async def _relay_router_model(
-    llm_router: litellm.Router,
+    llm_router: embrouter.Router,
     model: str,
     endpoint: str,
     request: Request,
@@ -2035,7 +2035,7 @@ async def _relay_router_model(
             params=None,
             headers=None,
             cookies=None,
-            litellm_metadata=get_passthrough_router_request_metadata(user_api_key_dict),
+            embrouter_metadata=get_passthrough_router_request_metadata(user_api_key_dict),
         )
     except httpx.HTTPStatusError as upstream_error:
         return await _relay_upstream_response(upstream_error.response)
@@ -2048,7 +2048,7 @@ async def _relay_router_model(
         return StreamingResponse(
             content=wrap_passthrough_sse_bytes_with_keepalive_pings(
                 stream=_relay_upstream_bytes(result),
-                ping_interval_seconds=litellm.sse_keepalive_ping_interval_seconds,
+                ping_interval_seconds=embrouter.sse_keepalive_ping_interval_seconds,
                 upstream_headers=sse_headers,
             ),
             status_code=200,
@@ -2059,7 +2059,7 @@ async def _relay_router_model(
     return StreamingResponse(
         content=wrap_passthrough_sse_bytes_with_keepalive_pings(
             stream=_relay_upstream_bytes(upstream_stream),
-            ping_interval_seconds=litellm.sse_keepalive_ping_interval_seconds,
+            ping_interval_seconds=embrouter.sse_keepalive_ping_interval_seconds,
             upstream_headers=upstream_stream.headers,
         ),
         status_code=upstream_stream.status_code,
@@ -2081,13 +2081,13 @@ async def nvidia_nim_proxy_route(
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ):
     """
-    Relay a native NVIDIA NIM request through a LiteLLM model group.
+    Relay a native NVIDIA NIM request through a EmbRouter model group.
 
     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
     virtual key auth, model access checks, and spend logging.
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     return await relay_nvidia_nim_request(
         llm_router=llm_router,
@@ -2099,7 +2099,7 @@ async def nvidia_nim_proxy_route(
 
 
 async def relay_nvidia_nim_request(
-    llm_router: litellm.Router | None,
+    llm_router: embrouter.Router | None,
     endpoint: str,
     request: Request,
     request_body: Mapping[str, object],
@@ -2124,7 +2124,7 @@ async def relay_nvidia_nim_request(
             is_streaming_request=is_streaming_request,
             user_api_key_dict=user_api_key_dict,
         ),
-        ping_interval_seconds=(litellm.sse_keepalive_ping_interval_seconds if is_streaming_request else None),
+        ping_interval_seconds=(embrouter.sse_keepalive_ping_interval_seconds if is_streaming_request else None),
     )
 
 
@@ -2149,9 +2149,9 @@ async def azure_proxy_route(
 
     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
 
-    Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+    Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if is_azure_ai_search_service_level_index_create(method=request.method, endpoint=endpoint):
         assert_proxy_admin_for_vector_store_index_management(user_api_key_dict, operation="create")
@@ -2171,8 +2171,8 @@ async def azure_proxy_route(
             # check if vector store index
             is_vector_store_index = (
                 part == search_index_name
-                and litellm.vector_store_index_registry is not None
-                and litellm.vector_store_index_registry.is_vector_store_index(vector_store_index_name=part)
+                and embrouter.vector_store_index_registry is not None
+                and embrouter.vector_store_index_registry.is_vector_store_index(vector_store_index_name=part)
             )
 
             if is_router_model:
@@ -2189,38 +2189,38 @@ async def azure_proxy_route(
                         user_api_key_dict=user_api_key_dict,
                     ),
                     ping_interval_seconds=(
-                        litellm.sse_keepalive_ping_interval_seconds if is_streaming_request else None
+                        embrouter.sse_keepalive_ping_interval_seconds if is_streaming_request else None
                     ),
                 )
             elif is_vector_store_index:
                 # get the api key from the provider config
                 provider_config = ProviderConfigManager.get_provider_vector_stores_config(
-                    provider=litellm.LlmProviders.AZURE_AI
+                    provider=embrouter.LlmProviders.AZURE_AI
                 )
                 if provider_config is None:
                     raise Exception("Provider config not found for Azure AI")
                 # get the index from registry
-                if litellm.vector_store_registry is None:
+                if embrouter.vector_store_registry is None:
                     raise Exception("Vector store registry not found")
 
                 is_allowed_to_call_vector_store_endpoint(
                     index_name=part,
-                    provider=litellm.LlmProviders.AZURE_AI,
+                    provider=embrouter.LlmProviders.AZURE_AI,
                     request=request,
                     user_api_key_dict=user_api_key_dict,
                 )
                 # get the vector store name from index registry
                 index_object = (
-                    (litellm.vector_store_index_registry.get_vector_store_index_by_name(vector_store_index_name=part))
-                    if litellm.vector_store_index_registry is not None
+                    (embrouter.vector_store_index_registry.get_vector_store_index_by_name(vector_store_index_name=part))
+                    if embrouter.vector_store_index_registry is not None
                     else None
                 )
                 if index_object is None:
                     raise Exception(f"Vector store index not found for {part}")
 
-                vector_store_name = index_object.litellm_params.vector_store_name
+                vector_store_name = index_object.embrouter_params.vector_store_name
 
-                vector_store = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry_by_name(
+                vector_store = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry_by_name(
                     vector_store_name=vector_store_name
                 )
                 if vector_store is None:
@@ -2229,12 +2229,12 @@ async def azure_proxy_route(
                     vector_store=vector_store,
                     user_api_key_dict=user_api_key_dict,
                 )
-                litellm_params = vector_store.get("litellm_params") or {}
-                auth_credentials = provider_config.get_auth_credentials(litellm_params=litellm_params)
+                embrouter_params = vector_store.get("embrouter_params") or {}
+                auth_credentials = provider_config.get_auth_credentials(embrouter_params=embrouter_params)
 
                 extra_headers = auth_credentials.get("headers") or {}
 
-                base_target_url = _optional_str(litellm_params.get("api_base"))
+                base_target_url = _optional_str(embrouter_params.get("api_base"))
                 if base_target_url is None:
                     raise Exception(f"API base not found for {part}")
                 return await BaseOpenAIPassThroughHandler._base_openai_pass_through_handler(
@@ -2244,7 +2244,7 @@ async def azure_proxy_route(
                     user_api_key_dict=user_api_key_dict,
                     base_target_url=base_target_url,
                     api_key=None,
-                    custom_llm_provider=litellm.LlmProviders.AZURE_AI,
+                    custom_llm_provider=embrouter.LlmProviders.AZURE_AI,
                     extra_headers=cast(dict, extra_headers),
                 )
 
@@ -2253,7 +2253,7 @@ async def azure_proxy_route(
         raise Exception("Required 'AZURE_API_BASE' in environment to make pass-through calls to Azure.")
     # Add or update query parameters
     azure_api_key: Final = passthrough_endpoint_router.get_credentials(
-        custom_llm_provider=litellm.LlmProviders.AZURE.value,
+        custom_llm_provider=embrouter.LlmProviders.AZURE.value,
         region_name=None,
     )
     if azure_api_key is None:
@@ -2266,7 +2266,7 @@ async def azure_proxy_route(
         user_api_key_dict=user_api_key_dict,
         base_target_url=base_target_url,
         api_key=azure_api_key,
-        custom_llm_provider=litellm.LlmProviders.AZURE,
+        custom_llm_provider=embrouter.LlmProviders.AZURE,
     )
 
 
@@ -2304,7 +2304,7 @@ def get_vertex_base_url(vertex_location: str | None) -> str:
     """
     Base URL for Vertex AI pass-through (trailing slash for URL joining).
 
-    Keep location rules aligned with ``litellm.llms.vertex_ai.common_utils.get_vertex_base_url``.
+    Keep location rules aligned with ``embrouter.llms.vertex_ai.common_utils.get_vertex_base_url``.
     """
     if vertex_location == "global":
         return "https://aiplatform.googleapis.com/"
@@ -2322,7 +2322,7 @@ def get_vertex_ai_allowed_incoming_headers(request: Request) -> dict:
     Extract only the allowed headers from incoming request for Vertex AI pass-through.
 
     Uses an allowlist approach for security - only forwards headers we explicitly trust.
-    This prevents accidentally forwarding sensitive headers like the LiteLLM auth token.
+    This prevents accidentally forwarding sensitive headers like the EmbRouter auth token.
 
     Args:
         request: The FastAPI request object
@@ -2360,7 +2360,7 @@ def get_vertex_pass_through_handler(
 
 
 def _override_vertex_params_from_router_credentials(
-    router_credentials: LiteLLM_ManagedVectorStore | None,
+    router_credentials: EmbRouter_ManagedVectorStore | None,
     vertex_project: str | None,
     vertex_location: str | None,
 ) -> tuple[str | None, str | None]:
@@ -2368,7 +2368,7 @@ def _override_vertex_params_from_router_credentials(
     Override vertex_project and vertex_location with values from router_credentials if available.
 
     Args:
-        router_credentials: Optional vector store credentials from registry (LiteLLM_ManagedVectorStore)
+        router_credentials: Optional vector store credentials from registry (EmbRouter_ManagedVectorStore)
         vertex_project: Current vertex project ID (from URL)
         vertex_location: Current vertex location (from URL)
 
@@ -2380,14 +2380,14 @@ def _override_vertex_params_from_router_credentials(
 
     verbose_proxy_logger.debug("Using vector store credentials to override vertex project and location")
 
-    litellm_params: Final = _string_keyed_mapping(router_credentials.get("litellm_params"))
-    if not litellm_params:
-        verbose_proxy_logger.warning("Vector store credentials found but litellm_params is empty")
+    embrouter_params: Final = _string_keyed_mapping(router_credentials.get("embrouter_params"))
+    if not embrouter_params:
+        verbose_proxy_logger.warning("Vector store credentials found but embrouter_params is empty")
         return vertex_project, vertex_location
 
-    # Extract vertex_project and vertex_location from litellm_params
-    vector_store_project: Final = _optional_str(litellm_params.get("vertex_project"))
-    vector_store_location: Final = _optional_str(litellm_params.get("vertex_location"))
+    # Extract vertex_project and vertex_location from embrouter_params
+    vector_store_project: Final = _optional_str(embrouter_params.get("vertex_project"))
+    vector_store_location: Final = _optional_str(embrouter_params.get("vertex_location"))
 
     if vector_store_project:
         verbose_proxy_logger.debug(
@@ -2396,7 +2396,7 @@ def _override_vertex_params_from_router_credentials(
             vector_store_project,
         )
     else:
-        verbose_proxy_logger.warning("Vector store credentials found but missing vertex_project in litellm_params")
+        verbose_proxy_logger.warning("Vector store credentials found but missing vertex_project in embrouter_params")
 
     if vector_store_location:
         verbose_proxy_logger.debug(
@@ -2405,14 +2405,14 @@ def _override_vertex_params_from_router_credentials(
             vector_store_location,
         )
     else:
-        verbose_proxy_logger.warning("Vector store credentials found but missing vertex_location in litellm_params")
+        verbose_proxy_logger.warning("Vector store credentials found but missing vertex_location in embrouter_params")
 
     return vector_store_project or vertex_project, vector_store_location or vertex_location
 
 
 _CREDENTIALLESS_VERTEX_MISSING_CREDENTIAL_DETAIL: Final = (
     "No Vertex AI credential is configured on this proxy and the request carried no upstream "
-    "Google credential. The LiteLLM virtual key is not forwarded to Google. Configure a Vertex "
+    "Google credential. The EmbRouter virtual key is not forwarded to Google. Configure a Vertex "
     "credential (DEFAULT_VERTEXAI_PROJECT / DEFAULT_VERTEXAI_LOCATION / DEFAULT_VERTEXAI_CREDENTIALS, "
     "or a model with use_in_pass_through: true), or send your own Google OAuth token in the "
     "Authorization header."
@@ -2435,12 +2435,12 @@ def _normalize_credential_value(value: str) -> str:
 
 _VERTEX_UPSTREAM_CREDENTIAL_HEADERS: Final = frozenset({"authorization", "x-goog-api-key"})
 _HEADERS_NEVER_FORWARDED_TO_VERTEX: Final = frozenset({"content-length", "host"}) | (
-    SpecialHeaders.litellm_credential_header_names() - _VERTEX_UPSTREAM_CREDENTIAL_HEADERS
+    SpecialHeaders.embrouter_credential_header_names() - _VERTEX_UPSTREAM_CREDENTIAL_HEADERS
 )
 
 _CREDENTIALLESS_ANTHROPIC_MISSING_CREDENTIAL_DETAIL: Final = (
     "No Anthropic credential is configured on this proxy and the request carried no upstream "
-    "Anthropic credential. The LiteLLM virtual key is not forwarded to Anthropic. Configure an "
+    "Anthropic credential. The EmbRouter virtual key is not forwarded to Anthropic. Configure an "
     "Anthropic credential (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN, or a model with "
     "use_in_pass_through: true), or send your own Anthropic API key in the x-api-key header or "
     "your own Anthropic OAuth token in the Authorization header."
@@ -2448,31 +2448,31 @@ _CREDENTIALLESS_ANTHROPIC_MISSING_CREDENTIAL_DETAIL: Final = (
 
 _ANTHROPIC_UPSTREAM_CREDENTIAL_HEADERS: Final = frozenset({"authorization", "x-api-key"})
 _HEADERS_NEVER_FORWARDED_TO_ANTHROPIC: Final = frozenset({"content-length", "host", "accept-encoding"}) | (
-    SpecialHeaders.litellm_credential_header_names() - _ANTHROPIC_UPSTREAM_CREDENTIAL_HEADERS
+    SpecialHeaders.embrouter_credential_header_names() - _ANTHROPIC_UPSTREAM_CREDENTIAL_HEADERS
 )
 _HEADERS_NEVER_FORWARDED_TO_BEDROCK: Final = (
-    frozenset({"content-length", "host", "accept-encoding"}) | SpecialHeaders.litellm_credential_header_names()
+    frozenset({"content-length", "host", "accept-encoding"}) | SpecialHeaders.embrouter_credential_header_names()
 )
 
 
-_MAPPED_ROUTE_CALLER_KEY_HEADER: Final = "litellm_user_api_key"
+_MAPPED_ROUTE_CALLER_KEY_HEADER: Final = "embrouter_user_api_key"
 
 
 def _operator_configured_caller_key_header_names() -> tuple[str, ...]:
     """Operator-configured header names ``user_api_key_auth`` reads the caller's key from."""
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
-    custom_key_header: Final = general_settings.get("litellm_key_header_name")
+    custom_key_header: Final = general_settings.get("embrouter_key_header_name")
     override: Final = (custom_key_header.lower(),) if isinstance(custom_key_header, str) else ()
     pass_through_endpoints: Final = general_settings.get("pass_through_endpoints")
     endpoints: Final = pass_through_endpoints if isinstance(pass_through_endpoints, list) else ()
     pass_through: Final = tuple(
         dict.fromkeys(
-            headers["litellm_user_api_key"].lower()
+            headers["embrouter_user_api_key"].lower()
             for endpoint in endpoints
             if isinstance(endpoint, dict)
             for headers in (endpoint.get("headers"),)
-            if isinstance(headers, dict) and isinstance(headers.get("litellm_user_api_key"), str)
+            if isinstance(headers, dict) and isinstance(headers.get("embrouter_user_api_key"), str)
         )
     )
     return override + pass_through
@@ -2486,7 +2486,7 @@ def _is_authenticated_caller_jwt(value: str, jwt_claims: Mapping[str, object]) -
     return all(
         presented_claims.get(name) == claim
         for name, claim in jwt_claims.items()
-        if name not in JWTHandler.LITELLM_INTERNAL_CLAIMS
+        if name not in JWTHandler.EMBROUTER_INTERNAL_CLAIMS
     )
 
 
@@ -2495,7 +2495,7 @@ def _is_authenticated_caller_secret(value: str, user_api_key_dict: UserAPIKeyAut
 
     A proxy in no-auth dev mode without custom auth authenticated nothing, so none of the caller's values is one.
     """
-    from litellm.proxy.proxy_server import general_settings, master_key, user_custom_auth
+    from embrouter.proxy.proxy_server import general_settings, master_key, user_custom_auth
 
     normalized: Final = _normalize_credential_value(value)
     if master_key is not None and hmac.compare_digest(normalized.encode(), master_key.encode()):
@@ -2508,11 +2508,11 @@ def _is_authenticated_caller_secret(value: str, user_api_key_dict: UserAPIKeyAut
     authenticated_key: Final = user_api_key_dict.api_key
     if authenticated_key is None:
         return False
-    stored_representation: Final = UserAPIKeyAuth._safe_hash_litellm_api_key(normalized)  # pyright: ignore[reportPrivateUsage]  # the exact transform auth applied when it stored api_key
+    stored_representation: Final = UserAPIKeyAuth._safe_hash_embrouter_api_key(normalized)  # pyright: ignore[reportPrivateUsage]  # the exact transform auth applied when it stored api_key
     return hmac.compare_digest(stored_representation.encode(), authenticated_key.encode())
 
 
-def _caller_headers_without_litellm_secrets(
+def _caller_headers_without_embrouter_secrets(
     request: Request, user_api_key_dict: UserAPIKeyAuth, never_forwarded: frozenset[str]
 ) -> Mapping[str, str]:
     incoming: Final = _safe_get_request_headers(request)
@@ -2531,8 +2531,8 @@ def _caller_headers_without_litellm_secrets(
 def _forwarded_headers_for_credentialless_vertex_passthrough(
     request: Request, user_api_key_dict: UserAPIKeyAuth
 ) -> Mapping[str, str]:
-    """Caller headers to forward on the bring-your-own-credentials Vertex branch, minus LiteLLM secrets."""
-    forwarded: Final = _caller_headers_without_litellm_secrets(
+    """Caller headers to forward on the bring-your-own-credentials Vertex branch, minus EmbRouter secrets."""
+    forwarded: Final = _caller_headers_without_embrouter_secrets(
         request, user_api_key_dict, _HEADERS_NEVER_FORWARDED_TO_VERTEX
     )
     if _VERTEX_UPSTREAM_CREDENTIAL_HEADERS.isdisjoint(forwarded):
@@ -2543,7 +2543,7 @@ def _forwarded_headers_for_credentialless_vertex_passthrough(
 def _upstream_headers_for_anthropic_route(
     request: Request, user_api_key_dict: UserAPIKeyAuth, proxy_auth_header: Mapping[str, str] | None
 ) -> Mapping[str, str]:
-    caller_headers: Final = _caller_headers_without_litellm_secrets(
+    caller_headers: Final = _caller_headers_without_embrouter_secrets(
         request, user_api_key_dict, _HEADERS_NEVER_FORWARDED_TO_ANTHROPIC
     )
     if proxy_auth_header is None and _ANTHROPIC_UPSTREAM_CREDENTIAL_HEADERS.isdisjoint(caller_headers):
@@ -2554,7 +2554,7 @@ def _upstream_headers_for_anthropic_route(
 def _upstream_headers_for_bedrock_agent_runtime_route(
     request: Request, user_api_key_dict: UserAPIKeyAuth, signed_headers: Mapping[str, object]
 ) -> Mapping[str, object]:
-    caller_headers: Final = _caller_headers_without_litellm_secrets(
+    caller_headers: Final = _caller_headers_without_embrouter_secrets(
         request,
         user_api_key_dict,
         _HEADERS_NEVER_FORWARDED_TO_BEDROCK | frozenset(name.lower() for name in signed_headers),
@@ -2565,7 +2565,7 @@ def _upstream_headers_for_bedrock_agent_runtime_route(
 async def _prepare_vertex_auth_headers(
     request: Request,
     vertex_credentials: VertexPassThroughCredentials | None,
-    router_credentials: LiteLLM_ManagedVectorStore | None,
+    router_credentials: EmbRouter_ManagedVectorStore | None,
     vertex_project: str | None,
     vertex_location: str | None,
     user_api_key_dict: UserAPIKeyAuth,
@@ -2651,7 +2651,7 @@ async def _base_vertex_proxy_route(
     fastapi_response: Response,
     get_vertex_pass_through_handler: BaseVertexAIPassThroughHandler,
     user_api_key_dict: UserAPIKeyAuth | None = None,
-    router_credentials: LiteLLM_ManagedVectorStore | None = None,
+    router_credentials: EmbRouter_ManagedVectorStore | None = None,
 ):
     """
     Base function for Vertex AI passthrough routes.
@@ -2666,27 +2666,27 @@ async def _base_vertex_proxy_route(
         fastapi_response: FastAPI response object
         get_vertex_pass_through_handler: Handler for the specific Vertex AI service
         user_api_key_dict: User API key authentication dict
-        router_credentials: Optional vector store credentials from registry (LiteLLM_ManagedVectorStore)
+        router_credentials: Optional vector store credentials from registry (EmbRouter_ManagedVectorStore)
     """
-    from litellm.llms.vertex_ai.common_utils import (
+    from embrouter.llms.vertex_ai.common_utils import (
         construct_target_url,
         get_vertex_location_from_url,
         get_vertex_model_id_from_url,
         get_vertex_project_id_from_url,
     )
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     encoded_endpoint = httpx.URL(endpoint).path
     verbose_proxy_logger.debug("requested endpoint %s", endpoint)
     headers: Mapping[str, str] = {}
-    api_key_to_use = get_litellm_virtual_key(request=request)
+    api_key_to_use = get_embrouter_virtual_key(request=request)
     user_api_key_dict = await user_api_key_auth(
         request=request,
         api_key=api_key_to_use,
     )
 
     if user_api_key_dict is None:
-        api_key_to_use = get_litellm_virtual_key(request=request)
+        api_key_to_use = get_embrouter_virtual_key(request=request)
         user_api_key_dict = await user_api_key_auth(
             request=request,
             api_key=api_key_to_use,
@@ -2727,7 +2727,7 @@ async def _base_vertex_proxy_route(
                 vertex_location=vertex_location,
             )
             if deployment_model_info:
-                setattr(request.state, LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY, deployment_model_info)
+                setattr(request.state, EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY, deployment_model_info)
 
     vertex_credentials: Final = passthrough_endpoint_router.get_vertex_credentials(
         project_id=vertex_project,
@@ -2818,18 +2818,18 @@ async def vertex_discovery_proxy_route(
     """
     import re
 
-    # Extract vector store ID from endpoint if present (e.g., dataStores/test-litellm-app_1761094730750)
-    vector_store_credentials: LiteLLM_ManagedVectorStore | None = None
+    # Extract vector store ID from endpoint if present (e.g., dataStores/test-embrouter-app_1761094730750)
+    vector_store_credentials: EmbRouter_ManagedVectorStore | None = None
     vector_store_id_match: Final = re.search(r"dataStores/([^/]+)", endpoint)
 
     if vector_store_id_match:
         vector_store_id: Final = vector_store_id_match.group(1)
         verbose_proxy_logger.debug("Extracted vector store ID from endpoint: %s", vector_store_id)
 
-        # Retrieve LiteLLM-managed vector store credentials if the datastore id
-        # is registered with LiteLLM. Unknown datastore ids keep the existing
+        # Retrieve EmbRouter-managed vector store credentials if the datastore id
+        # is registered with EmbRouter. Unknown datastore ids keep the existing
         # direct Vertex pass-through behavior.
-        vector_store_credentials = await get_litellm_managed_vector_store(vector_store_id=vector_store_id)
+        vector_store_credentials = await get_embrouter_managed_vector_store(vector_store_id=vector_store_id)
 
         if vector_store_credentials:
             verbose_proxy_logger.debug("Found vector store credentials for ID: %s", vector_store_id)
@@ -2867,7 +2867,7 @@ async def vertex_proxy_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Call LiteLLM proxy via Vertex AI SDK.
+    Call EmbRouter proxy via Vertex AI SDK.
 
 
     """
@@ -2901,7 +2901,7 @@ async def openai_proxy_route(
     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
 
     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-    with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+    with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
 
     Examples:
         Standard route:
@@ -2919,7 +2919,7 @@ async def openai_proxy_route(
     base_target_url: Final = os.getenv("OPENAI_API_BASE") or "https://api.openai.com/"
     # Add or update query parameters
     openai_api_key: Final = passthrough_endpoint_router.get_credentials(
-        custom_llm_provider=litellm.LlmProviders.OPENAI.value,
+        custom_llm_provider=embrouter.LlmProviders.OPENAI.value,
         region_name=None,
     )
     if openai_api_key is None:
@@ -2932,11 +2932,11 @@ async def openai_proxy_route(
         user_api_key_dict=user_api_key_dict,
         base_target_url=base_target_url,
         api_key=openai_api_key,
-        custom_llm_provider=litellm.LlmProviders.OPENAI,
+        custom_llm_provider=embrouter.LlmProviders.OPENAI,
     )
 
 
-def _join_url_paths(base_url: httpx.URL, path: str, custom_llm_provider: litellm.LlmProviders) -> str:
+def _join_url_paths(base_url: httpx.URL, path: str, custom_llm_provider: embrouter.LlmProviders) -> str:
     """
     Properly joins a base URL with a path, preserving any existing path in the base URL.
     """
@@ -2947,7 +2947,7 @@ def _join_url_paths(base_url: httpx.URL, path: str, custom_llm_provider: litellm
     )
 
     # Apply OpenAI-specific path handling for both branches
-    if custom_llm_provider == litellm.LlmProviders.OPENAI and "/v1/" not in joined_path_str:
+    if custom_llm_provider == embrouter.LlmProviders.OPENAI and "/v1/" not in joined_path_str:
         # Insert v1 after api.openai.com for OpenAI requests
         joined_path_str = joined_path_str.replace("api.openai.com/", "api.openai.com/v1/")
 
@@ -3042,7 +3042,7 @@ def _websocket_relay() -> _WebsocketRelay:
 
 
 def _proxy_model_allowlists() -> _OpenAIWebsocketModelAllowlists:
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     async def resolve(valid_token: UserAPIKeyAuth, /) -> tuple[Sequence[str], ...]:
         return await enforced_model_allowlists(
@@ -3090,7 +3090,7 @@ async def openai_websocket_proxy_route(
 
     base_target_url: Final = os.getenv("OPENAI_API_BASE") or "https://api.openai.com/"
     openai_api_key: Final = passthrough_endpoint_router.get_credentials(
-        custom_llm_provider=litellm.LlmProviders.OPENAI.value,
+        custom_llm_provider=embrouter.LlmProviders.OPENAI.value,
         region_name=None,
     )
     if openai_api_key is None:
@@ -3106,7 +3106,7 @@ async def openai_websocket_proxy_route(
     updated_url: Final = _join_url_paths(
         base_url=base_url,
         path=encoded_endpoint,
-        custom_llm_provider=litellm.LlmProviders.OPENAI,
+        custom_llm_provider=embrouter.LlmProviders.OPENAI,
     )
     wss_base: Final = (
         "wss://" + updated_url[len("https://") :]
@@ -3157,7 +3157,7 @@ async def deepgram_listen_websocket_route(
     relay: Annotated[_WebsocketRelay, Depends(_websocket_relay)],
 ) -> None:
     deepgram_api_key: Final = passthrough_endpoint_router.get_credentials(
-        custom_llm_provider=litellm.LlmProviders.DEEPGRAM.value,
+        custom_llm_provider=embrouter.LlmProviders.DEEPGRAM.value,
         region_name=None,
     )
     if deepgram_api_key is None:
@@ -3206,7 +3206,7 @@ class BaseOpenAIPassThroughHandler:
         user_api_key_dict: UserAPIKeyAuth,
         base_target_url: str,
         api_key: str | None,
-        custom_llm_provider: litellm.LlmProviders,
+        custom_llm_provider: embrouter.LlmProviders,
         extra_headers: dict | None = None,
     ):
         encoded_endpoint = httpx.URL(endpoint).path
@@ -3306,7 +3306,7 @@ async def cursor_proxy_route(
 
     Credential lookup order:
     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-    2. litellm.credential_list (credentials added via UI)
+    2. embrouter.credential_list (credentials added via UI)
     3. CURSOR_API_KEY environment variable
     """
     import base64
@@ -3319,7 +3319,7 @@ async def cursor_proxy_route(
     )
 
     if cursor_api_key is None:
-        for credential in litellm.credential_list:
+        for credential in embrouter.credential_list:
             if credential.credential_info and credential.credential_info.get("custom_llm_provider") == "cursor":
                 cursor_api_key = credential.credential_values.get("api_key")
                 credential_api_base = credential.credential_values.get("api_base")
@@ -3381,7 +3381,7 @@ async def _tinyfish_json_object_field_names(request: Request) -> frozenset[str] 
 
 def _tinyfish_route_timeout() -> float | None:
     # only raise the 600s default to cover legal 1200s runs; an operator's configured timeout still wins
-    proxy_server: Final = sys.modules.get("litellm.proxy.proxy_server")
+    proxy_server: Final = sys.modules.get("embrouter.proxy.proxy_server")
     operator_settings: Final = getattr(proxy_server, "general_settings", None)
     operator_timeout: Final = (
         operator_settings.get("pass_through_request_timeout") if isinstance(operator_settings, Mapping) else None
@@ -3443,7 +3443,7 @@ async def tinyfish_proxy_route(
         if envelope_fields:
             raise HTTPException(
                 status_code=400,
-                detail=f"Request fields [{', '.join(envelope_fields)}] are LiteLLM pass-through envelope controls "
+                detail=f"Request fields [{', '.join(envelope_fields)}] are EmbRouter pass-through envelope controls "
                 "and are not accepted on the TinyFish route. Send the native TinyFish request body; streaming is "
                 "determined by the endpoint.",
             )
@@ -3505,7 +3505,7 @@ def _vertex_publisher_model_suffix(model: str) -> str:
     """
     Turn whatever the client named into the ``publishers/<publisher>/models/<id>`` tail of a Vertex resource name.
 
-    Clients send bare ids, LiteLLM ids (``vertex_ai/gemini-live-2.5-flash``), and the Live SDK's ``models/<id>``,
+    Clients send bare ids, EmbRouter ids (``vertex_ai/gemini-live-2.5-flash``), and the Live SDK's ``models/<id>``,
     and a publisher model id never contains a slash, so anything ahead of the last one is addressing, not identity
     """
     publishers_at: Final = model.find(VERTEX_PUBLISHERS_SEGMENT)
@@ -3515,7 +3515,7 @@ def _vertex_publisher_model_suffix(model: str) -> str:
 
 
 def _get_llm_router() -> Router | None:
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     return llm_router
 
@@ -3559,7 +3559,7 @@ def _build_vertex_live_setup_model_rewriter(
     """
     Rewrite the ``setup`` frame's model into the full Vertex resource path the Live API requires.
 
-    Clients address the gateway the way they address LiteLLM (bare id or model alias); Vertex reads anything
+    Clients address the gateway the way they address EmbRouter (bare id or model alias); Vertex reads anything
     that is not a ``projects/...`` path as a project name and closes the socket
     """
     if vertex_project is None or vertex_location is None:
@@ -3583,7 +3583,7 @@ def _resolve_alias_to_upstream_model(setup_model: str, llm_router: Router | None
     candidates: Final = (setup_model, setup_model.rsplit("/", 1)[-1])
     upstream: Final = next(
         (
-            deployment["litellm_params"].get("model")
+            deployment["embrouter_params"].get("model")
             for deployment in (llm_router.get_model_list() or ())
             if deployment.get("model_name") in candidates
         ),
@@ -3592,8 +3592,8 @@ def _resolve_alias_to_upstream_model(setup_model: str, llm_router: Router | None
     if upstream is None:
         return setup_model
     try:
-        _, provider, _, _ = litellm.get_llm_provider(model=upstream)
-    except litellm.exceptions.BadRequestError:
+        _, provider, _, _ = embrouter.get_llm_provider(model=upstream)
+    except embrouter.exceptions.BadRequestError:
         return upstream
     return upstream.removeprefix(f"{provider}/")
 
@@ -3614,7 +3614,7 @@ async def vertex_ai_live_websocket_passthrough(
     Note: This function should be registered in proxy_server.py using:
     app.websocket("/vertex_ai/live")(vertex_ai_live_websocket_passthrough)
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     _ = user_api_key_dict  # passthrough route already authenticated; avoid lint warnings
 
@@ -3778,7 +3778,7 @@ async def gigachat_proxy_route(
     """
 
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -3830,8 +3830,8 @@ async def gigachat_proxy_route(
         "Gigachat passthrough: Using direct Gigachat model '%s' for endpoint '%s'", model, endpoint
     )
 
-    from litellm.llms.gigachat.authenticator import get_access_token
-    from litellm.llms.gigachat.utils import GIGACHAT_BASE_URL
+    from embrouter.llms.gigachat.authenticator import get_access_token
+    from embrouter.llms.gigachat.utils import GIGACHAT_BASE_URL
 
     base_target_url: Final = get_secret_str("GIGACHAT_API_BASE") or GIGACHAT_BASE_URL
     request_path: Final = httpx.URL(endpoint).path
@@ -3863,7 +3863,7 @@ async def handle_gigachat_passthrough_router_model(
     request: Request,
     request_body: dict,
     fastapi_response: Response,
-    llm_router: litellm.Router,
+    llm_router: embrouter.Router,
     user_api_key_dict: UserAPIKeyAuth,
     proxy_logging_obj: ProxyLoggingType,
     general_settings: dict,
@@ -3887,7 +3887,7 @@ async def handle_gigachat_passthrough_router_model(
         endpoint: The Gigachat endpoint path (e.g., "/chat/completions")
         request: The FastAPI request object
         request_body: The parsed request body
-        llm_router: The LiteLLM router instance
+        llm_router: The EmbRouter router instance
         user_api_key_dict: The user API key authentication dictionary
         proxy_logging_obj: Proxy logging
         general_settings: Proxy general settings
@@ -3898,7 +3898,7 @@ async def handle_gigachat_passthrough_router_model(
     Returns:
         Response or StreamingResponse depending on endpoint type
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     is_streaming: Final = request_body.get("stream", False)  # pyright: ignore[reportUnknownVariableType]  # request_body is dict[Unknown, Unknown]
 
@@ -4008,8 +4008,8 @@ async def watsonx_proxy_route(
         POST /watsonx/ml/v1/text/generation
     """
     # Direct passthrough with WatsonxPassthroughConfig
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from embrouter.types.utils import LlmProviders
+    from embrouter.utils import ProviderConfigManager
 
     provider_config: Final = ProviderConfigManager.get_provider_passthrough_config(
         provider=LlmProviders.WATSONX,
@@ -4026,7 +4026,7 @@ async def watsonx_proxy_route(
         model="",
         endpoint=endpoint,
         request_query_params=None,
-        litellm_params={},
+        embrouter_params={},
     )
 
     # Get auth headers with IAM token
@@ -4035,7 +4035,7 @@ async def watsonx_proxy_route(
         model="",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -4053,7 +4053,7 @@ async def watsonx_proxy_route(
 
     request_query_params: Final = dict(request.query_params)
     if request_query_params.get("version") is None:
-        request_query_params["version"] = litellm.WATSONX_DEFAULT_API_VERSION
+        request_query_params["version"] = embrouter.WATSONX_DEFAULT_API_VERSION
 
     # Create pass-through endpoint
     endpoint_func: Final = create_pass_through_route(

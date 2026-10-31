@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ClaudeCodePluginTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ClaudeCodePluginTable" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "version" TEXT,
@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ClaudeCodePluginTable" (
     "updated_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT,
 
-    CONSTRAINT "LiteLLM_ClaudeCodePluginTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_ClaudeCodePluginTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ClaudeCodePluginTable_name_key" ON "LiteLLM_ClaudeCodePluginTable"("name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ClaudeCodePluginTable_name_key" ON "EmbRouter_ClaudeCodePluginTable"("name");

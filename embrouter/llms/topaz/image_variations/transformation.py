@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Final
 from aiohttp import ClientResponse
 from httpx import Headers, Response
 
-from litellm.llms.base_llm.chat.transformation import (
+from embrouter.llms.base_llm.chat.transformation import (
     BaseLLMException,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import OpenAIImageVariationOptionalParams
-from litellm.types.utils import (
+from embrouter.types.llms.openai import OpenAIImageVariationOptionalParams
+from embrouter.types.utils import (
     FileTypes,
     HttpHandlerRequestFields,
     ImageObject,
@@ -23,7 +23,7 @@ from ...base_llm.image_variations.transformation import BaseImageVariationConfig
 from ..common_utils import TopazException, TopazModelInfo
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class TopazImageVariationConfig(TopazModelInfo, BaseImageVariationConfig):
@@ -36,7 +36,7 @@ class TopazImageVariationConfig(TopazModelInfo, BaseImageVariationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = api_base or "https://api.topazlabs.com"
@@ -134,11 +134,11 @@ class TopazImageVariationConfig(TopazModelInfo, BaseImageVariationConfig):
         model: str | None,
         raw_response: ClientResponse,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         image: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
     ) -> ImageResponse:
@@ -153,11 +153,11 @@ class TopazImageVariationConfig(TopazModelInfo, BaseImageVariationConfig):
         model: str | None,
         raw_response: Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         image: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
     ) -> ImageResponse:

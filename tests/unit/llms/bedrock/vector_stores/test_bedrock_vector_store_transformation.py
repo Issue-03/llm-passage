@@ -1,7 +1,7 @@
 from typing import Final
 from unittest.mock import MagicMock
 
-from litellm.llms.bedrock.vector_stores.transformation import BedrockVectorStoreConfig
+from embrouter.llms.bedrock.vector_stores.transformation import BedrockVectorStoreConfig
 
 
 def test_transform_search_request():
@@ -20,8 +20,8 @@ def test_transform_search_request():
         query="hello",
         vector_store_search_optional_params={},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params={},
+        embrouter_logging_obj=mock_log,
+        embrouter_params={},
         extra_body=None,
     )
 
@@ -39,8 +39,8 @@ def test_transform_search_request_encodes_vector_store_id():
         query="hello",
         vector_store_search_optional_params={},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params={},
+        embrouter_logging_obj=mock_log,
+        embrouter_params={},
         extra_body=None,
     )
 
@@ -62,8 +62,8 @@ def test_transform_search_request_uses_only_retrieval_config_from_extra_body():
         query="hello",
         vector_store_search_optional_params={},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params={},
+        embrouter_logging_obj=mock_log,
+        embrouter_params={},
         extra_body={
             "retrievalConfiguration": {
                 "vectorSearchConfiguration": {
@@ -105,8 +105,8 @@ def test_transform_search_request_does_not_mutate_extra_body_and_overrides_numbe
         query="hello",
         vector_store_search_optional_params={"max_num_results": 10},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params={},
+        embrouter_logging_obj=mock_log,
+        embrouter_params={},
         extra_body=extra_body,
     )
 
@@ -140,8 +140,8 @@ def test_transform_search_request_overrides_filter_without_mutating_extra_body()
         query="hello",
         vector_store_search_optional_params={"filters": new_filter},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params={},
+        embrouter_logging_obj=mock_log,
+        embrouter_params={},
         extra_body=extra_body,
     )
 
@@ -157,7 +157,7 @@ def test_transform_search_request_overrides_filter_without_mutating_extra_body()
     )
 
 
-def _search_body(extra_body: dict[str, object] | None, litellm_params: dict[str, object]) -> dict[str, object]:
+def _search_body(extra_body: dict[str, object] | None, embrouter_params: dict[str, object]) -> dict[str, object]:
     config: Final = BedrockVectorStoreConfig()
     mock_log: Final = MagicMock()
     mock_log.model_call_details = {}
@@ -166,24 +166,24 @@ def _search_body(extra_body: dict[str, object] | None, litellm_params: dict[str,
         query="hello",
         vector_store_search_optional_params={"max_num_results": 3},
         api_base="https://bedrock-agent-runtime.us-west-2.amazonaws.com/knowledgebases",
-        litellm_logging_obj=mock_log,
-        litellm_params=litellm_params,
+        embrouter_logging_obj=mock_log,
+        embrouter_params=embrouter_params,
         extra_body=extra_body,
     )
     return body
 
 
 def test_transform_search_request_forwards_user_context_from_extra_body():
-    body = _search_body(extra_body={"userContext": {"userId": "alice@example.com"}}, litellm_params={})
+    body = _search_body(extra_body={"userContext": {"userId": "alice@example.com"}}, embrouter_params={})
 
     assert body["userContext"] == {"userId": "alice@example.com"}
     assert body["retrievalConfiguration"] == {"vectorSearchConfiguration": {"numberOfResults": 3}}
 
 
-def test_transform_search_request_forwards_top_level_user_context_from_litellm_params():
+def test_transform_search_request_forwards_top_level_user_context_from_embrouter_params():
     body = _search_body(
         extra_body=None,
-        litellm_params={"vector_store_id": "kb123", "user_context": {"userId": "bob@example.com"}},
+        embrouter_params={"vector_store_id": "kb123", "user_context": {"userId": "bob@example.com"}},
     )
 
     assert body["userContext"] == {"userId": "bob@example.com"}
@@ -192,7 +192,7 @@ def test_transform_search_request_forwards_top_level_user_context_from_litellm_p
 def test_transform_search_request_prefers_extra_body_user_context_over_top_level():
     body = _search_body(
         extra_body={"userContext": {"userId": "alice@example.com"}},
-        litellm_params={"userContext": {"userId": "bob@example.com"}},
+        embrouter_params={"userContext": {"userId": "bob@example.com"}},
     )
 
     assert body["userContext"] == {"userId": "alice@example.com"}

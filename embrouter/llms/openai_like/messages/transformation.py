@@ -1,13 +1,13 @@
 from typing import Any, Final
 
-import litellm
-from litellm.llms.anthropic.common_utils import normalize_cache_control_in_anthropic_payload
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.common_utils import normalize_cache_control_in_anthropic_payload
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.openai_like.json_loader import SimpleProviderConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
 
 DEFAULT_ANTHROPIC_API_VERSION: Final = "2023-06-01"
 
@@ -38,7 +38,7 @@ class OpenAILikeAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict[str, str], str | None]:
@@ -71,7 +71,7 @@ class OpenAILikeAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[dict],  # mutable-ok: matches dict-typed base signature
         anthropic_messages_optional_request_params: dict,  # mutable-ok: matches dict-typed base signature
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: matches dict-typed base signature
     ) -> dict:  # mutable-ok: matches dict-typed base signature
         """
@@ -85,7 +85,7 @@ class OpenAILikeAnthropicMessagesConfig(AnthropicMessagesConfig):
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         if self.supports_cache_control_ttl():
@@ -98,7 +98,7 @@ class OpenAILikeAnthropicMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if not api_base:
@@ -131,7 +131,7 @@ class JSONProviderAnthropicMessagesConfig(OpenAILikeAnthropicMessagesConfig):
         return True
 
     def _resolve_api_key(self, api_key: str | None) -> str | None:
-        return api_key or get_secret_str(self._provider.api_key_env) or litellm.api_key
+        return api_key or get_secret_str(self._provider.api_key_env) or embrouter.api_key
 
     def _resolve_api_base(self, api_base: str | None) -> str:
         env_api_base: Final = get_secret_str(self._provider.api_base_env) if self._provider.api_base_env else None
@@ -143,7 +143,7 @@ class JSONProviderAnthropicMessagesConfig(OpenAILikeAnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict[str, str], str | None]:
@@ -152,7 +152,7 @@ class JSONProviderAnthropicMessagesConfig(OpenAILikeAnthropicMessagesConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=self._resolve_api_key(api_key),
             api_base=api_base,
         )
@@ -163,7 +163,7 @@ class JSONProviderAnthropicMessagesConfig(OpenAILikeAnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         return super().get_complete_url(
@@ -171,6 +171,6 @@ class JSONProviderAnthropicMessagesConfig(OpenAILikeAnthropicMessagesConfig):
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )

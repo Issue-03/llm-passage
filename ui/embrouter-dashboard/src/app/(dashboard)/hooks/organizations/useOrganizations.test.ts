@@ -32,7 +32,7 @@ const mockOrganizations: Organization[] = [
     created_by: "user-1",
     updated_at: "2024-01-01T00:00:00Z",
     updated_by: "user-1",
-    litellm_budget_table: null,
+    embrouter_budget_table: null,
     teams: null,
     users: null,
     members: [
@@ -52,7 +52,7 @@ const mockOrganizations: Organization[] = [
     created_by: "user-3",
     updated_at: "2024-01-01T00:00:00Z",
     updated_by: "user-3",
-    litellm_budget_table: null,
+    embrouter_budget_table: null,
     teams: null,
     users: null,
     members: [{ user_id: "user-3", user_role: "admin" }],

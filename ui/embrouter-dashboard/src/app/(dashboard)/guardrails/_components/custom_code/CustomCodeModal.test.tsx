@@ -58,7 +58,7 @@ describe("CustomCodeModal", () => {
       editData: {
         guardrail_id: "g-1",
         guardrail_name: "existing-guardrail",
-        litellm_params: { mode: "post_call", default_on: true, custom_code: "def apply_guardrail(): pass" },
+        embrouter_params: { mode: "post_call", default_on: true, custom_code: "def apply_guardrail(): pass" },
       },
     });
 
@@ -98,7 +98,7 @@ describe("CustomCodeModal", () => {
     expect(token).toBe("test-token");
     expect(payload).toMatchObject({
       guardrail_name: "block-pii",
-      litellm_params: { guardrail: "custom_code", mode: ["pre_call"], default_on: false },
+      embrouter_params: { guardrail: "custom_code", mode: ["pre_call"], default_on: false },
     });
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalled();

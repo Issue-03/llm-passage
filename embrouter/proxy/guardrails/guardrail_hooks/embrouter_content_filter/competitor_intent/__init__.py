@@ -4,10 +4,10 @@ Competitor intent: entity + intent disambiguation with safe (non-competitor) def
 Base logic in base.py; industry-specific checkers in submodules (e.g. airline.py).
 """
 
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.competitor_intent.airline import (
+from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.competitor_intent.airline import (
     AirlineCompetitorIntentChecker,
 )
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.competitor_intent.base import (
+from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.competitor_intent.base import (
     BaseCompetitorIntentChecker,
     normalize,
     text_for_entity_matching,

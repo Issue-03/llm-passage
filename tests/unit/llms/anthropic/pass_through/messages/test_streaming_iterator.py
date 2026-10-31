@@ -6,10 +6,10 @@ from unittest.mock import patch
 import pytest
 
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.pass_through.messages import streaming_iterator as streaming_iterator_module
-from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.anthropic.pass_through.messages import streaming_iterator as streaming_iterator_module
+from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
     INCOMPLETE_STREAM_ERROR_MESSAGE,
     AnthropicMessagesStreamHiddenParams,
     AnthropicMessagesStreamingResponse,
@@ -25,8 +25,8 @@ from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
 
 
 class _RecordingLoggingIterator(BaseAnthropicMessagesStreamingIterator):
-    def __init__(self, litellm_logging_obj: LiteLLMLoggingObj, request_body: dict):
-        super().__init__(litellm_logging_obj=litellm_logging_obj, request_body=request_body)
+    def __init__(self, embrouter_logging_obj: EmbRouterLoggingObj, request_body: dict):
+        super().__init__(embrouter_logging_obj=embrouter_logging_obj, request_body=request_body)
         self.logged_chunks: list = []
         self.logging_call_count: int = 0
 
@@ -44,14 +44,14 @@ class _FailureRecorder(CustomLogger):
         self.failure_kwargs.append(kwargs)
 
 
-def _make_logging_obj(test_name: str, failure_recorder: _FailureRecorder | None = None) -> LiteLLMLoggingObj:
-    return LiteLLMLoggingObj(
+def _make_logging_obj(test_name: str, failure_recorder: _FailureRecorder | None = None) -> EmbRouterLoggingObj:
+    return EmbRouterLoggingObj(
         model="bedrock/invoke/anthropic.claude-3-sonnet-20240229-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="chat",
         start_time=datetime.now(),
-        litellm_call_id=test_name,
+        embrouter_call_id=test_name,
         function_id=test_name,
         dynamic_async_failure_callbacks=[failure_recorder] if failure_recorder is not None else None,
     )
@@ -68,7 +68,7 @@ async def _wait_for_failure_event(recorder: _FailureRecorder) -> dict:
 
 def _make_iterator(test_name: str) -> BaseAnthropicMessagesStreamingIterator:
     return BaseAnthropicMessagesStreamingIterator(
-        litellm_logging_obj=_make_logging_obj(test_name),
+        embrouter_logging_obj=_make_logging_obj(test_name),
         request_body={},
     )
 
@@ -361,7 +361,7 @@ async def test_async_sse_wrapper_excludes_synthetic_error_event_from_logged_chun
             yield event
 
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_synthetic_error_not_logged"),
+        embrouter_logging_obj=_make_logging_obj("test_synthetic_error_not_logged"),
         request_body={},
     )
     chunks = await _collect(iterator, _truncated_stream())
@@ -380,7 +380,7 @@ async def _events_then_hang(events):
 @pytest.mark.asyncio
 async def test_async_sse_wrapper_skips_logging_on_disconnect_before_first_chunk():
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_disconnect_before_first_chunk"),
+        embrouter_logging_obj=_make_logging_obj("test_disconnect_before_first_chunk"),
         request_body={},
     )
     wrapped = iterator.async_sse_wrapper(_events_then_hang(()))
@@ -458,7 +458,7 @@ async def test_async_sse_wrapper_bills_full_stream_after_client_disconnect():
         upstream_fully_drained.set()
 
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_bills_full_stream_after_disconnect"),
+        embrouter_logging_obj=_make_logging_obj("test_bills_full_stream_after_disconnect"),
         request_body={},
     )
 
@@ -498,7 +498,7 @@ async def test_async_sse_wrapper_bills_full_stream_when_client_reads_all():
             yield event
 
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_bills_full_stream_happy_path"),
+        embrouter_logging_obj=_make_logging_obj("test_bills_full_stream_happy_path"),
         request_body={},
     )
     client_chunks = [chunk async for chunk in iterator.async_sse_wrapper(_full_stream())]
@@ -538,7 +538,7 @@ async def test_async_sse_wrapper_dispatches_deferred_logging_when_client_disconn
 
     logging_obj = _make_logging_obj("test_deferred_dispatch_on_disconnect_mid_tail")
     logging_obj._on_deferred_stream_complete = _deferred_stream_complete
-    iterator = BaseAnthropicMessagesStreamingIterator(litellm_logging_obj=logging_obj, request_body={})
+    iterator = BaseAnthropicMessagesStreamingIterator(embrouter_logging_obj=logging_obj, request_body={})
 
     async def _full_stream():
         for event in (*_STREAM_PREFIX, *_STREAM_TAIL):
@@ -610,11 +610,11 @@ async def test_async_sse_wrapper_reraises_upstream_error_to_connected_client():
 
     recorder = _FailureRecorder()
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_reraises_upstream_error", recorder),
+        embrouter_logging_obj=_make_logging_obj("test_reraises_upstream_error", recorder),
         request_body={},
     )
     detached_hook = _DetachedFailureRecorder()
-    iterator.litellm_logging_obj._on_detached_stream_failure = detached_hook
+    iterator.embrouter_logging_obj._on_detached_stream_failure = detached_hook
 
     received = []
 
@@ -655,11 +655,11 @@ async def test_async_sse_wrapper_logs_failure_on_upstream_error_after_disconnect
 
     recorder = _FailureRecorder()
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_failure_logged_on_late_error", recorder),
+        embrouter_logging_obj=_make_logging_obj("test_failure_logged_on_late_error", recorder),
         request_body={},
     )
     detached_hook = _DetachedFailureRecorder()
-    iterator.litellm_logging_obj._on_detached_stream_failure = detached_hook
+    iterator.embrouter_logging_obj._on_detached_stream_failure = detached_hook
 
     gen = iterator.async_sse_wrapper(_gated_failing_stream())
     received = [await gen.__anext__(), await gen.__anext__()]
@@ -696,11 +696,11 @@ async def test_async_sse_wrapper_logs_failure_when_queued_error_is_never_consume
 
     recorder = _FailureRecorder()
     iterator = _RecordingLoggingIterator(
-        litellm_logging_obj=_make_logging_obj("test_failure_logged_on_unconsumed_queued_error", recorder),
+        embrouter_logging_obj=_make_logging_obj("test_failure_logged_on_unconsumed_queued_error", recorder),
         request_body={},
     )
     detached_hook = _DetachedFailureRecorder()
-    iterator.litellm_logging_obj._on_detached_stream_failure = detached_hook
+    iterator.embrouter_logging_obj._on_detached_stream_failure = detached_hook
 
     gen = iterator.async_sse_wrapper(_failing_stream())
     received = [await gen.__anext__(), await gen.__anext__()]
@@ -781,7 +781,7 @@ async def test_async_sse_wrapper_bills_partial_when_detached_drain_cap_reached(m
         yield {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 42}}
         yield {"type": "message_stop"}
 
-    iterator = _RecordingLoggingIterator(litellm_logging_obj=_make_logging_obj("drain_cap_full"), request_body={})
+    iterator = _RecordingLoggingIterator(embrouter_logging_obj=_make_logging_obj("drain_cap_full"), request_body={})
     try:
         gen = iterator.async_sse_wrapper(_long_stream())
         await gen.__anext__()  # message_start
@@ -826,7 +826,7 @@ async def test_async_sse_wrapper_bills_partial_when_detached_drains_disabled(mon
         yield {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 42}}
         yield {"type": "message_stop"}
 
-    iterator = _RecordingLoggingIterator(litellm_logging_obj=_make_logging_obj("drains_disabled"), request_body={})
+    iterator = _RecordingLoggingIterator(embrouter_logging_obj=_make_logging_obj("drains_disabled"), request_body={})
     gen = iterator.async_sse_wrapper(_long_stream())
     await gen.__anext__()  # message_start
     await gen.__anext__()  # first delta
@@ -854,14 +854,14 @@ class _SuccessRecorder(CustomLogger):
         self.success_kwargs.append(kwargs)
 
 
-def _make_priced_logging_obj(call_id: str, recorder: _SuccessRecorder, model: str) -> LiteLLMLoggingObj:
-    logging_obj = LiteLLMLoggingObj(
+def _make_priced_logging_obj(call_id: str, recorder: _SuccessRecorder, model: str) -> EmbRouterLoggingObj:
+    logging_obj = EmbRouterLoggingObj(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id=call_id,
+        embrouter_call_id=call_id,
         function_id=call_id,
         dynamic_async_success_callbacks=[recorder],
     )
@@ -869,7 +869,7 @@ def _make_priced_logging_obj(call_id: str, recorder: _SuccessRecorder, model: st
         model=model,
         user="",
         optional_params={},
-        litellm_params={"custom_llm_provider": "anthropic"},
+        embrouter_params={"custom_llm_provider": "anthropic"},
         custom_llm_provider="anthropic",
     )
     return logging_obj
@@ -906,15 +906,15 @@ async def test_client_disconnect_partial_billing_prices_recovered_tokens(monkeyp
     stayed priced at the message_start placeholder (1 output token). The success
     row's response_cost must match its recovered completion_tokens.
     """
-    import litellm
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    import embrouter
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     monkeypatch.setattr(streaming_iterator_module, "ANTHROPIC_MESSAGES_MAX_DETACHED_STREAM_DRAINS", 0)
     monkeypatch.setattr(streaming_iterator_module, "ANTHROPIC_MESSAGES_STREAM_RELAY_QUEUE_MAXSIZE", 4)
     model = "claude-sonnet-5"
     recorder = _SuccessRecorder()
     iterator = BaseAnthropicMessagesStreamingIterator(
-        litellm_logging_obj=_make_priced_logging_obj("disconnect_partial_cost", recorder, model),
+        embrouter_logging_obj=_make_priced_logging_obj("disconnect_partial_cost", recorder, model),
         request_body={"model": model, "stream": True},
     )
     sentence = "The history of computing spans centuries of mechanical and electronic invention. "
@@ -950,7 +950,7 @@ async def test_client_disconnect_partial_billing_prices_recovered_tokens(monkeyp
     assert len(recorder.success_kwargs) == 1
     logged = recorder.success_kwargs[0]["standard_logging_object"]
     assert 1 < logged["completion_tokens"] < 1500
-    prompt_cost, completion_cost = litellm.cost_per_token(
+    prompt_cost, completion_cost = embrouter.cost_per_token(
         model=model, prompt_tokens=29, completion_tokens=logged["completion_tokens"]
     )
     assert logged["response_cost"] == pytest.approx(prompt_cost + completion_cost)
@@ -965,13 +965,13 @@ async def test_proxy_disconnect_closing_upstream_prices_recovered_tokens():
     message_delta. That row's response_cost must be priced from its recovered
     completion_tokens, not from the message_start placeholder.
     """
-    import litellm
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    import embrouter
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     model = "claude-sonnet-5"
     recorder = _SuccessRecorder()
     iterator = BaseAnthropicMessagesStreamingIterator(
-        litellm_logging_obj=_make_priced_logging_obj("disconnect_upstream_closed", recorder, model),
+        embrouter_logging_obj=_make_priced_logging_obj("disconnect_upstream_closed", recorder, model),
         request_body={"model": model, "stream": True},
     )
     sentence = "The history of computing spans centuries of mechanical and electronic invention. "
@@ -1007,7 +1007,7 @@ async def test_proxy_disconnect_closing_upstream_prices_recovered_tokens():
     assert len(recorder.success_kwargs) == 1
     logged = recorder.success_kwargs[0]["standard_logging_object"]
     assert logged["completion_tokens"] > 1
-    prompt_cost, completion_cost = litellm.cost_per_token(
+    prompt_cost, completion_cost = embrouter.cost_per_token(
         model=model, prompt_tokens=29, completion_tokens=logged["completion_tokens"]
     )
     assert logged["response_cost"] == pytest.approx(prompt_cost + completion_cost)
@@ -1056,7 +1056,7 @@ async def test_async_sse_wrapper_aborts_upstream_when_detached_drain_cap_reached
             self.aclose_called = True
 
     stream = _AbortableStream()
-    iterator = _RecordingLoggingIterator(litellm_logging_obj=_make_logging_obj("abort_upstream_at_cap"), request_body={})
+    iterator = _RecordingLoggingIterator(embrouter_logging_obj=_make_logging_obj("abort_upstream_at_cap"), request_body={})
     try:
         gen = iterator.async_sse_wrapper(stream)
         await gen.__anext__()
@@ -1090,7 +1090,7 @@ async def test_abort_upstream_logs_warning_when_aclose_raises(caplog):
         async def aclose(self):
             raise RuntimeError("aclose exploded")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await BaseAnthropicMessagesStreamingIterator._abort_upstream(_ExplodingStream())
 
     assert any("abort" in r.message and "RuntimeError" in r.message for r in caplog.records)
@@ -1100,7 +1100,7 @@ async def test_abort_upstream_logs_warning_when_aclose_raises(caplog):
 async def test_enqueue_for_client_returns_false_when_already_detached():
     """_enqueue_for_client must return False immediately (without touching the queue)
     when client_detached is already set before the call."""
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         BaseAnthropicMessagesStreamingIterator,
     )
 
@@ -1117,7 +1117,7 @@ async def test_enqueue_for_client_returns_false_when_already_detached():
 async def test_enqueue_for_client_returns_false_when_client_detaches_while_queue_full():
     """_enqueue_for_client must return False (and cancel the put) when the queue
     is full and client_detached fires before space becomes available."""
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         BaseAnthropicMessagesStreamingIterator,
     )
 
@@ -1152,7 +1152,7 @@ async def test_async_sse_wrapper_drains_detached_when_cap_available(monkeypatch)
         yield {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 42}}
         yield {"type": "message_stop"}
 
-    iterator = _RecordingLoggingIterator(litellm_logging_obj=_make_logging_obj("drain_cap_free"), request_body={})
+    iterator = _RecordingLoggingIterator(embrouter_logging_obj=_make_logging_obj("drain_cap_free"), request_body={})
     gen = iterator.async_sse_wrapper(_stream())
     await gen.__anext__()
     await gen.__anext__()
@@ -1343,11 +1343,11 @@ async def test_normal_end_with_deferred_dispatch_armed_parks_logging_coroutine(m
     worker = _RecordingLoggingWorker()
     monkeypatch.setattr(streaming_iterator_module, "GLOBAL_LOGGING_WORKER", worker)
     iterator = _make_iterator("test_deferred_parks_logging_coroutine")
-    iterator.litellm_logging_obj._on_deferred_stream_complete = _noop_deferred_dispatch
+    iterator.embrouter_logging_obj._on_deferred_stream_complete = _noop_deferred_dispatch
 
     await _collect(iterator, _stream_of(COMPLETE_STREAM_EVENTS))
 
-    parked = getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None)
+    parked = getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None)
     assert worker.enqueued == []
     assert parked is not None
     assert len(parked) == 1
@@ -1366,7 +1366,7 @@ async def test_client_disconnect_enqueues_immediately_even_when_deferred_dispatc
     worker = _RecordingLoggingWorker()
     monkeypatch.setattr(streaming_iterator_module, "GLOBAL_LOGGING_WORKER", worker)
     iterator = _make_iterator("test_disconnect_enqueues_when_armed")
-    iterator.litellm_logging_obj._on_deferred_stream_complete = _noop_deferred_dispatch
+    iterator.embrouter_logging_obj._on_deferred_stream_complete = _noop_deferred_dispatch
 
     tail_gated = asyncio.Event()
 
@@ -1388,7 +1388,7 @@ async def test_client_disconnect_enqueues_immediately_even_when_deferred_dispatc
         await asyncio.sleep(0.01)
 
     assert len(worker.enqueued) == 1
-    assert getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None) is None
+    assert getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None) is None
     worker.close_enqueued()
 
 
@@ -1401,7 +1401,7 @@ async def test_normal_end_without_deferred_dispatch_enqueues_immediately(monkeyp
     await _collect(iterator, _stream_of(COMPLETE_STREAM_EVENTS))
 
     assert len(worker.enqueued) == 1
-    assert getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None) is None
+    assert getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None) is None
     worker.close_enqueued()
 
 
@@ -1448,7 +1448,7 @@ async def test_normal_end_parks_deferred_logging_even_when_sentinel_enqueue_back
         logging_coroutine.close()
 
     iterator = _make_iterator("test_sentinel_backpressure_normal_end")
-    iterator.litellm_logging_obj._on_deferred_stream_complete = _deferred_stream_complete
+    iterator.embrouter_logging_obj._on_deferred_stream_complete = _deferred_stream_complete
 
     upstream_exhausted = asyncio.Event()
     gen = _backpressured_wrapper(iterator, upstream_exhausted)
@@ -1461,14 +1461,14 @@ async def test_normal_end_parks_deferred_logging_even_when_sentinel_enqueue_back
             break
 
     for _ in range(100):
-        if worker.enqueued or getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None):
+        if worker.enqueued or getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None):
             break
         await asyncio.sleep(0.01)
 
     assert len(received) == len(COMPLETE_STREAM_EVENTS)
     assert worker.enqueued == [], "fully delivered stream billed through the teardown path"
     assert dispatched == []
-    parked = getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None)
+    parked = getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None)
     assert parked is not None, "pump never parked deferred billing"
     parked[0].close()
 
@@ -1499,14 +1499,14 @@ async def test_relay_teardown_dispatches_deferred_billing_when_sentinel_never_co
         return _consume()
 
     iterator = _make_iterator("test_sentinel_never_consumed_dispatch")
-    iterator.litellm_logging_obj._on_deferred_stream_complete = _deferred_stream_complete
+    iterator.embrouter_logging_obj._on_deferred_stream_complete = _deferred_stream_complete
 
     upstream_exhausted = asyncio.Event()
     gen = _backpressured_wrapper(iterator, upstream_exhausted)
     await _drain_with_pauses_until_upstream_exhausted(gen, upstream_exhausted)
 
     for _ in range(100):
-        if getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None) is not None:
+        if getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None) is not None:
             break
         await asyncio.sleep(0.01)
 
@@ -1518,8 +1518,8 @@ async def test_relay_teardown_dispatches_deferred_billing_when_sentinel_never_co
         await asyncio.sleep(0.01)
 
     assert len(dispatched) == 1, "parked billing was never dispatched"
-    assert getattr(iterator.litellm_logging_obj, "_deferred_stream_complete_args", None) is None
-    assert getattr(iterator.litellm_logging_obj, "_on_deferred_stream_complete", None) is None
+    assert getattr(iterator.embrouter_logging_obj, "_deferred_stream_complete_args", None) is None
+    assert getattr(iterator.embrouter_logging_obj, "_on_deferred_stream_complete", None) is None
     assert len(worker.enqueued) == 1, "teardown billing enqueued alongside the deferred dispatch"
     await worker.enqueued[0]
     assert deferred_fired.is_set()

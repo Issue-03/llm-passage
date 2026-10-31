@@ -11,7 +11,7 @@ Soniox's async transcription API requires multiple HTTP calls:
 
 Because this does not fit the single-request shape of
 `base_llm_http_handler.audio_transcriptions`, the dispatch in
-`litellm.main.transcription()` routes Soniox requests directly to this
+`embrouter.main.transcription()` routes Soniox requests directly to this
 handler (analogous to the OpenAI / Azure transcription handlers).
 """
 
@@ -24,20 +24,20 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.litellm_core_utils.audio_utils.utils import (
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     get_audio_file_name,
     process_audio_file,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.soniox.audio_transcription.transformation import (
+from embrouter.llms.soniox.audio_transcription.transformation import (
     SonioxAudioTranscriptionConfig,
 )
-from litellm.llms.soniox.common_utils import (
+from embrouter.llms.soniox.common_utils import (
     SONIOX_DEFAULT_CLEANUP,
     SONIOX_DEFAULT_MAX_POLL_ATTEMPTS,
     SONIOX_DEFAULT_POLL_INTERVAL,
@@ -48,14 +48,14 @@ from litellm.llms.soniox.common_utils import (
     SonioxException,
     get_soniox_api_base,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class _TranscriptionMeta(TypedDict, total=False):
@@ -113,11 +113,11 @@ class SonioxAudioTranscriptionHandler:
         model: str,
         audio_file: FileTypes | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
         max_retries: int,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -128,10 +128,10 @@ class SonioxAudioTranscriptionHandler:
         """Sync/async dispatch for Soniox transcription requests.
 
         Note: ``max_retries`` is accepted for signature compatibility with
-        ``litellm.transcription`` but is **not yet implemented** for the Soniox
+        ``embrouter.transcription`` but is **not yet implemented** for the Soniox
         async pipeline. Transient HTTP failures during upload, create, poll,
         or fetch will surface immediately. Wrap calls with the standard
-        ``litellm.Router`` / ``num_retries`` mechanism for retry behaviour.
+        ``embrouter.Router`` / ``num_retries`` mechanism for retry behaviour.
         """
         config: Final = provider_config or SonioxAudioTranscriptionConfig()
 
@@ -140,7 +140,7 @@ class SonioxAudioTranscriptionHandler:
                 model=model,
                 audio_file=audio_file,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 model_response=model_response,
                 timeout=timeout,
                 logging_obj=logging_obj,
@@ -155,7 +155,7 @@ class SonioxAudioTranscriptionHandler:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             model_response=model_response,
             timeout=timeout,
             logging_obj=logging_obj,
@@ -174,7 +174,7 @@ class SonioxAudioTranscriptionHandler:
         self,
         audio_file: FileTypes | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None,
         api_base: str | None,
         provider_config: SonioxAudioTranscriptionConfig,
@@ -191,7 +191,7 @@ class SonioxAudioTranscriptionHandler:
             model="",  # unused
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
@@ -228,7 +228,7 @@ class SonioxAudioTranscriptionHandler:
         clamped_poll_interval: Final = max(SONIOX_MIN_POLL_INTERVAL, min(poll_interval, SONIOX_MAX_POLL_INTERVAL))
         clamped_max_attempts: Final = max(1, min(max_attempts, SONIOX_MAX_POLL_ATTEMPTS))
 
-        # response_format is handled by LiteLLM post-processing, not Soniox.
+        # response_format is handled by EmbRouter post-processing, not Soniox.
         handler_opts: Final[_HandlerOptions] = {
             "poll_interval": clamped_poll_interval,
             "max_attempts": clamped_max_attempts,
@@ -288,7 +288,7 @@ class SonioxAudioTranscriptionHandler:
 
     @staticmethod
     def _safe_log_pre_call(
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str,
         body: dict[str, object],
@@ -310,7 +310,7 @@ class SonioxAudioTranscriptionHandler:
 
     @staticmethod
     def _safe_log_post_call(
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         audio_file: FileTypes | None,
         api_key: str | None,
         body: dict[str, object],
@@ -360,10 +360,10 @@ class SonioxAudioTranscriptionHandler:
         model: str,
         audio_file: FileTypes | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         client: HTTPHandler | None,
@@ -373,7 +373,7 @@ class SonioxAudioTranscriptionHandler:
         auth_headers, base_url, opt_params, handler_opts = self._prepare(
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
             provider_config=provider_config,
@@ -385,7 +385,7 @@ class SonioxAudioTranscriptionHandler:
             if isinstance(client, HTTPHandler)
             else (
                 _get_httpx_client(
-                    params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                    params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 )
             )
         )
@@ -591,22 +591,22 @@ class SonioxAudioTranscriptionHandler:
         model: str,
         audio_file: FileTypes | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         client: AsyncHTTPHandler | None,
         headers: dict[str, str],
         provider_config: SonioxAudioTranscriptionConfig,
     ) -> TranscriptionResponse:
-        import litellm
+        import embrouter
 
         auth_headers, base_url, opt_params, handler_opts = self._prepare(
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
             provider_config=provider_config,
@@ -618,8 +618,8 @@ class SonioxAudioTranscriptionHandler:
             if isinstance(client, AsyncHTTPHandler)
             else (
                 get_async_httpx_client(
-                    llm_provider=litellm.LlmProviders.SONIOX,
-                    params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                    llm_provider=embrouter.LlmProviders.SONIOX,
+                    params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 )
             )
         )

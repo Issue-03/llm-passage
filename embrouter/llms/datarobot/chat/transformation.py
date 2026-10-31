@@ -7,7 +7,7 @@ Calls done in OpenAI/openai.py as DataRobot is openai-compatible.
 from typing import Final
 from urllib.parse import urlparse, urlunparse
 
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 from ...openai_like.chat.transformation import OpenAILikeChatConfig
 
@@ -75,7 +75,7 @@ class DataRobotConfig(OpenAILikeChatConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

@@ -4,10 +4,10 @@ MiniMax OpenAI transformation config - extends OpenAI chat config for MiniMax's 
 
 from typing import Final
 
-import litellm
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+import embrouter
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
 
 
 class MinimaxChatConfig(OpenAIGPTConfig):
@@ -28,7 +28,7 @@ class MinimaxChatConfig(OpenAIGPTConfig):
         """
         Get MiniMax API key from environment or parameters.
         """
-        return api_key or get_secret_str("MINIMAX_API_KEY") or litellm.api_key
+        return api_key or get_secret_str("MINIMAX_API_KEY") or embrouter.api_key
 
     @staticmethod
     def get_api_base(
@@ -47,7 +47,7 @@ class MinimaxChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -90,7 +90,7 @@ class MinimaxChatConfig(OpenAIGPTConfig):
 
         # Add thinking parameter if model supports reasoning
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider="minimax"):
+            if embrouter.supports_reasoning(model=model, custom_llm_provider="minimax"):
                 additional_params.append("thinking")
         except Exception:
             pass

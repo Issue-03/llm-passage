@@ -11,16 +11,16 @@ from itertools import chain, pairwise
 from types import MappingProxyType
 from typing import Final, Literal, TypeAlias
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.vertex_ai.gemini.grounding_requests import GroundingRequests, calculate_grounding_requests
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.vertex_ai.gemini.grounding_requests import GroundingRequests, calculate_grounding_requests
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.base_passthrough_logging_handler import (
     BasePassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
     PassThroughEndpointLoggingTypedDict,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     CostBreakdown,
     LlmProviders,
@@ -124,7 +124,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
 
     def get_provider_config(self, model: str):
         """Return Vertex AI provider configuration."""
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -241,7 +241,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
         grounding_requests: GroundingRequests = _NO_GROUNDING,
     ) -> Usage:
         """
-        Create a LiteLLM Usage object from Live API usage metadata.
+        Create a EmbRouter Usage object from Live API usage metadata.
 
         Args:
             usage_metadata: Usage metadata from the Live API response
@@ -250,7 +250,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 turns, matching the per-turn charge
 
         Returns:
-            LiteLLM Usage object
+            EmbRouter Usage object
         """
         prompt_by_modality: Final = VertexAILivePassthroughLoggingHandler._sum_by_modality(
             VertexAILivePassthroughLoggingHandler._resolve_detail_counts(
@@ -302,14 +302,14 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
         self,
         turn: Sequence[object],
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> tuple[float, CostBreakdown] | None:
         usage: Final = self._session_usage(turn, model)
         if usage is None:
             return None
         cost: Final = logging_obj._response_cost_calculator(  # pyright: ignore[reportPrivateUsage]  # the call's own calculator keeps custom pricing and the deployment's region in step with the spend row
             result=ModelResponse(model=model, usage=usage),
-            litellm_model_name=model,
+            embrouter_model_name=model,
         )
         if cost is None:
             return None
@@ -320,7 +320,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
         self,
         websocket_messages: Sequence[object],
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> float | None:
         """Price each turn on its own tokens and grounding, so two grounded turns pay the query fee twice.
 
@@ -363,7 +363,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
     def vertex_ai_live_passthrough_handler(
         self,
         websocket_messages: Sequence[object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         start_time: datetime,
         end_time: datetime,
@@ -375,7 +375,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
 
         Args:
             websocket_messages: List of WebSocket messages from the Live API
-            logging_obj: LiteLLM logging object
+            logging_obj: EmbRouter logging object
             url_route: The URL route that was called
             start_time: Request start time
             end_time: Request end time
@@ -408,7 +408,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
             response_cost: Final = self._session_cost(websocket_messages, model, logging_obj)
 
             # Create a mock ModelResponse for standard logging
-            litellm_model_response: Final = ModelResponse(
+            embrouter_model_response: Final = ModelResponse(
                 id=f"vertex-ai-live-{start_time.timestamp()}",
                 object="chat.completion",
                 created=int(start_time.timestamp()),
@@ -417,7 +417,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 choices=[],
             )
             if response_cost is not None:
-                litellm_model_response._hidden_params["response_cost"] = response_cost  # pyright: ignore[reportPrivateUsage]  # the logger reads the cost off the response's hidden params; the constructor's hidden_params kwarg is reset by pydantic
+                embrouter_model_response._hidden_params["response_cost"] = response_cost  # pyright: ignore[reportPrivateUsage]  # the logger reads the cost off the response's hidden params; the constructor's hidden_params kwarg is reset by pydantic
 
             kwargs["model"] = model
             kwargs["custom_llm_provider"] = custom_llm_provider
@@ -438,7 +438,7 @@ class VertexAILivePassthroughLoggingHandler(BasePassthroughLoggingHandler):
             )
 
             return {
-                "result": litellm_model_response,
+                "result": embrouter_model_response,
                 "kwargs": kwargs,
             }
 

@@ -64,7 +64,7 @@ def overwrite_private_json(path: str, data: Mapping[str, object]) -> None:
     """Rewrite a file that is already there, in place, keeping the mode it was created with.
 
     `write_private_json` needs room for a second file and a directory that will accept it, which is
-    what a full disk and a read-only `~/.litellm` respectively refuse. Shortening the file already
+    what a full disk and a read-only `~/.embrouter` respectively refuse. Shortening the file already
     in place needs neither. It is not atomic, so an interrupted write leaves a partial file, and it
     never creates one, so it cannot put a world-readable file where a private one was.
     """

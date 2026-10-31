@@ -1,8 +1,8 @@
 from typing import Final
 
-import litellm
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.secret_managers.main import get_secret_str
+import embrouter
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.secret_managers.main import get_secret_str
 
 
 class FeatherlessAIConfig(OpenAIGPTConfig):
@@ -82,11 +82,11 @@ class FeatherlessAIConfig(OpenAIGPTConfig):
                     optional_params[param] = value
                 else:  # https://featherless.ai/docs/completions
                     ## UNSUPPORTED TOOL CHOICE VALUE
-                    if litellm.drop_params is True or drop_params is True:
+                    if embrouter.drop_params is True or drop_params is True:
                         value = None
                     else:
-                        error_message = f"Featherless AI doesn't support {param}={value}. To drop unsupported openai params from the call, set `litellm.drop_params = True`"
-                        raise litellm.utils.UnsupportedParamsError(
+                        error_message = f"Featherless AI doesn't support {param}={value}. To drop unsupported openai params from the call, set `embrouter.drop_params = True`"
+                        raise embrouter.utils.UnsupportedParamsError(
                             message=error_message,
                             status_code=400,
                         )
@@ -116,7 +116,7 @@ class FeatherlessAIConfig(OpenAIGPTConfig):
         model: str,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

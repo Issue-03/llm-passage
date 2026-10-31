@@ -16,11 +16,11 @@ class DiskCache(BaseCache):
         try:
             import diskcache as dc
         except ModuleNotFoundError as e:
-            raise ModuleNotFoundError("Please install litellm with `litellm[caching]` to use disk caching.") from e
+            raise ModuleNotFoundError("Please install embrouter with `embrouter[caching]` to use disk caching.") from e
 
-        # if users don't provider one, use the default litellm cache
+        # if users don't provider one, use the default embrouter cache
         if disk_cache_dir is None:
-            self.disk_cache = dc.Cache(".litellm_cache")
+            self.disk_cache = dc.Cache(".embrouter_cache")
         else:
             self.disk_cache = dc.Cache(disk_cache_dir)
 

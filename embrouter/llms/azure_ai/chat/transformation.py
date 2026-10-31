@@ -6,31 +6,31 @@ from typing import TYPE_CHECKING, Final, cast
 import httpx
 from httpx import Response
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _audio_or_image_in_message_content,
     convert_content_list_to_str,
     filter_value_from_dict,
 )
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.azure_ai.common_utils import (
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.azure_ai.common_utils import (
     api_key_header_for_base,
     is_foundry_model_inference_base,
 )
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
-from litellm.llms.openai.common_utils import drop_params_from_unprocessable_entity_error
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.llms.xai.chat.transformation import XAIChatConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ModelResponse, ProviderField
-from litellm.utils import _add_path_to_api_base, supports_tool_choice
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
+from embrouter.llms.openai.common_utils import drop_params_from_unprocessable_entity_error
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.llms.xai.chat.transformation import XAIChatConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ModelResponse, ProviderField
+from embrouter.utils import _add_path_to_api_base, supports_tool_choice
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AzureFoundryErrorStrings(str, enum.Enum):
@@ -60,7 +60,7 @@ class AzureAIGPT5Config(OpenAIGPT5Config):
         resolver instead.
         """
         prefixed: Final = model if model.startswith("azure_ai/") else f"azure_ai/{model}"
-        return prefixed if prefixed in litellm.model_cost else super()._model_map_lookup_name(model)
+        return prefixed if prefixed in embrouter.model_cost else super()._model_map_lookup_name(model)
 
 
 azureAIGPT5Config: Final = AzureAIGPT5Config()
@@ -126,7 +126,7 @@ class AzureAIStudioConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -137,8 +137,8 @@ class AzureAIStudioConfig(OpenAIConfig):
                 headers["Authorization"] = f"Bearer {api_key}"
         else:
             # No api_key provided — fall back to Azure AD token-based auth
-            litellm_params_obj = GenericLiteLLMParams(**(litellm_params if isinstance(litellm_params, dict) else {}))
-            headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=litellm_params_obj)
+            embrouter_params_obj = GenericEmbRouterParams(**(embrouter_params if isinstance(embrouter_params, dict) else {}))
+            headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=embrouter_params_obj)
 
         headers["Content-Type"] = "application/json"
 
@@ -156,7 +156,7 @@ class AzureAIStudioConfig(OpenAIConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -164,16 +164,16 @@ class AzureAIStudioConfig(OpenAIConfig):
 
         Args:
         - api_base: Base URL, e.g.,
-            "https://litellm8397336933.services.ai.azure.com"
+            "https://embrouter8397336933.services.ai.azure.com"
             OR
-            "https://litellm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
+            "https://embrouter8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
         - model: Model name.
         - optional_params: Additional query parameters, including "api_version".
         - stream: If streaming is required (optional).
 
         Returns:
         - A complete URL string, e.g.,
-        "https://litellm8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
+        "https://embrouter8397336933.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview"
         """
         if api_base is None:
             raise ValueError(
@@ -182,7 +182,7 @@ class AzureAIStudioConfig(OpenAIConfig):
         original_url: Final = httpx.URL(api_base)
 
         # Extract api_version or use default
-        api_version: Final = cast(str | None, litellm_params.get("api_version"))
+        api_version: Final = cast(str | None, embrouter_params.get("api_version"))
 
         # Create a new dictionary with existing params
         query_params: Final = dict(original_url.params)
@@ -261,9 +261,9 @@ class AzureAIStudioConfig(OpenAIConfig):
             return False
         stripped_model: Final = model.split("/", 1)[1] if "/" in model else model
         return (
-            stripped_model in litellm.open_ai_chat_completion_models
-            or stripped_model in litellm.open_ai_text_completion_models
-            or stripped_model in litellm.open_ai_embedding_models
+            stripped_model in embrouter.open_ai_chat_completion_models
+            or stripped_model in embrouter.open_ai_text_completion_models
+            or stripped_model in embrouter.open_ai_embedding_models
         )
 
     def _get_openai_compatible_provider_info(
@@ -286,25 +286,25 @@ class AzureAIStudioConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         extra_body: Final = optional_params.pop("extra_body", {})
         if extra_body and isinstance(extra_body, dict):
             optional_params.update(extra_body)
         optional_params.pop("max_retries", None)
-        return super().transform_request(model, messages, optional_params, litellm_params, headers)
+        return super().transform_request(model, messages, optional_params, embrouter_params, headers)
 
     def transform_response(
         self,
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -318,16 +318,16 @@ class AzureAIStudioConfig(OpenAIConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding if encoding is not None else None,
             api_key=api_key,
             json_mode=json_mode,
         )
 
     def should_retry_llm_api_inside_llm_translation_on_http_error(
-        self, e: httpx.HTTPStatusError, litellm_params: dict
+        self, e: httpx.HTTPStatusError, embrouter_params: dict
     ) -> bool:
-        should_drop_params: Final = litellm_params.get("drop_params") or litellm.drop_params
+        should_drop_params: Final = embrouter_params.get("drop_params") or embrouter.drop_params
         error_text: Final = e.response.text
 
         if "Extra inputs are not permitted" in error_text:
@@ -337,7 +337,7 @@ class AzureAIStudioConfig(OpenAIConfig):
             return True
         if AzureFoundryErrorStrings.SET_EXTRA_PARAMETERS_TO_PASS_THROUGH.value in error_text:
             return True
-        return super().should_retry_llm_api_inside_llm_translation_on_http_error(e=e, litellm_params=litellm_params)
+        return super().should_retry_llm_api_inside_llm_translation_on_http_error(e=e, embrouter_params=embrouter_params)
 
     def _error_has_tool_level_extra_fields(self, error_text: str) -> bool:
         return bool(re.search(r"tools\[\d+\]\.", error_text))
@@ -350,7 +350,7 @@ class AzureAIStudioConfig(OpenAIConfig):
         error_text: Final = e.response.text
         _messages: Final = cast(list[AllMessageValues] | None, request_data.get("messages"))
         if "unknown field: parameter index is not a valid field" in error_text and _messages is not None:
-            litellm.remove_index_from_tool_calls(
+            embrouter.remove_index_from_tool_calls(
                 messages=_messages,
             )
         elif AzureFoundryErrorStrings.SET_EXTRA_PARAMETERS_TO_PASS_THROUGH.value in error_text:

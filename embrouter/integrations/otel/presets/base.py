@@ -3,13 +3,13 @@
 A preset is a callable that reads its integration's env vars and produces an
 :class:`OpenTelemetryV2Config` (exporter list + mapper-name list + resource
 attributes). This ``Protocol`` pins that contract so ``PRESET_BY_CALLBACK`` and
-the factory in ``litellm_logging`` are type-checked structurally against it,
+the factory in ``embrouter_logging`` are type-checked structurally against it,
 matching the ``AttributeMapper`` protocol the mappers use.
 """
 
 from typing import Protocol, runtime_checkable
 
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config
 
 
 @runtime_checkable

@@ -1,15 +1,15 @@
 """
-Bridge module for connecting Interactions API to Responses API via litellm.responses().
+Bridge module for connecting Interactions API to Responses API via embrouter.responses().
 """
 
-from litellm.interactions.litellm_responses_transformation.handler import (
-    LiteLLMResponsesInteractionsHandler,
+from embrouter.interactions.embrouter_responses_transformation.handler import (
+    EmbRouterResponsesInteractionsHandler,
 )
-from litellm.interactions.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesInteractionsConfig,
+from embrouter.interactions.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesInteractionsConfig,
 )
 
 __all__ = [
-    "LiteLLMResponsesInteractionsConfig",  # Transformation config class (not BaseInteractionsAPIConfig)
-    "LiteLLMResponsesInteractionsHandler",
+    "EmbRouterResponsesInteractionsConfig",  # Transformation config class (not BaseInteractionsAPIConfig)
+    "EmbRouterResponsesInteractionsHandler",
 ]

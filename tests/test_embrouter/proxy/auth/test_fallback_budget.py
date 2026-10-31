@@ -1,8 +1,8 @@
 import pytest
 
-from litellm import Router
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.fallback_budget import (
+from embrouter import Router
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.fallback_budget import (
     RouterFallbackBudgetCheck,
     is_token_within_budget_for_model,
     router_fallback_budget_check,
@@ -10,7 +10,7 @@ from litellm.proxy.auth.fallback_budget import (
 
 FREE_MODEL = {
     "model_name": "free-model",
-    "litellm_params": {
+    "embrouter_params": {
         "model": "ollama/llama2",
         "api_base": "http://localhost:11434",
         "input_cost_per_token": 0.0,
@@ -25,7 +25,7 @@ FREE_MODEL = {
 
 PAID_MODEL = {
     "model_name": "paid-model",
-    "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "k"},
     "model_info": {"id": "paid-model-id"},
 }
 
@@ -86,7 +86,7 @@ async def test_no_budget_configured_is_always_within_budget():
 @pytest.mark.asyncio
 async def test_team_key_does_not_inherit_personal_budget_by_default(monkeypatch):
     """Mirrors _PROXY_MaxBudgetLimiter: a team key ignores the owner's personal cap."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
     token = _token(team_id="t1", user_spend=1900.0, user_max_budget=50.0)
@@ -95,7 +95,7 @@ async def test_team_key_does_not_inherit_personal_budget_by_default(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_team_key_inherits_personal_budget_when_opted_in(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"apply_user_budget_to_team_keys": True}, raising=False)
     token = _token(team_id="t1", user_spend=1900.0, user_max_budget=50.0)
@@ -114,7 +114,7 @@ async def test_request_without_a_key_is_unrestricted():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "embrouter_metadata"])
 async def test_enforced_check_reads_the_key_from_request_metadata(metadata_field: str):
     over = {metadata_field: {"user_api_key_auth": _token(user_spend=1900.0, user_max_budget=50.0)}}
     under = {metadata_field: {"user_api_key_auth": _token(user_spend=1.0, user_max_budget=50.0)}}
@@ -130,7 +130,7 @@ async def test_a_stale_low_counter_still_refuses_a_paid_target(monkeypatch):
     `get_current_spend` verify against authoritative spend instead of trusting that read, so the
     paid target is still refused.
     """
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     seen: list[dict] = []
 
@@ -148,7 +148,7 @@ async def test_a_stale_low_counter_still_refuses_a_paid_target(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_check_fails_closed_when_the_spend_lookup_breaks(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     async def _boom(**kwargs):
         raise RuntimeError("spend counter unavailable")
@@ -161,7 +161,7 @@ async def test_check_fails_closed_when_the_spend_lookup_breaks(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_router_skips_the_paid_fallback_target_when_over_budget():
-    from litellm.router_utils.fallback_event_handlers import _is_fallback_target_within_budget
+    from embrouter.router_utils.fallback_event_handlers import _is_fallback_target_within_budget
 
     router = Router(
         model_list=[FREE_MODEL, PAID_MODEL],
@@ -177,7 +177,7 @@ async def test_router_skips_the_paid_fallback_target_when_over_budget():
 
 @pytest.mark.asyncio
 async def test_router_without_a_budget_check_attempts_every_fallback():
-    from litellm.router_utils.fallback_event_handlers import _is_fallback_target_within_budget
+    from embrouter.router_utils.fallback_event_handlers import _is_fallback_target_within_budget
 
     router = _router()  # fallback_budget_check defaults to None
     over = {"metadata": {"user_api_key_auth": _token(user_spend=1900.0, user_max_budget=50.0)}}
@@ -191,7 +191,7 @@ async def test_enforcement_is_on_by_default_and_opt_out_restores_the_leak(monkey
     Leaving the paid fallback unguarded is the budget bypass this module exists to close, so an
     unconfigured proxy has to enforce. `enforce_fallback_budget: false` is the deliberate opt-out.
     """
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     over = {"metadata": {"user_api_key_auth": _token(user_spend=1900.0, user_max_budget=50.0)}}
 

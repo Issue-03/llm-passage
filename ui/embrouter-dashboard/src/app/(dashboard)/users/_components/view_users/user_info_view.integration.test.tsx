@@ -76,7 +76,7 @@ vi.mock("@/components/networking", async (importOriginal) => {
     teamListCall: (...args: unknown[]) => mockTeamListCall(...args),
     teamMemberAddCall: (...args: unknown[]) => mockTeamMemberAddCall(...args),
     teamMemberDeleteCall: (...args: unknown[]) => mockTeamMemberDeleteCall(...args),
-    getProxyBaseUrl: () => "https://litellm.test",
+    getProxyBaseUrl: () => "https://embrouter.test",
     fetchMCPServers: (...args: unknown[]) => mockFetchMCPServers(...args),
     fetchMCPToolsets: vi.fn().mockResolvedValue([]),
     listMCPTools: (...args: unknown[]) => mockListMCPTools(...args),

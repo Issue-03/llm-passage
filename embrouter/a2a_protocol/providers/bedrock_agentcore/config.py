@@ -5,8 +5,8 @@ Bedrock AgentCore A2A provider configuration.
 from collections.abc import AsyncIterator
 from typing import Any, Final
 
-from litellm.a2a_protocol.providers.base import BaseA2AProviderConfig
-from litellm.a2a_protocol.providers.bedrock_agentcore.handler import (
+from embrouter.a2a_protocol.providers.base import BaseA2AProviderConfig
+from embrouter.a2a_protocol.providers.bedrock_agentcore.handler import (
     BedrockAgentCoreA2AHandler,
 )
 
@@ -28,15 +28,15 @@ class BedrockAgentCoreA2AConfig(BaseA2AProviderConfig):
         **kwargs,
     ) -> dict[str, Any]:
         """Handle non-streaming request to AgentCore A2A agent."""
-        litellm_params: Final = kwargs.get("litellm_params")
-        if not litellm_params:
+        embrouter_params: Final = kwargs.get("embrouter_params")
+        if not embrouter_params:
             raise ValueError(
-                "litellm_params is required for BedrockAgentCoreA2AConfig (must contain model with AgentCore ARN)"
+                "embrouter_params is required for BedrockAgentCoreA2AConfig (must contain model with AgentCore ARN)"
             )
         return await BedrockAgentCoreA2AHandler.handle_non_streaming(
             request_id=request_id,
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             agent_extra_headers=kwargs.get("agent_extra_headers"),
         )
 
@@ -48,15 +48,15 @@ class BedrockAgentCoreA2AConfig(BaseA2AProviderConfig):
         **kwargs,
     ) -> AsyncIterator[dict[str, Any]]:
         """Handle streaming request to AgentCore A2A agent."""
-        litellm_params: Final = kwargs.get("litellm_params")
-        if not litellm_params:
+        embrouter_params: Final = kwargs.get("embrouter_params")
+        if not embrouter_params:
             raise ValueError(
-                "litellm_params is required for BedrockAgentCoreA2AConfig (must contain model with AgentCore ARN)"
+                "embrouter_params is required for BedrockAgentCoreA2AConfig (must contain model with AgentCore ARN)"
             )
         async for chunk in BedrockAgentCoreA2AHandler.handle_streaming(
             request_id=request_id,
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             agent_extra_headers=kwargs.get("agent_extra_headers"),
         ):
             yield chunk

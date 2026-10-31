@@ -53,7 +53,7 @@ export default function UpdateModelCredentialsModal({
     try {
       await modelPatchUpdateCall(
         accessToken,
-        { litellm_params: { api_key: apiKey }, model_info: { id: modelId } },
+        { embrouter_params: { api_key: apiKey }, model_info: { id: modelId } },
         modelId,
       );
       toast.success("API key updated");

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from litellm.types.utils import ServiceTier, StandardLoggingPayload
+from embrouter.types.utils import ServiceTier, StandardLoggingPayload
 
 # Tiers a caller may name in a request, across the providers that accept the
 # parameter: OpenAI ("auto", "default", "flex", "priority", "scale"), Bedrock and

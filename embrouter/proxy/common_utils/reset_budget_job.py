@@ -11,32 +11,32 @@ from typing import Final, Generic, Literal, Protocol, TypeVar
 
 from typing_extensions import assert_never
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import (
     GLOBAL_PROXY_SPEND_CACHE_KEY,
-    LITELLM_PROXY_BUDGET_NAME,
+    EMBROUTER_PROXY_BUDGET_NAME,
     RESET_BUDGET_JOB_BATCH_SIZE,
     RESET_BUDGET_JOB_LOCK_TTL_SECONDS,
     RESET_BUDGET_JOB_MAX_CHUNKS_PER_RUN,
     RESET_BUDGET_JOB_NAME,
 )
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.proxy._types import (
     DB_RETRY_SAFE_ERROR_TYPES,
-    LiteLLM_BudgetTableFull,
-    Litellm_EntityType,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LiteLLM_VerificationToken,
+    EmbRouter_BudgetTableFull,
+    Embrouter_EntityType,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
+    EmbRouter_VerificationToken,
 )
-from litellm.proxy.common_utils.timezone_utils import (
+from embrouter.proxy.common_utils.timezone_utils import (
     BudgetResetSettings,
     compute_budget_reset_at,
     get_budget_reset_settings,
 )
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.user_api_key_cache import (
     end_user_cache_key,
     model_access_group_cache_key,
     model_access_group_spend_counter_key,
@@ -44,29 +44,29 @@ from litellm.proxy.common_utils.user_api_key_cache import (
     project_spend_counter_key,
     tag_cache_key,
 )
-from litellm.proxy.db.budget_window_spend_writer import roll_window_spend_row
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-from litellm.proxy.db.exception_handler import call_with_db_reconnect_retry
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.prisma_protocols import PrismaBatch, SpendLinkedTable
-from litellm.repositories.project_repository import ProjectRepository
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.db.budget_window_spend_writer import roll_window_spend_row
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+from embrouter.proxy.db.exception_handler import call_with_db_reconnect_retry
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.prisma_protocols import PrismaBatch, SpendLinkedTable
+from embrouter.repositories.project_repository import ProjectRepository
+from embrouter.repositories.table_repositories import (
     EndUserRepository,
     ModelAccessGroupBudgetRepository,
     TagRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.unit_of_work import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.unit_of_work import (
     LinkedSpendResetWrites,
     budget_cascade_unit_of_work,
     spend_reset_unit_of_work,
 )
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.services import ServiceTypes
+from embrouter.types.services import ServiceTypes
 
 _RowT = TypeVar("_RowT")
 
@@ -128,7 +128,7 @@ class _EndUserRow(_BudgetLinkedRow, Protocol):
 
 
 def _rollover_enabled() -> bool:
-    return litellm.budget_rollover is True
+    return embrouter.budget_rollover is True
 
 
 def _rollover_cap(max_budget: float | None) -> float | None:
@@ -222,7 +222,7 @@ def _enduser_invalidation_where(budget_ids: Sequence[str]) -> dict[str, object]:
     post-commit would match nobody.
     """
     linked: Final = _budget_link_where(budget_ids)
-    default_budget_id: Final = litellm.max_end_user_budget_id
+    default_budget_id: Final = embrouter.max_end_user_budget_id
     if default_budget_id is None or default_budget_id not in budget_ids:
         return linked
     return {"OR": [linked, {"budget_id": None}]}  # mutable-ok: prisma where filter must be a dict
@@ -250,7 +250,7 @@ def _queue_budget_linked_resets(
 def _queue_enduser_resets(writes: LinkedSpendResetWrites, cascade: "_BudgetCascade") -> None:
     """End users reset on the budget link like every other gated table, plus a
     NULL-budget_id branch: rows created implicitly persist no link and ride the
-    default tier (litellm.max_end_user_budget_id).
+    default tier (embrouter.max_end_user_budget_id).
 
     Matching on the link rather than enumerating user ids keeps a statement's
     bind count proportional to the expiring tiers instead of the customer
@@ -258,7 +258,7 @@ def _queue_enduser_resets(writes: LinkedSpendResetWrites, cascade: "_BudgetCasca
     bind ceiling and wedges the cascade permanently (#40564).
     """
     _queue_budget_linked_resets(writes, cascade, extra=_SPENT_ROWS_WHERE)
-    default_budget_id: Final = litellm.max_end_user_budget_id
+    default_budget_id: Final = embrouter.max_end_user_budget_id
     if default_budget_id is None or default_budget_id not in cascade.budget_ids:
         return
     cap: Final = cascade.rollover_caps.get(default_budget_id)
@@ -273,7 +273,7 @@ def _queue_enduser_resets(writes: LinkedSpendResetWrites, cascade: "_BudgetCasca
 class _BudgetCascade:
     """Everything one budget-tier reset touches, resolved before any write."""
 
-    budgets: tuple[LiteLLM_BudgetTableFull, ...] = ()
+    budgets: tuple[EmbRouter_BudgetTableFull, ...] = ()
     budget_ids: tuple[str, ...] = ()
     budget_resets: tuple[tuple[str, datetime], ...] = ()
     counter_resets: tuple[tuple[str, float], ...] = ()
@@ -399,7 +399,7 @@ class _WindowSource:
 
     table: str
     id_column: str
-    entity_type: Litellm_EntityType
+    entity_type: Embrouter_EntityType
     counter_prefix: str
     log_subject: str
     retry_subject: str
@@ -422,18 +422,18 @@ class _WindowSource:
 
 _WINDOW_SOURCES: Final[tuple[_WindowSource, ...]] = (
     _WindowSource(
-        table="LiteLLM_VerificationToken",
+        table="EmbRouter_VerificationToken",
         id_column="token",
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Embrouter_EntityType.KEY,
         counter_prefix="spend:key",
         log_subject="keys",
         retry_subject="key",
         write=_write_key_windows,
     ),
     _WindowSource(
-        table="LiteLLM_TeamTable",
+        table="EmbRouter_TeamTable",
         id_column="team_id",
-        entity_type=Litellm_EntityType.TEAM,
+        entity_type=Embrouter_EntityType.TEAM,
         counter_prefix="spend:team",
         log_subject="teams",
         retry_subject="team",
@@ -542,10 +542,10 @@ class ResetBudgetJob:
             return
 
         try:
-            await self.reset_budget_for_litellm_keys()
-            await self.reset_budget_for_litellm_users()
-            await self.reset_budget_for_litellm_teams()
-            await self.reset_budget_for_litellm_budget_table()
+            await self.reset_budget_for_embrouter_keys()
+            await self.reset_budget_for_embrouter_users()
+            await self.reset_budget_for_embrouter_teams()
+            await self.reset_budget_for_embrouter_budget_table()
             await self.reset_budget_windows()
         finally:
             if lease is _Lease.LEADER and self.pod_lock_manager is not None:
@@ -579,7 +579,7 @@ class ResetBudgetJob:
         while the DB still holds the pre-reset value, allowing bypass.
         """
         try:
-            from litellm.proxy.proxy_server import spend_counter_cache
+            from embrouter.proxy.proxy_server import spend_counter_cache
 
             spend_counter_cache.in_memory_cache.delete_cache(key=counter_key)
             if spend_counter_cache.redis_cache is not None:
@@ -616,7 +616,7 @@ class ResetBudgetJob:
         Postgres.
         """
         try:
-            from litellm.proxy.proxy_server import user_api_key_cache
+            from embrouter.proxy.proxy_server import user_api_key_cache
 
             await user_api_key_cache.async_delete_cache(key=cache_key)
         except Exception as e:
@@ -641,7 +641,7 @@ class ResetBudgetJob:
         if not keys:
             return
         try:
-            from litellm.proxy.proxy_server import spend_counter_cache, user_api_key_cache
+            from embrouter.proxy.proxy_server import spend_counter_cache, user_api_key_cache
 
             match cache:
                 case "spend counter":
@@ -729,11 +729,11 @@ class ResetBudgetJob:
             )
         )
 
-    async def _collect_budget_cascade(self, budgets_to_reset: Sequence[LiteLLM_BudgetTableFull]) -> _BudgetCascade:
+    async def _collect_budget_cascade(self, budgets_to_reset: Sequence[EmbRouter_BudgetTableFull]) -> _BudgetCascade:
         """Resolve every row the expiring budget tiers gate, before any write.
 
         Keys carrying their own budget_duration are left out: they run on their
-        own schedule via reset_budget_for_litellm_keys(), so sweeping them here
+        own schedule via reset_budget_for_embrouter_keys(), so sweeping them here
         would reset them twice.
         """
         budget_ids: Final = tuple(b.budget_id for b in budgets_to_reset if b.budget_id is not None)
@@ -852,7 +852,7 @@ class ResetBudgetJob:
     async def _reset_expired_budget_cascade(self) -> _BudgetCascadeCommitted | _BudgetCascadeFailed:
         now: Final = datetime.now(timezone.utc)
         try:
-            budgets_to_reset: Final[Sequence[LiteLLM_BudgetTableFull] | None] = await self._with_db_retry(
+            budgets_to_reset: Final[Sequence[EmbRouter_BudgetTableFull] | None] = await self._with_db_retry(
                 lambda: self.prisma_client.get_data(
                     table_name="budget",
                     query_type="find_all",
@@ -880,7 +880,7 @@ class ResetBudgetJob:
             endusers=await self._invalidate_enduser_caches(cascade.budget_ids),
         )
 
-    async def reset_budget_for_litellm_budget_table(self) -> None:
+    async def reset_budget_for_embrouter_budget_table(self) -> None:
         """
         Resets the spend a budget tier gates (end users, team members, keys,
         orgs, tags, model access groups) and advances the tier's
@@ -889,9 +889,9 @@ class ResetBudgetJob:
         Caches are invalidated only after the transaction commits, so a failed
         run cannot leave a zeroed counter in front of an un-reset DB row.
         """
-        await _run_phase_in_chunks(self._reset_budget_for_litellm_budget_table_chunk)
+        await _run_phase_in_chunks(self._reset_budget_for_embrouter_budget_table_chunk)
 
-    async def _reset_budget_for_litellm_budget_table_chunk(self) -> _ChunkOutcome:
+    async def _reset_budget_for_embrouter_budget_table_chunk(self) -> _ChunkOutcome:
         start_time: Final = time.time()
         outcome: Final = await self._reset_expired_budget_cascade()
         end_time: Final = time.time()
@@ -937,14 +937,14 @@ class ResetBudgetJob:
             case _:
                 assert_never(outcome)
 
-    async def _write_key_reset_updates(self, updated_keys: Sequence[_RowReset[LiteLLM_VerificationToken]]) -> None:
+    async def _write_key_reset_updates(self, updated_keys: Sequence[_RowReset[EmbRouter_VerificationToken]]) -> None:
         """
         Write per-row {spend, budget_reset_at} updates for keys.
 
         Avoids the batched full-model update path, which trips
         prisma.errors.DataError on any row carrying object_permission_id or
         budget_limits (see #27730). Both fields are rejected by Prisma's
-        update input type for LiteLLM_VerificationToken, and the failure
+        update input type for EmbRouter_VerificationToken, and the failure
         aborts the entire batch — silently leaving spend over the cap and
         budget_reset_at unchanged forever.
         """
@@ -953,7 +953,7 @@ class ResetBudgetJob:
             reason="reset_budget_write_keys_failure",
         )
 
-    async def _write_key_reset_updates_once(self, updated_keys: Sequence[_RowReset[LiteLLM_VerificationToken]]) -> None:
+    async def _write_key_reset_updates_once(self, updated_keys: Sequence[_RowReset[EmbRouter_VerificationToken]]) -> None:
         async with spend_reset_unit_of_work(self._new_batch) as uow:
             for k in updated_keys:
                 if k.row.token is None:
@@ -964,7 +964,7 @@ class ResetBudgetJob:
                     spend_decrement=k.spend_decrement,
                 )
 
-    async def _write_user_reset_updates(self, updated_users: Sequence[_RowReset[LiteLLM_UserTable]]) -> None:
+    async def _write_user_reset_updates(self, updated_users: Sequence[_RowReset[EmbRouter_UserTable]]) -> None:
         """
         Write per-row {spend, budget_reset_at} updates for users.
 
@@ -977,7 +977,7 @@ class ResetBudgetJob:
             reason="reset_budget_write_users_failure",
         )
 
-    async def _write_user_reset_updates_once(self, updated_users: Sequence[_RowReset[LiteLLM_UserTable]]) -> None:
+    async def _write_user_reset_updates_once(self, updated_users: Sequence[_RowReset[EmbRouter_UserTable]]) -> None:
         async with spend_reset_unit_of_work(self._new_batch) as uow:
             for u in updated_users:
                 uow.users.queue_spend_reset(
@@ -986,7 +986,7 @@ class ResetBudgetJob:
                     spend_decrement=u.spend_decrement,
                 )
 
-    async def _write_team_reset_updates(self, updated_teams: Sequence[_RowReset[LiteLLM_TeamTable]]) -> None:
+    async def _write_team_reset_updates(self, updated_teams: Sequence[_RowReset[EmbRouter_TeamTable]]) -> None:
         """
         Write per-row {spend, budget_reset_at} updates for teams.
 
@@ -999,7 +999,7 @@ class ResetBudgetJob:
             reason="reset_budget_write_teams_failure",
         )
 
-    async def _write_team_reset_updates_once(self, updated_teams: Sequence[_RowReset[LiteLLM_TeamTable]]) -> None:
+    async def _write_team_reset_updates_once(self, updated_teams: Sequence[_RowReset[EmbRouter_TeamTable]]) -> None:
         async with spend_reset_unit_of_work(self._new_batch) as uow:
             for t in updated_teams:
                 uow.teams.queue_spend_reset(
@@ -1033,18 +1033,18 @@ class ResetBudgetJob:
             )
         )
 
-    async def reset_budget_for_litellm_keys(self) -> None:
+    async def reset_budget_for_embrouter_keys(self) -> None:
         """
-        Resets the budget for all the litellm keys
+        Resets the budget for all the embrouter keys
 
         Catches Exceptions and logs them
         """
-        await _run_phase_in_chunks(self._reset_budget_for_litellm_keys_chunk)
+        await _run_phase_in_chunks(self._reset_budget_for_embrouter_keys_chunk)
 
-    async def _reset_budget_for_litellm_keys_chunk(self) -> _ChunkOutcome:
+    async def _reset_budget_for_embrouter_keys_chunk(self) -> _ChunkOutcome:
         now: Final = datetime.utcnow()
         start_time: Final = time.time()
-        keys_to_reset: list[LiteLLM_VerificationToken] | None = None
+        keys_to_reset: list[EmbRouter_VerificationToken] | None = None
         try:
             keys_to_reset = await self._with_db_retry(
                 lambda: self.prisma_client.get_data(
@@ -1057,7 +1057,7 @@ class ResetBudgetJob:
                 reason="reset_budget_read_keys_failure",
             )
             verbose_proxy_logger.debug("Keys to reset %s", _LazyJson(keys_to_reset))
-            updated_keys: Final[list[_RowReset[LiteLLM_VerificationToken]]] = []
+            updated_keys: Final[list[_RowReset[EmbRouter_VerificationToken]]] = []
             failed_keys: Final = []
             if keys_to_reset is not None and len(keys_to_reset) > 0:
                 for key in keys_to_reset:
@@ -1144,16 +1144,16 @@ class ResetBudgetJob:
         else:
             return outcome
 
-    async def reset_budget_for_litellm_users(self) -> None:
+    async def reset_budget_for_embrouter_users(self) -> None:
         """
-        Resets the budget for all LiteLLM Internal Users if their budget has expired
+        Resets the budget for all EmbRouter Internal Users if their budget has expired
         """
-        await _run_phase_in_chunks(self._reset_budget_for_litellm_users_chunk)
+        await _run_phase_in_chunks(self._reset_budget_for_embrouter_users_chunk)
 
-    async def _reset_budget_for_litellm_users_chunk(self) -> _ChunkOutcome:
+    async def _reset_budget_for_embrouter_users_chunk(self) -> _ChunkOutcome:
         now: Final = datetime.utcnow()
         start_time: Final = time.time()
-        users_to_reset: list[LiteLLM_UserTable] | None = None
+        users_to_reset: list[EmbRouter_UserTable] | None = None
         try:
             users_to_reset = await self._with_db_retry(
                 lambda: self.prisma_client.get_data(
@@ -1164,7 +1164,7 @@ class ResetBudgetJob:
                 ),
                 reason="reset_budget_read_users_failure",
             )
-            updated_users: Final[list[_RowReset[LiteLLM_UserTable]]] = []
+            updated_users: Final[list[_RowReset[EmbRouter_UserTable]]] = []
             failed_users: Final = []
             if users_to_reset is not None and len(users_to_reset) > 0:
                 for user in users_to_reset:
@@ -1200,7 +1200,7 @@ class ResetBudgetJob:
                         user_id = getattr(u.row, "user_id", None)
                         if user_id:
                             await self._invalidate_spend_counter(f"spend:user:{user_id}")
-                        if user_id == LITELLM_PROXY_BUDGET_NAME:
+                        if user_id == EMBROUTER_PROXY_BUDGET_NAME:
                             await self._invalidate_global_proxy_spend_cache()
 
             end_time = time.time()
@@ -1259,16 +1259,16 @@ class ResetBudgetJob:
         else:
             return outcome
 
-    async def reset_budget_for_litellm_teams(self) -> None:
+    async def reset_budget_for_embrouter_teams(self) -> None:
         """
-        Resets the budget for all LiteLLM Internal Teams if their budget has expired
+        Resets the budget for all EmbRouter Internal Teams if their budget has expired
         """
-        await _run_phase_in_chunks(self._reset_budget_for_litellm_teams_chunk)
+        await _run_phase_in_chunks(self._reset_budget_for_embrouter_teams_chunk)
 
-    async def _reset_budget_for_litellm_teams_chunk(self) -> _ChunkOutcome:
+    async def _reset_budget_for_embrouter_teams_chunk(self) -> _ChunkOutcome:
         now: Final = datetime.utcnow()
         start_time: Final = time.time()
-        teams_to_reset: list[LiteLLM_TeamTable] | None = None
+        teams_to_reset: list[EmbRouter_TeamTable] | None = None
         try:
             teams_to_reset = await self._with_db_retry(
                 lambda: self.prisma_client.get_data(
@@ -1279,7 +1279,7 @@ class ResetBudgetJob:
                 ),
                 reason="reset_budget_read_teams_failure",
             )
-            updated_teams: Final[list[_RowReset[LiteLLM_TeamTable]]] = []
+            updated_teams: Final[list[_RowReset[EmbRouter_TeamTable]]] = []
             failed_teams: Final = []
             if teams_to_reset is not None and len(teams_to_reset) > 0:
                 for team in teams_to_reset:
@@ -1380,7 +1380,7 @@ class ResetBudgetJob:
         now: datetime,
         reset_settings: BudgetResetSettings,
         prisma_client: PrismaClient,
-        entity_type: Litellm_EntityType,
+        entity_type: Embrouter_EntityType,
         entity_id: str,
     ) -> bool:
         """Reset a single budget window if expired. Returns True if the window was reset."""
@@ -1412,17 +1412,17 @@ class ResetBudgetJob:
     @staticmethod
     async def _roll_window_spend_row(
         prisma_client: PrismaClient,
-        entity_type: Litellm_EntityType,
+        entity_type: Embrouter_EntityType,
         entity_id: str,
         budget_duration: str,
         next_reset_at: datetime,
     ) -> None:
-        """Move this window's LiteLLM_BudgetWindowSpend row onto the window
+        """Move this window's EmbRouter_BudgetWindowSpend row onto the window
         that just started, so the maintained total the read path uses starts
         from zero alongside the counter.
 
         Best effort: the row is an optimization over aggregating
-        LiteLLM_SpendLogs, so a failure here must not stop the remaining
+        EmbRouter_SpendLogs, so a failure here must not stop the remaining
         windows from having their counters reset.
         """
         try:
@@ -1474,7 +1474,7 @@ class ResetBudgetJob:
         reset_at <= now. Only the expired windows are reset; other windows are untouched.
         """
 
-        from litellm.proxy.proxy_server import spend_counter_cache
+        from embrouter.proxy.proxy_server import spend_counter_cache
 
         now: Final = datetime.utcnow()
         for source in _WINDOW_SOURCES:
@@ -1559,7 +1559,7 @@ class ResetBudgetJob:
 
     @staticmethod
     async def _reset_budget_common(
-        item: LiteLLM_TeamTable | LiteLLM_UserTable | LiteLLM_VerificationToken,
+        item: EmbRouter_TeamTable | EmbRouter_UserTable | EmbRouter_VerificationToken,
         current_time: datetime,
         item_type: Literal["key", "team", "user"],
         reset_settings: BudgetResetSettings,
@@ -1587,10 +1587,10 @@ class ResetBudgetJob:
 
     @staticmethod
     async def _reset_budget_for_team(
-        team: LiteLLM_TeamTable,
+        team: EmbRouter_TeamTable,
         current_time: datetime,
         reset_settings: BudgetResetSettings,
-    ) -> LiteLLM_TeamTable | None:
+    ) -> EmbRouter_TeamTable | None:
         await ResetBudgetJob._reset_budget_common(
             item=team,
             current_time=current_time,
@@ -1601,10 +1601,10 @@ class ResetBudgetJob:
 
     @staticmethod
     async def _reset_budget_for_user(
-        user: LiteLLM_UserTable,
+        user: EmbRouter_UserTable,
         current_time: datetime,
         reset_settings: BudgetResetSettings,
-    ) -> LiteLLM_UserTable | None:
+    ) -> EmbRouter_UserTable | None:
         await ResetBudgetJob._reset_budget_common(
             item=user,
             current_time=current_time,
@@ -1615,10 +1615,10 @@ class ResetBudgetJob:
 
     @staticmethod
     async def _reset_budget_for_key(
-        key: LiteLLM_VerificationToken,
+        key: EmbRouter_VerificationToken,
         current_time: datetime,
         reset_settings: BudgetResetSettings,
-    ) -> LiteLLM_VerificationToken | None:
+    ) -> EmbRouter_VerificationToken | None:
         await ResetBudgetJob._reset_budget_common(
             item=key,
             current_time=current_time,

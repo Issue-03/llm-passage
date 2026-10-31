@@ -3,11 +3,11 @@ from typing import Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import ORJSONResponse
 
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.types.llms.vertex_ai import TokenCountDetailsResponse
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.types.llms.vertex_ai import TokenCountDetailsResponse
 
 router: Final = APIRouter(
     tags=["google genai endpoints"],
@@ -28,7 +28,7 @@ async def google_generate_content(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -89,7 +89,7 @@ async def google_stream_generate_content(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -108,8 +108,8 @@ async def google_stream_generate_content(
         data["model"] = model_name
     data["stream"] = True
     # google-genai SDK (?alt=sse) must not receive OpenAI's data: [DONE] terminator.
-    data["_litellm_skip_openai_stream_done"] = True
-    data["_litellm_raw_sse_stream"] = True
+    data["_embrouter_skip_openai_stream_done"] = True
+    data["_embrouter_raw_sse_stream"] = True
 
     processor: Final = ProxyBaseLLMRequestProcessing(data=data)
     try:
@@ -165,14 +165,14 @@ async def google_count_tokens(request: Request, model_name: str):
     }
     ```
     """
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
-    from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-    from litellm.proxy.proxy_server import token_counter as internal_token_counter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+    from embrouter.proxy.proxy_server import token_counter as internal_token_counter
 
     data: Final = await _read_request_body(request=request)
     contents: Final = data.get("contents", [])
     # Create TokenCountRequest for the internal endpoint
-    from litellm.proxy._types import TokenCountRequest
+    from embrouter.proxy._types import TokenCountRequest
 
     # Translate contents to openai format messages using the adapter
     messages = GoogleGenAIAdapter().translate_generate_content_to_completion(model_name, contents).get("messages", [])
@@ -254,7 +254,7 @@ async def create_interaction(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -326,7 +326,7 @@ async def get_interaction(
 
     Per OpenAPI spec: GET /{api_version}/interactions/{interaction_id}
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -394,7 +394,7 @@ async def delete_interaction(
 
     Per OpenAPI spec: DELETE /{api_version}/interactions/{interaction_id}
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -462,7 +462,7 @@ async def cancel_interaction(
 
     Per OpenAPI spec: POST /{api_version}/interactions/{interaction_id}:cancel
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,

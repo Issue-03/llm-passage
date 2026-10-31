@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Final, Literal
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.anthropic.prompt_cache_prediction import PromptPrefix, parse_observed_cache
-from litellm.types.utils import ModelResponse
+from embrouter.caching.dual_cache import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.anthropic.prompt_cache_prediction import PromptPrefix, parse_observed_cache
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import InternalUsageCache
+    from embrouter.proxy.utils import InternalUsageCache
 
 _RETENTION_SECONDS: Final = 86_400
 

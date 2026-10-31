@@ -8,14 +8,14 @@ from typing import Final, Protocol
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import (
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import (
     BaseLLMException,
     BaseRerankConfig,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     OptionalRerankParams,
     RerankBilledUnits,
     RerankResponse,
@@ -99,7 +99,7 @@ class DeepinfraRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
             api_key = get_secret_str("DEEPINFRA_API_KEY")
@@ -162,7 +162,7 @@ class DeepinfraRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         # Convert OptionalRerankParams to dict as expected by parent class
         if optional_rerank_params is None:
@@ -174,11 +174,11 @@ class DeepinfraRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         try:
             response_json: Final = _deepinfra_rerank_body(raw_response)
@@ -234,7 +234,7 @@ class DeepinfraRerankConfig(BaseRerankConfig):
                 api_key=api_key,
                 request_data=request_data,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
             rerank_response._hidden_params["model"] = model

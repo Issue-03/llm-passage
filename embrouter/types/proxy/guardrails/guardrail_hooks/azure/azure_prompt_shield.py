@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import Field
 from typing_extensions import TypedDict
 
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 from .base import AzureContentSafetyConfigModel
 

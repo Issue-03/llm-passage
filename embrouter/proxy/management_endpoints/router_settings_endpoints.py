@@ -15,12 +15,12 @@ from typing import Any, Final, get_args
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.config_resolvers import FieldSource, SettingsStore, source_for
-from litellm.router import Router
-from litellm.types.management_endpoints import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.config_resolvers import FieldSource, SettingsStore, source_for
+from embrouter.router import Router
+from embrouter.types.management_endpoints import (
     ROUTER_SETTINGS_FIELDS,
     ROUTING_STRATEGY_DESCRIPTIONS,
     RouterSettingsField,
@@ -97,7 +97,7 @@ async def get_router_settings(
               The routing_strategy field includes available options extracted from the Router class
     - current_values: Current values of router settings from config
     """
-    from litellm.proxy.proxy_server import llm_router, proxy_config
+    from embrouter.proxy.proxy_server import llm_router, proxy_config
 
     try:
         # Get available routing strategies dynamically from Router class

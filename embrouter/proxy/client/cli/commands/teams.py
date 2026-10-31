@@ -1,4 +1,4 @@
-"""Team management commands for LiteLLM CLI."""
+"""Team management commands for EmbRouter CLI."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.proxy.client import Client
+from embrouter.proxy.client import Client
 
 from ._cli_context import cli_context_values
 
@@ -138,7 +138,7 @@ def assign_key(ctx: click.Context, team_id: str | None):
     api_key: Final = context["api_key"]
 
     if not api_key:
-        click.echo("No API key found. Please login first using 'litellm login'")
+        click.echo("No API key found. Please login first using 'embrouter login'")
         raise click.Abort()
 
     try:

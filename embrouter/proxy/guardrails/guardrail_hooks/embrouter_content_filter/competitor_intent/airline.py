@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.competitor_intent.base import (
+from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.competitor_intent.base import (
     BaseCompetitorIntentChecker,
     _compile_marker,
     _count_signals,

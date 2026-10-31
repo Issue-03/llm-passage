@@ -43,36 +43,36 @@ from mcp.types import Tool as MCPTool
 from pydantic import AnyUrl, ConfigDict, Field, TypeAdapter
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     MAXIMUM_TRACEBACK_LINES_TO_LOG,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
 )
-from litellm.proxy._experimental.mcp_server.byok_credential_cache import (
+from embrouter.proxy._experimental.mcp_server.byok_credential_cache import (
     byok_credential_cache,
     byok_credential_cache_key,
     cache_byok_credential,
     get_cached_byok_credential,
 )
-from litellm.proxy._experimental.mcp_server.capabilities import (
+from embrouter.proxy._experimental.mcp_server.capabilities import (
     GATEWAY_OPERATIONS,
     build_discovery,
     configured_versions,
 )
-from litellm.proxy._experimental.mcp_server.contracts import (
+from embrouter.proxy._experimental.mcp_server.contracts import (
     AuthorizedToolCall,
     OperationContext,
     ProgressCallback,
 )
-from litellm.proxy._experimental.mcp_server.db import OAuthCredentialPayload
-from litellm.proxy._experimental.mcp_server.exceptions import (
+from embrouter.proxy._experimental.mcp_server.db import OAuthCredentialPayload
+from embrouter.proxy._experimental.mcp_server.exceptions import (
     MCPToolResultError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy._experimental.mcp_server.faults.list_outcomes import (
+from embrouter.proxy._experimental.mcp_server.faults.list_outcomes import (
     SERVER_OUTCOMES_META_KEY,
     AggregateToolListing,
     ServerListOk,
@@ -80,7 +80,7 @@ from litellm.proxy._experimental.mcp_server.faults.list_outcomes import (
     classify_list_exception,
     outcome_wire_value,
 )
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
     MCPServerManager,
     _caller_authorization_fans_out,
     _client_forwarded_authorization_headers,
@@ -88,25 +88,25 @@ from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
     _should_strip_caller_authorization,
     global_mcp_server_manager,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     _redact_mcp_resource_url,
     get_byok_www_authenticate,
 )
-from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
     _request_auth_header,
     _request_extra_headers,
     _request_resolved_auth_headers,
 )
-from litellm.proxy._experimental.mcp_server.result_conversion import (
+from embrouter.proxy._experimental.mcp_server.result_conversion import (
     WireCompat,
     complete_call_tool_result,
     handler_outcome,
     to_call_tool_result,
 )
-from litellm.proxy._experimental.mcp_server.tool_registry import (
+from embrouter.proxy._experimental.mcp_server.tool_registry import (
     global_mcp_tool_registry,
 )
-from litellm.proxy._experimental.mcp_server.utils import (
+from embrouter.proxy._experimental.mcp_server.utils import (
     MCP_TOOL_PREFIX_SEPARATOR,
     MCPMissingUserEnvVarsError,
     add_server_prefix_to_name,
@@ -121,26 +121,26 @@ from litellm.proxy._experimental.mcp_server.utils import (
     split_server_prefix_from_name,
     strip_known_server_prefix,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
     publish_auth_cache_invalidation,
 )
-from litellm.proxy.litellm_pre_call_utils import (
-    LiteLLMProxyRequestSetup,
+from embrouter.proxy.embrouter_pre_call_utils import (
+    EmbRouterProxyRequestSetup,
     get_chain_id_from_headers,
 )
-from litellm.types.mcp import (
+from embrouter.types.mcp import (
     DEFAULT_CREDENTIAL_HEADER,
     MCP_LEGACY_VERSIONS,
     MCPAuth,
     MCPTransport,
     without_header,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPInfo, MCPServer
-from litellm.types.utils import CallTypes, StandardLoggingMCPToolCall
-from litellm.utils import Rules, client, function_setup
+from embrouter.types.mcp_server.mcp_server_manager import MCPInfo, MCPServer
+from embrouter.types.utils import CallTypes, StandardLoggingMCPToolCall
+from embrouter.utils import Rules, client, function_setup
 
 __all__ = (
     "_MCP_CREDENTIAL_REQUEST_FIELDS",
@@ -229,13 +229,13 @@ async def _build_virtual_call_logging_obj(
     user_api_key_auth: UserAPIKeyAuth,
     raw_headers: Mapping[str, str] | None = None,
     client_ip: str | None = None,
-) -> LiteLLMLoggingObj | None:
+) -> EmbRouterLoggingObj | None:
     """Run the pre-call pipeline (guardrails + logging setup) for a virtual
     mcp_tool_call so the SSE path spend-logs like the REST path."""
-    from litellm.proxy.common_request_processing import (
+    from embrouter.proxy.common_request_processing import (
         ProxyBaseLLMRequestProcessing,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         proxy_config,
         proxy_logging_obj,
@@ -276,8 +276,8 @@ async def _dispatch_virtual_mcp_tool(
     Returns a CallToolResult when ``name`` is a virtual tool, else ``None`` so
     the caller falls through to normal tool routing.
     """
-    from litellm.llms.litellm_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
-    from litellm.proxy._experimental.mcp_server.tool_search import (
+    from embrouter.llms.embrouter_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
+    from embrouter.proxy._experimental.mcp_server.tool_search import (
         AGENT_SEARCH_TOOL_NAME,
         DEFAULT_AGENT_SEARCH_TOP_K,
         MCP_PROXY_CALL_TOOL_NAME,
@@ -326,11 +326,11 @@ async def _dispatch_virtual_mcp_tool(
                 mcp_server_auth_headers=mcp_server_auth_headers,
                 oauth2_headers=oauth2_headers,
                 raw_headers=raw_headers,
-                litellm_logging_obj=proxy_logging_obj,
+                embrouter_logging_obj=proxy_logging_obj,
             )
         except Exception as exc:
             if proxy_logging_obj is not None:
-                from litellm.proxy.proxy_server import proxy_logging_obj as request_logging_obj
+                from embrouter.proxy.proxy_server import proxy_logging_obj as request_logging_obj
 
                 failure_end: Final = datetime.now()  # noqa: DTZ005  # matches the logging pipeline start time
                 failure_traceback: Final = traceback.format_exc(limit=MAXIMUM_TRACEBACK_LINES_TO_LOG)
@@ -342,7 +342,7 @@ async def _dispatch_virtual_mcp_tool(
                             request_data={  # mutable-ok: failure hook mutates its request payload
                                 "name": name,
                                 "arguments": arguments,
-                                "litellm_logging_obj": proxy_logging_obj,
+                                "embrouter_logging_obj": proxy_logging_obj,
                             },
                             original_exception=exc,
                             user_api_key_dict=user_api_key_auth,
@@ -428,7 +428,7 @@ async def _dispatch_virtual_mcp_tool(
         mcp_server_auth_headers=mcp_server_auth_headers,
         oauth2_headers=oauth2_headers,
         raw_headers=raw_headers,
-        litellm_logging_obj=virtual_logging_obj,
+        embrouter_logging_obj=virtual_logging_obj,
     )
 
 
@@ -585,7 +585,7 @@ def filter_tools_by_allowed_tools(
     Returns:
         Filtered list of tools
     """
-    from litellm.proxy._experimental.mcp_server.utils import (
+    from embrouter.proxy._experimental.mcp_server.utils import (
         server_applies_tool_allowlist,
     )
 
@@ -687,7 +687,7 @@ def _client_has_per_server_auth_header(
     """True if the request carries a per-server ``x-mcp-{alias}-authorization``
     header for this server. This is the multi-server binding: it names one
     upstream, so it is unambiguously the caller's upstream token regardless of
-    auth mode (never the LiteLLM admission credential).
+    auth mode (never the EmbRouter admission credential).
 
     Resolves through the same ``lookup_mcp_server_auth_in_headers`` egress uses, so
     the connect gate and egress agree on which per-server header names match: a
@@ -696,7 +696,7 @@ def _client_has_per_server_auth_header(
     """
     if not mcp_server_auth_headers:
         return False
-    from litellm.proxy._experimental.mcp_server.utils import (
+    from embrouter.proxy._experimental.mcp_server.utils import (
         lookup_mcp_server_auth_in_headers,
     )
 
@@ -745,7 +745,7 @@ async def _get_user_oauth_extra_headers_from_db(
     """
     if server.auth_type != MCPAuth.oauth2 or user_api_key_auth is None:
         return None
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
         resolve_user_oauth_access_token,
     )
 
@@ -766,10 +766,10 @@ async def _prefetch_oauth_creds_for_user(
     if not user_id:
         return {}
     try:
-        from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+        from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
             list_user_oauth_credentials,
         )
-        from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
+        from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
 
         prisma_client: Final = get_prisma_client_or_throw(
             "Database not connected. Connect a database to use OAuth2 MCP tools."
@@ -800,7 +800,7 @@ def _prepare_mcp_server_headers(
     """
     server_auth_header: dict[str, str] | str | None = None
     if mcp_server_auth_headers:
-        from litellm.proxy._experimental.mcp_server.utils import (
+        from embrouter.proxy._experimental.mcp_server.utils import (
             lookup_mcp_server_auth_in_headers,
         )
 
@@ -952,7 +952,7 @@ async def _get_tools_from_mcp_servers(
     raw_headers: dict[str, str] | None = None,
     log_list_tools_to_spendlogs: bool = False,
     list_tools_log_source: str | None = None,
-    litellm_trace_id: str | None = None,
+    embrouter_trace_id: str | None = None,
     request_tags: list[str] | None = None,
     client_ip: str | None = None,
     mcp_proxy_mode: bool = False,
@@ -973,7 +973,7 @@ async def _get_tools_from_mcp_servers(
     """
 
     list_tools_start_time: Final = datetime.now()
-    litellm_logging_obj: LiteLLMLoggingObj | None = None
+    embrouter_logging_obj: EmbRouterLoggingObj | None = None
     list_tools_request_data: dict[str, object] = {}
 
     if log_list_tools_to_spendlogs:
@@ -981,7 +981,7 @@ async def _get_tools_from_mcp_servers(
         rules_obj: Final = Rules()
         list_tools_call_id: Final = str(uuid.uuid4())
         # Derive trace_id from raw_headers when not explicitly passed (same as A2A / MCP call_tool)
-        effective_litellm_trace_id: Final = litellm_trace_id or get_chain_id_from_headers(raw_headers)
+        effective_embrouter_trace_id: Final = embrouter_trace_id or get_chain_id_from_headers(raw_headers)
         spend_logs_metadata: Final[dict[str, object]] = {
             "mcp_operation": "list_tools",
         }
@@ -993,8 +993,8 @@ async def _get_tools_from_mcp_servers(
         list_tools_request_data = {
             "model": "MCP: list_tools",
             "call_type": CallTypes.list_mcp_tools.value,
-            "litellm_call_id": list_tools_call_id,
-            "litellm_trace_id": effective_litellm_trace_id,
+            "embrouter_call_id": list_tools_call_id,
+            "embrouter_trace_id": effective_embrouter_trace_id,
             "metadata": {
                 "spend_logs_metadata": spend_logs_metadata,
                 "headers": logging_safe_mcp_headers(raw_headers),
@@ -1014,7 +1014,7 @@ async def _get_tools_from_mcp_servers(
 
         # Attach user identifiers using the standard helper
         if user_api_key_auth is not None:
-            LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+            EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
                 data=list_tools_request_data,
                 user_api_key_dict=user_api_key_auth,
                 _metadata_variable_name="metadata",
@@ -1027,19 +1027,19 @@ async def _get_tools_from_mcp_servers(
                 list_tools_request_data["user"] = user_identifier
 
         try:
-            litellm_logging_obj, _ = function_setup(
+            embrouter_logging_obj, _ = function_setup(
                 original_function="list_mcp_tools",
                 is_async_call=False,
                 rules_obj=rules_obj,
                 start_time=list_tools_start_time,
                 **list_tools_request_data,
             )
-            if litellm_logging_obj:
-                litellm_logging_obj.call_type = CallTypes.list_mcp_tools.value
-                litellm_logging_obj.model = "MCP: list_tools"
+            if embrouter_logging_obj:
+                embrouter_logging_obj.call_type = CallTypes.list_mcp_tools.value
+                embrouter_logging_obj.model = "MCP: list_tools"
         except Exception as logging_error:
             verbose_logger.debug("Failed to initialize logging for MCP list_tools: %s", logging_error)
-            litellm_logging_obj = None
+            embrouter_logging_obj = None
 
     try:
         allowed_mcp_servers: Final = await _get_allowed_mcp_servers(
@@ -1083,7 +1083,7 @@ async def _get_tools_from_mcp_servers(
             # Prefer server-stored per-user OAuth when configured, so a stale
             # Authorization header from the MCP client cannot override Redis/DB
             # (same issue as call_tool in mcp_server_manager: VS Code caches tokens).
-            from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415
                 to_server_spec,
             )
 
@@ -1117,7 +1117,7 @@ async def _get_tools_from_mcp_servers(
                 server_auth_header = await _get_byok_credential(server, user_api_key_auth)
 
             try:
-                from litellm.proxy.proxy_server import proxy_logging_obj
+                from embrouter.proxy.proxy_server import proxy_logging_obj
 
                 tools: Final = await global_mcp_server_manager._get_tools_from_server(
                     server=server,
@@ -1139,7 +1139,7 @@ async def _get_tools_from_mcp_servers(
                 )
 
                 if mcp_proxy_mode:
-                    from litellm.proxy._experimental.mcp_server.tool_search import with_mcp_proxy_identity
+                    from embrouter.proxy._experimental.mcp_server.tool_search import with_mcp_proxy_identity
 
                     filtered_tools = [  # mutable-ok: MCP tool pipeline
                         with_mcp_proxy_identity(tool, server.server_id) for tool in filtered_tools
@@ -1180,14 +1180,14 @@ async def _get_tools_from_mcp_servers(
         }
 
         # If logging is enabled, enrich spend_logs_metadata with counts
-        if litellm_logging_obj:
+        if embrouter_logging_obj:
             per_server_tool_counts: Final[dict[str, int]] = {
                 _aggregate_server_key(server): len(server_tools)
                 for server, (server_tools, _) in zip(allowed_mcp_servers, results)
                 if server is not None
             }
 
-            metadata_dict: Final = litellm_logging_obj.model_call_details.get("metadata")
+            metadata_dict: Final = embrouter_logging_obj.model_call_details.get("metadata")
             if isinstance(metadata_dict, dict):
                 spend_meta = metadata_dict.get("spend_logs_metadata")
                 if not isinstance(spend_meta, dict):
@@ -1202,7 +1202,7 @@ async def _get_tools_from_mcp_servers(
 
             end_time: Final = datetime.now()
             try:
-                await litellm_logging_obj.async_success_handler(
+                await embrouter_logging_obj.async_success_handler(
                     result=[tool.model_dump(mode="json") if isinstance(tool, MCPTool) else tool for tool in all_tools],
                     start_time=list_tools_start_time,
                     end_time=end_time,
@@ -1222,7 +1222,7 @@ async def _get_tools_from_mcp_servers(
         # Only fire failure hook if logging was requested for this list-tools execution
         if log_list_tools_to_spendlogs and user_api_key_auth is not None:
             try:
-                from litellm.proxy.proxy_server import proxy_logging_obj
+                from embrouter.proxy.proxy_server import proxy_logging_obj
 
                 if proxy_logging_obj:
                     traceback_str: Final = traceback.format_exc(limit=MAXIMUM_TRACEBACK_LINES_TO_LOG)
@@ -1640,8 +1640,8 @@ async def _get_byok_credential(
     if cached is not None:
         return cached.credential
 
-    from litellm.proxy._experimental.mcp_server.db import get_user_credential
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy._experimental.mcp_server.db import get_user_credential
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return None
@@ -1698,8 +1698,8 @@ async def _check_byok_credential(
             )
         return
 
-    from litellm.proxy._experimental.mcp_server.db import get_user_credential
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy._experimental.mcp_server.db import get_user_credential
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         # Fail closed on DB unavailability: returning here previously
@@ -1760,10 +1760,10 @@ def _challenge_missing_token_exchange_subject(
         return
     if global_mcp_server_manager._extract_subject_token(oauth2_headers, raw_headers, user_api_key_auth) is not None:
         return
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415  # lazy: adapter pulls MCP subgraph
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415  # lazy: adapter pulls MCP subgraph
         raise_token_exchange_challenge,
     )
-    from litellm.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports proxy utils
+    from embrouter.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports proxy utils
         get_request_root_path,
     )
 
@@ -1875,7 +1875,7 @@ async def _execute_mcp_tool(
         mcp_server_auth_headers: Optional server-specific auth headers
         oauth2_headers: Optional OAuth2 headers
         raw_headers: Optional raw HTTP headers
-        **kwargs: Additional arguments (e.g., litellm_logging_obj)
+        **kwargs: Additional arguments (e.g., embrouter_logging_obj)
 
     Returns:
         CallToolResult: Tool execution result
@@ -1938,7 +1938,7 @@ async def _execute_mcp_tool(
 
     if requested_server is not None and not name_is_prefixed:
         # REST callers may pass server_id with the upstream tool name (no
-        # LiteLLM prefix). The first segment is not a registered server
+        # EmbRouter prefix). The first segment is not a registered server
         # prefix, so the whole string is the upstream tool name and may
         # legitimately contain the separator (e.g. "text-to-speech").
         # server_id is authoritative for routing and auth.
@@ -1995,11 +1995,11 @@ async def _execute_mcp_tool(
         server_name=server_name,
         session_id=_mcp_session_id_from_headers(raw_headers),
     )
-    litellm_logging_obj: Final[LiteLLMLoggingObj | None] = kwargs.get("litellm_logging_obj", None)
-    if litellm_logging_obj:
-        litellm_logging_obj.model_call_details["mcp_tool_call_metadata"] = standard_logging_mcp_tool_call
-        litellm_logging_obj.model = f"MCP: {name}"
-        litellm_logging_obj.model_call_details["model"] = f"MCP: {name}"
+    embrouter_logging_obj: Final[EmbRouterLoggingObj | None] = kwargs.get("embrouter_logging_obj", None)
+    if embrouter_logging_obj:
+        embrouter_logging_obj.model_call_details["mcp_tool_call_metadata"] = standard_logging_mcp_tool_call
+        embrouter_logging_obj.model = f"MCP: {name}"
+        embrouter_logging_obj.model_call_details["model"] = f"MCP: {name}"
     # Resolve the MCP server early so BYOK checks and credential injection
     # apply to ALL dispatch paths (local tool registry AND managed MCP server).
     if mcp_server is None:
@@ -2007,8 +2007,8 @@ async def _execute_mcp_tool(
 
     if mcp_server:
         standard_logging_mcp_tool_call["mcp_server_cost_info"] = (mcp_server.mcp_info or {}).get("mcp_server_cost_info")
-        if litellm_logging_obj:
-            litellm_logging_obj.model_call_details["mcp_tool_call_metadata"] = standard_logging_mcp_tool_call
+        if embrouter_logging_obj:
+            embrouter_logging_obj.model_call_details["mcp_tool_call_metadata"] = standard_logging_mcp_tool_call
 
         # BYOK: retrieve the stored per-user credential.  A single DB call
         # both checks existence and fetches the value, avoiding a double query.
@@ -2063,7 +2063,7 @@ async def _execute_mcp_tool(
         # does. `kwargs.get("proxy_logging_obj")` is None on the MCP
         # entry path and would crash with AttributeError after the
         # security checks pass.
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         hook_result = await global_mcp_server_manager.pre_call_tool_check(
             name=original_tool_name,
@@ -2073,7 +2073,7 @@ async def _execute_mcp_tool(
             proxy_logging_obj=proxy_logging_obj,
             server=mcp_server,
             raw_headers=raw_headers,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             guardrail_context=guardrail_context,
         )
         # `pre_call_tool_check` may return guardrail-modified
@@ -2128,7 +2128,7 @@ async def _execute_mcp_tool(
             oauth2_headers=oauth2_headers,
             raw_headers=raw_headers,
             client_ip=client_ip,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             guardrail_context=guardrail_context,
             host_progress_callback=host_progress_callback,
             wire_compat=wire_compat,
@@ -2173,7 +2173,7 @@ async def _execute_mcp_tool(
                     ),
                 )
 
-            from litellm.proxy.proxy_server import proxy_logging_obj
+            from embrouter.proxy.proxy_server import proxy_logging_obj
 
             hook_result = await global_mcp_server_manager.pre_call_tool_check(
                 name=original_tool_name,
@@ -2183,7 +2183,7 @@ async def _execute_mcp_tool(
                 proxy_logging_obj=proxy_logging_obj,
                 server=prefix_server,
                 raw_headers=raw_headers,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 guardrail_context=guardrail_context,
             )
             if "arguments" in hook_result:
@@ -2196,7 +2196,7 @@ async def _execute_mcp_tool(
         return converted
     return await _run_post_mcp_call_guardrails(
         result=converted,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
         user_api_key_auth=user_api_key_auth,
         request_data=kwargs,
     )
@@ -2204,7 +2204,7 @@ async def _execute_mcp_tool(
 
 async def _run_post_mcp_call_guardrails(
     result: CallToolResult,
-    litellm_logging_obj: LiteLLMLoggingObj | None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None,
     user_api_key_auth: UserAPIKeyAuth | None,
     request_data: Mapping[str, object],
 ) -> CallToolResult:
@@ -2216,20 +2216,20 @@ async def _run_post_mcp_call_guardrails(
     handler, the REST endpoint, and tool search all funnel through here.
     A guardrail that rejects the result raises, matching ``pre_mcp_call``.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     if proxy_logging_obj is None:
         return result
     return await proxy_logging_obj.post_mcp_call_hook(
         response=result,
         request_data=(
-            litellm_logging_obj.model_call_details if litellm_logging_obj is not None else dict(request_data)
+            embrouter_logging_obj.model_call_details if embrouter_logging_obj is not None else dict(request_data)
         ),
         user_api_key_dict=user_api_key_auth,
     )
 
 
-def suppress_completed_success_logging(logging_obj: LiteLLMLoggingObj) -> None:
+def suppress_completed_success_logging(logging_obj: EmbRouterLoggingObj) -> None:
     """An interim ``InputRequiredResult`` is not a completed call, so the ``@client`` wrapper
     on ``call_mcp_tool`` must not run the success handlers for it when the coroutine returns."""
     logging_obj.has_run_logging(event_type="sync_success")
@@ -2237,7 +2237,7 @@ def suppress_completed_success_logging(logging_obj: LiteLLMLoggingObj) -> None:
 
 
 async def _fire_mcp_tool_call_logging(
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     result: CallToolResult,
     start_time: datetime,
     end_time: datetime,
@@ -2266,7 +2266,7 @@ async def _fire_mcp_tool_call_logging(
     stripped before the dict is handed to ``post_call_failure_hook``
     callbacks.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     logging_obj.post_call(original_response=result)
     result = await logging_obj.async_post_mcp_tool_call_hook(
@@ -2304,7 +2304,7 @@ async def _fire_mcp_tool_call_logging(
 
 
 async def fire_mcp_tool_call_failure_logging(
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: EmbRouterLoggingObj | None,
     exception: Exception,
     start_time: datetime,
     user_api_key_auth: UserAPIKeyAuth | None,
@@ -2319,7 +2319,7 @@ async def fire_mcp_tool_call_failure_logging(
     A relayed upstream 401 (``MCPUpstreamAuthError``) is an expected caller-must-reauth
     signal and skips ``post_call_failure_hook``, which fires the ``llm_exceptions`` alert.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     traceback_str: Final = traceback.format_exc(limit=MAXIMUM_TRACEBACK_LINES_TO_LOG)
     if logging_obj is not None:
@@ -2362,7 +2362,7 @@ async def call_mcp_tool(
     completed-call logging below.
     """
     start_time: Final = datetime.now()
-    litellm_logging_obj: Final[LiteLLMLoggingObj | None] = kwargs.get("litellm_logging_obj", None)
+    embrouter_logging_obj: Final[EmbRouterLoggingObj | None] = kwargs.get("embrouter_logging_obj", None)
 
     try:
         if arguments is None:
@@ -2414,16 +2414,16 @@ async def call_mcp_tool(
             **kwargs,
         )
     except Exception as e:
-        await fire_mcp_tool_call_failure_logging(litellm_logging_obj, e, start_time, user_api_key_auth, kwargs)
+        await fire_mcp_tool_call_failure_logging(embrouter_logging_obj, e, start_time, user_api_key_auth, kwargs)
         raise
 
     if isinstance(response, InputRequiredResult):
-        if litellm_logging_obj:
-            suppress_completed_success_logging(litellm_logging_obj)
+        if embrouter_logging_obj:
+            suppress_completed_success_logging(embrouter_logging_obj)
         return response
-    if litellm_logging_obj:
+    if embrouter_logging_obj:
         response = await _fire_mcp_tool_call_logging(
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             result=response,
             start_time=start_time,
             end_time=datetime.now(),
@@ -2582,7 +2582,7 @@ async def _handle_managed_mcp_tool(
     mcp_server_auth_headers: dict[str, dict[str, str]] | None = None,
     oauth2_headers: dict[str, str] | None = None,
     raw_headers: dict[str, str] | None = None,
-    litellm_logging_obj: LiteLLMLoggingObj | None = None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None = None,
     host_progress_callback: ProgressCallback | None = None,
     guardrail_context: Mapping[str, object] | None = None,
     client_ip: str | None = None,
@@ -2590,7 +2590,7 @@ async def _handle_managed_mcp_tool(
 ) -> CallToolResult | InputRequiredResult:
     """Handle tool execution for managed server tools"""
     # Import here to avoid circular import
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     call_tool_result: Final = await global_mcp_server_manager.call_tool(
         server_name=server_name,
@@ -2604,7 +2604,7 @@ async def _handle_managed_mcp_tool(
         client_ip=client_ip,
         proxy_logging_obj=proxy_logging_obj,
         host_progress_callback=host_progress_callback,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
         guardrail_context=guardrail_context,
         wire_compat=wire_compat,
     )
@@ -2690,7 +2690,7 @@ async def _execute_handle_list_tools(
         )
         from mcp.types import Tool
 
-        from litellm.proxy._experimental.mcp_server.tool_search import (
+        from embrouter.proxy._experimental.mcp_server.tool_search import (
             get_mcp_proxy_tool_definitions,
             get_virtual_tool_definitions,
         )
@@ -2741,9 +2741,9 @@ async def _execute_mcp_server_tool_call(
 ) -> CallToolResult | InputRequiredResult:
     from mcp.types import CallToolResult
 
-    from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
+    from embrouter.proxy.proxy_server import proxy_config
 
     (
         user_api_key_auth,
@@ -2785,8 +2785,8 @@ async def _execute_mcp_server_tool_call(
         # Set trace/session id from raw_headers so spend logs and logging_obj stay consistent (same as A2A)
         chain_id: Final = get_chain_id_from_headers(raw_headers)
         if chain_id:
-            body_data["litellm_trace_id"] = chain_id
-            body_data["litellm_session_id"] = chain_id
+            body_data["embrouter_trace_id"] = chain_id
+            body_data["embrouter_session_id"] = chain_id
 
         request: Final = build_synthetic_mcp_request(
             path="/mcp/tools/call",
@@ -2794,7 +2794,7 @@ async def _execute_mcp_server_tool_call(
             client_ip=_client_ip,
         )
         if user_api_key_auth is not None:
-            data = await add_litellm_data_to_request(
+            data = await add_embrouter_data_to_request(
                 data=body_data,
                 request=request,
                 # Bill a team-derived call to the team that granted it. A keyless admitted

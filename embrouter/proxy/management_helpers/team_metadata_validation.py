@@ -18,8 +18,8 @@ from typing import Final, Literal, Protocol
 from fastapi import HTTPException, status
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.types.proxy.management_endpoints.team_endpoints import (
     TeamMetadataFieldSchema,
 )
 
@@ -166,7 +166,7 @@ async def validate_team_metadata_if_configured(
     user_api_key_dict: UserAPIKeyAuth,
     registry: TeamMetadataValidatorRegistry = TEAM_METADATA_VALIDATOR_REGISTRY,
 ) -> None:
-    from litellm.proxy.proxy_server import general_settings, premium_user
+    from embrouter.proxy.proxy_server import general_settings, premium_user
 
     validator: Final = registry.get()
     if validator is None:

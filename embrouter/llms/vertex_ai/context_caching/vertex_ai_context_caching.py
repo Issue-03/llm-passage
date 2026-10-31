@@ -2,22 +2,22 @@ from typing import Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.caching import Cache, LiteLLMCacheType
-from litellm.constants import MINIMUM_PROMPT_CACHE_TOKEN_COUNT
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import Cache, EmbRouterCacheType
+from embrouter.constants import MINIMUM_PROMPT_CACHE_TOKEN_COUNT
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.llms.openai.openai import AllMessageValues
-from litellm.types.llms.vertex_ai import (
+from embrouter.llms.openai.openai import AllMessageValues
+from embrouter.types.llms.vertex_ai import (
     CachedContentListAllResponseBody,
     VertexAICachedContentResponseObject,
 )
-from litellm.utils import is_prompt_caching_valid_prompt
+from embrouter.utils import is_prompt_caching_valid_prompt
 
 from ..common_utils import VertexAIError, get_vertex_base_url
 from ..vertex_llm_base import VertexBase
@@ -27,7 +27,7 @@ from .transformation import (
     transform_openai_messages_to_gemini_context_caching,
 )
 
-local_cache_obj: Final = Cache(type=LiteLLMCacheType.LOCAL)  # only used for calling 'get_cache_key' function
+local_cache_obj: Final = Cache(type=EmbRouterCacheType.LOCAL)  # only used for calling 'get_cache_key' function
 
 MAX_PAGINATION_PAGES: Final = 100  # Reasonable upper bound for pagination
 
@@ -517,7 +517,7 @@ class ContextCachingEndpoints(VertexBase):
             headers.update(extra_headers)
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
-            client = get_async_httpx_client(params={"timeout": timeout}, llm_provider=litellm.LlmProviders.VERTEX_AI)
+            client = get_async_httpx_client(params={"timeout": timeout}, llm_provider=embrouter.LlmProviders.VERTEX_AI)
         else:
             client = client
 

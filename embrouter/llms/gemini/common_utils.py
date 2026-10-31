@@ -7,13 +7,13 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import TokenCountResponse
+import embrouter
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import TokenCountResponse
 
 GEMINI_IMAGE_ASPECT_RATIOS: Final[dict[str, float]] = {
     "1:1": 1 / 1,
@@ -114,7 +114,7 @@ def map_openai_size_to_gemini_image_config(size: str, model: str) -> dict[str, s
 
 def supports_gemini_image_size(model: str) -> bool:
     try:
-        model_info: Final = litellm.get_model_info(model=model)
+        model_info: Final = embrouter.get_model_info(model=model)
         value: Final = model_info.get("supports_image_size")
         if value is not None:
             return bool(value)
@@ -132,7 +132,7 @@ def _parse_image_config_string(raw_image_config: str, model: str) -> object:
     try:
         return json.loads(raw_image_config)
     except json.JSONDecodeError as exc:
-        raise litellm.UnsupportedParamsError(
+        raise embrouter.UnsupportedParamsError(
             model=model,
             message="`imageConfig` must be valid JSON when provided as a string.",
         ) from exc
@@ -184,7 +184,7 @@ def map_openai_image_params_to_gemini(
 
 
 def _dedupe_gemini_search_tools(tools: list[dict[str, object]]) -> list[dict[str, object]]:
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -212,7 +212,7 @@ def _dedupe_gemini_search_tools(tools: list[dict[str, object]]) -> list[dict[str
 
 
 def _has_gemini_search_tool(tools: list[object]) -> bool:
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -224,7 +224,7 @@ def map_gemini_image_tools_params(
     non_default_params: Mapping[str, object],
     mapped_params: Mapping[str, object],
 ) -> dict[str, object]:
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -257,7 +257,7 @@ def map_gemini_image_tools_params(
 def get_gemini_image_web_search_requests(
     response_data: Mapping[str, object],
 ) -> int | None:
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -360,7 +360,7 @@ class GeminiModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -384,12 +384,12 @@ class GeminiModelInfo(BaseLLMModelInfo):
         return model.replace("gemini/", "")
 
     def process_model_name(self, models: list[dict[str, str]]) -> list[str]:
-        litellm_model_names: Final = []
+        embrouter_model_names: Final = []
         for model in models:
             stripped_model_name = model["name"].replace("models/", "")
-            litellm_model_name = "gemini/" + stripped_model_name
-            litellm_model_names.append(litellm_model_name)
-        return litellm_model_names
+            embrouter_model_name = "gemini/" + stripped_model_name
+            embrouter_model_names.append(embrouter_model_name)
+        return embrouter_model_names
 
     def get_models(self, api_key: str | None = None, api_base: str | None = None) -> list[str]:
         api_base = GeminiModelInfo.get_api_base(api_base)
@@ -400,7 +400,7 @@ class GeminiModelInfo(BaseLLMModelInfo):
                 "GEMINI_API_BASE or GEMINI_API_KEY/GOOGLE_API_KEY is not set. Please set the environment variable, to query Gemini's `/models` endpoint."
             )
 
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=f"{api_base}{endpoint}",
             headers={"x-goog-api-key": api_key},
         )
@@ -412,8 +412,8 @@ class GeminiModelInfo(BaseLLMModelInfo):
 
         models: Final[list[dict[str, str]]] = response.json()["models"]
 
-        litellm_model_names: Final = self.process_model_name(models)
-        return litellm_model_names
+        embrouter_model_names: Final = self.process_model_name(models)
+        return embrouter_model_names
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:
         return GeminiError(status_code=status_code, message=error_message, headers=headers)
@@ -478,7 +478,7 @@ class GoogleAIStudioTokenCounter(BaseTokenCounter):
         self,
         custom_llm_provider: str | None = None,
     ) -> bool:
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         return custom_llm_provider == LlmProviders.GEMINI.value
 
@@ -494,10 +494,10 @@ class GoogleAIStudioTokenCounter(BaseTokenCounter):
     ) -> TokenCountResponse | None:
         import copy
 
-        from litellm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
+        from embrouter.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
 
         deployment = deployment or {}
-        count_tokens_params_request: Final = copy.deepcopy(deployment.get("litellm_params", {}))
+        count_tokens_params_request: Final = copy.deepcopy(deployment.get("embrouter_params", {}))
         count_tokens_params: Final = {
             "model": model_to_use,
             "contents": contents,

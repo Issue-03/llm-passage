@@ -4,17 +4,17 @@ import time
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.constants import (
     DEFAULT_SHARED_HEALTH_CHECK_LOCK_TTL,
     DEFAULT_SHARED_HEALTH_CHECK_TTL,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy.health_check import perform_health_check
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy.health_check import perform_health_check
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 class SharedHealthCheckManager:

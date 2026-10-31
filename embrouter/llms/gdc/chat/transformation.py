@@ -12,9 +12,9 @@ from urllib.parse import urlsplit
 
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-import litellm
-from litellm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter.llms.openai_like.chat.transformation import OpenAILikeChatConfig
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class _OpenAIGPTConfigOptions(TypedDict, total=False):
@@ -46,7 +46,7 @@ class _GDCHAudienceCredentials(Protocol):
 
 
 class GDCGeminiConfig(OpenAILikeChatConfig):
-    supports_vertex_params: bool = True  # Tell LiteLLM utilities not to strip vertex_ params
+    supports_vertex_params: bool = True  # Tell EmbRouter utilities not to strip vertex_ params
     _GDCH_CREDENTIAL_TYPE: Final[str] = "gdch_service_account"
     _PATH_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -61,33 +61,33 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
             "vertex_location",
         ] + super().get_supported_openai_params(model)
 
-    def _resolve_project(self, optional_params: dict, litellm_params: dict) -> str | None:
+    def _resolve_project(self, optional_params: dict, embrouter_params: dict) -> str | None:
         return (
-            litellm_params.get("vertex_project")
-            or litellm_params.get("vertex_ai_project")
-            or getattr(litellm, "vertex_project", None)
+            embrouter_params.get("vertex_project")
+            or embrouter_params.get("vertex_ai_project")
+            or getattr(embrouter, "vertex_project", None)
             or optional_params.get("vertex_project")
             or optional_params.get("vertex_ai_project")
         )
 
-    def _resolve_location(self, optional_params: dict, litellm_params: dict) -> str | None:
+    def _resolve_location(self, optional_params: dict, embrouter_params: dict) -> str | None:
         return (
-            litellm_params.get("vertex_location")
-            or litellm_params.get("vertex_ai_location")
-            or getattr(litellm, "vertex_location", None)
+            embrouter_params.get("vertex_location")
+            or embrouter_params.get("vertex_ai_location")
+            or getattr(embrouter, "vertex_location", None)
             or optional_params.get("vertex_location")
             or optional_params.get("vertex_ai_location")
         )
 
-    def _effective_project(self, api_base: str, optional_params: dict, litellm_params: dict) -> str | None:
+    def _effective_project(self, api_base: str, optional_params: dict, embrouter_params: dict) -> str | None:
         match: Final = re.search(r"/v1/projects/([^/]+)", api_base)
         if match:
             return match.group(1)
-        return self._resolve_project(optional_params, litellm_params)
+        return self._resolve_project(optional_params, embrouter_params)
 
     def _validate_path_id(self, value: str, field: str, model: str) -> str:
         if not self._PATH_ID_PATTERN.match(value):
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message=f"{field} must be a plain identifier of letters, digits, hyphens or underscores.",
                 llm_provider="gdc",
                 model=model,
@@ -100,12 +100,12 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        api_base = api_base or litellm.gdc_api_base or litellm.api_base
+        api_base = api_base or embrouter.gdc_api_base or embrouter.api_base
         if not api_base:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="api_base/host is required for GDC Gemini. Please set it or pass it.",
                 llm_provider="gdc",
                 model=model,
@@ -119,19 +119,19 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
         if "/v1/projects/" in api_base:
             return api_base
 
-        project = self._resolve_project(optional_params, litellm_params)
+        project = self._resolve_project(optional_params, embrouter_params)
 
         if not project:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="project is required for GDC Gemini. Please pass vertex_project.",
                 llm_provider="gdc",
                 model=model,
             )
 
-        location = self._resolve_location(optional_params, litellm_params)
+        location = self._resolve_location(optional_params, embrouter_params)
 
         if not location:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="location is required for GDC Gemini. Please pass vertex_location.",
                 llm_provider="gdc",
                 model=model,
@@ -220,30 +220,30 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         import google.auth.exceptions
 
-        api_base = api_base or litellm.gdc_api_base or litellm.api_base
+        api_base = api_base or embrouter.gdc_api_base or embrouter.api_base
         if not api_base:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="api_base/host is required for GDC Gemini. Please set it or pass it.",
                 llm_provider="gdc",
                 model=model,
             )
 
         if not api_key:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="api_key is required for GDC Gemini. Please pass your service account string or token as the api_key.",
                 llm_provider="gdc",
                 model=model,
             )
 
-        project = self._effective_project(api_base, optional_params, litellm_params)
+        project = self._effective_project(api_base, optional_params, embrouter_params)
         if not project:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message="project is required for GDC Gemini. Please pass vertex_project.",
                 llm_provider="gdc",
                 model=model,
@@ -262,15 +262,15 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
             KeyError,
             AttributeError,
         ) as e:
-            raise litellm.utils.AuthenticationError(
+            raise embrouter.utils.AuthenticationError(
                 message=f"Failed to load service account credentials from api_key: {e}",
                 llm_provider="gdc",
                 model=model,
             ) from e
 
         if creds is not None:
-            ssl_verify: Final = self._read_env_bool(litellm_params.get("ssl_verify"), "SSL_VERIFY", default=True)
-            if self._read_env_bool(litellm_params.get("gdc_token_caching"), "GDC_TOKEN_CACHING", default=False):
+            ssl_verify: Final = self._read_env_bool(embrouter_params.get("ssl_verify"), "SSL_VERIFY", default=True)
+            if self._read_env_bool(embrouter_params.get("gdc_token_caching"), "GDC_TOKEN_CACHING", default=False):
                 token = self._cached_fetch_token(creds, audience, ssl_verify, api_key)
             else:
                 gdch_creds: Final = self._with_gdch_audience(creds, audience)
@@ -297,7 +297,7 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -310,7 +310,7 @@ class GDCGeminiConfig(OpenAILikeChatConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

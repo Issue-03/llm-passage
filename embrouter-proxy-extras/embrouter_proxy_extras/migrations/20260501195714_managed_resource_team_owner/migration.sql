@@ -9,12 +9,12 @@
 -- request); a future operator with a large table can switch to
 -- CREATE INDEX CONCURRENTLY in a follow-up migration.
 
-ALTER TABLE "LiteLLM_ManagedFileTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
-ALTER TABLE "LiteLLM_ManagedObjectTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
-ALTER TABLE "LiteLLM_ManagedVectorStoreTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
+ALTER TABLE "EmbRouter_ManagedFileTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
+ALTER TABLE "EmbRouter_ManagedObjectTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
+ALTER TABLE "EmbRouter_ManagedVectorStoreTable" ADD COLUMN IF NOT EXISTS "team_id" TEXT;
 
 -- Index names follow Prisma's auto-generated convention so `prisma migrate diff`
 -- against the schema is clean.
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedFileTable_team_id_created_at_idx" ON "LiteLLM_ManagedFileTable" ("team_id", "created_at" DESC);
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedObjectTable_team_id_created_at_idx" ON "LiteLLM_ManagedObjectTable" ("team_id", "created_at" DESC);
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedVectorStoreTable_team_id_created_at_idx" ON "LiteLLM_ManagedVectorStoreTable" ("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedFileTable_team_id_created_at_idx" ON "EmbRouter_ManagedFileTable" ("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_team_id_created_at_idx" ON "EmbRouter_ManagedObjectTable" ("team_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_team_id_created_at_idx" ON "EmbRouter_ManagedVectorStoreTable" ("team_id", "created_at" DESC);

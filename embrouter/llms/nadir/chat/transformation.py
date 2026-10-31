@@ -3,10 +3,10 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 _SUPPORTED_OPENAI_PARAMS: Final = (
     "extra_headers",
@@ -46,7 +46,7 @@ class NadirConfig(OpenAIGPTConfig):
         request_data: dict,  # mutable-ok: signature fixed by the base interface
         messages: list[AllMessageValues],  # mutable-ok: signature fixed by the base interface
         optional_params: dict,  # mutable-ok: signature fixed by the base interface
-        litellm_params: dict,  # mutable-ok: signature fixed by the base interface
+        embrouter_params: dict,  # mutable-ok: signature fixed by the base interface
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -59,7 +59,7 @@ class NadirConfig(OpenAIGPTConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,

@@ -14,15 +14,15 @@ from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 from starlette.datastructures import Headers
 
-import litellm
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm._service_logger import ServiceLogging
-from litellm._uuid import uuid
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter._service_logger import ServiceLogging
+from embrouter._uuid import uuid
+from embrouter.constants import (
     CLIENT_OUTPUT_CEILING_METADATA_KEY,
     CONSUMED_REQUEST_TAGS_METADATA_KEY,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
-    LITELLM_PROXY_MASTER_KEY_ALIAS,
+    EMBROUTER_PROXY_MASTER_KEY_ALIAS,
     OTEL_SERVICE_NAME_METADATA_KEYS,
     PRE_CALL_EXECUTED_GUARDRAILS_KEY,
     ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY,
@@ -30,57 +30,57 @@ from litellm.constants import (
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
     SESSION_ID_OMITTED_METADATA_KEY,
-    X_LITELLM_DISABLE_CALLBACKS,
+    X_EMBROUTER_DISABLE_CALLBACKS,
 )
-from litellm.litellm_core_utils.core_helpers import is_codex_user_agent
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.embrouter_core_utils.core_helpers import is_codex_user_agent
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     TRUSTED_CALLBACK_VARS_FIELD,
     _request_blocked_callback_params,
     iter_client_callback_metadata_dicts,
 )
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.url_utils import (
+from embrouter.embrouter_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.url_utils import (
     is_url_destination_allowed_by_host,
     provider_url_destination_candidates,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     AddTeamCallback,
     CommonProxyErrors,
-    LitellmDataForBackendLLMCall,
-    LiteLLMRoutes,
-    LitellmUserRoles,
+    EmbrouterDataForBackendLLMCall,
+    EmbRouterRoutes,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     SpecialHeaders,
     TeamCallbackMetadata,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import get_request_route
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.auth.auth_utils import get_request_route
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.callback_utils import (
     decrypt_callback_vars,
     get_metadata_variable_name_from_kwargs,
     strip_callback_config,
 )
-from litellm.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
-from litellm.proxy.spend_tracking.carried_budget_state import carried_budget_metadata
-from litellm.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
+from embrouter.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
+from embrouter.proxy.spend_tracking.carried_budget_state import carried_budget_metadata
+from embrouter.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
 
 # Cache special headers as a frozenset for O(1) lookup performance
 _SPECIAL_HEADERS_CACHE: Final = frozenset(str(v.value).lower() for v in SpecialHeaders)
 
 _REDACTED_HEADER_VALUE: Final = "***REDACTED***"
-_CREDENTIAL_HEADER_NAMES: Final = SpecialHeaders.litellm_credential_header_names() | frozenset(
+_CREDENTIAL_HEADER_NAMES: Final = SpecialHeaders.embrouter_credential_header_names() | frozenset(
     {"cookie", "proxy-authorization"}
 )
 _TRANSPORT_ONLY_CREDENTIAL_KEYS: Final = frozenset({"provider_specific_header", "headers", "api_key"})
 
 # Matches any header of the form x-<something>-session-id (case-insensitive).
-# Excludes the two explicit litellm headers which are handled with higher priority.
+# Excludes the two explicit embrouter headers which are handled with higher priority.
 _GENERIC_SESSION_ID_HEADER_RE: Final = re.compile(r"^x-.+-session-id$", re.IGNORECASE)
-_EXPLICIT_SESSION_HEADERS: Final = frozenset({"x-litellm-trace-id", "x-litellm-session-id"})
+_EXPLICIT_SESSION_HEADERS: Final = frozenset({"x-embrouter-trace-id", "x-embrouter-session-id"})
 # Codex carries its conversation uuid in unprefixed headers, so the
 # x-<vendor>-session-id convention above never matches it. Current builds send
 # ``session-id``/``thread-id``; builds before the codex-api split sent
@@ -126,7 +126,7 @@ def _trace_id_from_otel_span(span: "OtelSpan | None") -> str | None:
 def add_otel_trace_id_to_request(
     data: dict[str, object], _metadata_variable_name: str, parent_otel_span: "OtelSpan | None"
 ) -> None:
-    if data.get("litellm_trace_id"):
+    if data.get("embrouter_trace_id"):
         return
     metadata: Final = data.get(_metadata_variable_name)
     requester_metadata: Final = data.get("metadata")
@@ -135,7 +135,7 @@ def add_otel_trace_id_to_request(
     trace_id: Final = _trace_id_from_otel_span(parent_otel_span)
     if trace_id is None:
         return
-    data["litellm_trace_id"] = trace_id  # rebind-ok: data is an out-param
+    data["embrouter_trace_id"] = trace_id  # rebind-ok: data is an out-param
     if isinstance(metadata, dict):
         metadata["trace_id"] = trace_id
 
@@ -159,7 +159,7 @@ def _stampable_key_hash(user_api_key_dict: UserAPIKeyAuth) -> str | None:
     api_key: Final = user_api_key_dict.api_key
     if not user_api_key_dict.via_virtual_key or api_key is None:
         return None
-    if api_key == LITELLM_PROXY_MASTER_KEY_ALIAS or _SHA256_HEX_RE.fullmatch(api_key):
+    if api_key == EMBROUTER_PROXY_MASTER_KEY_ALIAS or _SHA256_HEX_RE.fullmatch(api_key):
         return api_key
     return None
 
@@ -183,12 +183,12 @@ def _sanitize_for_log(value: object) -> str:
     return text.replace("\r", "").replace("\n", "")
 
 
-from litellm.router import Router
-from litellm.secret_managers.main import get_secret_bool
-from litellm.types.llms.anthropic import ANTHROPIC_API_HEADERS
-from litellm.types.services import ServiceTypes
-from litellm.types.utils import (
-    CustomPricingLiteLLMParams,
+from embrouter.router import Router
+from embrouter.secret_managers.main import get_secret_bool
+from embrouter.types.llms.anthropic import ANTHROPIC_API_HEADERS
+from embrouter.types.services import ServiceTypes
+from embrouter.types.utils import (
+    CustomPricingEmbRouterParams,
     LlmProviders,
     ProviderSpecificHeader,
     StandardCallbackDynamicParams,
@@ -210,10 +210,10 @@ _ENABLE_TEAM_STALE_ALIAS_BYPASS: bool | None = None
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as OtelSpan
 
-    from litellm.integrations.otel.model.destination import OtelDestination
-    from litellm.proxy.policy_engine.attachment_registry import AttachmentRegistry
-    from litellm.proxy.proxy_server import ProxyConfig as _ProxyConfig
-    from litellm.types.proxy.policy_engine import Policy, PolicyMatchContext
+    from embrouter.integrations.otel.model.destination import OtelDestination
+    from embrouter.proxy.policy_engine.attachment_registry import AttachmentRegistry
+    from embrouter.proxy.proxy_server import ProxyConfig as _ProxyConfig
+    from embrouter.types.proxy.policy_engine import Policy, PolicyMatchContext
 
     ProxyConfig = _ProxyConfig
 else:
@@ -235,7 +235,7 @@ def parse_cache_control(cache_control):
     return cache_dict
 
 
-LITELLM_METADATA_ROUTES: Final = (
+EMBROUTER_METADATA_ROUTES: Final = (
     "batches",
     "bedrock",
     "/v1/messages",
@@ -243,7 +243,7 @@ LITELLM_METADATA_ROUTES: Final = (
     "files",
 )
 
-LITELLM_TRACE_CONTROL_METADATA_FIELDS: Final = frozenset(
+EMBROUTER_TRACE_CONTROL_METADATA_FIELDS: Final = frozenset(
     {
         "mask_input",
         "mask_output",
@@ -280,18 +280,18 @@ _UNTRUSTED_ROOT_CONTROL_FIELDS: Final = (
     "_guardrail_pipelines",
     "_pipeline_managed_guardrails",
     # Callback-registration fields. ``callbacks``, ``service_callback``,
-    # and ``logger_fn`` are read by ``litellm.utils.function_setup`` and
-    # appended to process-wide ``litellm.{input,success,failure,_async_*,
-    # service}_callback`` lists / ``litellm.user_logger_fn`` — one request
+    # and ``logger_fn`` are read by ``embrouter.utils.function_setup`` and
+    # appended to process-wide ``embrouter.{input,success,failure,_async_*,
+    # service}_callback`` lists / ``embrouter.user_logger_fn`` — one request
     # poisons the worker for every subsequent caller.
-    # ``litellm_disabled_callbacks`` is the inverse primitive: the
+    # ``embrouter_disabled_callbacks`` is the inverse primitive: the
     # legitimate path reads it from key/team metadata, the request-body
     # version silently turns off admin-configured audit/observability
     # for the caller's request.
     "callbacks",
     "service_callback",
     "logger_fn",
-    "litellm_disabled_callbacks",
+    "embrouter_disabled_callbacks",
     # Agentic-loop control fields. These bound or drive an interceptor's agentic
     # loop (web search, compression, code interpreter) and are server-controlled.
     # A client-supplied value would forge loop depth/cycle state, mark an
@@ -349,7 +349,7 @@ _UNTRUSTED_METADATA_CONTROL_FIELDS: Final = (
 
 UNTRUSTED_REQUEST_HEADER_CONTROL_FIELDS: Final = frozenset(
     {
-        "litellm-disable-message-redaction",
+        "embrouter-disable-message-redaction",
     }
 )
 _CLIENT_MOCK_CONTROL_FIELDS: Final = frozenset({"mock_response", "mock_tool_calls"})
@@ -357,12 +357,12 @@ _ALLOW_CLIENT_MOCK_RESPONSE_METADATA_KEY: Final = "allow_client_mock_response"
 _ALLOW_CLIENT_MESSAGE_REDACTION_OPT_OUT_METADATA_KEY: Final = "allow_client_message_redaction_opt_out"
 
 # Per-request pricing parameters mutate cost-tracking output and (via
-# ``litellm.completion`` → ``register_model``) the process-wide
-# ``litellm.model_cost`` map. Both effects belong to deployment configuration,
+# ``embrouter.completion`` → ``register_model``) the process-wide
+# ``embrouter.model_cost`` map. Both effects belong to deployment configuration,
 # not to user-supplied request bodies, so the proxy strips them before they
 # reach the call path. Built from the Pydantic model so newly-added pricing
 # fields are covered automatically.
-_CLIENT_PRICING_CONTROL_FIELDS: Final = frozenset(CustomPricingLiteLLMParams.model_fields.keys())
+_CLIENT_PRICING_CONTROL_FIELDS: Final = frozenset(CustomPricingEmbRouterParams.model_fields.keys())
 # ``model_info`` carries the same pricing fields when read by
 # ``use_custom_pricing_for_model``; strip from metadata for the same reason.
 # ``standard_logging_guardrail_information`` is proxy-written telemetry summed
@@ -399,7 +399,7 @@ def _reject_url_valued_destinations(data: dict[str, object]) -> None:
     host the proxy can reach, including internal services. Reject here at the
     proxy boundary so SDK users (who legitimately pass URL-valued identifiers)
     are unaffected, while admins can opt specific hosts back in via
-    ``litellm.provider_url_destination_allowed_hosts``.
+    ``embrouter.provider_url_destination_allowed_hosts``.
     """
     for field in _URL_DESTINATION_REQUEST_FIELDS:
         value = data.get(field)
@@ -413,7 +413,7 @@ def reject_url_valued_destination(field: str, value: str) -> None:
     Operates on one field/value pair. ``_reject_url_valued_destinations`` applies
     it across ``_URL_DESTINATION_REQUEST_FIELDS`` for a request body.
     """
-    allowed_hosts: Final = getattr(litellm, "provider_url_destination_allowed_hosts", []) or []
+    allowed_hosts: Final = getattr(embrouter, "provider_url_destination_allowed_hosts", []) or []
     for candidate in provider_url_destination_candidates(value):
         if not candidate.lower().startswith(("http://", "https://")):
             continue
@@ -428,7 +428,7 @@ def reject_url_valued_destination(field: str, value: str) -> None:
                     f"URL-valued '{field}' is not allowed. Configure custom "
                     "endpoints with api_base instead, or add the destination "
                     "host to `provider_url_destination_allowed_hosts` in "
-                    "litellm_settings."
+                    "embrouter_settings."
                 ),
             },
         )
@@ -571,7 +571,7 @@ def _strip_client_callback_credentials(
     ``dd_api_key`` and have the resulting logs shipped to a host it controls.
 
     ``TRUSTED_CALLBACK_VARS_FIELD`` is proxy-owned; it is cleared here and repopulated
-    from team/key callback settings in ``add_litellm_data_to_request``.
+    from team/key callback settings in ``add_embrouter_data_to_request``.
     """
     containers: Final = (("body", data), *iter_client_callback_metadata_dicts(data))
     stripped: Final = tuple(
@@ -606,7 +606,7 @@ def _strip_client_pricing_overrides(data: dict[str, object]) -> None:
         if field in data:
             stripped.append(field)
             data.pop(field, None)
-    for metadata_key in ("metadata", "litellm_metadata"):
+    for metadata_key in ("metadata", "embrouter_metadata"):
         metadata = data.get(metadata_key)
         if not isinstance(metadata, dict):
             continue
@@ -627,7 +627,7 @@ def _strip_router_reserved_metadata(
     data: dict[str, Any],  # mutable-ok: strips in place on the request body the pre-call pipeline threads through
 ) -> None:
     """Drop the router-owned fallback stamps from any client-supplied metadata bucket."""
-    for metadata_key in ("metadata", "litellm_metadata"):
+    for metadata_key in ("metadata", "embrouter_metadata"):
         if not isinstance(metadata := data.get(metadata_key), dict):
             continue
         for field in _ROUTER_RESERVED_METADATA_FIELDS & metadata.keys():
@@ -641,32 +641,32 @@ def _get_metadata_variable_name(request: Request) -> str:
     """
     Helper to return what the "metadata" field should be called in the request data
 
-    For all /thread or /assistant endpoints we need to call this "litellm_metadata"
+    For all /thread or /assistant endpoints we need to call this "embrouter_metadata"
 
     For ALL other endpoints we call this "metadata"
     """
     # Inline imports — auth_utils/route_checks participate in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     path: Final = get_request_route(request)
     if "thread" in path or "assistant" in path:
-        return "litellm_metadata"
+        return "embrouter_metadata"
 
-    if any(route in path for route in LITELLM_METADATA_ROUTES):
-        return "litellm_metadata"
+    if any(route in path for route in EMBROUTER_METADATA_ROUTES):
+        return "embrouter_metadata"
 
     return "metadata"
 
 
 def _promoted_trace_control_fields(
     requester_metadata: Mapping[str, object],
-    litellm_metadata: Mapping[str, object],
+    embrouter_metadata: Mapping[str, object],
 ) -> tuple[tuple[str, object], ...]:
-    """Return the caller's trace-control fields that ``litellm_metadata`` does not already set."""
+    """Return the caller's trace-control fields that ``embrouter_metadata`` does not already set."""
     return tuple(
         (key, value)
         for key, value in requester_metadata.items()
-        if key in LITELLM_TRACE_CONTROL_METADATA_FIELDS and key not in litellm_metadata
+        if key in EMBROUTER_TRACE_CONTROL_METADATA_FIELDS and key not in embrouter_metadata
     )
 
 
@@ -678,8 +678,8 @@ def _extract_generic_session_id_from_headers(
     like ``x-<vendor>-session-id`` and whose value is a plausible session/trace
     identifier (alphanumeric + hyphens/underscores, at least 8 chars).
 
-    The two explicit LiteLLM headers (``x-litellm-trace-id`` /
-    ``x-litellm-session-id``) are excluded here because they are handled with
+    The two explicit EmbRouter headers (``x-embrouter-trace-id`` /
+    ``x-embrouter-session-id``) are excluded here because they are handled with
     higher priority by the caller.
 
     Example: ``x-claude-code-session-id: e96634a3-fa28-4083-b354-55542e2dca01``
@@ -744,8 +744,8 @@ def get_chain_id_from_headers(headers: dict[str, str] | None) -> str | None:
     Extract chain id for call chaining from request headers.
 
     Priority order:
-    1. ``x-litellm-trace-id`` (explicit, highest priority)
-    2. ``x-litellm-session-id`` (explicit)
+    1. ``x-embrouter-trace-id`` (explicit, highest priority)
+    2. ``x-embrouter-session-id`` (explicit)
     3. Any ``x-<vendor>-session-id`` header whose value looks like a session id
        (alphanumeric / UUID, at least 8 chars).  E.g. ``x-claude-code-session-id``.
     4. Codex's unprefixed ``session-id`` / ``thread-id``, for Codex callers only.
@@ -755,14 +755,14 @@ def get_chain_id_from_headers(headers: dict[str, str] | None) -> str | None:
     dicts from any transport.
 
     Used by MCP (and other paths that have raw_headers but no Request) to set
-    litellm_trace_id/litellm_session_id for spend logs and logging consistency.
+    embrouter_trace_id/embrouter_session_id for spend logs and logging consistency.
     """
     if not headers:
         return None
     normalized: Final = {k.lower(): v for k, v in headers.items() if isinstance(k, str)}
     return (
-        normalized.get("x-litellm-trace-id")
-        or normalized.get("x-litellm-session-id")
+        normalized.get("x-embrouter-trace-id")
+        or normalized.get("x-embrouter-session-id")
         or _extract_generic_session_id_from_headers(normalized)
         or _extract_codex_session_id_from_headers(normalized)
         or _extract_bare_session_id_from_headers(normalized)
@@ -796,7 +796,7 @@ def _get_anthropic_session_id_from_metadata(metadata: object) -> str | None:
 def _is_llm_inference_route(request: Request) -> bool:
     route: Final = get_request_route(request)
     return RouteChecks.is_llm_api_route(route=route) and not RouteChecks.check_route_access(
-        route=route, allowed_routes=LiteLLMRoutes.mcp_routes.value
+        route=route, allowed_routes=EmbRouterRoutes.mcp_routes.value
     )
 
 
@@ -806,7 +806,7 @@ def apply_missing_session_id_policy(
     general_settings: Mapping[str, object] | None,
     request: Request,
 ) -> None:
-    for metadata_key in ("metadata", "litellm_metadata"):
+    for metadata_key in ("metadata", "embrouter_metadata"):
         if isinstance(client_metadata := data.get(metadata_key), dict):
             client_metadata.pop(SESSION_ID_OMITTED_METADATA_KEY, None)
     metadata: Final = data.get(_metadata_variable_name)
@@ -822,25 +822,25 @@ def apply_missing_session_id_policy(
             requester_metadata.get("session_id") if isinstance(requester_metadata, dict) else None
         )
         if (
-            (body_session_id := data.get("litellm_session_id"))
+            (body_session_id := data.get("embrouter_session_id"))
             and not metadata.get("session_id")
             and not requester_session_id
         ):
             metadata["session_id"] = body_session_id
         return
-    if data.get("litellm_session_id") or metadata.get("session_id"):
+    if data.get("embrouter_session_id") or metadata.get("session_id"):
         return
     match policy:
         case "generate":
-            session_id: Final = str(data.get("litellm_trace_id") or metadata.get("trace_id") or uuid.uuid4())
-            data["litellm_session_id"] = session_id  # rebind-ok: data is an out-param
-            data.setdefault("litellm_trace_id", session_id)
+            session_id: Final = str(data.get("embrouter_trace_id") or metadata.get("trace_id") or uuid.uuid4())
+            data["embrouter_session_id"] = session_id  # rebind-ok: data is an out-param
+            data.setdefault("embrouter_trace_id", session_id)
             metadata["session_id"] = session_id
             metadata[SESSION_ID_GENERATED_METADATA_KEY] = True
         case "reject":
             raise ProxyException(
                 message=(
-                    "Request has no session id. Send an `x-litellm-session-id` header or `metadata.session_id`. "
+                    "Request has no session id. Send an `x-embrouter-session-id` header or `metadata.session_id`. "
                     "Required by `general_settings.missing_session_id: reject`."
                 ),
                 type=ProxyErrorTypes.bad_request_error,
@@ -858,17 +858,17 @@ def should_auto_drop_params_for_agentic_cli(user_agent: str, data: dict, proxy_c
     """drop_params defaults to on for agentic CLIs so their client-specific
     params (e.g. Claude Code's thinking, Codex's service_tier) don't fail
     requests routed to providers that reject them. An explicit drop_params
-    from the caller or in the operator's ``litellm_settings`` always wins
+    from the caller or in the operator's ``embrouter_settings`` always wins
     over this default."""
-    from litellm.llms.anthropic.common_utils import is_claude_code_user_agent
+    from embrouter.llms.anthropic.common_utils import is_claude_code_user_agent
 
     if not (is_claude_code_user_agent(user_agent) or is_codex_user_agent(user_agent)):
         return False
     if "drop_params" in data:
         return False
     config: Final = getattr(proxy_config, "config", None)
-    litellm_settings: Final = config.get("litellm_settings") if isinstance(config, dict) else None
-    return not (isinstance(litellm_settings, dict) and "drop_params" in litellm_settings)
+    embrouter_settings: Final = config.get("embrouter_settings") if isinstance(config, dict) else None
+    return not (isinstance(embrouter_settings, dict) and "drop_params" in embrouter_settings)
 
 
 def safe_add_api_version_from_query_params(data: dict, request: Request):
@@ -903,7 +903,7 @@ def convert_key_logging_metadata_to_callback(
             team_callback_settings_obj.failure_callback.append(data.callback_name)
     elif (
         not data.callback_type or data.callback_type == "success_and_failure"
-    ):  # assume 'success_and_failure' = litellm.callbacks
+    ):  # assume 'success_and_failure' = embrouter.callbacks
         if team_callback_settings_obj.success_callback is None:
             team_callback_settings_obj.success_callback = []
         if team_callback_settings_obj.failure_callback is None:
@@ -1021,7 +1021,7 @@ def _get_dynamic_logging_metadata(
     # Enter here when configured on the config.yaml file.
     #########################################################################################
     elif user_api_key_dict.team_id is not None:
-        callback_settings_obj = LiteLLMProxyRequestSetup.add_team_based_callbacks_from_config(
+        callback_settings_obj = EmbRouterProxyRequestSetup.add_team_based_callbacks_from_config(
             team_id=user_api_key_dict.team_id, proxy_config=proxy_config
         )
     return callback_settings_obj
@@ -1047,22 +1047,22 @@ def _dynamically_disabled_backends(
     """The callbacks this request turned off, read the way dispatch reads them.
 
     Same sources, precedence, and premium gate ``EnterpriseCallbackControls`` applies
-    before it skips a callback: the ``x-litellm-disable-callbacks`` header wins over the
+    before it skips a callback: the ``x-embrouter-disable-callbacks`` header wins over the
     key's stored list, team settings are not a source, and a non-premium proxy honours
     neither. A destination has to agree with that decision, or a backend the key turned
     off would still be exported to, now through the fan-out instead of the callback.
     """
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
-    if litellm.allow_dynamic_callback_disabling is not True or not premium_user:
+    if embrouter.allow_dynamic_callback_disabling is not True or not premium_user:
         return frozenset()
     header: Final = (request_headers if request_headers is not None else _NO_REQUEST_HEADERS).get(
-        X_LITELLM_DISABLE_CALLBACKS
+        X_EMBROUTER_DISABLE_CALLBACKS
     )
     if header is not None:
         return frozenset(name.strip().lower() for name in header.split(","))
     metadata: Final = user_api_key_dict.metadata
-    disabled: Final = metadata.get("litellm_disabled_callbacks") if metadata else None
+    disabled: Final = metadata.get("embrouter_disabled_callbacks") if metadata else None
     if not isinstance(disabled, list):
         return frozenset()
     return frozenset(name.lower() for name in disabled if isinstance(name, str))
@@ -1094,15 +1094,15 @@ def resolve_tenant_otel_destinations(
     same credentials the runtime parser resolves for that request.
 
     A backend the request disabled dynamically, through the key's
-    ``litellm_disabled_callbacks`` or the ``x-litellm-disable-callbacks`` header in
+    ``embrouter_disabled_callbacks`` or the ``x-embrouter-disable-callbacks`` header in
     ``request_headers``, resolves to no destination, so the fan-out never carries the
     request tree to that account and the operator's exporter is never suppressed for
     it. That leaves the request exactly where it stood before destinations existed:
     the OTel V2 logger itself is not on the disable list's class registry, so its own
     span still routes to the tenant's credentials the way it did then.
     """
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.integrations.otel.presets.destinations import destination_for
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.integrations.otel.presets.destinations import destination_for
 
     if not is_otel_v2_enabled():
         return ()
@@ -1168,27 +1168,27 @@ def _tenant_service_name(user_api_key_dict: UserAPIKeyAuth) -> str | None:
 
 def clean_headers(
     headers: Headers,
-    litellm_key_header_name: str | None = None,
+    embrouter_key_header_name: str | None = None,
     forward_llm_provider_auth_headers: bool = False,
     authenticated_with_header: str | None = None,
 ) -> dict:
     """
-    Removes litellm api key from headers
+    Removes embrouter api key from headers
 
     Args:
         headers: Request headers
-        litellm_key_header_name: Custom header name for LiteLLM API key
+        embrouter_key_header_name: Custom header name for EmbRouter API key
         forward_llm_provider_auth_headers: Whether to forward provider auth headers
-        authenticated_with_header: Which header was used for LiteLLM authentication
-            (e.g., "x-litellm-api-key", "authorization", "x-api-key")
+        authenticated_with_header: Which header was used for EmbRouter authentication
+            (e.g., "x-embrouter-api-key", "authorization", "x-api-key")
 
     Returns:
         Cleaned headers dict
     """
-    from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+    from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
     clean_headers: Final = {}
-    litellm_key_lower: Final = litellm_key_header_name.lower() if litellm_key_header_name is not None else None
+    embrouter_key_lower: Final = embrouter_key_header_name.lower() if embrouter_key_header_name is not None else None
     for header, value in headers.items():
         header_lower = header.lower()
 
@@ -1203,17 +1203,17 @@ def clean_headers(
             ):
                 clean_headers[header] = value
         elif forward_llm_provider_auth_headers and header_lower in _SPECIAL_HEADERS_CACHE:
-            if litellm_key_lower and header_lower == litellm_key_lower:
+            if embrouter_key_lower and header_lower == embrouter_key_lower:
                 continue
             if header_lower == "authorization":
                 continue
-            # Never forward x-litellm-api-key (it's for proxy auth only)
-            if header_lower == "x-litellm-api-key":
+            # Never forward x-embrouter-api-key (it's for proxy auth only)
+            if header_lower == "x-embrouter-api-key":
                 continue
             clean_headers[header] = value
-        # Check if header should be excluded: either in special headers cache or matches custom litellm key
+        # Check if header should be excluded: either in special headers cache or matches custom embrouter key
         elif header_lower not in _SPECIAL_HEADERS_CACHE and (
-            litellm_key_lower is None or header_lower != litellm_key_lower
+            embrouter_key_lower is None or header_lower != embrouter_key_lower
         ):
             clean_headers[header] = value
     return clean_headers
@@ -1243,7 +1243,7 @@ def redact_credential_headers(headers: Mapping[str, str]) -> Mapping[str, str]:
     }
 
 
-class LiteLLMProxyRequestSetup:
+class EmbRouterProxyRequestSetup:
     @staticmethod
     def _get_timeout_from_request(headers: dict) -> float | None:
         """
@@ -1255,16 +1255,16 @@ class LiteLLMProxyRequestSetup:
 
         ```js
         const openaiProvider = createOpenAI({
-            baseURL: liteLLM.baseURL,
-            apiKey: liteLLM.apiKey,
+            baseURL: embRouter.baseURL,
+            apiKey: embRouter.apiKey,
             compatibility: "compatible",
             headers: {
-                "x-litellm-timeout": "90"
+                "x-embrouter-timeout": "90"
             },
         });
         ```
         """
-        timeout_header: Final = headers.get("x-litellm-timeout", None)
+        timeout_header: Final = headers.get("x-embrouter-timeout", None)
         if timeout_header is not None:
             return float(timeout_header)
         return None
@@ -1274,7 +1274,7 @@ class LiteLLMProxyRequestSetup:
         """
         Get the `stream_timeout` from the request headers.
         """
-        stream_timeout_header: Final = headers.get("x-litellm-stream-timeout", None)
+        stream_timeout_header: Final = headers.get("x-embrouter-stream-timeout", None)
         if stream_timeout_header is not None:
             return float(stream_timeout_header)
         return None
@@ -1287,7 +1287,7 @@ class LiteLLMProxyRequestSetup:
         fields. Subject to the same deployment-level allow_client_keepalive_override
         gate as the request body field: see _resolve_keepalive_seconds.
         """
-        keepalive_seconds_header: Final = headers.get("x-litellm-keepalive-seconds", None)
+        keepalive_seconds_header: Final = headers.get("x-embrouter-keepalive-seconds", None)
         if keepalive_seconds_header is not None:
             return float(keepalive_seconds_header)
         return None
@@ -1297,7 +1297,7 @@ class LiteLLMProxyRequestSetup:
         """
         Workaround for client request from Vercel's AI SDK.
         """
-        num_retries_header: Final = headers.get("x-litellm-num-retries", None)
+        num_retries_header: Final = headers.get("x-embrouter-num-retries", None)
         if num_retries_header is not None:
             return int(num_retries_header)
         return None
@@ -1307,9 +1307,9 @@ class LiteLLMProxyRequestSetup:
         """
         Get the `spend_logs_metadata` from the request headers.
         """
-        from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
+        from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
 
-        spend_logs_metadata_header: Final = headers.get("x-litellm-spend-logs-metadata", None)
+        spend_logs_metadata_header: Final = headers.get("x-embrouter-spend-logs-metadata", None)
         if spend_logs_metadata_header is not None:
             return safe_json_loads(spend_logs_metadata_header)
         return None
@@ -1357,10 +1357,10 @@ class LiteLLMProxyRequestSetup:
         user_header_mapping: Final = general_settings.get("user_header_mappings")
         if not user_header_mapping:
             return user_api_key_dict
-        header_name: Final = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(user_header_mapping)
+        header_name: Final = EmbRouterProxyRequestSetup.get_internal_user_header_from_mapping(user_header_mapping)
         if not header_name:
             return user_api_key_dict
-        header_value: Final = LiteLLMProxyRequestSetup._get_case_insensitive_header(headers, header_name)
+        header_value: Final = EmbRouterProxyRequestSetup._get_case_insensitive_header(headers, header_name)
         if header_value:
             user_api_key_dict.user_id = header_value
             return user_api_key_dict
@@ -1381,7 +1381,7 @@ class LiteLLMProxyRequestSetup:
         if not isinstance(header_name, str):
             raise TypeError(f"Expected user_header_name to be a str but got {type(header_name)}")
 
-        user: Final = LiteLLMProxyRequestSetup._get_case_insensitive_header(headers, header_name)
+        user: Final = EmbRouterProxyRequestSetup._get_case_insensitive_header(headers, header_name)
         if user is not None:
             verbose_logger.info('found user "%s" in header "%s"', user, header_name)
 
@@ -1409,24 +1409,24 @@ class LiteLLMProxyRequestSetup:
         - Checks if user information should be added to the headers
         """
 
-        returned_headers: Final = LiteLLMProxyRequestSetup._get_forwardable_headers(headers)
+        returned_headers: Final = EmbRouterProxyRequestSetup._get_forwardable_headers(headers)
 
-        if litellm.add_user_information_to_llm_headers is True:
-            litellm_logging_metadata_headers: Final = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+        if embrouter.add_user_information_to_llm_headers is True:
+            embrouter_logging_metadata_headers: Final = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(
                 user_api_key_dict=user_api_key_dict
             )
-            for k, v in litellm_logging_metadata_headers.items():
+            for k, v in embrouter_logging_metadata_headers.items():
                 if v is None:
                     continue
                 # httpx requires header values to be str or bytes; coerce numbers/bools
                 # to str and JSON-encode dict/list (e.g. user_api_key_spend is float,
                 # user_api_key_auth_metadata is dict). See #27458.
                 if isinstance(v, (dict, list)):
-                    returned_headers[f"x-litellm-{k}"] = json.dumps(v)
+                    returned_headers[f"x-embrouter-{k}"] = json.dumps(v)
                 elif isinstance(v, (str, bytes)):
-                    returned_headers[f"x-litellm-{k}"] = v
+                    returned_headers[f"x-embrouter-{k}"] = v
                 else:
-                    returned_headers[f"x-litellm-{k}"] = str(v)
+                    returned_headers[f"x-embrouter-{k}"] = str(v)
 
         return returned_headers
 
@@ -1435,24 +1435,24 @@ class LiteLLMProxyRequestSetup:
         """
         Add headers to the LLM call by model group
         """
-        from litellm.proxy.auth.auth_checks import _check_model_access_helper
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.auth.auth_checks import _check_model_access_helper
+        from embrouter.proxy.proxy_server import llm_router
 
         data_model: Final = data.get("model")
 
         if (
             data_model is not None
-            and litellm.model_group_settings is not None
-            and litellm.model_group_settings.forward_client_headers_to_llm_api is not None
+            and embrouter.model_group_settings is not None
+            and embrouter.model_group_settings.forward_client_headers_to_llm_api is not None
             and _check_model_access_helper(
                 model=data_model,
                 llm_router=llm_router,
-                models=litellm.model_group_settings.forward_client_headers_to_llm_api,
+                models=embrouter.model_group_settings.forward_client_headers_to_llm_api,
                 team_model_aliases=user_api_key_dict.team_model_aliases,
                 team_id=user_api_key_dict.team_id,
             )  # handles aliases, wildcards, etc.
         ):
-            _headers: Final = LiteLLMProxyRequestSetup.add_headers_to_llm_call(headers, user_api_key_dict)
+            _headers: Final = EmbRouterProxyRequestSetup.add_headers_to_llm_call(headers, user_api_key_dict)
             if _headers != {}:
                 data["headers"] = _headers
         return data
@@ -1465,42 +1465,42 @@ class LiteLLMProxyRequestSetup:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            role = item.get("litellm_user_role")
+            role = item.get("embrouter_user_role")
             header_name = item.get("header_name")
             if role is None or not header_name:
                 continue
-            if str(role).lower() == str(LitellmUserRoles.INTERNAL_USER).lower():
+            if str(role).lower() == str(EmbrouterUserRoles.INTERNAL_USER).lower():
                 return header_name
         return None
 
     @staticmethod
-    def add_litellm_data_for_backend_llm_call(
+    def add_embrouter_data_for_backend_llm_call(
         *,
         headers: dict,
         request_data: Mapping[str, object],
         user_api_key_dict: UserAPIKeyAuth,
         general_settings: dict[str, Any] | None = None,
-    ) -> LitellmDataForBackendLLMCall:
+    ) -> EmbrouterDataForBackendLLMCall:
         """
         - Adds user from headers
         - Adds forwardable headers
         - Adds org id
         """
-        data: Final = LitellmDataForBackendLLMCall()
+        data: Final = EmbrouterDataForBackendLLMCall()
 
         if general_settings and general_settings.get("forward_client_headers_to_llm_api") is True:
-            _headers: Final = LiteLLMProxyRequestSetup.add_headers_to_llm_call(headers, user_api_key_dict)
+            _headers: Final = EmbRouterProxyRequestSetup.add_headers_to_llm_call(headers, user_api_key_dict)
             if _headers != {}:
                 data["headers"] = _headers
-        _organization: Final = LiteLLMProxyRequestSetup.get_openai_org_id_from_headers(headers, general_settings)
+        _organization: Final = EmbRouterProxyRequestSetup.get_openai_org_id_from_headers(headers, general_settings)
         if _organization is not None:
             data["organization"] = _organization
 
-        header_timeout: Final = LiteLLMProxyRequestSetup._get_timeout_from_request(headers)
+        header_timeout: Final = EmbRouterProxyRequestSetup._get_timeout_from_request(headers)
         if header_timeout is not None:
             data["timeout"] = header_timeout
 
-        header_stream_timeout: Final = LiteLLMProxyRequestSetup._get_stream_timeout_from_request(headers)
+        header_stream_timeout: Final = EmbRouterProxyRequestSetup._get_stream_timeout_from_request(headers)
         if header_stream_timeout is not None:
             data["stream_timeout"] = header_stream_timeout
 
@@ -1520,31 +1520,31 @@ class LiteLLMProxyRequestSetup:
         ):
             data["client_side_timeout"] = True
 
-        num_retries: Final = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers)
+        num_retries: Final = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers)
         if num_retries is not None:
             data["num_retries"] = num_retries
 
-        keepalive_seconds: Final = LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request(headers)
+        keepalive_seconds: Final = EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request(headers)
         if keepalive_seconds is not None:
             data["keepalive_seconds"] = keepalive_seconds
 
         return data
 
     @staticmethod
-    def add_litellm_metadata_from_request_headers(
+    def add_embrouter_metadata_from_request_headers(
         headers: dict,
         data: dict,
         _metadata_variable_name: str,
     ) -> dict:
         """
-        Add litellm metadata from request headers
+        Add embrouter metadata from request headers
 
 
         """
-        from litellm.proxy._types import LitellmMetadataFromRequestHeaders
+        from embrouter.proxy._types import EmbrouterMetadataFromRequestHeaders
 
-        metadata_from_headers: Final = LitellmMetadataFromRequestHeaders()
-        spend_logs_metadata: Final = LiteLLMProxyRequestSetup._get_spend_logs_metadata_from_request_headers(headers)
+        metadata_from_headers: Final = EmbrouterMetadataFromRequestHeaders()
+        spend_logs_metadata: Final = EmbRouterProxyRequestSetup._get_spend_logs_metadata_from_request_headers(headers)
         if spend_logs_metadata is not None:
             metadata_from_headers["spend_logs_metadata"] = spend_logs_metadata
 
@@ -1552,8 +1552,8 @@ class LiteLLMProxyRequestSetup:
         # Finally update the requests metadata with the `metadata_from_headers`
         #########################################################################################
 
-        agent_id_from_header: Final = headers.get("x-litellm-agent-id")
-        # Explicit litellm headers take precedence; fall back to any x-*-session-id header.
+        agent_id_from_header: Final = headers.get("x-embrouter-agent-id")
+        # Explicit embrouter headers take precedence; fall back to any x-*-session-id header.
         chain_id: Final = get_chain_id_from_headers(dict(headers))
 
         if agent_id_from_header:
@@ -1563,15 +1563,15 @@ class LiteLLMProxyRequestSetup:
         if chain_id:
             metadata_from_headers["trace_id"] = chain_id
             metadata_from_headers["session_id"] = chain_id
-            data["litellm_session_id"] = chain_id
-            data["litellm_trace_id"] = chain_id
+            data["embrouter_session_id"] = chain_id
+            data["embrouter_trace_id"] = chain_id
             verbose_proxy_logger.debug("Extracted chain_id from header (trace-id/session-id): %s", chain_id)
         else:
             body_metadata: Final = data.get("metadata")
             session_id: Final = _get_anthropic_session_id_from_metadata(body_metadata)
             if session_id:
                 metadata_from_headers["session_id"] = session_id
-                data["litellm_session_id"] = session_id
+                data["embrouter_session_id"] = session_id
                 if isinstance(body_metadata, dict) and isinstance(body_metadata.get("user_id"), dict):
                     body_metadata["user_id"] = session_id
                 verbose_proxy_logger.debug("Extracted session_id from Anthropic metadata.user_id")
@@ -1579,28 +1579,28 @@ class LiteLLMProxyRequestSetup:
         # Last-resort fallback: the W3C standards for trace/session propagation
         # (https://www.w3.org/TR/trace-context/, https://www.w3.org/TR/baggage/).
         # Lower priority than everything above - only fires when neither the
-        # explicit litellm headers nor the Anthropic-metadata path found
+        # explicit embrouter headers nor the Anthropic-metadata path found
         # anything - but lets a caller's existing traceparent/baggage headers
-        # (from real OTel instrumentation) correlate with litellm's own logs
+        # (from real OTel instrumentation) correlate with embrouter's own logs
         # instead of generating an unrelated trace_id.
         normalized_headers: Final = MappingProxyType({k.lower(): v for k, v in headers.items() if isinstance(k, str)})
-        if "litellm_trace_id" not in data:
+        if "embrouter_trace_id" not in data:
             traceparent: Final = normalized_headers.get("traceparent")
             if isinstance(traceparent, str):
                 trace_id_from_traceparent: Final = _trace_id_from_traceparent(traceparent)
                 if trace_id_from_traceparent:
                     metadata_from_headers["trace_id"] = trace_id_from_traceparent
-                    data["litellm_trace_id"] = trace_id_from_traceparent  # rebind-ok: data is an out-param
+                    data["embrouter_trace_id"] = trace_id_from_traceparent  # rebind-ok: data is an out-param
                     verbose_proxy_logger.debug(
                         "Extracted trace_id from W3C traceparent header: %s", trace_id_from_traceparent
                     )
-        if "litellm_session_id" not in data:
+        if "embrouter_session_id" not in data:
             baggage: Final = normalized_headers.get("baggage")
             if isinstance(baggage, str):
                 session_id_from_baggage: Final = _session_id_from_baggage(baggage)
                 if session_id_from_baggage:
                     metadata_from_headers["session_id"] = session_id_from_baggage
-                    data["litellm_session_id"] = session_id_from_baggage  # rebind-ok: data is an out-param
+                    data["embrouter_session_id"] = session_id_from_baggage  # rebind-ok: data is an out-param
                     verbose_proxy_logger.debug("Extracted session_id from W3C baggage header")
 
         if isinstance(data[_metadata_variable_name], dict):
@@ -1620,7 +1620,7 @@ class LiteLLMProxyRequestSetup:
         stripped_metadata: Final = strip_callback_config(user_api_key_dict.metadata)
         auth_metadata: Final = cast("dict[str, str] | None", stripped_metadata)  # cast-ok: metadata is free-form JSON
         user_api_key_logged_metadata: Final = StandardLoggingUserAPIKeyMetadata(
-            user_api_key_hash=LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict),
+            user_api_key_hash=EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict),
             user_api_key_alias=user_api_key_dict.key_alias,
             user_api_key_spend=user_api_key_dict.spend,
             user_api_key_max_budget=user_api_key_dict.max_budget,
@@ -1654,11 +1654,11 @@ class LiteLLMProxyRequestSetup:
         """
         Adds the `UserAPIKeyAuth` object to the request metadata.
         """
-        user_api_key_logged_metadata: Final = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+        user_api_key_logged_metadata: Final = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(
             user_api_key_dict=user_api_key_dict
         )
         data[_metadata_variable_name].update(user_api_key_logged_metadata)
-        data[_metadata_variable_name]["user_api_key"] = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        data[_metadata_variable_name]["user_api_key"] = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
 
         # Key-owned agent_id for spend attribution; keep existing (e.g. from header) if key has none
         _key_agent_id: Final = getattr(user_api_key_dict, "agent_id", None)
@@ -1711,16 +1711,16 @@ class LiteLLMProxyRequestSetup:
         """
         if _metadata_variable_name not in data:
             return data
-        from litellm.proxy._types import (
-            LiteLLM_ManagementEndpoint_MetadataFields,
-            LiteLLM_ManagementEndpoint_MetadataFields_Premium,
+        from embrouter.proxy._types import (
+            EmbRouter_ManagementEndpoint_MetadataFields,
+            EmbRouter_ManagementEndpoint_MetadataFields_Premium,
         )
 
         # ignore any special fields
         added_metadata: Final = {
             k: v
             for k, v in (strip_callback_config(management_endpoint_metadata) or {}).items()
-            if k not in (LiteLLM_ManagementEndpoint_MetadataFields_Premium + LiteLLM_ManagementEndpoint_MetadataFields)
+            if k not in (EmbRouter_ManagementEndpoint_MetadataFields_Premium + EmbRouter_ManagementEndpoint_MetadataFields)
         }
         if data[_metadata_variable_name].get("user_api_key_auth_metadata") is None:
             data[_metadata_variable_name]["user_api_key_auth_metadata"] = {}
@@ -1740,7 +1740,7 @@ class LiteLLMProxyRequestSetup:
 
         ## KEY-LEVEL SPEND LOGS / TAGS
         if "tags" in key_metadata and key_metadata["tags"] is not None:
-            data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+            data[_metadata_variable_name]["tags"] = EmbRouterProxyRequestSetup._merge_tags(
                 request_tags=data[_metadata_variable_name].get("tags"),
                 tags_to_add=key_metadata["tags"],
             )
@@ -1766,7 +1766,7 @@ class LiteLLMProxyRequestSetup:
             data["enable_prompt_caching"] = key_metadata["enable_prompt_caching"]  # rebind-ok: data is an out-param
 
         ## KEY-LEVEL METADATA
-        data = LiteLLMProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
+        data = EmbRouterProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
             data=data,
             management_endpoint_metadata=key_metadata,
             _metadata_variable_name=_metadata_variable_name,
@@ -1815,7 +1815,7 @@ class LiteLLMProxyRequestSetup:
         callback_vars_dict.pop("failure_callback", None)
         callback_vars_dict = {
             key: (
-                litellm.utils.get_secret(value, default_value=value) or value if isinstance(value, str) else str(value)
+                embrouter.utils.get_secret(value, default_value=value) or value if isinstance(value, str) else str(value)
             )
             for key, value in callback_vars_dict.items()
         }
@@ -1835,12 +1835,12 @@ class LiteLLMProxyRequestSetup:
         tags = None
 
         # Check request headers for tags
-        if "x-litellm-tags" in headers:
-            if isinstance(headers["x-litellm-tags"], str):
-                _tags: Final = headers["x-litellm-tags"].split(",")
+        if "x-embrouter-tags" in headers:
+            if isinstance(headers["x-embrouter-tags"], str):
+                _tags: Final = headers["x-embrouter-tags"].split(",")
                 tags = [tag.strip() for tag in _tags]
-            elif isinstance(headers["x-litellm-tags"], list):
-                tags = headers["x-litellm-tags"]
+            elif isinstance(headers["x-embrouter-tags"], list):
+                tags = headers["x-embrouter-tags"]
         # Check request body for tags
         if "tags" in data and isinstance(data["tags"], list):
             tags = data["tags"]
@@ -1848,25 +1848,25 @@ class LiteLLMProxyRequestSetup:
         return tags
 
     @staticmethod
-    def pre_seed_litellm_metadata_for_route(
+    def pre_seed_embrouter_metadata_for_route(
         request_data: dict,
         route: str,
     ) -> None:
-        """Pre-seed ``litellm_metadata`` for routes that track tags there.
+        """Pre-seed ``embrouter_metadata`` for routes that track tags there.
 
-        Routes in ``LITELLM_METADATA_ROUTES`` (e.g. Bedrock, ``/v1/messages``,
+        Routes in ``EMBROUTER_METADATA_ROUTES`` (e.g. Bedrock, ``/v1/messages``,
         responses, batches, files) store request-scoped tag metadata in
-        ``litellm_metadata`` rather than the provider-facing ``metadata``
+        ``embrouter_metadata`` rather than the provider-facing ``metadata``
         field. ``get_metadata_variable_name_from_kwargs`` picks the target
-        based on whether ``litellm_metadata`` is present, so it must be
+        based on whether ``embrouter_metadata`` is present, so it must be
         seeded BEFORE any tag merge runs; otherwise header tags from
         ``apply_client_tag_policy_pre_auth`` land in ``metadata`` while
         key tags from ``apply_key_tags_pre_auth`` and the read in
-        ``_tag_max_budget_check`` resolve to ``litellm_metadata``, leaving
+        ``_tag_max_budget_check`` resolve to ``embrouter_metadata``, leaving
         header tags invisible to per-tag budget enforcement.
         """
-        if any(metadata_route in route for metadata_route in LITELLM_METADATA_ROUTES):
-            request_data.setdefault("litellm_metadata", {})
+        if any(metadata_route in route for metadata_route in EMBROUTER_METADATA_ROUTES):
+            request_data.setdefault("embrouter_metadata", {})
 
     @staticmethod
     def apply_key_tags_pre_auth(
@@ -1886,7 +1886,7 @@ class LiteLLMProxyRequestSetup:
         metadata: Final = _normalized_metadata_slot(request_data, _metadata_variable_name)
 
         existing_tags: Final = metadata.get("tags")
-        metadata["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+        metadata["tags"] = EmbRouterProxyRequestSetup._merge_tags(
             request_tags=existing_tags if isinstance(existing_tags, list) else None,
             tags_to_add=key_tags,
         )
@@ -1898,26 +1898,26 @@ class LiteLLMProxyRequestSetup:
         user_api_key_dict: UserAPIKeyAuth,
     ) -> None:
         """
-        Merge ``x-litellm-tags`` header tags into ``request_data`` BEFORE
+        Merge ``x-embrouter-tags`` header tags into ``request_data`` BEFORE
         auth budget gates run, so ``_tag_max_budget_check`` (which only
         inspects ``request_data``) sees them. Without this, header-tagged
         requests silently bypass per-tag budget enforcement.
 
-        Why: ``add_litellm_data_to_request`` runs the equivalent merge
+        Why: ``add_embrouter_data_to_request`` runs the equivalent merge
         post-auth, after ``_tag_max_budget_check`` has already executed.
         Header-supplied tags merged there are invisible to that check.
         Running the merge here closes that gap; the post-auth merge in
-        ``add_litellm_data_to_request`` remains as defense-in-depth.
+        ``add_embrouter_data_to_request`` remains as defense-in-depth.
 
         How to apply: invoked from the auth chain just before
         ``common_checks``. Mutates ``request_data`` in place; idempotent
-        when followed by ``add_litellm_data_to_request``.
+        when followed by ``add_embrouter_data_to_request``.
         """
         # No allow_client_tags opt-in: caller-supplied tags always flow
-        # into metadata.tags (see add_litellm_data_to_request). The pre-auth
+        # into metadata.tags (see add_embrouter_data_to_request). The pre-auth
         # merge mirrors that so _tag_max_budget_check sees the same tags.
         headers: Final = _safe_get_request_headers(request=request)
-        raw_header_tags: Final = headers.get("x-litellm-tags")
+        raw_header_tags: Final = headers.get("x-embrouter-tags")
         if not raw_header_tags:
             return
 
@@ -1932,13 +1932,13 @@ class LiteLLMProxyRequestSetup:
             return
 
         # Match the metadata key that get_tags_from_request_body will read
-        # from (litellm_metadata vs metadata) so the merged tags are visible
+        # from (embrouter_metadata vs metadata) so the merged tags are visible
         # to _tag_max_budget_check.
         _metadata_variable_name: Final = get_metadata_variable_name_from_kwargs(request_data)
         metadata: Final = _normalized_metadata_slot(request_data, _metadata_variable_name)
 
         existing_tags: Final = metadata.get("tags")
-        metadata["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+        metadata["tags"] = EmbRouterProxyRequestSetup._merge_tags(
             request_tags=existing_tags if isinstance(existing_tags, list) else None,
             tags_to_add=header_tags,
         )
@@ -1952,28 +1952,28 @@ def refresh_proxy_server_request_body_snapshot(
     """
     Re-snapshot ``data["proxy_server_request"]["body"]`` from the current state of ``data``.
 
-    ``add_litellm_data_to_request`` takes the initial snapshot before guardrails
+    ``add_embrouter_data_to_request`` takes the initial snapshot before guardrails
     (pre_call_hook) run. A guardrail that masks PII/PCI in place (e.g. Presidio)
     mutates ``data`` afterward, so callers that persist ``proxy_server_request.body``
     for audit/spend-tracking purposes must call this again post-guardrail, or the
     persisted body silently bypasses whatever masking the guardrail applied.
 
-    By the time a caller refreshes post-guardrail, ``litellm.utils.function_setup``
-    has already stamped ``data["litellm_logging_obj"]`` with a live (non-serializable)
+    By the time a caller refreshes post-guardrail, ``embrouter.utils.function_setup``
+    has already stamped ``data["embrouter_logging_obj"]`` with a live (non-serializable)
     ``Logging`` instance, so it must be excluded here the same way ``secret_fields``
     and ``proxy_server_request`` are.
     """
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    logging_obj: Final = data.get("litellm_logging_obj")
+    logging_obj: Final = data.get("embrouter_logging_obj")
     if isinstance(logging_obj, Logging):
         logging_obj.shadow_eval_request_snapshot = None
     proxy_server_request: Final = data.get("proxy_server_request")
     if not isinstance(proxy_server_request, dict):
         return
     _body_snapshot_exclude: Final = (
-        frozenset({"secret_fields", "proxy_server_request", "litellm_logging_obj"})
+        frozenset({"secret_fields", "proxy_server_request", "embrouter_logging_obj"})
         | _TRANSPORT_ONLY_CREDENTIAL_KEYS
         | _CALLBACK_CREDENTIAL_KEYS
     )
@@ -1988,7 +1988,7 @@ def refresh_proxy_server_request_body_snapshot(
         )
 
 
-async def add_litellm_data_to_request(
+async def add_embrouter_data_to_request(
     data: dict,
     request: Request,
     user_api_key_dict: UserAPIKeyAuth,
@@ -1997,7 +1997,7 @@ async def add_litellm_data_to_request(
     version: str | None = None,
 ):
     """
-    Adds LiteLLM-specific data to the request.
+    Adds EmbRouter-specific data to the request.
 
     Args:
         data (dict): The data dictionary to be modified.
@@ -2011,8 +2011,8 @@ async def add_litellm_data_to_request(
 
     """
 
-    from litellm.proxy.proxy_server import llm_router, premium_user
-    from litellm.types.proxy.litellm_pre_call_utils import RedactedDict, SecretFields
+    from embrouter.proxy.proxy_server import llm_router, premium_user
+    from embrouter.types.proxy.embrouter_pre_call_utils import RedactedDict, SecretFields
 
     # Strip internal-only keys from user input before the proxy sets its own.
     # These keys are injected by the proxy itself below — user-supplied values
@@ -2026,7 +2026,7 @@ async def add_litellm_data_to_request(
     _reject_url_valued_destinations(data)
     _raw_metadata_by_field: Final = {
         _metadata_field: data.pop(_metadata_field)
-        for _metadata_field in ("metadata", "litellm_metadata")
+        for _metadata_field in ("metadata", "embrouter_metadata")
         if data.get(_metadata_field) is not None
     }
     for _metadata_field, _raw_metadata in _raw_metadata_by_field.items():
@@ -2044,13 +2044,13 @@ async def add_litellm_data_to_request(
     if general_settings:
         forward_llm_auth = general_settings.get("forward_llm_provider_auth_headers", False)
     if not forward_llm_auth:
-        forward_llm_auth = getattr(litellm, "forward_llm_provider_auth_headers", False)
+        forward_llm_auth = getattr(embrouter, "forward_llm_provider_auth_headers", False)
     # Determine which header was used for authentication
-    # This enables forwarding provider keys (e.g., x-api-key) when they weren't used for LiteLLM auth
+    # This enables forwarding provider keys (e.g., x-api-key) when they weren't used for EmbRouter auth
     authenticated_with_header = None
-    if "x-litellm-api-key" in request.headers:
-        # If x-litellm-api-key is present, it was used for auth
-        authenticated_with_header = "x-litellm-api-key"
+    if "x-embrouter-api-key" in request.headers:
+        # If x-embrouter-api-key is present, it was used for auth
+        authenticated_with_header = "x-embrouter-api-key"
     elif "authorization" in request.headers:
         # Authorization header was used for auth
         authenticated_with_header = "authorization"
@@ -2060,8 +2060,8 @@ async def add_litellm_data_to_request(
 
     _headers: Final[dict[str, str]] = clean_headers(
         request.headers,
-        litellm_key_header_name=(
-            general_settings.get("litellm_key_header_name") if general_settings is not None else None
+        embrouter_key_header_name=(
+            general_settings.get("embrouter_key_header_name") if general_settings is not None else None
         ),
         forward_llm_provider_auth_headers=forward_llm_auth,
         authenticated_with_header=authenticated_with_header,
@@ -2070,7 +2070,7 @@ async def add_litellm_data_to_request(
         _headers,
         allow_client_message_redaction_opt_out=_allow_client_message_redaction_opt_out,
     )
-    from litellm.proxy._experimental.mcp_server.utils import upstream_credential_headers
+    from embrouter.proxy._experimental.mcp_server.utils import upstream_credential_headers
 
     _mcp_credential_headers: Final = upstream_credential_headers(_headers)
     _logging_safe_headers: Final = redact_credential_headers(
@@ -2092,7 +2092,7 @@ async def add_litellm_data_to_request(
     # we do this as soon as entering so we track the original request
     ##########################################################
     # Track arrival time for queue time metric. Prefer the timestamp stamped at
-    # the top of user_api_key_auth (request.state.litellm_received_at): by the
+    # the top of user_api_key_auth (request.state.embrouter_received_at): by the
     # time this function runs, auth has already completed, so time.time() here
     # would silently exclude the entire auth phase from the queue-time window.
     # Falls back to time.time() for callers that never went through
@@ -2100,8 +2100,8 @@ async def add_litellm_data_to_request(
     # admin-injection strip below so the audit / spend-tracking consumers of
     # proxy_server_request["body"] see the cleaned metadata rather than
     # attacker-forged user_api_key_* fields.
-    _litellm_received_at: Final[datetime | None] = getattr(request.state, "litellm_received_at", None)
-    arrival_time: Final = _litellm_received_at.timestamp() if _litellm_received_at is not None else time.time()
+    _embrouter_received_at: Final[datetime | None] = getattr(request.state, "embrouter_received_at", None)
+    arrival_time: Final = _embrouter_received_at.timestamp() if _embrouter_received_at is not None else time.time()
     data["proxy_server_request"] = {
         "url": str(request.url),
         "method": request.method,
@@ -2117,7 +2117,7 @@ async def add_litellm_data_to_request(
         data[_metadata_variable_name] = {}
 
     data.update(
-        LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
+        EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
             headers=_headers,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
@@ -2125,7 +2125,7 @@ async def add_litellm_data_to_request(
         )
     )
 
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=_headers,
         data=data,
         _metadata_variable_name=_metadata_variable_name,
@@ -2149,23 +2149,23 @@ async def add_litellm_data_to_request(
         data[_metadata_variable_name]["headers"] = _logging_safe_headers
 
     # check for forwardable headers
-    data = LiteLLMProxyRequestSetup.add_headers_to_llm_call_by_model_group(
+    data = EmbRouterProxyRequestSetup.add_headers_to_llm_call_by_model_group(
         data=data, headers=_headers, user_api_key_dict=user_api_key_dict
     )
 
-    user_api_key_dict = LiteLLMProxyRequestSetup.add_internal_user_from_user_mapping(
+    user_api_key_dict = EmbRouterProxyRequestSetup.add_internal_user_from_user_mapping(
         general_settings, user_api_key_dict, _headers
     )
 
     # Parse user info from headers (fallback to general_settings.user_header_name)
-    user: Final = LiteLLMProxyRequestSetup.get_user_from_headers(_headers, general_settings)
+    user: Final = EmbRouterProxyRequestSetup.get_user_from_headers(_headers, general_settings)
     if user is not None:
         if user_api_key_dict.end_user_id is None:
             user_api_key_dict.end_user_id = user
         if "user" not in data:
             data["user"] = user
 
-    if litellm.overwrite_user_with_key_hash is True:
+    if embrouter.overwrite_user_with_key_hash is True:
         stampable_hash: Final = _stampable_key_hash(user_api_key_dict)
         if stampable_hash is not None:
             data["user"] = stampable_hash
@@ -2214,7 +2214,7 @@ async def add_litellm_data_to_request(
     # guardrails, spend tracking, audit logs, and identity resolution. Strip
     # by prefix so new ``user_api_key_*`` fields added in the future are
     # covered without per-key maintenance.
-    for _meta_key in ("metadata", "litellm_metadata"):
+    for _meta_key in ("metadata", "embrouter_metadata"):
         _user_meta = data.get(_meta_key)
         if isinstance(_user_meta, dict):
             _strip_untrusted_request_header_controls(
@@ -2226,7 +2226,7 @@ async def add_litellm_data_to_request(
             ]:
                 _user_meta.pop(_k, None)
 
-    # Strip pricing overrides AFTER the litellm_metadata string-to-dict parse
+    # Strip pricing overrides AFTER the embrouter_metadata string-to-dict parse
     # above, for the same reason as the user_api_key_* strip — JSON-string
     # metadata (sent via multipart/form-data or extra_body) wouldn't be a
     # dict yet at the earlier strip point and the isinstance(dict) guard
@@ -2239,7 +2239,7 @@ async def add_litellm_data_to_request(
     # so JSON-string metadata cannot smuggle callback credentials past the dict guard.
     _strip_client_callback_credentials(data)
 
-    if not _allow_client_message_redaction_opt_out and litellm.turn_off_message_logging is True:
+    if not _allow_client_message_redaction_opt_out and embrouter.turn_off_message_logging is True:
         _strip_client_message_redaction_opt_out(data)
 
     # Fill in the proxy_server_request body snapshot now that metadata has
@@ -2264,37 +2264,37 @@ async def add_litellm_data_to_request(
     # paths may read from it.
     if "metadata" in data and isinstance(data["metadata"], dict):
         data[_metadata_variable_name]["requester_metadata"] = copy.deepcopy(data["metadata"])
-        if _metadata_variable_name == "litellm_metadata":
+        if _metadata_variable_name == "embrouter_metadata":
             data[_metadata_variable_name].update(
                 _promoted_trace_control_fields(
                     requester_metadata=data[_metadata_variable_name]["requester_metadata"],
-                    litellm_metadata=data[_metadata_variable_name],
+                    embrouter_metadata=data[_metadata_variable_name],
                 )
             )
 
-    # Merge litellm_metadata into the metadata variable (preserving existing
+    # Merge embrouter_metadata into the metadata variable (preserving existing
     # values). Runs after the user_api_key_* / _pipeline_managed_guardrails
     # strip above so those proxy-internal slots — if a caller forged them
-    # into litellm_metadata — cannot cross-contaminate the admin-authoritative
+    # into embrouter_metadata — cannot cross-contaminate the admin-authoritative
     # metadata dict.
-    if "litellm_metadata" in data and isinstance(data["litellm_metadata"], dict):
-        for key, value in data["litellm_metadata"].items():
+    if "embrouter_metadata" in data and isinstance(data["embrouter_metadata"], dict):
+        for key, value in data["embrouter_metadata"].items():
             if key not in data[_metadata_variable_name]:
                 data[_metadata_variable_name][key] = value
         if _metadata_variable_name == "metadata":
-            data["metadata"]["tags"] = LiteLLMProxyRequestSetup._merge_tags(  # pyright: ignore[reportPrivateUsage]  # same-module helper, budget blocks the unsuppressed idiom sibling call sites use
+            data["metadata"]["tags"] = EmbRouterProxyRequestSetup._merge_tags(  # pyright: ignore[reportPrivateUsage]  # same-module helper, budget blocks the unsuppressed idiom sibling call sites use
                 request_tags=data["metadata"].get("tags"),
-                tags_to_add=data["litellm_metadata"].get("tags"),
+                tags_to_add=data["embrouter_metadata"].get("tags"),
             )
     if _metadata_variable_name == "metadata":
-        data.pop("litellm_metadata", None)
+        data.pop("embrouter_metadata", None)
 
-    data = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    data = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data=data,
         user_api_key_dict=user_api_key_dict,
         _metadata_variable_name=_metadata_variable_name,
     )
-    data[_metadata_variable_name]["litellm_api_version"] = version
+    data[_metadata_variable_name]["embrouter_api_version"] = version
 
     if general_settings is not None:
         data[_metadata_variable_name]["global_max_parallel_requests"] = general_settings.get(
@@ -2303,7 +2303,7 @@ async def add_litellm_data_to_request(
 
     ### KEY-LEVEL Controls
     key_metadata: Final = user_api_key_dict.metadata
-    data = LiteLLMProxyRequestSetup.add_key_level_controls(
+    data = EmbRouterProxyRequestSetup.add_key_level_controls(
         key_metadata=key_metadata,
         data=data,
         _metadata_variable_name=_metadata_variable_name,
@@ -2311,7 +2311,7 @@ async def add_litellm_data_to_request(
     ## TEAM-LEVEL SPEND LOGS/TAGS
     team_metadata: Final = user_api_key_dict.team_metadata or {}
     if "tags" in team_metadata and team_metadata["tags"] is not None:
-        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+        data[_metadata_variable_name]["tags"] = EmbRouterProxyRequestSetup._merge_tags(
             request_tags=data[_metadata_variable_name].get("tags"),
             tags_to_add=team_metadata["tags"],
         )
@@ -2336,7 +2336,7 @@ async def add_litellm_data_to_request(
     ## PROJECT-LEVEL TAGS
     project_metadata: Final = user_api_key_dict.project_metadata or {}
     if "tags" in project_metadata and project_metadata["tags"] is not None:
-        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+        data[_metadata_variable_name]["tags"] = EmbRouterProxyRequestSetup._merge_tags(
             request_tags=data[_metadata_variable_name].get("tags"),
             tags_to_add=project_metadata["tags"],
         )
@@ -2360,7 +2360,7 @@ async def add_litellm_data_to_request(
     )
 
     ## TEAM-LEVEL METADATA
-    data = LiteLLMProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
+    data = EmbRouterProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
         data=data,
         management_endpoint_metadata=team_metadata,
         _metadata_variable_name=_metadata_variable_name,
@@ -2373,7 +2373,7 @@ async def add_litellm_data_to_request(
         for field, value in (key_metadata or {}).items()
         if field in OTEL_SERVICE_NAME_METADATA_KEYS and isinstance(value, str) and value.strip()
     }
-    data = LiteLLMProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
+    data = EmbRouterProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
         data=data,
         management_endpoint_metadata=_key_otel_service_names,
         _metadata_variable_name=_metadata_variable_name,
@@ -2414,12 +2414,12 @@ async def add_litellm_data_to_request(
     # Carry the proxy-receive instant via metadata (like `endpoint`) so the
     # OTel layer can compute pre-request latency, including on the failure
     # path after the logging object is popped.
-    data[_metadata_variable_name]["litellm_received_at"] = getattr(request.state, "litellm_received_at", None)
+    data[_metadata_variable_name]["embrouter_received_at"] = getattr(request.state, "embrouter_received_at", None)
     data[_metadata_variable_name]["llm_api_timing_windows"] = ()
 
     # OTEL Controls / Tracing
-    # Add the OTEL Parent Trace before sending it LiteLLM
-    data[_metadata_variable_name]["litellm_parent_otel_span"] = user_api_key_dict.parent_otel_span
+    # Add the OTEL Parent Trace before sending it EmbRouter
+    data[_metadata_variable_name]["embrouter_parent_otel_span"] = user_api_key_dict.parent_otel_span
     _add_otel_traceparent_to_data(data, request=request)
 
     ### END-USER SPECIFIC PARAMS ###
@@ -2459,16 +2459,16 @@ async def add_litellm_data_to_request(
     if should_auto_drop_params_for_agentic_cli(user_agent, data, proxy_config):
         data["drop_params"] = True
 
-    # Merge caller-supplied tags (x-litellm-tags header, data["tags"] root-level)
+    # Merge caller-supplied tags (x-embrouter-tags header, data["tags"] root-level)
     # into request metadata for tag-based routing and spend attribution.
-    tags: Final = LiteLLMProxyRequestSetup.add_request_tag_to_metadata(
+    tags: Final = EmbRouterProxyRequestSetup.add_request_tag_to_metadata(
         llm_router=llm_router,
         headers=_headers,
         data=data,
     )
 
     if tags is not None:
-        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(
+        data[_metadata_variable_name]["tags"] = EmbRouterProxyRequestSetup._merge_tags(
             request_tags=data[_metadata_variable_name].get("tags"),
             tags_to_add=tags,
         )
@@ -2480,13 +2480,13 @@ async def add_litellm_data_to_request(
         else None
     )
     if _caller_body_tags:
-        data[_metadata_variable_name]["tags"] = LiteLLMProxyRequestSetup._merge_tags(  # rebind-ok: matches file idiom
+        data[_metadata_variable_name]["tags"] = EmbRouterProxyRequestSetup._merge_tags(  # rebind-ok: matches file idiom
             request_tags=data[_metadata_variable_name].get("tags"),
             tags_to_add=_caller_body_tags,
         )
 
-    # caller_tags: exactly what this request itself supplied (x-litellm-tags header,
-    # body "tags", or body "metadata.tags" on litellm_metadata routes), never
+    # caller_tags: exactly what this request itself supplied (x-embrouter-tags header,
+    # body "tags", or body "metadata.tags" on embrouter_metadata routes), never
     # anything from key/team/project metadata. Read directly from the header and
     # body values here, the same way inherited_tags above is read directly from
     # key/team/project metadata -- neither is derived by inspecting the shared
@@ -2513,10 +2513,10 @@ async def add_litellm_data_to_request(
             data[TRUSTED_CALLBACK_VARS_FIELD] = callback_settings_obj.callback_vars
 
     # Add disabled callbacks from key metadata
-    if user_api_key_dict.metadata and "litellm_disabled_callbacks" in user_api_key_dict.metadata:
-        disabled_callbacks: Final = user_api_key_dict.metadata["litellm_disabled_callbacks"]
+    if user_api_key_dict.metadata and "embrouter_disabled_callbacks" in user_api_key_dict.metadata:
+        disabled_callbacks: Final = user_api_key_dict.metadata["embrouter_disabled_callbacks"]
         if disabled_callbacks and isinstance(disabled_callbacks, list):
-            data["litellm_disabled_callbacks"] = disabled_callbacks
+            data["embrouter_disabled_callbacks"] = disabled_callbacks
 
     # Guardrails from key/team metadata and policy engine
     await move_guardrails_to_metadata(
@@ -2540,7 +2540,7 @@ async def add_litellm_data_to_request(
         user_api_key_dict=user_api_key_dict,
     )
 
-    verbose_proxy_logger.debug("[PROXY] returned data from litellm_pre_call_utils: %s", data)
+    verbose_proxy_logger.debug("[PROXY] returned data from embrouter_pre_call_utils: %s", data)
 
     # Team/Project credential overrides from model_config
     # Placed after the debug log to avoid leaking credential secrets in logs
@@ -2566,7 +2566,7 @@ async def add_litellm_data_to_request(
         service_logger_obj.async_service_success_hook(
             service=ServiceTypes.PROXY_PRE_CALL,
             duration=end_time - start_time,
-            call_type="add_litellm_data_to_request",
+            call_type="add_embrouter_data_to_request",
             start_time=start_time,
             end_time=end_time,
             parent_otel_span=user_api_key_dict.parent_otel_span,
@@ -2615,7 +2615,7 @@ def _update_model_if_team_alias_exists(
     if not _model or not user_api_key_dict.team_model_aliases or _model not in user_api_key_dict.team_model_aliases:
         return
 
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     # Skip alias rewrite if this model resolves to team-specific deployments
     # (team models use team_public_model_name, not model_aliases)
@@ -2626,7 +2626,7 @@ def _update_model_if_team_alias_exists(
     # Cached at module level to avoid hot-path secret lookups on every request.
     global _ENABLE_TEAM_STALE_ALIAS_BYPASS
     if _ENABLE_TEAM_STALE_ALIAS_BYPASS is None:
-        _ENABLE_TEAM_STALE_ALIAS_BYPASS = get_secret_bool("LITELLM_ENABLE_TEAM_STALE_ALIAS_BYPASS", False)
+        _ENABLE_TEAM_STALE_ALIAS_BYPASS = get_secret_bool("EMBROUTER_ENABLE_TEAM_STALE_ALIAS_BYPASS", False)
     enable_stale_alias_bypass: Final = _ENABLE_TEAM_STALE_ALIAS_BYPASS
     # Check if the alias points to a team-scoped UUID name
     # (format: "model_name_{team_id}_{uuid}")
@@ -2654,7 +2654,7 @@ def _update_model_if_team_alias_exists(
                 f"{user_api_key_dict.team_id}:{_model}:{aliased_target}",
                 "Stale team model alias detected for model='%s', team_id='%s'. "
                 "New sibling deployments may be unreachable. "
-                "Set LITELLM_ENABLE_TEAM_STALE_ALIAS_BYPASS=true to enable "
+                "Set EMBROUTER_ENABLE_TEAM_STALE_ALIAS_BYPASS=true to enable "
                 "team-scoped sibling routing.",
                 _sanitize_for_log(_model),
                 _sanitize_for_log(user_api_key_dict.team_id),
@@ -2708,8 +2708,8 @@ def _apply_credential_overrides_from_model_config(
     5. Team default override (defaultconfig)
     6. Deployment default (no action needed)
     """
-    # Feature flag gate — disabled by default, opt in with litellm.enable_model_config_credential_overrides = True
-    if not litellm.enable_model_config_credential_overrides:
+    # Feature flag gate — disabled by default, opt in with embrouter.enable_model_config_credential_overrides = True
+    if not embrouter.enable_model_config_credential_overrides:
         return
 
     # Respect clientside credentials — highest precedence
@@ -2731,7 +2731,7 @@ def _apply_credential_overrides_from_model_config(
 
     # Extract provider hint from model name (e.g. "azure/gpt-4" -> "azure").
     # When the user-facing name has no provider prefix, fall back to the
-    # deployment's litellm_params so multi-provider defaultconfig entries
+    # deployment's embrouter_params so multi-provider defaultconfig entries
     # don't silently match the first dict key (#27516).
     provider: str | None = None
     if "/" in model_name:
@@ -2783,7 +2783,7 @@ def _resolve_provider_from_deployment(
     pre_alias_model_name: str | None = None,
 ) -> str | None:
     """
-    Resolve a provider hint from the deployment's litellm_params when the
+    Resolve a provider hint from the deployment's embrouter_params when the
     user-facing model name has no provider prefix.
 
     Tries the post-alias name first (the resolved model group), then the
@@ -2802,15 +2802,15 @@ def _resolve_provider_from_deployment(
         if deployment is None:
             continue
 
-        litellm_params: object = getattr(deployment, "litellm_params", None)
-        if litellm_params is None:
+        embrouter_params: object = getattr(deployment, "embrouter_params", None)
+        if embrouter_params is None:
             continue
 
-        custom_provider = getattr(litellm_params, "custom_llm_provider", None)
+        custom_provider = getattr(embrouter_params, "custom_llm_provider", None)
         if isinstance(custom_provider, str) and custom_provider:
             return custom_provider
 
-        deployment_model = getattr(litellm_params, "model", "")
+        deployment_model = getattr(embrouter_params, "model", "")
         if isinstance(deployment_model, str) and "/" in deployment_model:
             return deployment_model.split("/", 1)[0]
 
@@ -2835,9 +2835,9 @@ def _resolve_credential_from_model_config(
     5. team_model_config[pre_alias_model_name][provider] — team pre-alias
     6. team_model_config["defaultconfig"][provider] — team default
 
-    When a model-specific entry exists but contains no litellm_credentials,
+    When a model-specific entry exists but contains no embrouter_credentials,
     the function falls through to defaultconfig. This is intentional —
-    an entry without litellm_credentials is treated as incomplete config,
+    an entry without embrouter_credentials is treated as incomplete config,
     not as an explicit "no override" signal.
     """
     # Build the list of model names to try (post-alias first, then pre-alias)
@@ -2858,7 +2858,7 @@ def _resolve_credential_from_model_config(
                     return credential_name
                 _safe_name = str(name).replace("\n", "").replace("\r", "")
                 verbose_proxy_logger.debug(
-                    "model_config entry '%s' found but has no litellm_credentials, trying next candidate",
+                    "model_config entry '%s' found but has no embrouter_credentials, trying next candidate",
                     _safe_name,
                 )
 
@@ -2874,9 +2874,9 @@ def _resolve_credential_from_model_config(
 
 def _extract_credential_from_entry(entry: dict, provider: str | None = None) -> str | None:
     """
-    Extract litellm_credentials from a model_config entry.
+    Extract embrouter_credentials from a model_config entry.
 
-    Entry structure: {"azure": {"litellm_credentials": "name"}, ...}
+    Entry structure: {"azure": {"embrouter_credentials": "name"}, ...}
 
     When provider is given (e.g. "azure"), tries an exact provider match first.
     Falls back to the first credential found across all provider keys.
@@ -2888,14 +2888,14 @@ def _extract_credential_from_entry(entry: dict, provider: str | None = None) -> 
     if provider and provider in entry:
         provider_config = entry[provider]
         if isinstance(provider_config, dict):
-            credential_name = provider_config.get("litellm_credentials")
+            credential_name = provider_config.get("embrouter_credentials")
             if credential_name:
                 return credential_name
 
     # Fall back to first available provider
     for provider_config in entry.values():
         if isinstance(provider_config, dict):
-            credential_name = provider_config.get("litellm_credentials")
+            credential_name = provider_config.get("embrouter_credentials")
             if credential_name:
                 return credential_name
     return None
@@ -2994,7 +2994,7 @@ def _add_guardrails_from_key_or_team_metadata(
         project_metadata: The project metadata dictionary to check for guardrails
 
     """
-    from litellm.proxy.utils import _premium_user_check
+    from embrouter.proxy.utils import _premium_user_check
 
     # Initialize guardrails set (avoiding duplicates)
     combined_guardrails: Final = set()
@@ -3044,11 +3044,11 @@ def _add_guardrails_from_policies_in_metadata(
         metadata_variable_name: The name of the metadata field in data
         project_metadata: The project metadata dictionary to check for policies
     """
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-    from litellm.proxy.utils import _premium_user_check
-    from litellm.types.proxy.policy_engine import PolicyMatchContext
+    from embrouter._logging import verbose_proxy_logger
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter.proxy.utils import _premium_user_check
+    from embrouter.types.proxy.policy_engine import PolicyMatchContext
 
     # Collect policy names from key and team metadata
     policy_names: Final[set] = set()
@@ -3181,7 +3181,7 @@ async def move_guardrails_to_metadata(
 
     # Only check policy engine if no local config (avoid import + registry lookup)
     if not (has_key_config or has_team_config or has_project_config or has_request_config):
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         if not get_policy_registry().is_initialized():
             # Nothing configured anywhere - clean up request body fields and return
@@ -3229,14 +3229,14 @@ async def move_guardrails_to_metadata(
 
 def _is_policy_version_id(s: str) -> bool:
     """Return True if string is a policy version ID (starts with policy_<uuid> prefix)."""
-    from litellm.proxy.policy_engine.policy_registry import POLICY_VERSION_ID_PREFIX
+    from embrouter.proxy.policy_engine.policy_registry import POLICY_VERSION_ID_PREFIX
 
     return isinstance(s, str) and s.startswith(POLICY_VERSION_ID_PREFIX)
 
 
 def _extract_policy_id(s: str) -> str | None:
     """Extract raw UUID from policy_<uuid> string, or None if not a valid version ID."""
-    from litellm.proxy.policy_engine.policy_registry import POLICY_VERSION_ID_PREFIX
+    from embrouter.proxy.policy_engine.policy_registry import POLICY_VERSION_ID_PREFIX
 
     if not _is_policy_version_id(s):
         return None
@@ -3256,13 +3256,13 @@ def _match_and_track_policies(
     Returns:
         Tuple of (applied_policy_names, policy_reasons)
     """
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy.common_utils.callback_utils import (
+    from embrouter._logging import verbose_proxy_logger
+    from embrouter.proxy.common_utils.callback_utils import (
         add_policy_sources_to_metadata,
         add_policy_to_applied_policies_header,
     )
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
 
     # Get matching policies via attachments (with match reasons for attribution)
     attachment_registry: Final = (
@@ -3300,7 +3300,7 @@ def _match_and_track_policies(
     for policy_name in applied_policy_names:
         add_policy_to_applied_policies_header(request_data=data, policy_name=policy_name)
 
-    # Track policy attribution sources for x-litellm-policy-sources header
+    # Track policy attribution sources for x-embrouter-policy-sources header
     applied_reasons: Final = {name: policy_reasons[name] for name in applied_policy_names if name in policy_reasons}
     add_policy_sources_to_metadata(request_data=data, policy_sources=applied_reasons)
 
@@ -3315,8 +3315,8 @@ def _apply_resolved_guardrails_to_metadata(
     policies: dict[str, "Policy"] | None = None,
 ) -> None:
     """Apply resolved guardrails and pipelines to request metadata."""
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter._logging import verbose_proxy_logger
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
 
     # Resolve guardrails from matching policies
     resolved_guardrails: Final = PolicyResolver.resolve_guardrails_for_context(
@@ -3385,10 +3385,10 @@ async def add_guardrails_from_policy_engine(
         metadata_variable_name: The name of the metadata field in data
         user_api_key_dict: The user's API key authentication info
     """
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import PolicyMatchContext
+    from embrouter._logging import verbose_proxy_logger
+    from embrouter.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import PolicyMatchContext
 
     # Extract dynamic policies from request body (if present)
     request_body_policies_raw: Final = data.pop("policies", None)
@@ -3486,7 +3486,7 @@ def add_provider_specific_headers_to_request(
     data: dict,
     headers: dict,
 ):
-    from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+    from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
     anthropic_api_headers: Final = {header: headers[header] for header in ANTHROPIC_API_HEADERS if header in headers}
     anthropic_oauth_credential_headers: Final = {
@@ -3509,7 +3509,7 @@ def add_provider_specific_headers_to_request(
 
 
 def _add_otel_traceparent_to_data(data: dict, request: Request):
-    from litellm.proxy.proxy_server import open_telemetry_logger
+    from embrouter.proxy.proxy_server import open_telemetry_logger
 
     if data is None:
         return
@@ -3517,7 +3517,7 @@ def _add_otel_traceparent_to_data(data: dict, request: Request):
         # if user is not use OTEL don't send extra_headers
         return
 
-    if litellm.forward_traceparent_to_llm_provider is True:
+    if embrouter.forward_traceparent_to_llm_provider is True:
         if request.headers:
             if "traceparent" in request.headers:
                 # we want to forward this to the LLM Provider

@@ -8,7 +8,7 @@ need to be logged (and still flow to Sentry via
 ``proxy_logging_obj.failure_handler``), but the multi-line stack traces
 dominate log volume and clutter the per-row Metadata pane in the UI.
 
-The opt-in is a single env var, ``LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS=true``,
+The opt-in is a single env var, ``EMBROUTER_SUPPRESS_SPEND_LOG_TRACEBACKS=true``,
 gated by ``should_suppress_spend_log_tracebacks``. When it returns ``True``:
   * ``spend_log_error`` drops the traceback from the console / structured log
     record (this module), and
@@ -27,10 +27,10 @@ import logging
 import os
 from typing import Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.secret_managers.main import str_to_bool
+from embrouter._logging import verbose_proxy_logger
+from embrouter.secret_managers.main import str_to_bool
 
-SUPPRESS_SPEND_LOG_TRACEBACKS_ENV: Final = "LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS"
+SUPPRESS_SPEND_LOG_TRACEBACKS_ENV: Final = "EMBROUTER_SUPPRESS_SPEND_LOG_TRACEBACKS"
 
 
 def _is_suppression_env_enabled() -> bool:
@@ -65,7 +65,7 @@ def spend_log_error(
 
     By default this behaves like ``verbose_proxy_logger.exception`` — the
     active exception (or ``exc`` if supplied) is attached so the formatter
-    renders its traceback. When ``LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS`` is
+    renders its traceback. When ``EMBROUTER_SUPPRESS_SPEND_LOG_TRACEBACKS`` is
     truthy and the logger is at INFO or above, the traceback is dropped and
     only ``message % args`` is emitted.
 

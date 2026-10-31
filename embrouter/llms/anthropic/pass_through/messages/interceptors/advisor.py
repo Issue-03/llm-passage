@@ -18,18 +18,18 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-import litellm.constants as _c
-from litellm.litellm_core_utils.url_utils import validate_url
-from litellm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
-from litellm.router_utils.cooldown_handlers import mark_advisor_orchestration_failure
-from litellm.types.llms.anthropic import ANTHROPIC_ADVISOR_TOOL_TYPE
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+import embrouter
+import embrouter.constants as _c
+from embrouter.embrouter_core_utils.url_utils import validate_url
+from embrouter.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
+from embrouter.router_utils.cooldown_handlers import mark_advisor_orchestration_failure
+from embrouter.types.llms.anthropic import ANTHROPIC_ADVISOR_TOOL_TYPE
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 ADVISOR_MAX_USES: Final[int] = _c.ADVISOR_MAX_USES
 ADVISOR_NATIVE_PROVIDERS: Final[frozenset] = _c.ADVISOR_NATIVE_PROVIDERS
@@ -67,7 +67,7 @@ class AdvisorOrchestrationHandler(MessagesInterceptor):
         custom_llm_provider: str | None,
         **kwargs,
     ) -> AnthropicMessagesResponse | AsyncIterator:
-        from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
             FakeAnthropicMessagesStreamIterator,
         )
 
@@ -98,7 +98,7 @@ class AdvisorOrchestrationHandler(MessagesInterceptor):
             [dict(m) for m in messages], replace_with_text=True
         )
 
-        parent_request_id: Final[str] = str(kwargs.pop("litellm_call_id", None) or uuid.uuid4())
+        parent_request_id: Final[str] = str(kwargs.pop("embrouter_call_id", None) or uuid.uuid4())
         metadata_base: Final[dict] = dict(kwargs.pop("metadata", None) or {})
         advisor_metadata: Final = {
             **metadata_base,
@@ -199,7 +199,7 @@ def _allow_client_side_advisor_credentials() -> bool:
     to protect, so client-supplied routing is allowed.
     """
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
     except (ImportError, ModuleNotFoundError):
         return True
     return general_settings.get("allow_client_side_credentials") is True
@@ -217,7 +217,7 @@ def _resolve_advisor_credentials(advisor_tool: dict) -> tuple[str | None, str | 
     ``proxy.auth.auth_utils.check_complete_credentials``. https with TLS
     verification is required because ``validate_url`` only rewrites the
     connection to a DNS-pinned IP for http, or for https with
-    ``litellm.ssl_verify`` disabled; otherwise it returns the URL unchanged
+    ``embrouter.ssl_verify`` disabled; otherwise it returns the URL unchanged
     and relies on certificate validation to block DNS rebinding, so this
     closes the same gap without threading the pinned URL through the whole
     ``anthropic_messages()`` call chain.
@@ -237,13 +237,13 @@ def _resolve_advisor_credentials(advisor_tool: dict) -> tuple[str | None, str | 
         )
     if not api_base.startswith("https://"):
         raise ValueError(f"advisor tool definition sets 'api_base'={api_base!r}, which must use the https scheme.")
-    if getattr(litellm, "ssl_verify", True) is False:
+    if getattr(embrouter, "ssl_verify", True) is False:
         raise ValueError(
             "advisor tool definition sets 'api_base' but the proxy has TLS verification "
-            "disabled (litellm.ssl_verify=False), so a caller-supplied api_base can't be "
+            "disabled (embrouter.ssl_verify=False), so a caller-supplied api_base can't be "
             "safely validated against DNS rebinding."
         )
-    if getattr(litellm, "user_url_validation", True):
+    if getattr(embrouter, "user_url_validation", True):
         validate_url(api_base)
     return api_key, api_base
 
@@ -384,11 +384,11 @@ def _resolve_advisor_router(advisor_model: str) -> "Router | None":
     """Return the proxy router when it serves ``advisor_model`` directly or via a wildcard.
 
     Returns ``None`` for SDK callers (no proxy router) and for advisor models the router
-    doesn't know about, so those keep resolving through ``litellm.anthropic_messages()``
+    doesn't know about, so those keep resolving through ``embrouter.anthropic_messages()``
     provider inference.
     """
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
     except (ImportError, ModuleNotFoundError):
         return None
     if llm_router is None:
@@ -414,7 +414,7 @@ async def _call_messages_handler(
     Using the public function (decorated with @client) ensures logging, retries,
     and provider resolution all work correctly, identical to a direct user call.
     """
-    from litellm.messages import anthropic_messages
+    from embrouter.messages import anthropic_messages
 
     return await anthropic_messages(
         model=model,

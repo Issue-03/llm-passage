@@ -1,9 +1,9 @@
 """Identity-only session tokens for the gateway-level (aggregate ``/mcp``) DCR front door.
 
-A DCR client that signs in through LiteLLM SSO holds ONE bearer that carries ONLY a
-litellm identity; unlike the :mod:`.envelope` bridge bearer it seals no upstream
+A DCR client that signs in through EmbRouter SSO holds ONE bearer that carries ONLY a
+embrouter identity; unlike the :mod:`.envelope` bridge bearer it seals no upstream
 credential, because the custody model vaults every upstream token server-side in
-``LiteLLM_MCPUserCredentials`` and egress resolves them by user at call time. The token
+``EmbRouter_MCPUserCredentials`` and egress resolves them by user at call time. The token
 is therefore a stable REFERENCE, not an authorization: admission reloads the live user
 record and policy on every request, so deactivating the user (or their team) kills
 outstanding sessions immediately without a revocation store.
@@ -47,7 +47,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, f
 
 SESSION_TOKEN_PREFIX: Final = "llm_session_"
 """Marker prefix on every serialized session ACCESS token so the admission edge can cheaply
-tell a gateway session from a litellm key, JWT, or bridge envelope before doing any
+tell a gateway session from a embrouter key, JWT, or bridge envelope before doing any
 cryptography. Distinct from the ``llm_env_``/``llm_refresh_`` envelope prefixes."""
 
 SESSION_REFRESH_PREFIX: Final = "llm_srefresh_"
@@ -56,7 +56,7 @@ credentials routable without crypto and, together with the signed ``kind`` claim
 from being presented where the other is expected: the refresh token is only ever presented
 back to the token endpoint, never at the MCP edge."""
 
-SESSION_ISSUER: Final = "litellm-mcp-gateway"
+SESSION_ISSUER: Final = "embrouter-mcp-gateway"
 """``iss`` claim stamped into every session token and required back on open. Distinct from
 the envelope issuer so a token of one family can never validate in the other even under a
 hypothetical shared signing key."""
@@ -98,9 +98,9 @@ never be redeemed as the other."""
 
 
 class SessionPrincipal(BaseModel):
-    """The litellm user a session token identifies and the DCR client it was issued to.
+    """The embrouter user a session token identifies and the DCR client it was issued to.
 
-    ``user_id`` is the SSO-established litellm user subject, never a credential: admission
+    ``user_id`` is the SSO-established embrouter user subject, never a credential: admission
     reloads the live user record by it, so current role, team, and revocation state are
     enforced at use time rather than frozen at mint time. ``client_id`` is the (stateless,
     gateway-sealed) DCR client identifier the token was issued to; the token endpoint

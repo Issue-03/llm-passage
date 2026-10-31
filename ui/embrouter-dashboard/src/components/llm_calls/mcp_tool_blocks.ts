@@ -19,7 +19,7 @@ export interface BuildMcpToolBlocksArgs {
 }
 
 /**
- * Build the litellm_proxy MCP reference blocks for a playground request.
+ * Build the embrouter_proxy MCP reference blocks for a playground request.
  *
  * Every endpoint that supports MCP sends the same reference shape; the gateway
  * expands it server side and each endpoint's own transformation decides the
@@ -48,8 +48,8 @@ export function buildMcpToolBlocks({
     return [
       {
         type: "mcp",
-        server_label: "litellm",
-        server_url: "litellm_proxy/mcp",
+        server_label: "embrouter",
+        server_url: "embrouter_proxy/mcp",
         require_approval: "never",
       },
     ];
@@ -63,7 +63,7 @@ export function buildMcpToolBlocks({
       return {
         type: "mcp",
         server_label: toolsetName,
-        server_url: `litellm_proxy/mcp/${toolsetName}`,
+        server_url: `embrouter_proxy/mcp/${toolsetName}`,
         require_approval: "never",
       };
     }
@@ -75,7 +75,7 @@ export function buildMcpToolBlocks({
     return {
       type: "mcp",
       server_label: routeName,
-      server_url: `litellm_proxy/mcp/${routeName}`,
+      server_url: `embrouter_proxy/mcp/${routeName}`,
       require_approval: "never",
       ...(allowedTools.length > 0 ? { allowed_tools: allowedTools } : {}),
     };

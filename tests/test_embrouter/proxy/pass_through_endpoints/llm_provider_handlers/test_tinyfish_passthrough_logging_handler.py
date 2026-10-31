@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler import (
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler import (
     _BACKGROUND_BILLING_TASKS,
     TinyFishPassthroughLoggingHandler,
     is_tinyfish_agent_url,
@@ -15,10 +15,10 @@ from litellm.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthr
     run_id_from_sse_frames,
     sse_poller_spawned,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.tinyfish import is_allowed_tinyfish_endpoint
+from embrouter.types.passthrough_endpoints.tinyfish import is_allowed_tinyfish_endpoint
 
 RUN_URL = "https://agent.tinyfish.ai/v1/automation/run"
 RUN_ASYNC_URL = "https://agent.tinyfish.ai/v1/automation/run-async"
@@ -26,7 +26,7 @@ RUN_ASYNC_URL = "https://agent.tinyfish.ai/v1/automation/run-async"
 
 def _make_logging_obj() -> MagicMock:
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "test-call-id"
+    logging_obj.embrouter_call_id = "test-call-id"
     logging_obj.model_call_details = {}
     return logging_obj
 
@@ -276,7 +276,7 @@ class TestStartSseRunBilling:
     def test_spawns_detached_poller_that_bills_once(self, tinyfish_env):
         logging_obj = _make_logging_obj()
         logging_obj.dispatch_success_handlers = AsyncMock()
-        logging_obj.model_call_details["litellm_params"] = {"metadata": {"user_api_key_hash": "hash-team-a"}}
+        logging_obj.model_call_details["embrouter_params"] = {"metadata": {"user_api_key_hash": "hash-team-a"}}
         fake_client = _FakeClient(
             payloads=[{"run_id": "run-7", "status": "COMPLETED", "num_of_steps": 5, "result": "done"}]
         )
@@ -285,7 +285,7 @@ class TestStartSseRunBilling:
             tasks_before = set(_BACKGROUND_BILLING_TASKS)
             TinyFishPassthroughLoggingHandler.start_sse_run_billing(
                 run_id="run-7",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 start_time=datetime.now(),
                 client=fake_client,
             )
@@ -318,7 +318,7 @@ class TestStartSseRunBilling:
 
         payload = asyncio.run(
             TinyFishPassthroughLoggingHandler.handle_logging_tinyfish_collected_chunks(
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 url_route="https://agent.tinyfish.ai/v1/automation/run-sse",
                 start_time=datetime.now(),
                 all_chunks=chunks,
@@ -336,7 +336,7 @@ class TestStartSseRunBilling:
 
         payload = asyncio.run(
             TinyFishPassthroughLoggingHandler.handle_logging_tinyfish_collected_chunks(
-                litellm_logging_obj=_make_logging_obj(),
+                embrouter_logging_obj=_make_logging_obj(),
                 url_route="https://agent.tinyfish.ai/v1/automation/run-sse",
                 start_time=datetime.now(),
                 all_chunks=["data: not-json", ": keepalive"],

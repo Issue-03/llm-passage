@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat import (
+from embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat import (
     TOOL_HANDLERS,
     TOOLS_ADMIN,
     TOOLS_BASE,
@@ -215,14 +215,14 @@ class TestStreamUsageAiChat:
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.litellm"
-            ) as mock_litellm,
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.embrouter"
+            ) as mock_embrouter,
             patch(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat._fetch_usage_data",
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat._fetch_usage_data",
                 new_callable=AsyncMock,
             ) as mock_fetch,
         ):
-            mock_litellm.acompletion = AsyncMock(
+            mock_embrouter.acompletion = AsyncMock(
                 side_effect=[
                     mock_first_response,
                     mock_stream(),
@@ -290,14 +290,14 @@ class TestStreamUsageAiChat:
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.litellm"
-            ) as mock_litellm,
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.embrouter"
+            ) as mock_embrouter,
             patch(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat._fetch_team_usage_data",
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat._fetch_team_usage_data",
                 new_callable=AsyncMock,
             ) as mock_fetch,
         ):
-            mock_litellm.acompletion = AsyncMock(
+            mock_embrouter.acompletion = AsyncMock(
                 side_effect=[
                     mock_first_response,
                     mock_stream(),
@@ -320,9 +320,9 @@ class TestStreamUsageAiChat:
     @pytest.mark.asyncio
     async def test_stream_handles_error(self):
         with patch(
-            "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.litellm"
-        ) as mock_litellm:
-            mock_litellm.acompletion = AsyncMock(side_effect=Exception("LLM error"))
+            "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.embrouter"
+        ) as mock_embrouter:
+            mock_embrouter.acompletion = AsyncMock(side_effect=Exception("LLM error"))
 
             events = []
             async for event in stream_usage_ai_chat(
@@ -375,10 +375,10 @@ class TestStreamUsageAiChat:
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.litellm"
-            ) as mock_litellm,
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.embrouter"
+            ) as mock_embrouter,
             patch.dict(
-                "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.TOOL_HANDLERS",
+                "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.TOOL_HANDLERS",
                 {
                     "get_usage_data": {
                         "fetch": mock_fetch,
@@ -388,7 +388,7 @@ class TestStreamUsageAiChat:
                 },
             ),
         ):
-            mock_litellm.acompletion = AsyncMock(
+            mock_embrouter.acompletion = AsyncMock(
                 side_effect=[
                     mock_first_response,
                     mock_stream(),
@@ -421,8 +421,8 @@ class TestUsageAiChatServiceAccountGuard:
     async def test_non_admin_with_user_id_none_is_rejected(self):
         from fastapi import HTTPException
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.management_endpoints.usage_endpoints.endpoints import (
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.management_endpoints.usage_endpoints.endpoints import (
             ChatMessage,
             UsageAIChatRequest,
             usage_ai_chat,
@@ -430,7 +430,7 @@ class TestUsageAiChatServiceAccountGuard:
 
         service_account_key = UserAPIKeyAuth(
             user_id=None,
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=EmbrouterUserRoles.INTERNAL_USER,
         )
         request = MagicMock()
         body = UsageAIChatRequest(
@@ -454,7 +454,7 @@ class TestUsageAiChatServiceAccountGuard:
         a non-admin caller with user_id=None reaches _resolve_fetch_kwargs,
         the tripwire must fire rather than issuing an unscoped query.
         """
-        from litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat import (
+        from embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat import (
             _resolve_fetch_kwargs,
         )
 
@@ -472,16 +472,16 @@ class TestUsageAiChatKeepalive:
     async def _collect_endpoint_body(self, monkeypatch, interval, delay=0.3) -> tuple[list[bytes], dict]:
         import asyncio
 
-        import litellm
+        import embrouter
         from fastapi.responses import StreamingResponse
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.management_endpoints.usage_endpoints.endpoints import (
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.management_endpoints.usage_endpoints.endpoints import (
             ChatMessage,
             UsageAIChatRequest,
             usage_ai_chat,
         )
 
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+        monkeypatch.setattr(embrouter, "sse_keepalive_ping_interval_seconds", interval)
 
         async def slow_acompletion(**kwargs):
             await asyncio.sleep(delay)
@@ -491,14 +491,14 @@ class TestUsageAiChatKeepalive:
             response.choices[0].message.content = "Total spend is $50.25"
             return response
 
-        with patch(  # test-quality-ok: the stream calls the module-level litellm.acompletion directly; no injection seam
-            "litellm.proxy.management_endpoints.usage_endpoints.ai_usage_chat.litellm.acompletion",
+        with patch(  # test-quality-ok: the stream calls the module-level embrouter.acompletion directly; no injection seam
+            "embrouter.proxy.management_endpoints.usage_endpoints.ai_usage_chat.embrouter.acompletion",
             new=AsyncMock(side_effect=slow_acompletion),
         ):
             response = await usage_ai_chat(
                 data=UsageAIChatRequest(messages=[ChatMessage(role="user", content="hi")], model="gpt-4o-mini"),
                 request=MagicMock(),
-                user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+                user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=EmbrouterUserRoles.PROXY_ADMIN),
             )
             assert isinstance(response, StreamingResponse)
             chunks = [chunk if isinstance(chunk, bytes) else chunk.encode() async for chunk in response.body_iterator]

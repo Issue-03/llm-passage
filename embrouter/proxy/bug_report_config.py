@@ -10,8 +10,8 @@ from typing import Final
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.bug_report import (
+import embrouter
+from embrouter.embrouter_core_utils.bug_report import (
     KNOWN_PROVIDERS,
     BugReport,
     EnvironmentReport,
@@ -19,11 +19,11 @@ from litellm.litellm_core_utils.bug_report import (
     build_bug_report,
     build_environment_report,
 )
-from litellm.proxy._types import ConfigGeneralSettings
-from litellm.router_utils.routing_groups import VALID_ROUTING_STRATEGIES
-from litellm.types.caching import LiteLLMCacheType
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams, SupportedGuardrailIntegrations
-from litellm.types.secret_managers.main import KeyManagementSystem
+from embrouter.proxy._types import ConfigGeneralSettings
+from embrouter.router_utils.routing_groups import VALID_ROUTING_STRATEGIES
+from embrouter.types.caching import EmbRouterCacheType
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams, SupportedGuardrailIntegrations
+from embrouter.types.secret_managers.main import KeyManagementSystem
 
 _OBJECT_MAP: Final[TypeAdapter[Mapping[str, object]]] = TypeAdapter(Mapping[str, object])
 _OBJECT_LIST: Final[TypeAdapter[tuple[object, ...]]] = TypeAdapter(tuple[object, ...])
@@ -70,15 +70,15 @@ def _object_list(value: object) -> Sequence[object]:
 
 @functools.cache
 def _known_values() -> frozenset[str]:
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     return frozenset(
         (
             *VALID_ROUTING_STRATEGIES,
             *KNOWN_PROVIDERS,
-            *litellm._known_custom_logger_compatible_callbacks,  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportUnknownArgumentType]  # untyped List of the callback Literal's args, no public alias
+            *embrouter._known_custom_logger_compatible_callbacks,  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportUnknownArgumentType]  # untyped List of the callback Literal's args, no public alias
             *CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE,
-            *(member.value for member in LiteLLMCacheType),
+            *(member.value for member in EmbRouterCacheType),
             *(member.value for member in KeyManagementSystem),
             *(member.value for member in SupportedGuardrailIntegrations),
             *(member.value for member in GuardrailEventHooks),
@@ -99,21 +99,21 @@ def _module_level_names(node: ast.stmt) -> tuple[str, ...]:
 
 
 @functools.cache
-def _litellm_settings_keys() -> frozenset[str]:
-    tree: Final = ast.parse(Path(litellm.__file__).read_text())
+def _embrouter_settings_keys() -> frozenset[str]:
+    tree: Final = ast.parse(Path(embrouter.__file__).read_text())
     return frozenset(name for node in tree.body for name in _module_level_names(node))
 
 
 @functools.cache
 def _router_settings_keys() -> frozenset[str]:
-    from litellm.router import Router
+    from embrouter.router import Router
 
     return frozenset(name for name in inspect.signature(Router.__init__).parameters if name != "self")  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # untyped params, only names are read
 
 
 @functools.cache
 def _cache_params_keys() -> frozenset[str]:
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     return frozenset(name for name in inspect.signature(Cache.__init__).parameters if name != "self")  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # untyped params, only names are read
 
@@ -151,12 +151,12 @@ def _section_lines(section: str, values: Mapping[str, object], known_keys: froze
 
 
 def _guardrail_lines(guardrails: object) -> tuple[str, ...]:
-    known_keys: Final = frozenset(LitellmParams.model_fields)
+    known_keys: Final = frozenset(EmbrouterParams.model_fields)
     return tuple(
         line
         for index, guardrail in enumerate(_object_list(guardrails))
         for line in _section_lines(
-            f"guardrails[{index}].litellm_params", _object_map(_object_map(guardrail).get("litellm_params")), known_keys
+            f"guardrails[{index}].embrouter_params", _object_map(_object_map(guardrail).get("embrouter_params")), known_keys
         )
     )
 
@@ -174,7 +174,7 @@ def _model_list_lines(model_list: object) -> tuple[str, ...]:
                 for deployment in _object_list(model_list)
                 if (
                     provider := _deployment_provider(
-                        _object_map(_object_map(deployment).get("litellm_params")).get("model")
+                        _object_map(_object_map(deployment).get("embrouter_params")).get("model")
                     )
                 )
                 is not None
@@ -185,12 +185,12 @@ def _model_list_lines(model_list: object) -> tuple[str, ...]:
 
 
 def safe_config_lines(config: Mapping[str, object], general_settings: Mapping[str, object]) -> tuple[str, ...]:
-    litellm_settings: Final = _object_map(config.get("litellm_settings"))
+    embrouter_settings: Final = _object_map(config.get("embrouter_settings"))
     return (
         *_section_lines("general_settings", general_settings, frozenset(ConfigGeneralSettings.model_fields)),
-        *_section_lines("litellm_settings", litellm_settings, _litellm_settings_keys()),
+        *_section_lines("embrouter_settings", embrouter_settings, _embrouter_settings_keys()),
         *_section_lines(
-            "litellm_settings.cache_params", _object_map(litellm_settings.get("cache_params")), _cache_params_keys()
+            "embrouter_settings.cache_params", _object_map(embrouter_settings.get("cache_params")), _cache_params_keys()
         ),
         *_section_lines("router_settings", _object_map(config.get("router_settings")), _router_settings_keys()),
         *_guardrail_lines(config.get("guardrails")),
@@ -199,7 +199,7 @@ def safe_config_lines(config: Mapping[str, object], general_settings: Mapping[st
 
 
 def _proxy_config_lines() -> tuple[str, ...]:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     return safe_config_lines(
         proxy_server.proxy_config.config,

@@ -25,48 +25,48 @@ import httpx
 from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import DualCache
-from litellm.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
-from litellm.exceptions import ModifyResponseException
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.litellm_core_utils.core_helpers import redact_nested_match_and_regex_keys
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import DualCache
+from embrouter.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
+from embrouter.exceptions import ModifyResponseException
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+from embrouter.embrouter_core_utils.core_helpers import redact_nested_match_and_regex_keys
+from embrouter.embrouter_core_utils.embrouter_logging import (
     _get_masked_values,  # pyright: ignore[reportPrivateUsage]  # the shared header-masking helper has no public name
 )
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
     bedrock_guardrail_cost_by_unit,
     guardrail_cost_total,
 )
-from litellm.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.anthropic.chat.guardrail_translation.handler import AnthropicMessagesHandler
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_scan_only_tool_results_for_guardrail,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, bedrock_bearer_token, run_aws_signing
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, bedrock_bearer_token, run_aws_signing
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import serialize_http_exception_detail
-from litellm.proxy.common_utils.sse_keepalive import keepalive_ping_has_fired
-from litellm.proxy.guardrails.anthropic_sse import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import serialize_http_exception_detail
+from embrouter.proxy.common_utils.sse_keepalive import keepalive_ping_has_fired
+from embrouter.proxy.guardrails.anthropic_sse import (
     anthropic_sse_chunks_from_response,
     anthropic_sse_error_frames,
     assemble_anthropic_sse_stream,
     is_raw_sse_stream,
     model_response_text,
 )
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     BedrockChecksConfigModel,
     BedrockGuardrailStreamingParams,
     GuardrailEventHooks,
-    LitellmParams,
+    EmbrouterParams,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
-from litellm.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
+from embrouter.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockChecksMessage,
     BedrockChecksViolation,
     BedrockContentItem,
@@ -78,15 +78,15 @@ from litellm.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockRequest,
     BedrockTextContent,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
     from botocore.awsrequest import AWSPreparedRequest
     from botocore.credentials import Credentials
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CallTypes,
     CallTypesLiteral,
     Choices,
@@ -325,9 +325,9 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         self.streaming_end_of_stream_only = streaming_params.streaming_end_of_stream_only
         self.streaming_buffer_release_on_scan = streaming_params.streaming_buffer_release_on_scan
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
-        super().update_in_memory_litellm_params(litellm_params)
-        self._set_streaming_params(BedrockGuardrailStreamingParams.from_extras(litellm_params.model_extra))
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
+        super().update_in_memory_embrouter_params(embrouter_params)
+        self._set_streaming_params(BedrockGuardrailStreamingParams.from_extras(embrouter_params.model_extra))
 
     def _streams_incrementally(self) -> bool:
         if self.mask_response_content:
@@ -427,11 +427,11 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         grounding, the response is qualified ``guard_content`` so Bedrock can score it.
         """
         items: Final[list[BedrockContentItem]] = []
-        if not isinstance(response, litellm.ModelResponse):
+        if not isinstance(response, embrouter.ModelResponse):
             return items
         for choice in response.choices:
             if (
-                isinstance(choice, litellm.Choices)
+                isinstance(choice, embrouter.Choices)
                 and isinstance(choice.message.content, str)
                 and choice.message.content
             ):
@@ -449,7 +449,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         response: object | None = None,
     ) -> BedrockRequest:
         """
-        Convert the litellm messages/response to the bedrock request format.
+        Convert the embrouter messages/response to the bedrock request format.
 
         If source is "INPUT", then messages is required.
         If source is "OUTPUT", then response is required.
@@ -864,7 +864,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         self,
         source: Literal["INPUT", "OUTPUT"],
         messages: list[AllMessageValues] | None = None,
-        response: litellm.ModelResponse | None = None,
+        response: embrouter.ModelResponse | None = None,
         request_data: dict | None = None,
         logging_event_type: GuardrailEventHooks | None = None,
     ) -> BedrockGuardrailResponse:
@@ -895,7 +895,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         self,
         source: Literal["INPUT", "OUTPUT"],
         messages: list[AllMessageValues] | None = None,
-        response: litellm.ModelResponse | None = None,
+        response: embrouter.ModelResponse | None = None,
         request_data: dict | None = None,
         logging_event_type: GuardrailEventHooks | None = None,
     ) -> BedrockGuardrailResponse:
@@ -1856,7 +1856,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         self,
         source: Literal["INPUT", "OUTPUT"],
         messages: list[AllMessageValues] | None = None,
-        response: litellm.ModelResponse | None = None,
+        response: embrouter.ModelResponse | None = None,
     ) -> list[BedrockChecksMessage]:
         """Build the role-tagged `messages` array for InvokeGuardrailChecks.
 
@@ -1895,7 +1895,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         self,
         source: Literal["INPUT", "OUTPUT"],
         messages: list[AllMessageValues] | None = None,
-        response: litellm.ModelResponse | None = None,
+        response: embrouter.ModelResponse | None = None,
         request_data: dict | None = None,
         logging_event_type: GuardrailEventHooks | None = None,
     ) -> BedrockGuardrailResponse:
@@ -2513,7 +2513,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
     ) -> Exception | str | dict | None:
         verbose_proxy_logger.debug("Inside Bedrock Pre-Call Hook for call_type: %s", call_type)
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -2577,7 +2577,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         user_api_key_dict: UserAPIKeyAuth,
         call_type: CallTypesLiteral,
     ):
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -2646,10 +2646,10 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         user_api_key_dict: UserAPIKeyAuth,
         response,
     ):
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         if self.should_run_guardrail(data=data, event_type=GuardrailEventHooks.post_call) is not True:
             return
@@ -2661,10 +2661,10 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
 
         # Check if the ModelResponse has text content in its choices
         # to avoid sending empty content to Bedrock (e.g., during tool calls)
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             has_text_content = False
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     if choice.message.content and isinstance(choice.message.content, str):
                         has_text_content = True
                         break
@@ -2762,7 +2762,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         (post_call only validates the response).
         """
         if self._streams_incrementally():
-            from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+            from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
                 UnifiedLLMGuardrails,
             )
 
@@ -2780,7 +2780,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         # Anthropic SSE, so the assembly below cannot scan them; the unified
         # guardrail's translation layer can, with buffering semantics kept.
         if _is_responses_api_route(user_api_key_dict.request_route):
-            from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+            from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
                 UnifiedLLMGuardrails,
             )
 
@@ -2795,9 +2795,9 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
             return
 
         # Import here to avoid circular imports
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import TextCompletionResponse
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import TextCompletionResponse
 
         # Collect all chunks to process them together
         started_at: Final = time.monotonic()
@@ -2846,7 +2846,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
                 # first keepalive ping the raise reaches nobody, so it has to travel as a frame too
                 is_block: Final = raw_sse and block_exc.status_code == 400 and isinstance(block_detail, Mapping)
                 headers_flushed: Final = keepalive_ping_has_fired(
-                    time.monotonic() - started_at, litellm.anthropic_sse_ping_interval_seconds
+                    time.monotonic() - started_at, embrouter.anthropic_sse_ping_interval_seconds
                 )
                 if not raw_sse or (not is_block and not headers_flushed):
                     raise
@@ -3041,12 +3041,12 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         verbose_proxy_logger.debug("Applying masking to response with %d masked texts", len(masked_texts))
 
         # Apply masking to ModelResponse
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             self._apply_masking_to_model_response(response, masked_texts)
         else:
             verbose_proxy_logger.warning("Unsupported response type for masking: %s", type(response))
 
-    def _apply_masking_to_model_response(self, response: litellm.ModelResponse, masked_texts: list[str]) -> None:
+    def _apply_masking_to_model_response(self, response: embrouter.ModelResponse, masked_texts: list[str]) -> None:
         """
         Apply masked texts to a ModelResponse object.
 
@@ -3088,10 +3088,10 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         across proxy instances. Falls back to a process-local ``DualCache`` singleton when
         the proxy is not running (e.g. unit tests), where sharing does not apply.
         """
-        from litellm.integrations.custom_guardrail import dc as fallback_cache
+        from embrouter.integrations.custom_guardrail import dc as fallback_cache
 
         try:
-            from litellm.proxy.proxy_server import proxy_logging_obj as _proxy_logging
+            from embrouter.proxy.proxy_server import proxy_logging_obj as _proxy_logging
         except Exception:  # noqa: BLE001  # proxy not importable outside the server; use local fallback
             return fallback_cache
         if _proxy_logging is not None:
@@ -3168,7 +3168,7 @@ class BedrockGuardrail(CustomGuardrail, BaseAWSLLM):
         inputs: "GenericGuardrailAPIInputs",
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> "GenericGuardrailAPIInputs":
         """
         Apply Bedrock guardrail to a batch of texts for testing purposes.

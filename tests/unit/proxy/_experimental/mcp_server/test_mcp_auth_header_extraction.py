@@ -10,12 +10,12 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from starlette.datastructures import Headers
 
-from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
 )
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+from embrouter.types.mcp import MCPAuth, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class TestRestEndpointAuthHeaderExtraction:
@@ -78,15 +78,15 @@ class TestCaseInsensitiveServerMatching:
         server = MCPServer(
             server_id="test-server",
             name="Test Server",
-            alias="LiteLLMAGCGateway",
-            server_name="litellm_gateway",
+            alias="EmbRouterAGCGateway",
+            server_name="embrouter_gateway",
             url="https://api.example.com",
             transport=MCPTransport.http,
             auth_type=MCPAuth.authorization,
         )
 
         mcp_server_auth_headers = {
-            "litellmagcgateway": {"Authorization": "Bearer token"}
+            "embrouteragcgateway": {"Authorization": "Bearer token"}
         }
 
         # Test the case-insensitive matching logic from _call_regular_mcp_tool

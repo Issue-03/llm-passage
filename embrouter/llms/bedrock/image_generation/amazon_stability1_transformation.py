@@ -5,8 +5,8 @@ from typing import Final
 
 from openai.types.image import Image
 
-from litellm.llms.bedrock.common_utils import get_cached_model_info
-from litellm.types.utils import ImageResponse
+from embrouter.llms.bedrock.common_utils import get_cached_model_info
+from embrouter.types.utils import ImageResponse
 
 
 class AmazonStabilityConfig:

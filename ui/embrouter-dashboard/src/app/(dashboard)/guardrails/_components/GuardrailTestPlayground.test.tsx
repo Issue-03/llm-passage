@@ -25,7 +25,7 @@ describe("GuardrailTestPlayground", () => {
     {
       guardrail_id: "guard-1",
       guardrail_name: "test-guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "presidio",
         mode: "pre_call",
         default_on: false,

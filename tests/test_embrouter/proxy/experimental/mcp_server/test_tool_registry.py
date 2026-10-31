@@ -3,7 +3,7 @@ import json
 import pytest
 
 
-from litellm.proxy._experimental.mcp_server.tool_registry import MCPToolRegistry
+from embrouter.proxy._experimental.mcp_server.tool_registry import MCPToolRegistry
 
 
 # Test handler function

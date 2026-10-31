@@ -6,8 +6,8 @@ Why separate file? Make it easy to see how transformation works
 
 from typing import Final
 
-from litellm._uuid import uuid
-from litellm.types.llms.bedrock import (
+from embrouter._uuid import uuid
+from embrouter.types.llms.bedrock import (
     BedrockRerankBedrockRerankingConfiguration,
     BedrockRerankConfiguration,
     BedrockRerankInlineDocumentSource,
@@ -18,7 +18,7 @@ from litellm.types.llms.bedrock import (
     BedrockRerankTextDocument,
     BedrockRerankTextQuery,
 )
-from litellm.types.rerank import (
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankRequest,
     RerankResponse,

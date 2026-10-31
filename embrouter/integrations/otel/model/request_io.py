@@ -4,11 +4,11 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.integrations.otel.mappers.utils import json_or_none
-from litellm.proxy.guardrails.anthropic_sse import assemble_anthropic_sse_stream, is_raw_sse_stream
-from litellm.types.llms.openai import ResponseCompletedEvent, ResponsesAPIResponse
-from litellm.types.utils import ModelResponse, ModelResponseStream
+import embrouter
+from embrouter.integrations.otel.mappers.utils import json_or_none
+from embrouter.proxy.guardrails.anthropic_sse import assemble_anthropic_sse_stream, is_raw_sse_stream
+from embrouter.types.llms.openai import ResponseCompletedEvent, ResponsesAPIResponse
+from embrouter.types.utils import ModelResponse, ModelResponseStream
 
 _SYSTEM_KEYS: Final = ("system", "instructions")
 _TURNS: Final = TypeAdapter(tuple[object, ...])
@@ -78,11 +78,11 @@ def stream_output(chunks: Sequence[object], data: Mapping[str, object]) -> str |
 
 def _assembled_chat_stream(chunks: Sequence[object], data: Mapping[str, object]) -> object:
     try:
-        return litellm.stream_chunk_builder(  # pyright: ignore[reportUnknownMemberType]  # upstream types chunks as a bare list
+        return embrouter.stream_chunk_builder(  # pyright: ignore[reportUnknownMemberType]  # upstream types chunks as a bare list
             chunks=list(chunks),  # mutable-ok: stream_chunk_builder takes a list
             messages=_MESSAGES.validate_python(data.get("messages")),
         )
-    except (litellm.APIError, ValidationError):
+    except (embrouter.APIError, ValidationError):
         return None
 
 

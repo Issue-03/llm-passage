@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
-from litellm.types.caching import RedisPipelineIncrementOperation
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
+from embrouter.types.caching import RedisPipelineIncrementOperation
 
 from .base_cache import BaseCache
 from .in_memory_cache import DEFAULT_MAX_SIZE_IN_MEMORY, InMemoryCache
@@ -101,10 +101,10 @@ class DualCache(BaseCache):
         self.last_redis_batch_access_time = LimitedSizeOrderedDict(max_size=default_max_redis_batch_cache_size)
         self._last_redis_batch_access_time_lock = Lock()
         self.redis_batch_cache_expiry = (
-            default_redis_batch_cache_expiry or litellm.default_redis_batch_cache_expiry or 10
+            default_redis_batch_cache_expiry or embrouter.default_redis_batch_cache_expiry or 10
         )
-        self.default_in_memory_ttl = default_in_memory_ttl or litellm.default_in_memory_ttl
-        self.default_redis_ttl = default_redis_ttl or litellm.default_redis_ttl
+        self.default_in_memory_ttl = default_in_memory_ttl or embrouter.default_in_memory_ttl
+        self.default_redis_ttl = default_redis_ttl or embrouter.default_redis_ttl
 
     def update_cache_ttl(self, default_in_memory_ttl: float | None, default_redis_ttl: float | None):
         if default_in_memory_ttl is not None:
@@ -179,7 +179,7 @@ class DualCache(BaseCache):
 
             return result
         except Exception as e:
-            verbose_logger.error("LiteLLM Cache: Excepton async add_cache: %s", e)
+            verbose_logger.error("EmbRouter Cache: Excepton async add_cache: %s", e)
             raise e
 
     def get_cache(
@@ -212,7 +212,7 @@ class DualCache(BaseCache):
             return result
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Cache: exception in get_cache", e, with_traceback=True
+                verbose_logger, logging.ERROR, "EmbRouter Cache: exception in get_cache", e, with_traceback=True
             )
 
     def batch_get_cache(
@@ -243,7 +243,7 @@ class DualCache(BaseCache):
                 # Do not throttle subsequent callers if the Redis read fails.
                 self._rollback_redis_batch_key_reservations(previous_access_times)
                 if isinstance(e, RedisCircuitBreakerOpenError):
-                    verbose_logger.debug("LiteLLM Cache: batch_get_cache served from memory only: %s", e)
+                    verbose_logger.debug("EmbRouter Cache: batch_get_cache served from memory only: %s", e)
                     return result
                 raise
 
@@ -257,7 +257,7 @@ class DualCache(BaseCache):
             )
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Cache: exception in batch_get_cache", e, with_traceback=True
+                verbose_logger, logging.ERROR, "EmbRouter Cache: exception in batch_get_cache", e, with_traceback=True
             )
 
     async def async_get_cache(
@@ -295,7 +295,7 @@ class DualCache(BaseCache):
             return result
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Cache: exception in async_get_cache", e, with_traceback=True
+                verbose_logger, logging.ERROR, "EmbRouter Cache: exception in async_get_cache", e, with_traceback=True
             )
 
     def _reserve_redis_batch_keys(
@@ -423,7 +423,7 @@ class DualCache(BaseCache):
                 # Do not throttle subsequent callers if the Redis read fails.
                 self._rollback_redis_batch_key_reservations(pending.previous_access_times)
                 if isinstance(e, RedisCircuitBreakerOpenError):
-                    verbose_logger.debug("LiteLLM Cache: async_batch_get_cache served from memory only: %s", e)
+                    verbose_logger.debug("EmbRouter Cache: async_batch_get_cache served from memory only: %s", e)
                     return pending.result
                 raise
             return await self._apply_batch_get(pending, redis_result, **kwargs)
@@ -431,7 +431,7 @@ class DualCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Cache: exception in async_batch_get_cache",
+                "EmbRouter Cache: exception in async_batch_get_cache",
                 e,
                 with_traceback=True,
             )
@@ -480,7 +480,7 @@ class DualCache(BaseCache):
                 if pending.redis_keys and not isinstance(e, RedisCircuitBreakerOpenError):
                     results[index] = None
             if isinstance(e, RedisCircuitBreakerOpenError):
-                verbose_logger.debug("LiteLLM Cache: async_batch_get_cache_shared served from memory only: %s", e)
+                verbose_logger.debug("EmbRouter Cache: async_batch_get_cache_shared served from memory only: %s", e)
             else:
                 DualCache._log_shared_batch_get_failure(e)
             return results
@@ -499,7 +499,7 @@ class DualCache(BaseCache):
         log_redis_failure(
             verbose_logger,
             logging.ERROR,
-            "LiteLLM Cache: exception in async_batch_get_cache_shared",
+            "EmbRouter Cache: exception in async_batch_get_cache_shared",
             e,
             with_traceback=True,
         )
@@ -516,7 +516,7 @@ class DualCache(BaseCache):
                 await self.redis_cache.async_set_cache(key, value, **kwargs)
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Cache: exception in async add_cache", e, with_traceback=True
+                verbose_logger, logging.ERROR, "EmbRouter Cache: exception in async add_cache", e, with_traceback=True
             )
 
     async def async_set_cache_pre_call(self, key: str, value: object, ttl: float | None) -> BatchResult[None] | None:
@@ -567,7 +567,7 @@ class DualCache(BaseCache):
                 )
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Cache: exception in async add_cache", e, with_traceback=True
+                verbose_logger, logging.ERROR, "EmbRouter Cache: exception in async add_cache", e, with_traceback=True
             )
 
     async def async_increment_cache(

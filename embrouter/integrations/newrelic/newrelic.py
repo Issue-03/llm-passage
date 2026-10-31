@@ -1,5 +1,5 @@
 """
-New Relic AI Monitoring Integration for LiteLLM
+New Relic AI Monitoring Integration for EmbRouter
 
 This module provides integration with New Relic's AI Monitoring feature to track
 LLM requests, responses, and usage metrics.
@@ -22,15 +22,15 @@ Configuration:
     Either method can disable recording - both must enable for recording to occur
 
 Usage - Python SDK:
-    import litellm
-    litellm.callbacks = ["newrelic"]
+    import embrouter
+    embrouter.callbacks = ["newrelic"]
 
     # Or with explicit configuration:
-    from litellm.integrations.newrelic import NewRelicLogger
-    litellm.callbacks = [NewRelicLogger(turn_off_message_logging=True)]
+    from embrouter.integrations.newrelic import NewRelicLogger
+    embrouter.callbacks = [NewRelicLogger(turn_off_message_logging=True)]
 
 Usage - Proxy Server (config.yaml):
-    litellm_settings:
+    embrouter_settings:
       callbacks: ["newrelic"]
       newrelic_params:
         turn_off_message_logging: true  # Disable message content recording
@@ -51,13 +51,13 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.integrations.newrelic import NewRelicInitParams
-from litellm.types.utils import Message, ModelResponse, StandardLoggingPayload
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.newrelic import NewRelicInitParams
+from embrouter.types.utils import Message, ModelResponse, StandardLoggingPayload
 
 try:
     import newrelic.agent as _newrelic_agent
@@ -67,7 +67,7 @@ except ImportError:
 
 class NewRelicLogger(CustomLogger):
     """
-    New Relic logger for LiteLLM to send AI monitoring events.
+    New Relic logger for EmbRouter to send AI monitoring events.
 
     This logger creates two types of New Relic custom events:
     1. LlmChatCompletionSummary - One per completion request
@@ -81,7 +81,7 @@ class NewRelicLogger(CustomLogger):
 
     def __init__(self, **kwargs):
         #########################################################
-        # Handle newrelic_params set as litellm.newrelic_params
+        # Handle newrelic_params set as embrouter.newrelic_params
         #########################################################
         dict_newrelic_params: Final = self._get_newrelic_params()
 
@@ -128,17 +128,17 @@ class NewRelicLogger(CustomLogger):
 
     def _get_newrelic_params(self) -> dict:
         """
-        Get the newrelic_params from litellm.newrelic_params
+        Get the newrelic_params from embrouter.newrelic_params
 
         These are params specific to initializing the NewRelicLogger e.g. turn_off_message_logging
         """
         dict_newrelic_params: dict = {}
-        if litellm.newrelic_params is not None:
-            if isinstance(litellm.newrelic_params, NewRelicInitParams):
-                dict_newrelic_params = litellm.newrelic_params.model_dump()
-            elif isinstance(litellm.newrelic_params, dict):
+        if embrouter.newrelic_params is not None:
+            if isinstance(embrouter.newrelic_params, NewRelicInitParams):
+                dict_newrelic_params = embrouter.newrelic_params.model_dump()
+            elif isinstance(embrouter.newrelic_params, dict):
                 # only allow params that are of NewRelicInitParams
-                dict_newrelic_params = NewRelicInitParams(**litellm.newrelic_params).model_dump()
+                dict_newrelic_params = NewRelicInitParams(**embrouter.newrelic_params).model_dump()
         return dict_newrelic_params
 
     @property
@@ -159,7 +159,7 @@ class NewRelicLogger(CustomLogger):
 
         Accepts true/false, 1/0, yes/no, on/off (case-insensitive,
         whitespace-tolerant) — matching the convention used in
-        ``litellm/__init__.py`` and the standard library's
+        ``embrouter/__init__.py`` and the standard library's
         ``configparser.BOOLEAN_STATES``. Unrecognised values log a
         warning and fall back to ``default`` rather than silently
         flipping user intent.
@@ -180,9 +180,9 @@ class NewRelicLogger(CustomLogger):
         )
         return default
 
-    def _get_litellm_version(self) -> str:
+    def _get_embrouter_version(self) -> str:
         """
-        Get litellm version for supportability metrics.
+        Get embrouter version for supportability metrics.
 
         Returns:
             Version string (e.g., "1.80.0") or "unknown" if unable to determine
@@ -190,25 +190,25 @@ class NewRelicLogger(CustomLogger):
         try:
             from importlib.metadata import version
 
-            return version("litellm")
+            return version("embrouter")
         except Exception as e:
-            verbose_logger.warning("Unable to determine litellm version: %s", e)
+            verbose_logger.warning("Unable to determine embrouter version: %s", e)
             return "unknown"
 
     def _emit_supportability_metric(self):
         """
-        Emit New Relic supportability metric for LiteLLM usage.
+        Emit New Relic supportability metric for EmbRouter usage.
 
         Per spec, this metric should be emitted at least once every 27 hours
         to indicate the library is in use. Format:
-        Supportability/Python/ML/LiteLLM/{version}
+        Supportability/Python/ML/EmbRouter/{version}
 
         This method updates _last_metric_emission_time and should
         be called within a lock when checking periodic emission.
         """
         try:
-            litellm_version: Final = self._get_litellm_version()
-            metric_name: Final = f"Supportability/Python/ML/LiteLLM/{litellm_version}"
+            embrouter_version: Final = self._get_embrouter_version()
+            metric_name: Final = f"Supportability/Python/ML/EmbRouter/{embrouter_version}"
 
             # Record metric with value of 1 (will be aggregated by New Relic)
             app: Final = _newrelic_agent.application()
@@ -256,7 +256,7 @@ class NewRelicLogger(CustomLogger):
         """
         Get the New Relic trace ID for AI monitoring events.
 
-        This integration runs in LiteLLM's async logging worker, outside the
+        This integration runs in EmbRouter's async logging worker, outside the
         New Relic agent's current transaction. Because we can't call
         `newrelic.agent.current_trace_id()` to let the agent populate the
         trace_id on AIM custom events, we manually simulate what the agent
@@ -264,9 +264,9 @@ class NewRelicLogger(CustomLogger):
         schema, so this method always returns a valid string.
 
         Resolution order:
-        1. W3C traceparent header (litellm_params.metadata.headers.traceparent) -
+        1. W3C traceparent header (embrouter_params.metadata.headers.traceparent) -
            what the agent would link to if we were in-transaction.
-        2. StandardLoggingPayload.trace_id - LiteLLM's internal trace for
+        2. StandardLoggingPayload.trace_id - EmbRouter's internal trace for
            retry/fallback grouping.
         3. Generated UUID - synthetic grouping key when upstream context is
            absent or parsing it fails.
@@ -279,8 +279,8 @@ class NewRelicLogger(CustomLogger):
         """
         trace_id: str | None = None
         try:
-            litellm_params: Final = kwargs.get("litellm_params") or {}
-            metadata: Final = litellm_params.get("metadata") or {}
+            embrouter_params: Final = kwargs.get("embrouter_params") or {}
+            metadata: Final = embrouter_params.get("metadata") or {}
             headers: Final = metadata.get("headers") or {}
             # Normalize header key lookup to be case-insensitive per W3C spec
             traceparent: Final = next((v for k, v in headers.items() if k.lower() == "traceparent"), None)
@@ -319,7 +319,7 @@ class NewRelicLogger(CustomLogger):
             completion_id = response_obj.get("id")
 
         if not completion_id:
-            completion_id = kwargs.get("litellm_call_id")
+            completion_id = kwargs.get("embrouter_call_id")
 
         # If still not found, generate UUID and log warning per spec
         if not completion_id:
@@ -337,8 +337,8 @@ class NewRelicLogger(CustomLogger):
             vendor: Final = standard_logging_object.get("custom_llm_provider")
             if vendor:
                 return vendor
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-        return litellm_params.get("custom_llm_provider") or "litellm"
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+        return embrouter_params.get("custom_llm_provider") or "embrouter"
 
     def _get_model_names(
         self,
@@ -418,7 +418,7 @@ class NewRelicLogger(CustomLogger):
         Extract duration in milliseconds.
 
         Resolution order:
-        1. StandardLoggingPayload.response_time (already computed by LiteLLM)
+        1. StandardLoggingPayload.response_time (already computed by EmbRouter)
         2. llm_api_duration_ms from kwargs
         3. Calculated from start_time and end_time
         """
@@ -531,7 +531,7 @@ class NewRelicLogger(CustomLogger):
             end_time = kwargs.get("end_time")
 
         # Content is recorded only when the NR-specific switches allow it AND
-        # LiteLLM's wider redaction decision (turn_off_message_logging, dynamic
+        # EmbRouter's wider redaction decision (turn_off_message_logging, dynamic
         # params, headers) does not require redaction. Async streaming hands the
         # callback an unredacted async_complete_streaming_response, so without
         # this gate generated content would still reach NR even when the user
@@ -613,7 +613,7 @@ class NewRelicLogger(CustomLogger):
                 "response.choices.finish_reason": finish_reason,
                 "response.number_of_messages": num_messages,
                 "vendor": vendor,
-                "ingest_source": "litellm",
+                "ingest_source": "embrouter",
                 "response.usage.prompt_tokens": usage["prompt_tokens"],
                 "response.usage.completion_tokens": usage["completion_tokens"],
                 "response.usage.total_tokens": usage["total_tokens"],
@@ -676,8 +676,8 @@ class NewRelicLogger(CustomLogger):
                     "sequence": sequence,
                     "response.model": message["response.model"],
                     "vendor": message["vendor"],
-                    "ingest_source": "litellm",
-                    "token_count": 0,  # Per-message token counts are not available from LiteLLM
+                    "ingest_source": "embrouter",
+                    "token_count": 0,  # Per-message token counts are not available from EmbRouter
                 }
 
                 # Add trace context if available
@@ -715,7 +715,7 @@ class NewRelicLogger(CustomLogger):
 
             app: Final = _newrelic_agent.application()
             if app and app.enabled:
-                app.record_custom_metric("LLM/LiteLLM/Error", 1)
+                app.record_custom_metric("LLM/EmbRouter/Error", 1)
         except Exception as e:
             verbose_logger.warning("Failed to record New Relic error metric: %s", e)
             self.handle_callback_failure("newrelic")
@@ -789,11 +789,11 @@ class NewRelicLogger(CustomLogger):
 
         Verifies that the integration is enabled and the New Relic agent
         has an active, connected application, then records a small
-        `LiteLLMConnectionTest` custom event so the user can confirm the
+        `EmbRouterConnectionTest` custom event so the user can confirm the
         end-to-end pipeline in the New Relic UI via NRQL:
-        `SELECT * FROM LiteLLMConnectionTest SINCE 1 hour ago`.
+        `SELECT * FROM EmbRouterConnectionTest SINCE 1 hour ago`.
 
-        The `LiteLLMConnectionTest` event type is intentionally outside the
+        The `EmbRouterConnectionTest` event type is intentionally outside the
         `Llm*` family that AI Monitoring queries, so test events do not
         appear in AI Monitoring dashboards.
         """
@@ -816,11 +816,11 @@ class NewRelicLogger(CustomLogger):
                 )
 
             app.record_custom_event(
-                "LiteLLMConnectionTest",
+                "EmbRouterConnectionTest",
                 {
                     "is_test_event": True,
                     "app_name": self.app_name,
-                    "source": "litellm-proxy",
+                    "source": "embrouter-proxy",
                     "timestamp": time.time(),
                 },
             )

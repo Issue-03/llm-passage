@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
 
 class TestAnthropicEndpoints(unittest.TestCase):
-    @patch("litellm.litellm_core_utils.safe_json_dumps.safe_dumps")
+    @patch("embrouter.embrouter_core_utils.safe_json_dumps.safe_dumps")
     @pytest.mark.asyncio
     async def test_async_data_generator_anthropic_dict_handling(self, mock_safe_dumps):
         """Test async_data_generator_anthropic handles dictionary chunks properly"""
@@ -69,7 +69,7 @@ class TestBlockedResponseUsage:
     """Blocked responses report the blocked LLM response's real usage."""
 
     def test_uses_original_response_usage(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import _blocked_response_usage
+        from embrouter.proxy.anthropic_endpoints.endpoints import _blocked_response_usage
 
         # original_response is the AnthropicMessagesResponse the LLM produced
         # before the guardrail blocked it; its usage is real.
@@ -80,7 +80,7 @@ class TestBlockedResponseUsage:
         }
 
     def test_zero_usage_when_no_original_response(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import _blocked_response_usage
+        from embrouter.proxy.anthropic_endpoints.endpoints import _blocked_response_usage
 
         # Pre-call blocks never invoked the LLM -> nothing consumed.
         assert _blocked_response_usage(None) == {
@@ -94,9 +94,9 @@ class TestBlockedResponseUsage:
         usage, carried on ModifyResponseException.original_response."""
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.integrations.custom_guardrail import ModifyResponseException
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
 
         exc = ModifyResponseException(
             message="blocked by guardrail",
@@ -133,9 +133,9 @@ class TestProxyExceptionAnthropicEnvelope:
         """LIT-6468: a 400 ProxyException from request validation must surface as
         Anthropic's documented {"type": "error", "error": {...}} envelope with the
         original status and message, not the OpenAI {"error": {...}} envelope."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import ProxyErrorTypes, ProxyException
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import ProxyErrorTypes, ProxyException
 
         exc = ProxyException(
             message="Invalid type for 'metadata': expected an object, but got a string instead.",
@@ -178,8 +178,8 @@ class TestProxyExceptionAnthropicEnvelope:
     async def test_anthropic_response_maps_429_to_rate_limit_error(self):
         """The Anthropic error type follows the status code (429 -> rate_limit_error),
         and a code-less exception falls back to 500 api_error."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        from litellm.proxy._types import ProxyException
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        from embrouter.proxy._types import ProxyException
 
         request = MagicMock()
         request.headers = {}
@@ -200,8 +200,8 @@ class TestProxyExceptionAnthropicEnvelope:
 
     @staticmethod
     def _call_id_error_response(general_settings, provider_specific_fields=None):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        from litellm.proxy._types import ProxyException
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        from embrouter.proxy._types import ProxyException
 
         request = MagicMock()
         request.headers = {}
@@ -210,25 +210,25 @@ class TestProxyExceptionAnthropicEnvelope:
             type="rate_limit_error",
             param=None,
             code=429,
-            headers={"x-litellm-call-id": "call-8302"},
+            headers={"x-embrouter-call-id": "call-8302"},
             provider_specific_fields=provider_specific_fields,
         )
-        with patch("litellm.proxy.proxy_server.general_settings", general_settings):
+        with patch("embrouter.proxy.proxy_server.general_settings", general_settings):
             return ep._anthropic_error_json_response(exc, request)
 
     def test_anthropic_error_copies_the_call_id_into_the_error_when_opted_in(self):
-        """With include_call_id_in_error_body on, error.litellm_call_id is byte-identical to
-        the x-litellm-call-id header and lives inside the error object, which is what the
+        """With include_call_id_in_error_body on, error.embrouter_call_id is byte-identical to
+        the x-embrouter-call-id header and lives inside the error object, which is what the
         Anthropic SDK keeps as e.body."""
         response = self._call_id_error_response({"include_call_id_in_error_body": True})
 
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-embrouter-call-id"] == "call-8302"
         assert json.loads(response.body) == {
             "type": "error",
             "error": {
                 "type": "rate_limit_error",
                 "message": "Rate limit exceeded",
-                "litellm_call_id": "call-8302",
+                "embrouter_call_id": "call-8302",
             },
         }
 
@@ -242,13 +242,13 @@ class TestProxyExceptionAnthropicEnvelope:
             "type": "rate_limit_error",
             "message": "Rate limit exceeded",
             "provider_specific_fields": {"guardrail": "keyword-block"},
-            "litellm_call_id": "call-8302",
+            "embrouter_call_id": "call-8302",
         }
 
     def test_anthropic_error_leaves_the_envelope_alone_when_opted_out(self):
         response = self._call_id_error_response({})
 
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-embrouter-call-id"] == "call-8302"
         assert json.loads(response.body) == {
             "type": "error",
             "error": {"type": "rate_limit_error", "message": "Rate limit exceeded"},
@@ -264,9 +264,9 @@ class TestHttpExceptionDictDetail:
         of the exception and not the OpenAI envelope."""
         from fastapi import HTTPException
 
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         detail = {
             "error": "Content blocked: keyword 'kumquat' detected",
@@ -309,14 +309,14 @@ class TestFailureHookRequestData:
         """Request setup replaces the processor's data dict (adding the logging
         object the failure hook needs to lift token usage from); the exception
         handler must pass that replaced dict, not the raw request body dict."""
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         captured = {}
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_logging_obj": "logging-obj-sentinel"}
+            self.data = {**self.data, "embrouter_logging_obj": "logging-obj-sentinel"}
             captured["processor_data"] = self.data
             raise RuntimeError("provider timeout")
 
@@ -340,12 +340,12 @@ class TestFailureHookRequestData:
 
         hook_request_data = mock_logging.post_call_failure_hook.await_args.kwargs["request_data"]
         assert hook_request_data is captured["processor_data"]
-        assert hook_request_data["litellm_logging_obj"] == "logging-obj-sentinel"
+        assert hook_request_data["embrouter_logging_obj"] == "logging-obj-sentinel"
 
 
 class TestErrorLogCarriesCallId:
     """LIT-7836: the /v1/messages and /v1/messages/count_tokens error lines must carry
-    the request's litellm_call_id, rendered in the message and as a structured field."""
+    the request's embrouter_call_id, rendered in the message and as a structured field."""
 
     @pytest.fixture(autouse=True)
     def propagating_proxy_logger(self):
@@ -361,14 +361,14 @@ class TestErrorLogCarriesCallId:
 
     @pytest.mark.asyncio
     async def test_messages_failure_log_carries_call_id(self, caplog: pytest.LogCaptureFixture):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         call_id = "messages-call-7836"
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_call_id": call_id}
+            self.data = {**self.data, "embrouter_call_id": call_id}
             raise RuntimeError("provider timeout")
 
         request = MagicMock()
@@ -378,7 +378,7 @@ class TestErrorLogCarriesCallId:
             patch.object(ep, "_read_request_body", new=AsyncMock(return_value={"model": "claude-sonnet"})),  # test-quality-ok: endpoint reads the body via a module function; no injection seam
             patch.object(ep.ProxyBaseLLMRequestProcessing, "base_process_llm_request", new=fake_process),  # test-quality-ok: the provider failure happens inside this call; the test targets the endpoint's except block
             patch.object(proxy_server, "proxy_logging_obj") as mock_logging,  # test-quality-ok: module global imported at call time; no injection seam
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"),
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
             response = await ep.anthropic_response(
@@ -389,19 +389,19 @@ class TestErrorLogCarriesCallId:
 
         assert response.status_code == 500
         record = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
     @pytest.mark.asyncio
     async def test_messages_already_shaped_failure_answers_with_the_call_id(self):
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
 
         call_id = "messages-call-7836-shaped"
 
         async def fake_process(self, **kwargs):
-            self.data = {**self.data, "litellm_call_id": call_id}
+            self.data = {**self.data, "embrouter_call_id": call_id}
             raise ProxyException(message="budget exceeded", type=ProxyErrorTypes.budget_exceeded, param="key", code=402)
 
         request = MagicMock()
@@ -420,19 +420,19 @@ class TestErrorLogCarriesCallId:
             )
 
         assert response.status_code == 402
-        assert response.headers["x-litellm-call-id"] == call_id
+        assert response.headers["x-embrouter-call-id"] == call_id
 
     @pytest.mark.asyncio
     async def test_count_tokens_failure_log_carries_callers_call_id(self, caplog: pytest.LogCaptureFixture):
         from fastapi import HTTPException
 
-        import litellm.proxy.anthropic_endpoints.endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.proxy._types import UserAPIKeyAuth
+        import embrouter.proxy.anthropic_endpoints.endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         call_id = "count-tokens-call-7836"
         request = MagicMock()
-        request.headers = {"x-litellm-call-id": call_id}
+        request.headers = {"x-embrouter-call-id": call_id}
 
         with (
             patch.object(  # test-quality-ok: endpoint reads the body via a module function; no injection seam
@@ -441,14 +441,14 @@ class TestErrorLogCarriesCallId:
                 new=AsyncMock(return_value={"model": "claude-sonnet", "messages": [{"role": "user", "content": "hi"}]}),
             ),
             patch.object(proxy_server, "token_counter", new=AsyncMock(side_effect=RuntimeError("tokenizer down"))),  # test-quality-ok: module global imported at call time; the test targets the endpoint's except block
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"),
             pytest.raises(HTTPException) as raised,
         ):
             await ep.count_tokens(request=request, user_api_key_dict=UserAPIKeyAuth())
 
         assert raised.value.status_code == 500
         record = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
 
@@ -459,7 +459,7 @@ class TestEventLoggingBatchEndpoint:
         """Test that the event_logging_batch endpoint exists and returns 200"""
         from fastapi import FastAPI
 
-        from litellm.proxy.anthropic_endpoints.endpoints import router
+        from embrouter.proxy.anthropic_endpoints.endpoints import router
 
         app = FastAPI()
         app.include_router(router)
@@ -475,13 +475,13 @@ class TestStripTotalTokens(unittest.TestCase):
     """Cover ``_strip_total_tokens_from_anthropic_response``.
 
     The Anthropic /v1/messages spec does not define ``usage.total_tokens``.
-    LiteLLM injects it internally; the helper must remove it from the wire
+    EmbRouter injects it internally; the helper must remove it from the wire
     response so the non-streaming path matches the streaming SSE shape and
     direct Anthropic API responses.
     """
 
     def test_strips_total_tokens_when_present(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from embrouter.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -502,7 +502,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response["usage"]["cache_read_input_tokens"] == 0
 
     def test_no_op_when_total_tokens_absent(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from embrouter.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -511,7 +511,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response["usage"] == {"input_tokens": 100, "output_tokens": 50}
 
     def test_no_op_when_usage_missing(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from embrouter.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -520,7 +520,7 @@ class TestStripTotalTokens(unittest.TestCase):
         assert response == {"id": "msg_123"}
 
     def test_no_op_on_non_dict_response(self):
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from embrouter.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -536,7 +536,7 @@ class TestStripTotalTokens(unittest.TestCase):
         """
         from types import SimpleNamespace
 
-        from litellm.proxy.anthropic_endpoints.endpoints import (
+        from embrouter.proxy.anthropic_endpoints.endpoints import (
             _strip_total_tokens_from_anthropic_response,
         )
 
@@ -549,14 +549,14 @@ class TestStripTotalTokens(unittest.TestCase):
 
 
 class TestStripTotalTokensFeatureFlag(unittest.TestCase):
-    """The strip is gated behind `litellm.strip_anthropic_total_tokens`.
+    """The strip is gated behind `embrouter.strip_anthropic_total_tokens`.
 
     Default off (backward compat). Greptile P1 on #30382 required a
-    user-controlled flag so existing clients reading the LiteLLM-shaped
+    user-controlled flag so existing clients reading the EmbRouter-shaped
     `usage.total_tokens` continue to work after this PR lands.
     """
 
     def test_flag_defaults_off(self):
-        import litellm
+        import embrouter
 
-        assert litellm.strip_anthropic_total_tokens is False
+        assert embrouter.strip_anthropic_total_tokens is False

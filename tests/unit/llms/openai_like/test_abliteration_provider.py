@@ -9,8 +9,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 )
 
-from litellm.llms.openai_like.dynamic_config import create_config_class
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.llms.openai_like.dynamic_config import create_config_class
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
 
 ABLITERATION_BASE_URL = "https://api.abliteration.ai/v1"
 
@@ -44,7 +44,7 @@ def test_abliteration_complete_url_appends_endpoint():
         api_key="test-key",
         model="abliteration/abliterated-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == f"{ABLITERATION_BASE_URL}/chat/completions"

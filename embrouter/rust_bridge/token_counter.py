@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, cast  # noqa: TID251
 from pydantic import TypeAdapter
 from typing_extensions import assert_never
 
-import litellm
-from litellm.litellm_core_utils.token_counter import openai_tokenizer_encoding_name, uses_legacy_message_accounting
-from litellm.rust_bridge import tokenizer as tokenizer_dispatch
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.utils import huggingface_tokenizer_kind
+import embrouter
+from embrouter.embrouter_core_utils.token_counter import openai_tokenizer_encoding_name, uses_legacy_message_accounting
+from embrouter.rust_bridge import tokenizer as tokenizer_dispatch
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.utils import huggingface_tokenizer_kind
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+    from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
 RustTokenizer = Literal["anthropic", "cl100k_base", "o200k_base"]
 
@@ -55,15 +55,15 @@ TOKEN_COUNTER: Final = NativeBinding("TokenCounter", validate=_as_factory)
 
 
 def rust_tokenizer(model: str) -> RustTokenizer | None:
-    """The Rust counter for the tokenizer `litellm.token_counter` selects for `model`, `None` when Python must count.
+    """The Rust counter for the tokenizer `embrouter.token_counter` selects for `model`, `None` when Python must count.
 
     Mirrors `_select_tokenizer_helper`: the Anthropic tokenizer has a Rust port, the other HuggingFace
     downloads do not, and of the tiktoken encodings `cl100k_base` and `o200k_base` do (p50k/r50k do not). Rust
     prices every message with the default constants, so the legacy `gpt-3.5-turbo-0301` accounting stays in
     Python."""
-    if litellm.disable_token_counter is True:
+    if embrouter.disable_token_counter is True:
         return None
-    kind: Final = None if litellm.disable_hf_tokenizer_download is True else huggingface_tokenizer_kind(model)
+    kind: Final = None if embrouter.disable_hf_tokenizer_download is True else huggingface_tokenizer_kind(model)
     if kind == "anthropic":
         return "anthropic"
     if kind is not None or uses_legacy_message_accounting(model):

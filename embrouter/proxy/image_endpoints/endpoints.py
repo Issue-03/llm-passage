@@ -7,31 +7,31 @@ import orjson
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import ORJSONResponse
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_str_from_messages,
 )
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     log_llm_api_exception,
-    resolve_litellm_call_id,
+    resolve_embrouter_call_id,
 )
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_utils.http_parsing_utils import (
     coerce_numeric_form_fields,
     numeric_form_fields,
     resolve_inference_model,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
+from embrouter.proxy.common_utils.openai_error_payload import (
     error_status_code,
-    litellm_call_id_headers,
+    embrouter_call_id_headers,
     openai_error_param,
     openai_error_type,
 )
-from litellm.proxy.route_llm_request import route_request
-from litellm.types.images.main import ImageEditRequestParams
-from litellm.types.llms.openai import ChatCompletionUserMessage
+from embrouter.proxy.route_llm_request import route_request
+from embrouter.types.images.main import ImageEditRequestParams
+from embrouter.types.llms.openai import ChatCompletionUserMessage
 
 router: Final = APIRouter()
 
@@ -88,9 +88,9 @@ async def image_generation(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
     model: str | None = None,
 ):
-    from litellm.proxy.litellm_pre_call_utils import reject_url_valued_destination
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.embrouter_pre_call_utils import reject_url_valued_destination
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -99,15 +99,15 @@ async def image_generation(
         version,
     )
 
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data = {"embrouter_call_id": embrouter_call_id}
     try:
         # Use orjson to parse JSON data, orjson speeds up requests significantly
         body: Final = await request.body()
         data = orjson.loads(body) | data
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -126,8 +126,8 @@ async def image_generation(
         ### MODEL ALIAS MAPPING ###
         # check if model name in model alias map
         # get the actual model name
-        if data["model"] in litellm.model_alias_map:
-            data["model"] = litellm.model_alias_map[data["model"]]
+        if data["model"] in embrouter.model_alias_map:
+            data["model"] = embrouter.model_alias_map[data["model"]]
 
         ### CALL HOOKS ### - modify incoming data / reject request before calling the model
         prompt_value: Final = data.get("prompt")
@@ -157,7 +157,7 @@ async def image_generation(
         response = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         ### CALL HOOKS ### - modify outgoing data (guardrails, otel, etc.)
         response = await proxy_logging_obj.post_call_success_hook(
@@ -170,7 +170,7 @@ async def image_generation(
         cache_key: Final = hidden_params.get("cache_key", None) or ""
         api_base: Final = hidden_params.get("api_base", None) or ""
         response_cost: Final = hidden_params.get("response_cost", None) or ""
-        response_call_id: Final = hidden_params.get("litellm_call_id", None) or ""
+        response_call_id: Final = hidden_params.get("embrouter_call_id", None) or ""
 
         fastapi_response.headers.update(
             ProxyBaseLLMRequestProcessing.get_custom_headers(
@@ -202,13 +202,13 @@ async def image_generation(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "message", str(e)),
                 type=openai_error_type(e, error_status_code(e, status.HTTP_400_BAD_REQUEST)),
                 param=openai_error_param(e),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=error_status_code(e, status.HTTP_400_BAD_REQUEST),
             )
         else:
@@ -217,7 +217,7 @@ async def image_generation(
                 message=getattr(e, "message", error_msg),
                 type=openai_error_type(e, error_status_code(e, 500)),
                 param=openai_error_param(e),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 openai_code=getattr(e, "code", None),
                 code=error_status_code(e, 500),
             )
@@ -276,7 +276,7 @@ async def image_edit_api(
     # Note: Image is optional for some models (e.g., Bedrock Stability style-transfer)
     # The validation will be done at the model level if image is truly required
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,

@@ -7,38 +7,38 @@ from typing import Final
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
-import litellm
-from litellm.anthropic_interface.exceptions import (
+import embrouter
+from embrouter.anthropic_interface.exceptions import (
     AnthropicErrorDetail,
     AnthropicErrorResponse,
     AnthropicExceptionMapping,
 )
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.llms.anthropic.pass_through.context_management import (
+from embrouter.integrations.custom_guardrail import ModifyResponseException
+from embrouter.llms.anthropic.pass_through.context_management import (
     AnthropicContextManagementError,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     blocked_response_usage as _blocked_response_usage,
 )
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     create_response,
     log_llm_api_exception,
     proxy_exception_from_http_exception,
-    resolve_litellm_call_id,
+    resolve_embrouter_call_id,
 )
-from litellm.proxy.common_utils.error_body_call_id import error_body_call_id
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.openai_error_payload import (
-    LITELLM_CALL_ID_HEADER,
+from embrouter.proxy.common_utils.error_body_call_id import error_body_call_id
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.openai_error_payload import (
+    EMBROUTER_CALL_ID_HEADER,
     error_status_code,
     openai_error_param,
     openai_error_type,
-    with_litellm_call_id,
+    with_embrouter_call_id,
 )
-from litellm.types.utils import TokenCountResponse
+from embrouter.types.utils import TokenCountResponse
 
 router: Final = APIRouter()
 
@@ -57,13 +57,13 @@ def _anthropic_error_detail(
         return _with_provider_specific_fields(exc, detail)
     with_call_id: Final[AnthropicErrorDetail] = {
         **_with_provider_specific_fields(exc, detail),
-        "litellm_call_id": call_id,
+        "embrouter_call_id": call_id,
     }
     return with_call_id
 
 
 def _anthropic_error_json_response(exc: ProxyException, request: Request) -> JSONResponse:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _close_dangling_otel_server_span,  # pyright: ignore[reportPrivateUsage]  # proxy_server keeps the span-close helper private; error JSONResponses returned by the route must stamp the OTel server span like the global ProxyException handler does
         general_settings_view,
     )
@@ -75,7 +75,7 @@ def _anthropic_error_json_response(exc: ProxyException, request: Request) -> JSO
         raw_message=exc.message,
         request_id=request.headers.get("x-request-id"),
     )
-    body_call_id: Final = error_body_call_id(general_settings_view(), exc.headers.get(LITELLM_CALL_ID_HEADER))
+    body_call_id: Final = error_body_call_id(general_settings_view(), exc.headers.get(EMBROUTER_CALL_ID_HEADER))
     content: Final[AnthropicErrorResponse] = {
         **envelope,
         "error": _anthropic_error_detail(exc, envelope["error"], body_call_id),
@@ -84,7 +84,7 @@ def _anthropic_error_json_response(exc: ProxyException, request: Request) -> JSO
 
 
 def _strip_total_tokens_from_anthropic_response(response: Any) -> None:
-    """Remove the OpenAI-flavored `usage.total_tokens` field that LiteLLM
+    """Remove the OpenAI-flavored `usage.total_tokens` field that EmbRouter
     injects into Anthropic /v1/messages responses.
 
     The Anthropic /v1/messages spec only defines:
@@ -132,7 +132,7 @@ async def anthropic_response(
 
     This was a BETA endpoint that calls 100+ LLMs in the anthropic format.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -167,16 +167,16 @@ async def anthropic_response(
             version=version,
         )
         # Optionally strip the non-Anthropic `usage.total_tokens` field
-        # LiteLLM adds internally. Anthropic's official /v1/messages spec
+        # EmbRouter adds internally. Anthropic's official /v1/messages spec
         # only defines input_tokens / output_tokens / cache_*_input_tokens;
         # total_tokens is an OpenAI convention. Default off
-        # (`litellm.strip_anthropic_total_tokens = False`) to preserve
+        # (`embrouter.strip_anthropic_total_tokens = False`) to preserve
         # backward compatibility for clients that currently read it; set
         # to True to align the wire response with the spec (and with the
         # streaming SSE path, which already omits total_tokens).
         # spend_logs / Prometheus still compute total internally — this
         # only affects the wire response.
-        if litellm.strip_anthropic_total_tokens:
+        if embrouter.strip_anthropic_total_tokens:
             _strip_total_tokens_from_anthropic_response(result)
         return result
     except ModifyResponseException as e:
@@ -191,7 +191,7 @@ async def anthropic_response(
         # Create Anthropic-formatted response with violation message
         import uuid
 
-        from litellm.types.utils import AnthropicMessagesResponse
+        from embrouter.types.utils import AnthropicMessagesResponse
 
         # Report the blocked LLM response's real token usage (carried on the
         # exception) instead of discarding it; zero for pre-call blocks.
@@ -245,29 +245,29 @@ async def anthropic_response(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=base_llm_response_processor.data
         )
-        log_llm_api_exception(e, base_llm_response_processor.litellm_call_id)
+        log_llm_api_exception(e, base_llm_response_processor.embrouter_call_id)
 
         if isinstance(e, ProxyException):
             return _anthropic_error_json_response(
-                with_litellm_call_id(e, base_llm_response_processor.litellm_call_id), request
+                with_embrouter_call_id(e, base_llm_response_processor.embrouter_call_id), request
             )
 
         # Extract model_id from request metadata (same as success path)
-        litellm_metadata: Final = data.get("litellm_metadata", {}) or {}
-        model_info: Final = litellm_metadata.get("model_info", {}) or {}
+        embrouter_metadata: Final = data.get("embrouter_metadata", {}) or {}
+        model_info: Final = embrouter_metadata.get("model_info", {}) or {}
         model_id: Final = model_info.get("id", "") or ""
 
         # Get headers
         headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
-            call_id=base_llm_response_processor.litellm_call_id,
+            call_id=base_llm_response_processor.embrouter_call_id,
             model_id=model_id,
             version=version,
             response_cost=0,
             model_region=getattr(user_api_key_dict, "allowed_model_region", ""),
             request_data=data,
             timeout=getattr(e, "timeout", None),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         if isinstance(e, HTTPException):
@@ -315,9 +315,9 @@ async def count_tokens(
     
     Returns: {"input_tokens": <number>}
     """
-    from litellm.proxy.proxy_server import token_counter as internal_token_counter
+    from embrouter.proxy.proxy_server import token_counter as internal_token_counter
 
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
     try:
         request_data: Final = await _read_request_body(request=request)
         data: Final[dict] = {**request_data}
@@ -333,7 +333,7 @@ async def count_tokens(
             raise HTTPException(status_code=400, detail={"error": "messages parameter is required"})
 
         # Create TokenCountRequest for the internal endpoint
-        from litellm.proxy._types import TokenCountRequest
+        from embrouter.proxy._types import TokenCountRequest
 
         token_request: Final = TokenCountRequest(
             model=model_name,
@@ -369,7 +369,7 @@ async def count_tokens(
             detail=detail,
         )
     except Exception as e:
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         raise HTTPException(status_code=500, detail={"error": f"Internal server error: {e}"})
 
 

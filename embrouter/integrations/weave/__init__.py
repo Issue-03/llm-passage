@@ -1,7 +1,7 @@
 """
-Weave (W&B) integration for LiteLLM via OpenTelemetry.
+Weave (W&B) integration for EmbRouter via OpenTelemetry.
 """
 
-from litellm.integrations.weave.weave_otel import WeaveOtelLogger
+from embrouter.integrations.weave.weave_otel import WeaveOtelLogger
 
 __all__ = ["WeaveOtelLogger"]

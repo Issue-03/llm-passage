@@ -92,11 +92,11 @@ const NO_DEPLOYMENTS: AutoRouterDeployment[] = [];
 
 export interface AutoRouterCandidateDeployment {
   model_name?: string | null;
-  litellm_params?: { model?: string | null } | null;
+  embrouter_params?: { model?: string | null } | null;
 }
 
 export interface AutoRouterDeployment extends AutoRouterCandidateDeployment {
-  litellm_params?: {
+  embrouter_params?: {
     model?: string | null;
     base_model?: string | null;
     custom_llm_provider?: string | null;
@@ -124,7 +124,7 @@ export interface AutoRouterDeployment extends AutoRouterCandidateDeployment {
 }
 
 export const isAutoRouterDeployment = (deployment: AutoRouterCandidateDeployment): boolean =>
-  Boolean(deployment?.litellm_params?.model?.startsWith(AUTO_ROUTER_MODEL_PREFIX));
+  Boolean(deployment?.embrouter_params?.model?.startsWith(AUTO_ROUTER_MODEL_PREFIX));
 
 export const selectAutoRouterModelGroups = (deployments: AutoRouterCandidateDeployment[]): ReadonlySet<string> =>
   new Set(

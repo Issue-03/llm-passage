@@ -75,8 +75,8 @@ vi.mock("@/app/(dashboard)/hooks/models/useModels", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/app/(dashboard)/hooks/models/useModels")>()),
   useAutoRouters: vi.fn(() => ({
     data: [
-      { model_name: "claude-auto", litellm_params: { model: "auto_router/claude-auto" } },
-      { model_name: "gpt-auto", litellm_params: { model: "auto_router/gpt-auto" } },
+      { model_name: "claude-auto", embrouter_params: { model: "auto_router/claude-auto" } },
+      { model_name: "gpt-auto", embrouter_params: { model: "auto_router/gpt-auto" } },
     ],
   })),
   usePlainModelGroups: vi.fn(() => new Set(["prod-claude", "prod-judge"])),
@@ -84,7 +84,7 @@ vi.mock("@/app/(dashboard)/hooks/models/useModels", async (importOriginal) => ({
   usePlainChatModelDeployments: vi.fn(() => [
     {
       model_name: "prod-judge",
-      litellm_params: { model: "anthropic/claude-sonnet-5" },
+      embrouter_params: { model: "anthropic/claude-sonnet-5" },
       model_info: { mode: "chat" },
     },
   ]),
@@ -284,19 +284,19 @@ describe("ShadowEvalSection", () => {
     );
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const deployments = [
-      { model_name: "custom-chat", litellm_params: { model: "openai/private-chat" } },
-      { model_name: "custom-judge", litellm_params: { model: "openai/private-judge" }, model_info: { mode: null } },
+      { model_name: "custom-chat", embrouter_params: { model: "openai/private-chat" } },
+      { model_name: "custom-judge", embrouter_params: { model: "openai/private-judge" }, model_info: { mode: null } },
       {
         model_name: "embedding",
-        litellm_params: { model: "openai/private-embedding" },
+        embrouter_params: { model: "openai/private-embedding" },
         model_info: { mode: "embedding" },
       },
       {
         model_name: "responses-only",
-        litellm_params: { model: "openai/private-responses" },
+        embrouter_params: { model: "openai/private-responses" },
         model_info: { mode: "responses" },
       },
-      { model_name: "auto-router", litellm_params: { model: "auto_router/complexity_router" } },
+      { model_name: "auto-router", embrouter_params: { model: "auto_router/complexity_router" } },
     ];
     vi.mocked(modelInfoCall).mockResolvedValue({ data: deployments, total_pages: 1 });
     const user = userEvent.setup();

@@ -9,11 +9,11 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_batch import BatchResult, RedisBatch, active_request_redis_batch
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_batch import BatchResult, RedisBatch, active_request_redis_batch
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.user_api_key_cache import (
     model_access_group_spend_counter_key,
     project_spend_counter_key,
 )

@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final, TypeAlias
 
-from litellm.rust_bridge.configuration import Decision, Rollout
-from litellm.rust_bridge.configuration import decision as _decision
-from litellm.types.secret_managers.main import KeyManagementSystem
+from embrouter.rust_bridge.configuration import Decision, Rollout
+from embrouter.rust_bridge.configuration import decision as _decision
+from embrouter.types.secret_managers.main import KeyManagementSystem
 
 
 class Route(str, Enum):

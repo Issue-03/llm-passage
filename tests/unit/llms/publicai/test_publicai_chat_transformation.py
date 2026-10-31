@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.llms.openai_like.dynamic_config import create_config_class
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.llms.openai_like.dynamic_config import create_config_class
 
 
 class TestPublicAIConfig:
@@ -39,7 +39,7 @@ class TestPublicAIConfig:
             model="swiss-ai-apertus",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
             api_base=None,
         )
@@ -47,7 +47,7 @@ class TestPublicAIConfig:
         assert result["Authorization"] == f"Bearer {api_key}"
         assert result["Content-Type"] == "application/json"
 
-    @patch("litellm.utils.supports_function_calling", return_value=True)
+    @patch("embrouter.utils.supports_function_calling", return_value=True)
     def test_get_supported_openai_params(self, mock_supports_fc, config):
         """
         Test that get_supported_openai_params returns correct params.
@@ -66,7 +66,7 @@ class TestPublicAIConfig:
         # Note: JSON-based configs inherit from OpenAIGPTConfig which includes functions
         # This is expected behavior for JSON-based providers
 
-    @patch("litellm.utils.supports_function_calling", return_value=True)
+    @patch("embrouter.utils.supports_function_calling", return_value=True)
     def test_map_openai_params_includes_functions(self, mock_supports_fc, config):
         """
         Test that functions parameter is mapped (JSON-based configs don't exclude functions).
@@ -117,7 +117,7 @@ class TestPublicAIConfig:
             api_key="fake-key",
             model="swiss-ai-apertus",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -132,7 +132,7 @@ class TestPublicAIConfig:
             api_key="fake-key",
             model="swiss-ai-apertus",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 

@@ -2,11 +2,11 @@
 FastAPI routes for the A2A registration flow.
 
 Today this exposes a single endpoint, ``POST /v1/a2a/discover``, used by the
-LiteLLM UI when an admin registers a new A2A agent: the UI hands us the
+EmbRouter UI when an admin registers a new A2A agent: the UI hands us the
 upstream agent's base URL, we fetch its well-known card, and we return the
 raw card so the UI can render the agent's skills/capabilities and let the
 admin pick which ones to expose through the proxy. The actual merge into a
-LiteLLM-fronted card happens when the agent is saved via ``POST /v1/agents``.
+EmbRouter-fronted card happens when the agent is saved via ``POST /v1/agents``.
 """
 
 from typing import Any, Final
@@ -15,15 +15,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.a2a.discovery import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.a2a.discovery import (
     AGENT_CARD_WELL_KNOWN_PATHS,
     AgentCardDiscoveryError,
     DiscoveryMode,
     fetch_well_known_card,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 router: Final = APIRouter()
 
@@ -88,7 +88,7 @@ async def discover_agent_card(
         -d '{"url": "https://upstream-agent.example.com"}'
     ```
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=(f"Only proxy admins can discover agent cards. Your role={user_api_key_dict.user_role}"),

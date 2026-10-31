@@ -4,10 +4,10 @@ This file contains the handler for xAI's Grok Voice Agent API `/v1/realtime` end
 xAI's Realtime API is fully OpenAI-compatible, so we inherit from OpenAIRealtime
 and only override the configuration differences.
 
-This requires websockets, and is currently only supported on LiteLLM Proxy.
+This requires websockets, and is currently only supported on EmbRouter Proxy.
 """
 
-from litellm.constants import XAI_API_BASE
+from embrouter.constants import XAI_API_BASE
 
 from ...openai.realtime.handler import OpenAIRealtime
 from .transformation import XAIRealtimeNormalizer

@@ -22,21 +22,21 @@ from urllib.parse import quote
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import Tracer
 
-from litellm._logging import verbose_logger
-from litellm.constants import OTEL_SERVICE_NAME_METADATA_KEYS
-from litellm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
-from litellm.integrations.otel.plumbing.context import destination_backends
-from litellm.integrations.otel.plumbing.providers import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import OTEL_SERVICE_NAME_METADATA_KEYS
+from embrouter.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
+from embrouter.integrations.otel.plumbing.context import destination_backends
+from embrouter.integrations.otel.plumbing.providers import (
     build_tracer_provider,
     exporter_transport,
     get_tracer,
 )
-from litellm.integrations.otel.presets import (
+from embrouter.integrations.otel.presets import (
     dynamic_otlp_endpoint,
     dynamic_otlp_headers,
     project_routing_headers,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 # Exporter kinds that ignore headers — never rewritten with dynamic credentials.
 _NON_OTLP_KINDS: Final = ("console", "in_memory", "inmemory", "memory")

@@ -2,12 +2,12 @@ from typing import Final, cast
 
 import httpx
 
-import litellm
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import _add_path_to_api_base
+import embrouter
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import _add_path_to_api_base
 
 
 class AzureImageEditConfig(OpenAIImageEditConfig):
@@ -16,7 +16,7 @@ class AzureImageEditConfig(OpenAIImageEditConfig):
         """
         Azure OpenAI ``.../openai/deployments/{deployment}/images/edits`` routes by
         deployment in the URL; including ``model`` in multipart fields can break
-        the same way as image generations (LiteLLM #26316).
+        the same way as image generations (EmbRouter #26316).
 
         Non-deployment edit URLs keep ``model`` when present.
         """
@@ -29,7 +29,7 @@ class AzureImageEditConfig(OpenAIImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         """
@@ -52,55 +52,55 @@ class AzureImageEditConfig(OpenAIImageEditConfig):
 
         API-key precedence (matches ``AzureVideosConfig``):
 
-        - ``litellm_params["api_key"]`` is the source of truth.
+        - ``embrouter_params["api_key"]`` is the source of truth.
         - The positional ``api_key`` kwarg only fills in when
-          ``litellm_params["api_key"]`` is empty.
+          ``embrouter_params["api_key"]`` is empty.
         - This is a deliberate change from the old ``or`` chain (where the
           positional ``api_key`` argument won) so behavior matches every other
           Azure ``validate_environment`` implementation. In production the only
           caller (``llm_http_handler.image_edit``) sources both values from
-          the same ``litellm_params.api_key``, so the precedence only matters
+          the same ``embrouter_params.api_key``, so the precedence only matters
           for direct callers of this method.
         """
-        params: Final = GenericLiteLLMParams(**(litellm_params or {}))
+        params: Final = GenericEmbRouterParams(**(embrouter_params or {}))
         if api_key is not None and params.api_key is None:
             params.api_key = api_key
-        return BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=params)
+        return BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=params)
 
     def get_complete_url(
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Constructs a complete URL for the API request.
 
         Args:
         - api_base: Base URL, e.g.,
-            "https://litellm8397336933.openai.azure.com"
+            "https://embrouter8397336933.openai.azure.com"
             OR
-            "https://litellm8397336933.openai.azure.com/openai/deployments/<deployment_name>/images/edits?api-version=2024-05-01-preview"
+            "https://embrouter8397336933.openai.azure.com/openai/deployments/<deployment_name>/images/edits?api-version=2024-05-01-preview"
         - model: Model name (deployment name).
-        - litellm_params: Additional query parameters, including "api_version".
+        - embrouter_params: Additional query parameters, including "api_version".
 
         Returns:
         - A complete URL string, e.g.,
-        "https://litellm8397336933.openai.azure.com/openai/deployments/<deployment_name>/images/edits?api-version=2024-05-01-preview"
+        "https://embrouter8397336933.openai.azure.com/openai/deployments/<deployment_name>/images/edits?api-version=2024-05-01-preview"
         """
-        api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+        api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
         if api_base is None:
             raise ValueError(
                 f"api_base is required for Azure AI Studio. Please set the api_base parameter. Passed `api_base={api_base}`"
             )
-        # Resolve api_version: litellm_params > litellm.api_version > AZURE_API_VERSION env > default.
+        # Resolve api_version: embrouter_params > embrouter.api_version > AZURE_API_VERSION env > default.
         # Mirrors the fallback chain used by the Azure chat path in common_utils.py,
         # so callers that set a global / env api_version don't get an unversioned URL.
         api_version: Final = (
-            cast(str | None, litellm_params.get("api_version"))
-            or litellm.api_version
+            cast(str | None, embrouter_params.get("api_version"))
+            or embrouter.api_version
             or get_secret_str("AZURE_API_VERSION")
-            or litellm.AZURE_DEFAULT_API_VERSION
+            or embrouter.AZURE_DEFAULT_API_VERSION
         )
 
         v1_url: Final = BaseAzureLLM.get_azure_v1_image_url(

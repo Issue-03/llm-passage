@@ -41,7 +41,7 @@ const langgraphInfo: AgentCreateInfo = {
   description: "LangGraph platform",
   logo_url: "/ui/assets/logos/langgraph.png",
   use_a2a_form_fields: false,
-  litellm_params_template: { custom_llm_provider: "langgraph" },
+  embrouter_params_template: { custom_llm_provider: "langgraph" },
   model_template: "langgraph/{assistant_id}",
   credential_fields: [
     { key: "api_base", label: "API Base", field_type: "text", required: true, placeholder: "https://host" },
@@ -161,7 +161,7 @@ describe("AddAgentForm submit payload", () => {
         ],
         iconUrl: "https://example.com/icon.png",
       },
-      litellm_params: {
+      embrouter_params: {
         model: "gpt-4o",
         make_public: true,
         cost_per_query: 0.25,
@@ -186,7 +186,7 @@ describe("AddAgentForm submit payload", () => {
 
     await goToLastStepAndCreate(user);
 
-    expect(createdPayload().litellm_params).toEqual({ cost_per_query: 0.75 });
+    expect(createdPayload().embrouter_params).toEqual({ cost_per_query: 0.75 });
   });
 
   it("restores what was typed when a collapsed panel is expanded again", async () => {
@@ -276,7 +276,7 @@ describe("AddAgentForm submit payload", () => {
           },
         ],
       },
-      litellm_params: {
+      embrouter_params: {
         custom_llm_provider: "langgraph",
         api_base: "https://lg.example.com",
         assistant_id: "asst_1",
@@ -330,7 +330,7 @@ describe("AddAgentForm submit payload", () => {
     expect(payload.tpm_limit).toBe(1000);
     expect(payload.session_rpm_limit).toBe(20);
     expect(payload.object_permission).toEqual({ models: ["gpt-4o"], agents: ["sub-1"] });
-    expect(payload.litellm_params).toEqual({ require_trace_id_on_calls_by_agent: true });
+    expect(payload.embrouter_params).toEqual({ require_trace_id_on_calls_by_agent: true });
   });
 
   it("creates a key named after the agent once the agent is created", async () => {

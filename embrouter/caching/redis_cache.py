@@ -26,9 +26,9 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar, cast
 
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import (
     DEFAULT_REDIS_MAJOR_VERSION,
     REDIS_CIRCUIT_BREAKER_ENABLED,
     REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
@@ -36,14 +36,14 @@ from litellm.constants import (
     REDIS_CIRCUIT_BREAKER_TIMEOUT_MIN_DURATION,
     REDIS_TIMEOUT_LOG_INTERVAL,
 )
-from litellm.litellm_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
-from litellm.litellm_core_utils.coroutine_checker import coroutine_checker
-from litellm.types.caching import (
+from embrouter.embrouter_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
+from embrouter.embrouter_core_utils.coroutine_checker import coroutine_checker
+from embrouter.types.caching import (
     RedisPipelineIncrementOperation,
     RedisPipelineLpopOperation,
     RedisPipelineRpushOperation,
 )
-from litellm.types.services import ServiceTypes
+from embrouter.types.services import ServiceTypes
 
 from .base_cache import BaseCache
 
@@ -284,7 +284,7 @@ class RedisCircuitBreaker:
 _RedisCallResult = TypeVar("_RedisCallResult")
 
 
-_swallowed_redis_failures: Final[ContextVar[int]] = ContextVar("litellm_swallowed_redis_failures", default=0)
+_swallowed_redis_failures: Final[ContextVar[int]] = ContextVar("embrouter_swallowed_redis_failures", default=0)
 
 
 def _opaque_kwarg_key(value: object) -> str:
@@ -323,7 +323,7 @@ def _redis_health_error_types() -> tuple[type, ...]:
     a caller trip the shared breaker on demand, dropping rate limiting to per-process
     counters that spreading traffic across replicas can outrun.
 
-    Imported lazily because this module is reachable from a base ``import litellm`` while
+    Imported lazily because this module is reachable from a base ``import embrouter`` while
     redis is not a base dependency.
     """
     from redis.exceptions import BusyLoadingError, ClusterDownError
@@ -395,17 +395,17 @@ class _BreakerMetrics:
         except ImportError:
             return
         self._state_gauge = Gauge(
-            "litellm_redis_circuit_breaker_state",
+            "embrouter_redis_circuit_breaker_state",
             "Number of Redis circuit breakers currently in each state",
             labelnames=("state",),
         )
         self._transitions = PromCounter(
-            "litellm_redis_circuit_breaker_transitions",
+            "embrouter_redis_circuit_breaker_transitions",
             "Redis circuit breaker state transitions",
             labelnames=("state",),
         )
         self._failures = PromCounter(
-            "litellm_redis_circuit_breaker_failures",
+            "embrouter_redis_circuit_breaker_failures",
             "Redis health failures counted by the circuit breaker",
             labelnames=("failure_class",),
         )
@@ -602,7 +602,7 @@ def _redis_circuit_breaker_guard_sync(method: Callable[..., _RedisCallResult]) -
 
 
 class RedisCache(BaseCache):
-    # if users don't provider one, use the default litellm cache
+    # if users don't provider one, use the default embrouter cache
 
     def __init__(
         self,
@@ -615,7 +615,7 @@ class RedisCache(BaseCache):
         socket_timeout: float | None = 5.0,  # default 5 second timeout
         **kwargs,
     ):
-        from litellm._service_logger import ServiceLogging
+        from embrouter._service_logger import ServiceLogging
 
         from .._redis import get_redis_client, get_redis_connection_pool
 
@@ -668,8 +668,8 @@ class RedisCache(BaseCache):
 
         self._setup_health_pings()
 
-        if litellm.default_redis_ttl is not None:
-            super().__init__(default_ttl=int(litellm.default_redis_ttl))
+        if embrouter.default_redis_ttl is not None:
+            super().__init__(default_ttl=int(embrouter.default_redis_ttl))
         else:
             super().__init__()  # defaults to 60s
 
@@ -745,7 +745,7 @@ class RedisCache(BaseCache):
     def init_async_client(
         self,
     ) -> async_redis_client | async_redis_cluster_client:
-        from litellm import in_memory_llm_clients_cache
+        from embrouter import in_memory_llm_clients_cache
 
         from .._redis import get_redis_async_client, get_redis_connection_pool
 
@@ -765,7 +765,7 @@ class RedisCache(BaseCache):
     def init_pubsub_client(self) -> async_redis_client:  # pyright: ignore[reportUnknownParameterType]  # redis generics
         from redis.asyncio import RedisCluster
 
-        from litellm import in_memory_llm_clients_cache
+        from embrouter import in_memory_llm_clients_cache
 
         client: Final = self.init_async_client()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # redis generics
         if not isinstance(client, RedisCluster):
@@ -781,7 +781,7 @@ class RedisCache(BaseCache):
         pubsub_client: Final = _cluster_node_pubsub_client(  # pyright: ignore[reportUnknownVariableType]  # redis generics
             cluster=client
         )
-        in_memory_llm_clients_cache.set_cache(key=cache_key, value=pubsub_client, litellm_owned_client=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # untyped in-memory client cache
+        in_memory_llm_clients_cache.set_cache(key=cache_key, value=pubsub_client, embrouter_owned_client=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # untyped in-memory client cache
         return pubsub_client  # pyright: ignore[reportUnknownVariableType]  # redis generics
 
     def _async_commands(self) -> _AsyncRedisCommands:
@@ -846,7 +846,7 @@ class RedisCache(BaseCache):
             )
         except Exception as e:
             # NON blocking - notify users Redis is throwing an exception
-            print_verbose(f"litellm.caching.caching: set() - Got exception from REDIS : {e}")
+            print_verbose(f"embrouter.caching.caching: set() - Got exception from REDIS : {e}")
 
     def increment_cache(self, key, value: int, ttl: float | None = None, **kwargs) -> int:
         _redis_client: Final = self.redis_client
@@ -901,7 +901,7 @@ class RedisCache(BaseCache):
             end_time = time.time()
             _duration = end_time - start_time
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Redis Caching: increment_cache() - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "EmbRouter Redis Caching: increment_cache() - Got exception from REDIS", e
             )
             raise e
 
@@ -1033,12 +1033,12 @@ class RedisCache(BaseCache):
             client: object = None,
         ) -> object:
             async def execute() -> object:
-                executor: Callable[..., Awaitable[object]] | None = litellm.in_memory_llm_clients_cache.get_cache(
+                executor: Callable[..., Awaitable[object]] | None = embrouter.in_memory_llm_clients_cache.get_cache(
                     key=script_cache_key
                 )
                 if executor is None:
                     executor = self._register_script_for_current_loop(script)
-                    litellm.in_memory_llm_clients_cache.set_cache(key=script_cache_key, value=executor)
+                    embrouter.in_memory_llm_clients_cache.set_cache(key=script_cache_key, value=executor)
                 return await executor(keys=keys, args=args, client=client)
 
             return await _run_under_circuit_breaker(self._circuit_breaker, "run_script", execute)
@@ -1087,7 +1087,7 @@ class RedisCache(BaseCache):
 
         if key is None:
             verbose_logger.debug(
-                "LiteLLM Redis Caching: async set() skipped — key is None, value=%r",
+                "EmbRouter Redis Caching: async set() skipped — key is None, value=%r",
                 value,
             )
             return None
@@ -1111,7 +1111,7 @@ class RedisCache(BaseCache):
                 )
             )
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Redis Caching: async set() - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "EmbRouter Redis Caching: async set() - Got exception from REDIS", e
             )
             raise e
 
@@ -1162,7 +1162,7 @@ class RedisCache(BaseCache):
                 )
             )
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Redis Caching: async set() - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "EmbRouter Redis Caching: async set() - Got exception from REDIS", e
             )
             _record_swallowed_redis_failure(self._circuit_breaker, e)
 
@@ -1250,7 +1250,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async set_cache_pipeline() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async set_cache_pipeline() - Got exception from REDIS",
                 e,
             )
             _record_swallowed_redis_failure(self._circuit_breaker, e)
@@ -1295,7 +1295,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async_set_cache_pipeline_with_ttls() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async_set_cache_pipeline_with_ttls() - Got exception from REDIS",
                 e,
             )
             _record_swallowed_redis_failure(self._circuit_breaker, e)
@@ -1341,7 +1341,7 @@ class RedisCache(BaseCache):
             )
             # NON blocking - notify users Redis is throwing an exception
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Redis Caching: async set() - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "EmbRouter Redis Caching: async set() - Got exception from REDIS", e
             )
             raise e
 
@@ -1382,7 +1382,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async set_cache_sadd() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async set_cache_sadd() - Got exception from REDIS",
                 e,
             )
             _record_swallowed_redis_failure(self._circuit_breaker, e)
@@ -1470,7 +1470,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async async_increment() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async async_increment() - Got exception from REDIS",
                 e,
             )
             raise e
@@ -1559,7 +1559,7 @@ class RedisCache(BaseCache):
             return self._get_cache_logic(cached_response=cached_response)
         except Exception as e:
             log_redis_failure(
-                verbose_logger, logging.ERROR, "litellm.caching.caching: get() - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "embrouter.caching.caching: get() - Got exception from REDIS", e
             )
             _record_swallowed_redis_failure(self._circuit_breaker, e)
 
@@ -1689,7 +1689,7 @@ class RedisCache(BaseCache):
                     event_metadata={"key": key},
                 )
             )
-            print_verbose(f"litellm.caching.caching: async get() - Got exception from REDIS: {e}")
+            print_verbose(f"embrouter.caching.caching: async get() - Got exception from REDIS: {e}")
             _record_swallowed_redis_failure(self._circuit_breaker, e)
 
     @_redis_circuit_breaker_guard
@@ -1800,7 +1800,7 @@ class RedisCache(BaseCache):
                 call_type="sync_ping",
                 caller=_get_call_stack_info(),
             )
-            verbose_logger.error("LiteLLM Redis Cache PING: - Got exception from REDIS : %s", e)
+            verbose_logger.error("EmbRouter Redis Cache PING: - Got exception from REDIS : %s", e)
             raise e
 
     async def ping(self) -> bool:
@@ -1835,7 +1835,7 @@ class RedisCache(BaseCache):
                     caller=_get_call_stack_info(),
                 )
             )
-            verbose_logger.error("LiteLLM Redis Cache PING: - Got exception from REDIS : %s", e)
+            verbose_logger.error("EmbRouter Redis Cache PING: - Got exception from REDIS : %s", e)
             raise e
 
     @_redis_circuit_breaker_guard
@@ -1860,7 +1860,7 @@ class RedisCache(BaseCache):
         self.redis_client.flushall()
 
     async def disconnect(self):
-        from litellm import in_memory_llm_clients_cache
+        from embrouter import in_memory_llm_clients_cache
 
         if self.async_redis_conn_pool is not None:
             await self.async_redis_conn_pool.disconnect(inuse_connections=True)
@@ -2011,7 +2011,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async increment_pipeline() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async increment_pipeline() - Got exception from REDIS",
                 e,
             )
             raise e
@@ -2099,7 +2099,7 @@ class RedisCache(BaseCache):
                     caller=_get_call_stack_info(),
                 )
             )
-            log_redis_failure(verbose_logger, logging.ERROR, "LiteLLM Redis Cache RPUSH: - Got exception from REDIS", e)
+            log_redis_failure(verbose_logger, logging.ERROR, "EmbRouter Redis Cache RPUSH: - Got exception from REDIS", e)
             raise e
 
     @_redis_circuit_breaker_guard
@@ -2145,7 +2145,7 @@ class RedisCache(BaseCache):
                 )
             )
             log_redis_failure(
-                verbose_logger, logging.ERROR, "LiteLLM Redis Cache RPUSH+LTRIM: - Got exception from REDIS", e
+                verbose_logger, logging.ERROR, "EmbRouter Redis Cache RPUSH+LTRIM: - Got exception from REDIS", e
             )
             raise e
 
@@ -2219,7 +2219,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async_rpush_pipeline() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async_rpush_pipeline() - Got exception from REDIS",
                 e,
             )
             raise e
@@ -2298,7 +2298,7 @@ class RedisCache(BaseCache):
                     caller=_get_call_stack_info(),
                 )
             )
-            log_redis_failure(verbose_logger, logging.ERROR, "LiteLLM Redis Cache LPOP: - Got exception from REDIS", e)
+            log_redis_failure(verbose_logger, logging.ERROR, "EmbRouter Redis Cache LPOP: - Got exception from REDIS", e)
             raise e
 
     async def _pipeline_lpop_helper(
@@ -2414,7 +2414,7 @@ class RedisCache(BaseCache):
             log_redis_failure(
                 verbose_logger,
                 logging.ERROR,
-                "LiteLLM Redis Caching: async_lpop_pipeline() - Got exception from REDIS",
+                "EmbRouter Redis Caching: async_lpop_pipeline() - Got exception from REDIS",
                 e,
             )
             raise e

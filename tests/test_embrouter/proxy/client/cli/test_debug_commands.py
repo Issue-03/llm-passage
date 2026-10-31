@@ -7,9 +7,9 @@ import requests
 import responses
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli import cli
-from litellm.proxy.client.cli.commands import debug as debug_module
-from litellm.proxy.client.cli.commands.debug import (
+from embrouter.proxy.client.cli import cli
+from embrouter.proxy.client.cli.commands import debug as debug_module
+from embrouter.proxy.client.cli.commands.debug import (
     SLASH_COMMAND_NAME,
     detect_claude_session_id,
     install_slash_command,
@@ -71,8 +71,8 @@ def _called_paths():
 
 @pytest.fixture(autouse=True)
 def env(monkeypatch, tmp_path):
-    monkeypatch.setenv("LITELLM_PROXY_URL", PROXY)
-    monkeypatch.setenv("LITELLM_PROXY_API_KEY", "sk-test")
+    monkeypatch.setenv("EMBROUTER_PROXY_URL", PROXY)
+    monkeypatch.setenv("EMBROUTER_PROXY_API_KEY", "sk-test")
     monkeypatch.setattr(debug_module, "REPORT_DIR", tmp_path / "reports")
     monkeypatch.setattr(debug_module, "CLAUDE_DIR", tmp_path / "claude")
 

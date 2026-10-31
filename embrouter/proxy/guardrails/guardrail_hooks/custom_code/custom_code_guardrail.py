@@ -1,9 +1,9 @@
 """
-Custom code guardrail for LiteLLM.
+Custom code guardrail for EmbRouter.
 
 This module provides a guardrail that executes user-defined Python-like code
 to implement custom guardrail logic. The code runs in a sandboxed environment
-with access to LiteLLM-provided primitives for common guardrail operations.
+with access to EmbRouter-provided primitives for common guardrail operations.
 
 Example custom code (sync):
 
@@ -47,15 +47,15 @@ from fastapi import HTTPException
 from pydantic import Field
 from typing_extensions import TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import ModifyResponseException
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import ModifyResponseException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 from .bounded_execution import (
     ExecutionTimeoutError,
@@ -66,7 +66,7 @@ from .bounded_execution import (
 from .sandbox import build_sandbox_globals, compile_sandboxed
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 DEFAULT_EXECUTION_TIMEOUT_SECONDS: Final = 30.0
 
@@ -118,7 +118,7 @@ class CustomCodeGuardrail(CustomGuardrail):
     Guardrail that executes user-defined Python-like code.
 
     The code runs in a sandboxed environment that provides:
-    - Access to LiteLLM primitives (regex_match, json_parse, etc.)
+    - Access to EmbRouter primitives (regex_match, json_parse, etc.)
     - No file I/O; network access only through `http_get`/`http_post`/`http_request`, which refuse
       private, link-local and loopback destinations unless the host is allowlisted
     - No imports allowed
@@ -240,7 +240,7 @@ class CustomCodeGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply the custom code guardrail to the inputs.
@@ -356,7 +356,7 @@ class CustomCodeGuardrail(CustomGuardrail):
         """
         metadata: Final = {
             **_metadata_bucket(request_data, "metadata"),
-            **_metadata_bucket(request_data, "litellm_metadata"),
+            **_metadata_bucket(request_data, "embrouter_metadata"),
         }
         return {
             "model": request_data.get("model"),

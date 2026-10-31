@@ -5,7 +5,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Any, ClassVar, Final, Literal, cast
 
-import litellm
+import embrouter
 
 
 def _sanitize_prometheus_label_name(label: str) -> str:
@@ -97,7 +97,7 @@ class LabelValidationError:
             label in ("api_key_alias", "user_email") for label in self.invalid_labels
         ):
             mode: Final[object] = getattr(
-                litellm,
+                embrouter,
                 "prometheus_deployment_and_latency_caller_identity",
                 "api_key_alias",
             )
@@ -199,8 +199,8 @@ class UserAPIKeyLabelNames(Enum):
     TEAM = "team"
     TEAM_ALIAS = "team_alias"
     REQUESTED_MODEL = REQUESTED_MODEL
-    v1_LITELLM_MODEL_NAME = "model"
-    v2_LITELLM_MODEL_NAME = "litellm_model_name"
+    v1_EMBROUTER_MODEL_NAME = "model"
+    v2_EMBROUTER_MODEL_NAME = "embrouter_model_name"
     TAG = "tag"
     MODEL_ID = "model_id"
     API_BASE = "api_base"
@@ -226,107 +226,107 @@ class UserAPIKeyLabelNames(Enum):
 
 
 DEFINED_PROMETHEUS_METRICS = Literal[
-    "litellm_llm_api_latency_metric",
-    "litellm_llm_api_time_to_first_token_metric",
-    "litellm_request_total_latency_metric",
-    "litellm_overhead_latency_metric",
-    "litellm_overhead_with_guardrails_latency_metric",
-    "litellm_remaining_requests_metric",
-    "litellm_remaining_tokens_metric",
-    "litellm_proxy_total_requests_metric",
-    "litellm_proxy_failed_requests_metric",
-    "litellm_deployment_latency_per_output_token",
-    "litellm_requests_metric",
-    "litellm_spend_metric",
-    "litellm_total_tokens_metric",
-    "litellm_input_tokens_metric",
-    "litellm_output_tokens_metric",
-    "litellm_input_cached_tokens_metric",
-    "litellm_input_cache_creation_tokens_metric",
-    "litellm_input_audio_tokens_metric",
-    "litellm_output_reasoning_tokens_metric",
-    "litellm_output_audio_tokens_metric",
-    "litellm_video_duration_seconds_metric",
-    "litellm_images_generated_metric",
-    "litellm_deployment_successful_fallbacks",
-    "litellm_deployment_failed_fallbacks",
-    "litellm_remaining_team_budget_metric",
-    "litellm_team_max_budget_metric",
-    "litellm_team_budget_remaining_hours_metric",
-    "litellm_team_members_metric",
-    "litellm_remaining_org_budget_metric",
-    "litellm_org_max_budget_metric",
-    "litellm_org_budget_remaining_hours_metric",
-    "litellm_remaining_api_key_budget_metric",
-    "litellm_api_key_max_budget_metric",
-    "litellm_api_key_budget_remaining_hours_metric",
-    "litellm_remaining_user_budget_metric",
-    "litellm_user_max_budget_metric",
-    "litellm_user_budget_remaining_hours_metric",
-    "litellm_remaining_customer_budget_metric",
-    "litellm_customer_max_budget_metric",
-    "litellm_customer_budget_remaining_hours_metric",
-    "litellm_deployment_state",
-    "litellm_deployment_failure_responses",
-    "litellm_deployment_total_requests",
-    "litellm_deployment_success_responses",
-    "litellm_deployment_cooled_down",
-    "litellm_pod_lock_manager_size",
-    "litellm_in_memory_daily_spend_update_queue_size",
-    "litellm_redis_daily_spend_update_queue_size",
-    "litellm_in_memory_spend_update_queue_size",
-    "litellm_redis_spend_update_queue_size",
-    "litellm_request_queue_time_seconds",
-    "litellm_guardrail_latency_seconds",
-    "litellm_guardrail_errors_total",
-    "litellm_guardrail_requests_total",
-    "litellm_zero_cost_requests_total",
-    "litellm_spend_capture_rate",
+    "embrouter_llm_api_latency_metric",
+    "embrouter_llm_api_time_to_first_token_metric",
+    "embrouter_request_total_latency_metric",
+    "embrouter_overhead_latency_metric",
+    "embrouter_overhead_with_guardrails_latency_metric",
+    "embrouter_remaining_requests_metric",
+    "embrouter_remaining_tokens_metric",
+    "embrouter_proxy_total_requests_metric",
+    "embrouter_proxy_failed_requests_metric",
+    "embrouter_deployment_latency_per_output_token",
+    "embrouter_requests_metric",
+    "embrouter_spend_metric",
+    "embrouter_total_tokens_metric",
+    "embrouter_input_tokens_metric",
+    "embrouter_output_tokens_metric",
+    "embrouter_input_cached_tokens_metric",
+    "embrouter_input_cache_creation_tokens_metric",
+    "embrouter_input_audio_tokens_metric",
+    "embrouter_output_reasoning_tokens_metric",
+    "embrouter_output_audio_tokens_metric",
+    "embrouter_video_duration_seconds_metric",
+    "embrouter_images_generated_metric",
+    "embrouter_deployment_successful_fallbacks",
+    "embrouter_deployment_failed_fallbacks",
+    "embrouter_remaining_team_budget_metric",
+    "embrouter_team_max_budget_metric",
+    "embrouter_team_budget_remaining_hours_metric",
+    "embrouter_team_members_metric",
+    "embrouter_remaining_org_budget_metric",
+    "embrouter_org_max_budget_metric",
+    "embrouter_org_budget_remaining_hours_metric",
+    "embrouter_remaining_api_key_budget_metric",
+    "embrouter_api_key_max_budget_metric",
+    "embrouter_api_key_budget_remaining_hours_metric",
+    "embrouter_remaining_user_budget_metric",
+    "embrouter_user_max_budget_metric",
+    "embrouter_user_budget_remaining_hours_metric",
+    "embrouter_remaining_customer_budget_metric",
+    "embrouter_customer_max_budget_metric",
+    "embrouter_customer_budget_remaining_hours_metric",
+    "embrouter_deployment_state",
+    "embrouter_deployment_failure_responses",
+    "embrouter_deployment_total_requests",
+    "embrouter_deployment_success_responses",
+    "embrouter_deployment_cooled_down",
+    "embrouter_pod_lock_manager_size",
+    "embrouter_in_memory_daily_spend_update_queue_size",
+    "embrouter_redis_daily_spend_update_queue_size",
+    "embrouter_in_memory_spend_update_queue_size",
+    "embrouter_redis_spend_update_queue_size",
+    "embrouter_request_queue_time_seconds",
+    "embrouter_guardrail_latency_seconds",
+    "embrouter_guardrail_errors_total",
+    "embrouter_guardrail_requests_total",
+    "embrouter_zero_cost_requests_total",
+    "embrouter_spend_capture_rate",
     # Cache metrics
-    "litellm_cache_hits_metric",
-    "litellm_cache_misses_metric",
-    "litellm_cached_tokens_metric",
+    "embrouter_cache_hits_metric",
+    "embrouter_cache_misses_metric",
+    "embrouter_cached_tokens_metric",
     # Provider prompt-caching metrics (e.g. OpenAI/Anthropic/Bedrock/Gemini)
-    "litellm_provider_cache_read_input_tokens_metric",
-    "litellm_provider_cache_creation_input_tokens_metric",
-    "litellm_deployment_tpm_limit",
-    "litellm_deployment_rpm_limit",
-    "litellm_remaining_api_key_requests_for_model",
-    "litellm_remaining_api_key_tokens_for_model",
-    "litellm_api_key_rate_limit_allowed_metric",
-    "litellm_api_key_rate_limit_used_metric",
-    "litellm_team_rate_limit_allowed_metric",
-    "litellm_team_rate_limit_used_metric",
-    "litellm_llm_api_failed_requests_metric",
-    "litellm_callback_logging_failures_metric",
-    "litellm_in_flight_requests",
+    "embrouter_provider_cache_read_input_tokens_metric",
+    "embrouter_provider_cache_creation_input_tokens_metric",
+    "embrouter_deployment_tpm_limit",
+    "embrouter_deployment_rpm_limit",
+    "embrouter_remaining_api_key_requests_for_model",
+    "embrouter_remaining_api_key_tokens_for_model",
+    "embrouter_api_key_rate_limit_allowed_metric",
+    "embrouter_api_key_rate_limit_used_metric",
+    "embrouter_team_rate_limit_allowed_metric",
+    "embrouter_team_rate_limit_used_metric",
+    "embrouter_llm_api_failed_requests_metric",
+    "embrouter_callback_logging_failures_metric",
+    "embrouter_in_flight_requests",
     # Managed batch metrics
-    "litellm_managed_batch_created_total",
-    "litellm_managed_file_size_bytes",
-    "litellm_managed_batch_duration_seconds",
-    "litellm_managed_file_created_total",
-    "litellm_managed_file_deleted_total",
-    "litellm_check_batch_cost_jobs_polled",
-    "litellm_check_batch_cost_jobs_processed_total",
-    "litellm_check_batch_cost_errors_total",
-    "litellm_check_batch_cost_last_run_timestamp",
+    "embrouter_managed_batch_created_total",
+    "embrouter_managed_file_size_bytes",
+    "embrouter_managed_batch_duration_seconds",
+    "embrouter_managed_file_created_total",
+    "embrouter_managed_file_deleted_total",
+    "embrouter_check_batch_cost_jobs_polled",
+    "embrouter_check_batch_cost_jobs_processed_total",
+    "embrouter_check_batch_cost_errors_total",
+    "embrouter_check_batch_cost_last_run_timestamp",
     # MCP tool call metrics
-    "litellm_mcp_tool_calls_total",
-    "litellm_mcp_tool_call_spend_metric",
+    "embrouter_mcp_tool_calls_total",
+    "embrouter_mcp_tool_call_spend_metric",
 ]
 
 
 PROMETHEUS_DEPLOYMENT_AND_LATENCY_CALLER_IDENTITY_METRICS: Final[frozenset[str]] = frozenset(
     {
-        "litellm_deployment_total_requests",
-        "litellm_deployment_success_responses",
-        "litellm_deployment_failure_responses",
-        "litellm_request_total_latency_metric",
-        "litellm_llm_api_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
-        "litellm_request_queue_time_seconds",
-        "litellm_overhead_latency_metric",
-        "litellm_deployment_latency_per_output_token",
+        "embrouter_deployment_total_requests",
+        "embrouter_deployment_success_responses",
+        "embrouter_deployment_failure_responses",
+        "embrouter_request_total_latency_metric",
+        "embrouter_llm_api_latency_metric",
+        "embrouter_llm_api_time_to_first_token_metric",
+        "embrouter_request_queue_time_seconds",
+        "embrouter_overhead_latency_metric",
+        "embrouter_deployment_latency_per_output_token",
     }
 )
 
@@ -340,7 +340,7 @@ PROMETHEUS_DEPLOYMENT_AND_LATENCY_CALLER_IDENTITY_VALUES: Final[tuple[str, ...]]
 def validate_prometheus_deployment_and_latency_caller_identity() -> str:
     """Return the configured caller-identity mode, raising on an invalid value."""
     caller_identity: Final[object] = getattr(
-        litellm,
+        embrouter,
         "prometheus_deployment_and_latency_caller_identity",
         "api_key_alias",
     )
@@ -353,22 +353,22 @@ def validate_prometheus_deployment_and_latency_caller_identity() -> str:
     )
 
 
-def validate_caller_identity_settings(litellm_settings: Mapping[str, object]) -> None:
-    """Store the caller-identity mode from litellm_settings and validate it together
+def validate_caller_identity_settings(embrouter_settings: Mapping[str, object]) -> None:
+    """Store the caller-identity mode from embrouter_settings and validate it together
     with prometheus_metrics_config, raising on an invalid value or on include_labels
     that request a label the selected mode removes."""
-    if "prometheus_deployment_and_latency_caller_identity" not in litellm_settings:
+    if "prometheus_deployment_and_latency_caller_identity" not in embrouter_settings:
         return
-    litellm.prometheus_deployment_and_latency_caller_identity = (
+    embrouter.prometheus_deployment_and_latency_caller_identity = (
         cast(  # cast-ok: validated on the next line, which raises on an invalid value
             'Literal["api_key_alias", "user_email", "both"]',
-            litellm_settings["prometheus_deployment_and_latency_caller_identity"],
+            embrouter_settings["prometheus_deployment_and_latency_caller_identity"],
         )
     )
     caller_identity_mode: Final = validate_prometheus_deployment_and_latency_caller_identity()
     if caller_identity_mode != "user_email":
         return
-    raw_metrics_config: Final = litellm_settings.get("prometheus_metrics_config")
+    raw_metrics_config: Final = embrouter_settings.get("prometheus_metrics_config")
     conflicting_metrics: Final = tuple(
         metric_name
         for metric_config in (raw_metrics_config if isinstance(raw_metrics_config, list) else ())
@@ -409,8 +409,8 @@ def _resolve_deployment_and_latency_caller_identity_labels(
 
 
 class PrometheusMetricLabels:
-    litellm_llm_api_latency_metric = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+    embrouter_llm_api_latency_metric = [
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.TEAM.value,
@@ -423,8 +423,8 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.SERVICE_TIER.value,
     ]
 
-    litellm_llm_api_time_to_first_token_metric = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+    embrouter_llm_api_time_to_first_token_metric = [
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.TEAM.value,
@@ -437,7 +437,7 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.SERVICE_TIER.value,
     ]
 
-    litellm_request_total_latency_metric = [
+    embrouter_request_total_latency_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
@@ -445,13 +445,13 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.SERVICE_TIER.value,
     ]
 
-    litellm_request_queue_time_seconds = [
+    embrouter_request_queue_time_seconds = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
@@ -459,18 +459,18 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
     # Guardrail metrics - these use custom labels (guardrail_name, status, error_type, hook_type)
     # which are not part of UserAPIKeyLabelNames
-    litellm_guardrail_latency_seconds: list[str] = []
-    litellm_guardrail_errors_total: list[str] = []
-    litellm_guardrail_requests_total: list[str] = []
+    embrouter_guardrail_latency_seconds: list[str] = []
+    embrouter_guardrail_errors_total: list[str] = []
+    embrouter_guardrail_requests_total: list[str] = []
 
-    litellm_proxy_total_requests_metric = [
+    embrouter_proxy_total_requests_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
@@ -487,7 +487,7 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_proxy_failed_requests_metric = [
+    embrouter_proxy_failed_requests_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
@@ -499,7 +499,7 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.EXCEPTION_STATUS.value,
         UserAPIKeyLabelNames.EXCEPTION_CLASS.value,
         # ``rate_limit_category`` / ``rate_limit_type`` are appended in
-        # ``get_labels()`` when ``litellm.prometheus_emit_rate_limit_labels``
+        # ``get_labels()`` when ``embrouter.prometheus_emit_rate_limit_labels``
         # is True. Kept opt-in so existing dashboards keyed on this metric's
         # historical label set keep matching after upgrade.
         UserAPIKeyLabelNames.ROUTE.value,
@@ -509,8 +509,8 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_deployment_latency_per_output_token = [
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+    embrouter_deployment_latency_per_output_token = [
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
@@ -520,51 +520,51 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
     ]
 
-    litellm_overhead_latency_metric = [
+    embrouter_overhead_latency_metric = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.API_BASE.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_overhead_with_guardrails_latency_metric = [
+    embrouter_overhead_with_guardrails_latency_metric = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.API_BASE.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_remaining_requests_metric = [
+    embrouter_remaining_requests_metric = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.API_BASE.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_remaining_tokens_metric = [
+    embrouter_remaining_tokens_metric = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.API_BASE.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_requests_metric = [
+    embrouter_requests_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -576,11 +576,11 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_spend_metric = [
+    embrouter_spend_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -593,21 +593,21 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.SERVICE_TIER.value,
     ]
 
-    litellm_zero_cost_requests_total = (
+    embrouter_zero_cost_requests_total = (
         UserAPIKeyLabelNames.REQUESTED_MODEL.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         ZERO_COST_REASON_LABEL,
     )
 
-    litellm_spend_capture_rate = (UserAPIKeyLabelNames.API_PROVIDER.value,)
+    embrouter_spend_capture_rate = (UserAPIKeyLabelNames.API_PROVIDER.value,)
 
-    litellm_input_tokens_metric = [
+    embrouter_input_tokens_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -617,11 +617,11 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_total_tokens_metric = [
+    embrouter_total_tokens_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -631,11 +631,11 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_output_tokens_metric = [
+    embrouter_output_tokens_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -646,45 +646,45 @@ class PrometheusMetricLabels:
     ]
 
     # Token-type detail metrics — reuse the same label set as
-    # litellm_input_tokens_metric / litellm_output_tokens_metric so dashboards
+    # embrouter_input_tokens_metric / embrouter_output_tokens_metric so dashboards
     # can join across them. Only emitted when the underlying usage detail is
     # populated by the provider (e.g. Anthropic cache_read_input_tokens,
     # OpenAI prompt_tokens_details.cached_tokens, reasoning_tokens, audio_tokens).
-    litellm_input_cached_tokens_metric = litellm_input_tokens_metric
-    litellm_input_cache_creation_tokens_metric = litellm_input_tokens_metric
-    litellm_input_audio_tokens_metric = litellm_input_tokens_metric
-    litellm_output_reasoning_tokens_metric = litellm_output_tokens_metric
-    litellm_output_audio_tokens_metric = litellm_output_tokens_metric
+    embrouter_input_cached_tokens_metric = embrouter_input_tokens_metric
+    embrouter_input_cache_creation_tokens_metric = embrouter_input_tokens_metric
+    embrouter_input_audio_tokens_metric = embrouter_input_tokens_metric
+    embrouter_output_reasoning_tokens_metric = embrouter_output_tokens_metric
+    embrouter_output_audio_tokens_metric = embrouter_output_tokens_metric
 
-    litellm_video_duration_seconds_metric = litellm_output_tokens_metric
-    litellm_images_generated_metric = litellm_output_tokens_metric
+    embrouter_video_duration_seconds_metric = embrouter_output_tokens_metric
+    embrouter_images_generated_metric = embrouter_output_tokens_metric
 
-    litellm_deployment_state = [
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+    embrouter_deployment_state = [
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_deployment_tpm_limit = [
+    embrouter_deployment_tpm_limit = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_deployment_rpm_limit = litellm_deployment_tpm_limit
+    embrouter_deployment_rpm_limit = embrouter_deployment_tpm_limit
 
-    litellm_deployment_cooled_down = [
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+    embrouter_deployment_cooled_down = [
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.EXCEPTION_STATUS.value,
     ]
 
-    litellm_deployment_successful_fallbacks = [
+    embrouter_deployment_successful_fallbacks = [
         UserAPIKeyLabelNames.REQUESTED_MODEL.value,
         UserAPIKeyLabelNames.FALLBACK_MODEL.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
@@ -696,87 +696,87 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_deployment_failed_fallbacks = litellm_deployment_successful_fallbacks
+    embrouter_deployment_failed_fallbacks = embrouter_deployment_successful_fallbacks
 
-    litellm_remaining_team_budget_metric = [
+    embrouter_remaining_team_budget_metric = [
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
     ]
 
-    litellm_team_max_budget_metric = [
+    embrouter_team_max_budget_metric = [
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
     ]
 
-    litellm_team_budget_remaining_hours_metric = [
+    embrouter_team_budget_remaining_hours_metric = [
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
     ]
 
-    litellm_team_members_metric = [
+    embrouter_team_members_metric = [
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
     ]
 
-    litellm_remaining_org_budget_metric = [
+    embrouter_remaining_org_budget_metric = [
         UserAPIKeyLabelNames.ORG_ID.value,
         UserAPIKeyLabelNames.ORG_ALIAS.value,
     ]
 
-    litellm_org_max_budget_metric = [
+    embrouter_org_max_budget_metric = [
         UserAPIKeyLabelNames.ORG_ID.value,
         UserAPIKeyLabelNames.ORG_ALIAS.value,
     ]
 
-    litellm_org_budget_remaining_hours_metric = [
+    embrouter_org_budget_remaining_hours_metric = [
         UserAPIKeyLabelNames.ORG_ID.value,
         UserAPIKeyLabelNames.ORG_ALIAS.value,
     ]
 
-    litellm_remaining_api_key_budget_metric = [
+    embrouter_remaining_api_key_budget_metric = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
     ]
 
-    litellm_api_key_max_budget_metric = litellm_remaining_api_key_budget_metric
+    embrouter_api_key_max_budget_metric = embrouter_remaining_api_key_budget_metric
 
-    litellm_api_key_budget_remaining_hours_metric = litellm_remaining_api_key_budget_metric
+    embrouter_api_key_budget_remaining_hours_metric = embrouter_remaining_api_key_budget_metric
 
-    litellm_remaining_user_budget_metric = [
+    embrouter_remaining_user_budget_metric = [
         UserAPIKeyLabelNames.USER.value,
     ]
 
-    litellm_user_max_budget_metric = litellm_remaining_user_budget_metric
+    embrouter_user_max_budget_metric = embrouter_remaining_user_budget_metric
 
-    litellm_user_budget_remaining_hours_metric = litellm_remaining_user_budget_metric
+    embrouter_user_budget_remaining_hours_metric = embrouter_remaining_user_budget_metric
 
-    litellm_remaining_customer_budget_metric = (UserAPIKeyLabelNames.END_USER.value,)
+    embrouter_remaining_customer_budget_metric = (UserAPIKeyLabelNames.END_USER.value,)
 
-    litellm_customer_max_budget_metric = litellm_remaining_customer_budget_metric
+    embrouter_customer_max_budget_metric = embrouter_remaining_customer_budget_metric
 
-    litellm_customer_budget_remaining_hours_metric = litellm_remaining_customer_budget_metric
+    embrouter_customer_budget_remaining_hours_metric = embrouter_remaining_customer_budget_metric
 
-    litellm_remaining_api_key_requests_for_model = [
+    embrouter_remaining_api_key_requests_for_model = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
     ]
 
-    litellm_remaining_api_key_tokens_for_model = [
+    embrouter_remaining_api_key_tokens_for_model = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
     ]
 
-    litellm_callback_logging_failures_metric = [
+    embrouter_callback_logging_failures_metric = [
         UserAPIKeyLabelNames.CALLBACK_NAME.value,
     ]
 
     # Add deployment metrics
-    litellm_deployment_failure_responses = [
+    embrouter_deployment_failure_responses = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.REQUESTED_MODEL.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
@@ -790,10 +790,10 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.USER_AGENT.value,
     ]
 
-    litellm_deployment_total_requests = [
+    embrouter_deployment_total_requests = [
         UserAPIKeyLabelNames.MODEL_GROUP.value,
         UserAPIKeyLabelNames.REQUESTED_MODEL.value,
-        UserAPIKeyLabelNames.v2_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v2_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
         UserAPIKeyLabelNames.API_BASE.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
@@ -805,43 +805,43 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.USER_AGENT.value,
     ]
 
-    litellm_deployment_success_responses = litellm_deployment_total_requests
+    embrouter_deployment_success_responses = embrouter_deployment_total_requests
 
-    litellm_remaining_api_key_requests_for_model = [
+    embrouter_remaining_api_key_requests_for_model = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_remaining_api_key_tokens_for_model = [
+    embrouter_remaining_api_key_tokens_for_model = [
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.MODEL_ID.value,
     ]
 
-    litellm_api_key_rate_limit_allowed_metric: ClassVar[tuple[str, ...]] = (
+    embrouter_api_key_rate_limit_allowed_metric: ClassVar[tuple[str, ...]] = (
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.RATE_LIMIT_TYPE.value,
     )
 
-    litellm_api_key_rate_limit_used_metric = litellm_api_key_rate_limit_allowed_metric
+    embrouter_api_key_rate_limit_used_metric = embrouter_api_key_rate_limit_allowed_metric
 
-    litellm_team_rate_limit_allowed_metric: ClassVar[tuple[str, ...]] = (
+    embrouter_team_rate_limit_allowed_metric: ClassVar[tuple[str, ...]] = (
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.RATE_LIMIT_TYPE.value,
     )
 
-    litellm_team_rate_limit_used_metric = litellm_team_rate_limit_allowed_metric
+    embrouter_team_rate_limit_used_metric = embrouter_team_rate_limit_allowed_metric
 
-    litellm_llm_api_failed_requests_metric = [
+    embrouter_llm_api_failed_requests_metric = [
         UserAPIKeyLabelNames.END_USER.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.TEAM.value,
         UserAPIKeyLabelNames.TEAM_ALIAS.value,
         UserAPIKeyLabelNames.USER.value,
@@ -849,19 +849,19 @@ class PrometheusMetricLabels:
     ]
 
     # Buffer monitoring metrics - these typically don't need additional labels
-    litellm_pod_lock_manager_size: list[str] = []
+    embrouter_pod_lock_manager_size: list[str] = []
 
-    litellm_in_memory_daily_spend_update_queue_size: list[str] = []
+    embrouter_in_memory_daily_spend_update_queue_size: list[str] = []
 
-    litellm_redis_daily_spend_update_queue_size: list[str] = []
+    embrouter_redis_daily_spend_update_queue_size: list[str] = []
 
-    litellm_in_memory_spend_update_queue_size: list[str] = []
+    embrouter_in_memory_spend_update_queue_size: list[str] = []
 
-    litellm_redis_spend_update_queue_size: list[str] = []
+    embrouter_redis_spend_update_queue_size: list[str] = []
 
     # Cache metrics - track cache hits, misses, and tokens served from cache
     _cache_metric_labels = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
         UserAPIKeyLabelNames.TEAM.value,
@@ -872,75 +872,75 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_cache_hits_metric = _cache_metric_labels
-    litellm_cache_misses_metric = _cache_metric_labels
-    litellm_cached_tokens_metric = _cache_metric_labels
+    embrouter_cache_hits_metric = _cache_metric_labels
+    embrouter_cache_misses_metric = _cache_metric_labels
+    embrouter_cached_tokens_metric = _cache_metric_labels
 
     # Provider prompt-caching metrics - track tokens read/written to provider caches
-    litellm_provider_cache_read_input_tokens_metric = _cache_metric_labels
-    litellm_provider_cache_creation_input_tokens_metric = _cache_metric_labels
+    embrouter_provider_cache_read_input_tokens_metric = _cache_metric_labels
+    embrouter_provider_cache_creation_input_tokens_metric = _cache_metric_labels
 
     # Metrics whose emission paths supply org context (used by get_labels)
     _org_label_metrics: ClassVar[frozenset] = frozenset(
         {
-            "litellm_llm_api_latency_metric",
-            "litellm_llm_api_time_to_first_token_metric",
-            "litellm_request_total_latency_metric",
-            "litellm_request_queue_time_seconds",
-            "litellm_proxy_total_requests_metric",
-            "litellm_proxy_failed_requests_metric",
-            "litellm_deployment_latency_per_output_token",
-            "litellm_requests_metric",
-            "litellm_spend_metric",
-            "litellm_input_tokens_metric",
-            "litellm_total_tokens_metric",
-            "litellm_output_tokens_metric",
-            "litellm_video_duration_seconds_metric",
-            "litellm_images_generated_metric",
+            "embrouter_llm_api_latency_metric",
+            "embrouter_llm_api_time_to_first_token_metric",
+            "embrouter_request_total_latency_metric",
+            "embrouter_request_queue_time_seconds",
+            "embrouter_proxy_total_requests_metric",
+            "embrouter_proxy_failed_requests_metric",
+            "embrouter_deployment_latency_per_output_token",
+            "embrouter_requests_metric",
+            "embrouter_spend_metric",
+            "embrouter_input_tokens_metric",
+            "embrouter_total_tokens_metric",
+            "embrouter_output_tokens_metric",
+            "embrouter_video_duration_seconds_metric",
+            "embrouter_images_generated_metric",
         }
     )
     _input_sequence_length_metrics: ClassVar[frozenset[str]] = frozenset(
         {
-            "litellm_llm_api_latency_metric",
-            "litellm_llm_api_time_to_first_token_metric",
-            "litellm_request_total_latency_metric",
+            "embrouter_llm_api_latency_metric",
+            "embrouter_llm_api_time_to_first_token_metric",
+            "embrouter_request_total_latency_metric",
         }
     )
     # Managed batch metrics
     _batch_user_labels = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
         UserAPIKeyLabelNames.USER.value,
         UserAPIKeyLabelNames.USER_EMAIL.value,
         UserAPIKeyLabelNames.API_KEY_ALIAS.value,
     ]
 
-    litellm_managed_batch_created_total = _batch_user_labels
+    embrouter_managed_batch_created_total = _batch_user_labels
 
-    litellm_managed_file_size_bytes: list[str] = []  # labels: purpose, file_type, model, api_provider, user (custom)
+    embrouter_managed_file_size_bytes: list[str] = []  # labels: purpose, file_type, model, api_provider, user (custom)
 
-    litellm_managed_batch_duration_seconds = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+    embrouter_managed_batch_duration_seconds = [
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_managed_file_created_total = _batch_user_labels
+    embrouter_managed_file_created_total = _batch_user_labels
 
-    litellm_managed_file_deleted_total: list[str] = []  # only "result" label, added at metric creation
+    embrouter_managed_file_deleted_total: list[str] = []  # only "result" label, added at metric creation
 
-    litellm_check_batch_cost_jobs_polled: list[str] = []
+    embrouter_check_batch_cost_jobs_polled: list[str] = []
 
-    litellm_check_batch_cost_jobs_processed_total = [
-        UserAPIKeyLabelNames.v1_LITELLM_MODEL_NAME.value,
+    embrouter_check_batch_cost_jobs_processed_total = [
+        UserAPIKeyLabelNames.v1_EMBROUTER_MODEL_NAME.value,
         UserAPIKeyLabelNames.API_PROVIDER.value,
     ]
 
-    litellm_check_batch_cost_errors_total: list[str] = []  # label: error_type (custom)
+    embrouter_check_batch_cost_errors_total: list[str] = []  # label: error_type (custom)
 
-    litellm_check_batch_cost_last_run_timestamp: list[str] = []
+    embrouter_check_batch_cost_last_run_timestamp: list[str] = []
 
     # MCP tool call metrics
-    litellm_mcp_tool_calls_total: list[str] = [
+    embrouter_mcp_tool_calls_total: list[str] = [
         UserAPIKeyLabelNames.MCP_TOOL_NAME.value,
         UserAPIKeyLabelNames.MCP_SERVER_NAME.value,
         UserAPIKeyLabelNames.API_KEY_HASH.value,
@@ -951,7 +951,7 @@ class PrometheusMetricLabels:
         UserAPIKeyLabelNames.END_USER.value,
     ]
 
-    litellm_mcp_tool_call_spend_metric: list[str] = list(litellm_mcp_tool_calls_total)
+    embrouter_mcp_tool_call_spend_metric: list[str] = list(embrouter_mcp_tool_calls_total)
 
     @staticmethod
     def get_labels(label_name: DEFINED_PROMETHEUS_METRICS) -> list[str]:
@@ -963,26 +963,26 @@ class PrometheusMetricLabels:
 
         # Add custom metadata labels
         custom_labels.extend(
-            [_sanitize_prometheus_label_name(metric) for metric in litellm.custom_prometheus_metadata_labels]
+            [_sanitize_prometheus_label_name(metric) for metric in embrouter.custom_prometheus_metadata_labels]
         )
 
         # Add custom tags labels
-        custom_labels.extend([_sanitize_prometheus_label_name(f"tag_{tag}") for tag in litellm.custom_prometheus_tags])
+        custom_labels.extend([_sanitize_prometheus_label_name(f"tag_{tag}") for tag in embrouter.custom_prometheus_tags])
 
-        # Conditionally add stream label to litellm_proxy_total_requests_metric
+        # Conditionally add stream label to embrouter_proxy_total_requests_metric
         if (
-            label_name == "litellm_proxy_total_requests_metric"
-            and litellm.prometheus_emit_stream_label is True
+            label_name == "embrouter_proxy_total_requests_metric"
+            and embrouter.prometheus_emit_stream_label is True
             and UserAPIKeyLabelNames.STREAM.value not in default_labels
         ):
             custom_labels.append(UserAPIKeyLabelNames.STREAM.value)
 
         # Conditionally add unified rate-limit labels to
-        # litellm_proxy_failed_requests_metric. Off by default so the metric's
+        # embrouter_proxy_failed_requests_metric. Off by default so the metric's
         # historical label set is preserved across upgrade; enable via
-        # ``litellm.prometheus_emit_rate_limit_labels`` once downstream
+        # ``embrouter.prometheus_emit_rate_limit_labels`` once downstream
         # dashboards include the new labels in their matchers / aggregations.
-        if label_name == "litellm_proxy_failed_requests_metric" and litellm.prometheus_emit_rate_limit_labels is True:
+        if label_name == "embrouter_proxy_failed_requests_metric" and embrouter.prometheus_emit_rate_limit_labels is True:
             for _rate_limit_label in (
                 UserAPIKeyLabelNames.RATE_LIMIT_CATEGORY.value,
                 UserAPIKeyLabelNames.RATE_LIMIT_TYPE.value,
@@ -991,11 +991,11 @@ class PrometheusMetricLabels:
                     custom_labels.append(_rate_limit_label)
 
         _user_budget_metrics: Final = {
-            "litellm_remaining_user_budget_metric",
-            "litellm_user_max_budget_metric",
-            "litellm_user_budget_remaining_hours_metric",
+            "embrouter_remaining_user_budget_metric",
+            "embrouter_user_max_budget_metric",
+            "embrouter_user_budget_remaining_hours_metric",
         }
-        if label_name in _user_budget_metrics and litellm.prometheus_user_budget_label_include_email_alias is True:
+        if label_name in _user_budget_metrics and embrouter.prometheus_user_budget_label_include_email_alias is True:
             for label in [
                 UserAPIKeyLabelNames.USER_EMAIL.value,
                 UserAPIKeyLabelNames.USER_ALIAS.value,
@@ -1015,7 +1015,7 @@ class PrometheusMetricLabels:
             (UserAPIKeyLabelNames.INPUT_SEQUENCE_LENGTH.value,)
             if (
                 label_name in PrometheusMetricLabels._input_sequence_length_metrics
-                and litellm.prometheus_emit_input_sequence_length_label is True
+                and embrouter.prometheus_emit_input_sequence_length_label is True
                 and UserAPIKeyLabelNames.INPUT_SEQUENCE_LENGTH.value not in custom_labels
             )
             else ()
@@ -1051,7 +1051,7 @@ class UserAPIKeyLabelValues:
     model_group: str | None = None
     requested_model: str | None = None
     model: str | None = None
-    litellm_model_name: str | None = None
+    embrouter_model_name: str | None = None
     # Accept list/tuple at construction time; normalize to tuple in __post_init__.
     tags: tuple[str, ...] | list[str] = ()
     custom_metadata_labels: Mapping[str, str] = field(default_factory=dict)

@@ -3,17 +3,17 @@ from urllib.parse import urlsplit, urlunsplit
 
 from openai import OpenAI
 
-import litellm
-from litellm.llms.azure_ai.common_utils import is_foundry_model_inference_base
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.azure_ai.common_utils import is_foundry_model_inference_base
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.llms.openai.openai import OpenAIChatCompletion
-from litellm.types.llms.azure_ai import ImageEmbeddingRequest
-from litellm.types.utils import EmbeddingResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.llms.openai.openai import OpenAIChatCompletion
+from embrouter.types.llms.azure_ai import ImageEmbeddingRequest
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.utils import convert_to_model_response_object
 
 from .cohere_transformation import AzureAICohereConfig
 
@@ -75,7 +75,7 @@ class AzureAIEmbedding(OpenAIChatCompletion):
     ) -> EmbeddingResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.AZURE_AI,
+                llm_provider=embrouter.LlmProviders.AZURE_AI,
                 params={"timeout": timeout},
             )
 

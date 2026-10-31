@@ -34,7 +34,7 @@ const pendingSubmission = {
   status: "pending_review",
   team_id: "team-1",
   team_guardrail: true,
-  litellm_params: {
+  embrouter_params: {
     guardrail: "generic_guardrail_api",
     mode: "pre_call",
     api_base: "https://example.com/guard",

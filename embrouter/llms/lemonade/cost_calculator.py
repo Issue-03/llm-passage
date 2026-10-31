@@ -7,7 +7,7 @@ This prevents cost calculation errors when using models not in model_prices_and_
 
 from typing import Final
 
-from litellm.types.utils import Usage
+from embrouter.types.utils import Usage
 
 
 def cost_per_token(

@@ -10,19 +10,19 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-from litellm.llms.ollama.chat.transformation import (
+from embrouter.llms.ollama.chat.transformation import (
     OllamaChatConfig,
     OllamaChatCompletionResponseIterator,
 )
 
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import get_optional_params
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import get_optional_params
 
 import json
 from unittest.mock import MagicMock
 
-import litellm
-from litellm.types.utils import Choices, Message, ModelResponse, ModelResponseStream
+import embrouter
+from embrouter.types.utils import Choices, Message, ModelResponse, ModelResponseStream
 
 
 class TestEvent(BaseModel):
@@ -87,7 +87,7 @@ class TestOllamaChatConfigResponseFormat:
         """Test that transform_request loads config parameters without overriding existing optional_params"""
         # Set config parameters on the class
 
-        litellm.OllamaChatConfig(num_ctx=8000, temperature=0.0)
+        embrouter.OllamaChatConfig(num_ctx=8000, temperature=0.0)
 
         try:
             config = OllamaChatConfig()
@@ -100,7 +100,7 @@ class TestOllamaChatConfigResponseFormat:
                 model="llama2",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -110,8 +110,8 @@ class TestOllamaChatConfigResponseFormat:
 
         finally:
             # Clean up class attributes
-            delattr(litellm.OllamaChatConfig, "num_ctx")
-            delattr(litellm.OllamaChatConfig, "temperature")
+            delattr(embrouter.OllamaChatConfig, "num_ctx")
+            delattr(embrouter.OllamaChatConfig, "temperature")
 
     def test_transform_request_content_list_to_string(self):
         """Test that content list is properly converted to string in transform_request"""
@@ -135,7 +135,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -157,7 +157,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -177,7 +177,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -213,7 +213,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -260,7 +260,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -299,7 +299,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -322,7 +322,7 @@ class TestOllamaChatConfigResponseFormat:
             model="llama2",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -343,7 +343,7 @@ class TestOllamaToolCalling:
     def test_tools_passed_directly_without_capability_check(self):
         """Test that tools are passed directly to Ollama without model capability checks.
 
-        Previously, the code called litellm.get_model_info() which could fail
+        Previously, the code called embrouter.get_model_info() which could fail
         when Ollama runs on a remote server, causing a broken fallback.
         Now tools are passed directly - Ollama 0.4+ handles capability detection.
         """
@@ -382,7 +382,7 @@ class TestOllamaToolCalling:
         import json
         from unittest.mock import MagicMock
 
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         config = OllamaChatConfig()
 
@@ -424,7 +424,7 @@ class TestOllamaToolCalling:
             request_data={},
             messages=[{"role": "user", "content": "Weather?"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -468,7 +468,7 @@ class TestOllamaToolCalling:
             request_data={},
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -521,7 +521,7 @@ class TestOllamaFinishReasonLength:
             request_data={},
             messages=[{"role": "user", "content": "Explain neural networks."}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -562,7 +562,7 @@ class TestOllamaFinishReasonLength:
             request_data={},
             messages=[{"role": "user", "content": "What is 2+2?"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
             api_key=None,
             json_mode=False,
@@ -886,7 +886,7 @@ class TestOllamaToolCallTransformation:
             model="gemma4:27b",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -933,7 +933,7 @@ class TestOllamaToolCallTransformation:
             model="gemma4:27b",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 

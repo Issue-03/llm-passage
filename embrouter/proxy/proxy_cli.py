@@ -17,15 +17,15 @@ from click.core import ParameterSource
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.constants import DEFAULT_NUM_WORKERS_LITELLM_PROXY
-from litellm.proxy.db.pgbouncer import (
+import embrouter
+from embrouter.constants import DEFAULT_NUM_WORKERS_EMBROUTER_PROXY
+from embrouter.proxy.db.pgbouncer import (
     PgBouncerError,
     PgBouncerSettings,
     export_pooled_database_url,
     start_in_container_pgbouncer,
 )
-from litellm.proxy.db.query_engine_reaper import start_query_engine_reaper
+from embrouter.proxy.db.query_engine_reaper import start_query_engine_reaper
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -34,12 +34,12 @@ else:
 
 
 def _drop_script_dir_from_sys_path() -> None:
-    """Stop ``litellm/proxy`` modules from shadowing installed packages.
+    """Stop ``embrouter/proxy`` modules from shadowing installed packages.
 
     Running this file as a script puts its own directory at ``sys.path[0]``, so
-    ``import a2a`` resolves to ``litellm/proxy/a2a`` instead of the ``a2a`` SDK
+    ``import a2a`` resolves to ``embrouter/proxy/a2a`` instead of the ``a2a`` SDK
     and ``proxy_server`` resolves to a second copy of
-    ``litellm.proxy.proxy_server``. No-op under the ``litellm`` console script.
+    ``embrouter.proxy.proxy_server``. No-op under the ``embrouter`` console script.
     """
     script_dir: Final = os.path.dirname(os.path.abspath(__file__))
     if sys.path and os.path.abspath(sys.path[0]) == script_dir:
@@ -49,15 +49,15 @@ def _drop_script_dir_from_sys_path() -> None:
 _drop_script_dir_from_sys_path()
 sys.path.append(os.getcwd())
 
-config_filename: Final = "litellm.secrets"
+config_filename: Final = "embrouter.secrets"
 
-litellm_mode: Final = os.getenv("LITELLM_MODE", "DEV")  # "PRODUCTION", "DEV"
-if litellm_mode == "DEV":
+embrouter_mode: Final = os.getenv("EMBROUTER_MODE", "DEV")  # "PRODUCTION", "DEV"
+if embrouter_mode == "DEV":
     load_dotenv()
 from enum import Enum
 
 
-class LiteLLMDatabaseConnectionPool(Enum):
+class EmbRouterDatabaseConnectionPool(Enum):
     database_connection_pool_limit = 10
     database_connection_pool_timeout = 60
 
@@ -164,7 +164,7 @@ def _with_query_value(url: str, key: str, value: str) -> str:
 
 
 def append_query_params(url: str | None, params: dict) -> str:
-    from litellm._logging import verbose_proxy_logger
+    from embrouter._logging import verbose_proxy_logger
 
     verbose_proxy_logger.debug("url: %s", url)
     verbose_proxy_logger.debug("params: %s", params)
@@ -182,7 +182,7 @@ def append_query_params(url: str | None, params: dict) -> str:
 
 
 def resolve_v2_migration_resolver(*, use_legacy_flag: bool, env_value: str | None) -> bool:
-    from litellm_proxy_extras.utils import str_to_bool
+    from embrouter_proxy_extras.utils import str_to_bool
 
     if use_legacy_flag:
         return False
@@ -200,13 +200,13 @@ def deprecated_v2_flag_passed_on_cli() -> bool:
 
 class ProxyInitializationHelpers:
     @staticmethod
-    def _echo_litellm_version():
-        pkg_version: Final = importlib.metadata.version("litellm")
-        click.echo(f"\nLiteLLM: Current Version = {pkg_version}\n")
+    def _echo_embrouter_version():
+        pkg_version: Final = importlib.metadata.version("embrouter")
+        click.echo(f"\nEmbRouter: Current Version = {pkg_version}\n")
 
     @staticmethod
     def _run_health_check(host, port):
-        print("\nLiteLLM: Health Testing models in config")
+        print("\nEmbRouter: Health Testing models in config")
         response: Final = httpx.get(url=f"http://{host}:{port}/health")
         print(json.dumps(response.json(), indent=4))
 
@@ -216,7 +216,7 @@ class ProxyInitializationHelpers:
             raise click.UsageError("--validate_config requires --config <path>")
         import asyncio
 
-        from litellm.proxy.proxy_server import ProxyConfig
+        from embrouter.proxy.proxy_server import ProxyConfig
 
         async def _load() -> int:
             _, model_list, _ = await ProxyConfig().load_config(router=None, config_file_path=config)
@@ -225,9 +225,9 @@ class ProxyInitializationHelpers:
         try:
             model_count: Final = asyncio.run(_load())
         except Exception as error:
-            click.echo(f"LiteLLM: config validation failed: {error}", err=True)
+            click.echo(f"EmbRouter: config validation failed: {error}", err=True)
             raise click.exceptions.Exit(1) from error
-        click.echo(f"LiteLLM: config OK ({model_count} models)")
+        click.echo(f"EmbRouter: config OK ({model_count} models)")
 
     @staticmethod
     def _run_test_chat_completion(
@@ -237,7 +237,7 @@ class ProxyInitializationHelpers:
         test: bool | str,
     ):
         request_model: Final = model or "gpt-3.5-turbo"
-        click.echo(f"\nLiteLLM: Making a test ChatCompletions request to your proxy. Model={request_model}")
+        click.echo(f"\nEmbRouter: Making a test ChatCompletions request to your proxy. Model={request_model}")
         import openai
 
         api_base = f"http://{host}:{port}"
@@ -257,9 +257,9 @@ class ProxyInitializationHelpers:
             ],
             max_tokens=256,
         )
-        click.echo(f"\nLiteLLM: response from proxy {response}")
+        click.echo(f"\nEmbRouter: response from proxy {response}")
 
-        print(f"\n LiteLLM: Making a test ChatCompletions + streaming r equest to proxy. Model={request_model}")
+        print(f"\n EmbRouter: Making a test ChatCompletions + streaming r equest to proxy. Model={request_model}")
 
         stream_response: Final = client.chat.completions.create(
             model=request_model,
@@ -272,7 +272,7 @@ class ProxyInitializationHelpers:
             stream=True,
         )
         for chunk in stream_response:
-            click.echo(f"LiteLLM: streaming response from proxy {chunk}")
+            click.echo(f"EmbRouter: streaming response from proxy {chunk}")
         print("\n making completion request to proxy")
         completion_response: Final = client.completions.create(
             model=request_model, prompt="this is a test request, write a short poem"
@@ -294,11 +294,11 @@ class ProxyInitializationHelpers:
 
         import uvicorn
 
-        import litellm
-        from litellm._logging import _get_uvicorn_json_log_config, resolve_log_level
+        import embrouter
+        from embrouter._logging import _get_uvicorn_json_log_config, resolve_log_level
 
         uvicorn_args: Final = {
-            "app": "litellm.proxy.proxy_server:app",
+            "app": "embrouter.proxy.proxy_server:app",
             "host": host,
             "port": port,
             "server_header": False,
@@ -306,11 +306,11 @@ class ProxyInitializationHelpers:
         if log_config is not None:
             print(f"Using log_config: {log_config}")
             uvicorn_args["log_config"] = log_config
-        elif litellm.json_logs:
+        elif embrouter.json_logs:
             # Use JSON log config for uvicorn to ensure all logs (including exceptions) are JSON
             uvicorn_args["log_config"] = _get_uvicorn_json_log_config()
-        elif litellm_log := os.environ.get("LITELLM_LOG"):
-            uvicorn_args["log_level"] = resolve_log_level(litellm_log)
+        elif embrouter_log := os.environ.get("EMBROUTER_LOG"):
+            uvicorn_args["log_level"] = resolve_log_level(embrouter_log)
         if keepalive_timeout is not None:
             uvicorn_args["timeout_keep_alive"] = keepalive_timeout
         if timeout_worker_healthcheck is not None:
@@ -318,7 +318,7 @@ class ProxyInitializationHelpers:
                 uvicorn_args["timeout_worker_healthcheck"] = timeout_worker_healthcheck
             else:
                 print(
-                    f"\033[1;33mLiteLLM Proxy: --timeout_worker_healthcheck "
+                    f"\033[1;33mEmbRouter Proxy: --timeout_worker_healthcheck "
                     f"requires uvicorn>=0.37.0, but installed uvicorn=={uvicorn.__version__}. "
                     f"Ignoring the flag.\033[0m"
                 )
@@ -339,7 +339,7 @@ class ProxyInitializationHelpers:
 
         if max_requests_before_restart is None:
             print(
-                "\033[1;33mLiteLLM Proxy: --max_requests_before_restart_jitter "
+                "\033[1;33mEmbRouter Proxy: --max_requests_before_restart_jitter "
                 "has no effect without --max_requests_before_restart\033[0m\n"
             )
             return
@@ -347,7 +347,7 @@ class ProxyInitializationHelpers:
             uvicorn_args["limit_max_requests_jitter"] = jitter
         else:
             print(
-                f"\033[1;33mLiteLLM Proxy: --max_requests_before_restart_jitter "
+                f"\033[1;33mEmbRouter Proxy: --max_requests_before_restart_jitter "
                 f"requires uvicorn>=0.41.0, but installed uvicorn=={uvicorn.__version__}. "
                 f"Ignoring the flag.\033[0m"
             )
@@ -397,19 +397,19 @@ class ProxyInitializationHelpers:
         if not resolved:
             return False
 
-        patched_paths = getattr(StatReload, "_litellm_patched_config_paths", None)
+        patched_paths = getattr(StatReload, "_embrouter_patched_config_paths", None)
         if patched_paths is None:
             original_iter: Final = StatReload.iter_py_files
             patched_paths = set()
 
             def _iter_with_extra(self):
                 yield from original_iter(self)
-                for path in StatReload._litellm_patched_config_paths:
+                for path in StatReload._embrouter_patched_config_paths:
                     if path.exists():
                         yield path
 
             StatReload.iter_py_files = _iter_with_extra
-            StatReload._litellm_patched_config_paths = patched_paths
+            StatReload._embrouter_patched_config_paths = patched_paths
 
         patched_paths.update(resolved)
         return True
@@ -420,14 +420,14 @@ class ProxyInitializationHelpers:
         and signal reloaded workers to re-read .env with override so edits to
         existing keys actually take effect rather than staying masked by the
         value inherited from the reloader process."""
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         uvicorn_args.update(ProxyInitializationHelpers._get_reload_options(config_path))
-        os.environ["LITELLM_DEV_ENV_HOT_RELOAD"] = "True"
+        os.environ["EMBROUTER_DEV_ENV_HOT_RELOAD"] = "True"
         env_path: Final = os.path.join(os.getcwd(), ".env")
         ProxyInitializationHelpers._patch_statreload_extra_paths([config_path, env_path])
         verbose_proxy_logger.warning(
-            "LiteLLM --reload: worker processes re-read .env with override, so .env "
+            "EmbRouter --reload: worker processes re-read .env with override, so .env "
             "values win over shell-exported environment variables. Unset a key in .env "
             "to let a shell-exported value take precedence."
         )
@@ -442,20 +442,20 @@ class ProxyInitializationHelpers:
         ciphers: str | None = None,
     ):
         """
-        Initialize litellm with `hypercorn`
+        Initialize embrouter with `hypercorn`
         """
         import asyncio
 
         from hypercorn.asyncio import serve
         from hypercorn.config import Config
 
-        print(f"\033[1;32mLiteLLM Proxy: Starting server on {host}:{port} using Hypercorn\033[0m\n")
+        print(f"\033[1;32mEmbRouter Proxy: Starting server on {host}:{port} using Hypercorn\033[0m\n")
         config: Final = Config()
         config.bind = [f"{host}:{port}"]
 
         if ssl_certfile_path is not None and ssl_keyfile_path is not None:
             print(
-                f"\033[1;32mLiteLLM Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
+                f"\033[1;32mEmbRouter Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
             )
             config.certfile = ssl_certfile_path
             config.keyfile = ssl_keyfile_path
@@ -479,23 +479,23 @@ class ProxyInitializationHelpers:
         """
         Run the proxy with Granian (Rust-backed ASGI server, HTTP/1 + HTTP/2).
 
-        Uses a string import path so workers load ``litellm.proxy.proxy_server:app``
+        Uses a string import path so workers load ``embrouter.proxy.proxy_server:app``
         the same way as uvicorn's ``app=`` string target.
         """
         from granian import Granian
         from granian.constants import Interfaces
 
-        print(f"\033[1;32mLiteLLM Proxy: Starting server on {host}:{port} using Granian\033[0m\n")
+        print(f"\033[1;32mEmbRouter Proxy: Starting server on {host}:{port} using Granian\033[0m\n")
         if max_requests_before_restart is not None:
             print(
-                "\033[1;33mLiteLLM: --max_requests_before_restart is not supported by Granian "
+                "\033[1;33mEmbRouter: --max_requests_before_restart is not supported by Granian "
                 "(Granian uses workers_lifetime in seconds, not a per-request limit).\033[0m\n"
             )
         if ciphers is not None:
-            print("\033[1;33mLiteLLM: --ciphers is not applied when using --run_granian.\033[0m\n")
+            print("\033[1;33mEmbRouter: --ciphers is not applied when using --run_granian.\033[0m\n")
 
         kwargs: Final[dict[str, Any]] = {
-            "target": "litellm.proxy.proxy_server:app",
+            "target": "embrouter.proxy.proxy_server:app",
             "address": host,
             "port": port,
             "workers": max(1, num_workers),
@@ -506,7 +506,7 @@ class ProxyInitializationHelpers:
             kwargs["runtime_threads"] = granian_runtime_threads
         if ssl_certfile_path is not None and ssl_keyfile_path is not None:
             print(
-                f"\033[1;32mLiteLLM Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
+                f"\033[1;32mEmbRouter Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
             )
             kwargs["ssl_cert"] = Path(ssl_certfile_path)
             kwargs["ssl_key"] = Path(ssl_keyfile_path)
@@ -527,7 +527,7 @@ class ProxyInitializationHelpers:
         max_requests_before_restart_jitter: int | None = None,
     ):
         """
-        Run litellm with `gunicorn`
+        Run embrouter with `gunicorn`
         """
         if os.name == "nt":
             pass
@@ -560,13 +560,13 @@ class ProxyInitializationHelpers:
                 )
                 print()
                 print(
-                    '\033[1;34mLiteLLM: Test your local proxy with: "litellm --test" This runs an openai.ChatCompletion request to your proxy [In a new terminal tab]\033[0m\n'
+                    '\033[1;34mEmbRouter: Test your local proxy with: "embrouter --test" This runs an openai.ChatCompletion request to your proxy [In a new terminal tab]\033[0m\n'
                 )
-                print(f"\033[1;34mLiteLLM: Curl Command Test for your local proxy\n {curl_command} \033[0m\n")
+                print(f"\033[1;34mEmbRouter: Curl Command Test for your local proxy\n {curl_command} \033[0m\n")
                 print(f"\033[1;34mSee all Router/Swagger docs on http://0.0.0.0:{port} \033[0m\n")
 
             def load_config(self):
-                # note: This Loads the gunicorn config - has nothing to do with LiteLLM Proxy config
+                # note: This Loads the gunicorn config - has nothing to do with EmbRouter Proxy config
                 if self.cfg is not None:
                     config = {
                         key: value
@@ -583,7 +583,7 @@ class ProxyInitializationHelpers:
                 # gunicorn app function
                 return self.application
 
-        print(f"\033[1;32mLiteLLM Proxy: Starting server on {host}:{port} with {num_workers} workers\033[0m\n")
+        print(f"\033[1;32mEmbRouter Proxy: Starting server on {host}:{port} with {num_workers} workers\033[0m\n")
         gunicorn_options: Final = {
             "bind": f"{host}:{port}",
             "workers": num_workers,  # default is 1
@@ -600,7 +600,7 @@ class ProxyInitializationHelpers:
         if max_requests_before_restart_jitter is not None:
             if max_requests_before_restart is None:
                 print(
-                    "\033[1;33mLiteLLM Proxy: --max_requests_before_restart_jitter "
+                    "\033[1;33mEmbRouter Proxy: --max_requests_before_restart_jitter "
                     "has no effect without --max_requests_before_restart\033[0m\n"
                 )
             else:
@@ -608,7 +608,7 @@ class ProxyInitializationHelpers:
 
         # Clean up prometheus .db files when a worker exits (prevents ghost gauge values)
         if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-            from litellm.proxy.prometheus_cleanup import mark_worker_exit
+            from embrouter.proxy.prometheus_cleanup import mark_worker_exit
 
             def child_exit(server, worker):
                 mark_worker_exit(worker.pid)
@@ -617,14 +617,14 @@ class ProxyInitializationHelpers:
 
         if ssl_certfile_path is not None and ssl_keyfile_path is not None:
             print(
-                f"\033[1;32mLiteLLM Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
+                f"\033[1;32mEmbRouter Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
             )
             gunicorn_options["certfile"] = ssl_certfile_path
             gunicorn_options["keyfile"] = ssl_keyfile_path
 
         # The master preloads the app and then forks every worker, so native routes are
         # forbidden in it: their runtime threads would not survive the fork.
-        from litellm.rust_bridge.fork_guard import reserve_process_for_forking
+        from embrouter.rust_bridge.fork_guard import reserve_process_for_forking
 
         reserve_process_for_forking("the gunicorn master")
         start_query_engine_reaper()
@@ -639,7 +639,7 @@ class ProxyInitializationHelpers:
                 subprocess.Popen(command, stdout=devnull, stderr=devnull)
         except Exception as e:
             print(f"""
-                LiteLLM Warning: proxy started with `ollama` model\n`ollama serve` failed with Exception{e}. \nEnsure you run `ollama serve`
+                EmbRouter Warning: proxy started with `ollama` model\n`ollama serve` failed with Exception{e}. \nEnsure you run `ollama serve`
             """)
 
     @staticmethod
@@ -657,11 +657,11 @@ class ProxyInitializationHelpers:
         return "uvloop"
 
     @staticmethod
-    def _prometheus_callback_configured(litellm_settings: Mapping[str, object] | None) -> bool:
-        if litellm_settings is None:
+    def _prometheus_callback_configured(embrouter_settings: Mapping[str, object] | None) -> bool:
+        if embrouter_settings is None:
             return False
         configured: Final = tuple(
-            litellm_settings.get(key) for key in ("callbacks", "success_callback", "failure_callback")
+            embrouter_settings.get(key) for key in ("callbacks", "success_callback", "failure_callback")
         )
         return any(
             setting == "prometheus"
@@ -673,7 +673,7 @@ class ProxyInitializationHelpers:
     @staticmethod
     def _maybe_setup_prometheus_multiproc_dir(
         num_workers: int,
-        litellm_settings: dict | None,
+        embrouter_settings: dict | None,
         prometheus_metrics_port: int | None = None,
     ) -> str | None:
         """
@@ -684,20 +684,20 @@ class ProxyInitializationHelpers:
         import tempfile
 
         if prometheus_metrics_port is None and (
-            num_workers <= 1 or not ProxyInitializationHelpers._prometheus_callback_configured(litellm_settings)
+            num_workers <= 1 or not ProxyInitializationHelpers._prometheus_callback_configured(embrouter_settings)
         ):
             return None
 
-        from litellm.proxy.prometheus_cleanup import wipe_directory
+        from embrouter.proxy.prometheus_cleanup import wipe_directory
 
         configured_dir: Final = os.environ.get("PROMETHEUS_MULTIPROC_DIR") or os.environ.get("prometheus_multiproc_dir")
-        multiproc_dir: Final = configured_dir or os.path.join(tempfile.gettempdir(), "litellm_prometheus_multiproc")
+        multiproc_dir: Final = configured_dir or os.path.join(tempfile.gettempdir(), "embrouter_prometheus_multiproc")
         os.environ["PROMETHEUS_MULTIPROC_DIR"] = multiproc_dir
 
         os.makedirs(multiproc_dir, exist_ok=True)
         wipe_directory(multiproc_dir)
         action: Final = "Using existing" if configured_dir else "Auto-created"
-        print(f"LiteLLM: {action} PROMETHEUS_MULTIPROC_DIR={multiproc_dir}")
+        print(f"EmbRouter: {action} PROMETHEUS_MULTIPROC_DIR={multiproc_dir}")
         return multiproc_dir
 
 
@@ -707,10 +707,10 @@ class ProxyInitializationHelpers:
 @click.option("--port", default=4000, help="Port to bind the server to.", envvar="PORT")
 @click.option(
     "--num_workers",
-    default=DEFAULT_NUM_WORKERS_LITELLM_PROXY,
+    default=DEFAULT_NUM_WORKERS_EMBROUTER_PROXY,
     help=(
         "Number of worker processes for uvicorn / gunicorn, or Granian worker processes "
-        "(--workers). Default is 1 (from DEFAULT_NUM_WORKERS_LITELLM_PROXY). "
+        "(--workers). Default is 1 (from DEFAULT_NUM_WORKERS_EMBROUTER_PROXY). "
         "With --run_granian, use --granian_threads for runtime threads per worker."
     ),
     envvar="NUM_WORKERS",
@@ -728,16 +728,16 @@ class ProxyInitializationHelpers:
 @click.option("--api_base", default=None, help="API base URL.")
 @click.option(
     "--api_version",
-    default=litellm.AZURE_DEFAULT_API_VERSION,
+    default=embrouter.AZURE_DEFAULT_API_VERSION,
     help="For azure - pass in the api version.",
 )
-@click.option("--model", "-m", default=None, help="The model name to pass to litellm expects")
+@click.option("--model", "-m", default=None, help="The model name to pass to embrouter expects")
 @click.option(
     "--alias",
     default=None,
-    help='The alias for the model - use this to give a litellm model name (e.g. "huggingface/codellama/CodeLlama-7b-Instruct-hf") a more user-friendly name ("codellama")',
+    help='The alias for the model - use this to give a embrouter model name (e.g. "huggingface/codellama/CodeLlama-7b-Instruct-hf") a more user-friendly name ("codellama")',
 )
-@click.option("--add_key", default=None, help="The model name to pass to litellm expects")
+@click.option("--add_key", default=None, help="The model name to pass to embrouter expects")
 @click.option("--headers", default=None, help="headers for the API call")
 @click.option("--save", is_flag=True, type=bool, help="Save the model-specific config")
 @click.option(
@@ -781,7 +781,7 @@ class ProxyInitializationHelpers:
     "--config",
     "-c",
     default=None,
-    help="Path to the proxy configuration file (e.g. config.yaml). Usage `litellm --config config.yaml`",
+    help="Path to the proxy configuration file (e.g. config.yaml). Usage `embrouter --config config.yaml`",
 )
 @click.option(
     "--max_budget",
@@ -815,7 +815,7 @@ class ProxyInitializationHelpers:
     default=False,
     is_flag=True,
     type=bool,
-    help="Print LiteLLM version",
+    help="Print EmbRouter version",
 )
 @click.option(
     "--health",
@@ -988,7 +988,7 @@ class ProxyInitializationHelpers:
         "Fall back to the legacy v1 migration resolver. By default the proxy "
         "uses the v2 resolver, which avoids the diff-and-force recovery path "
         "that can cause schema thrashing during rolling deploys where two "
-        "LiteLLM versions contend for the same DB."
+        "EmbRouter versions contend for the same DB."
     ),
 )
 @click.option(
@@ -1065,7 +1065,7 @@ def run_server(
 ):
     if cli_args:
         if cli_args == ("xai-oauth", "login"):
-            from litellm.llms.xai.oauth import XAIOAuthAuthenticator
+            from embrouter.llms.xai.oauth import XAIOAuthAuthenticator
 
             authenticator: Final = XAIOAuthAuthenticator()
             auth_data: Final = authenticator.login()
@@ -1076,23 +1076,23 @@ def run_server(
         raise click.UsageError(f"Unknown command: {' '.join(cli_args)}")
 
     if setup:
-        from litellm.setup_wizard import run_setup_wizard
+        from embrouter.setup_wizard import run_setup_wizard
 
         run_setup_wizard()
         return
 
     args: Final = locals()
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             KeyManagementSettings,
             ProxyConfig,
             app,
             save_worker_config,
         )
     except ModuleNotFoundError as e:
-        raise ModuleNotFoundError(f"Missing dependency {e}. Run `pip install 'litellm[proxy]'`") from e
+        raise ModuleNotFoundError(f"Missing dependency {e}. Run `pip install 'embrouter[proxy]'`") from e
     if version is True:
-        ProxyInitializationHelpers._echo_litellm_version()
+        ProxyInitializationHelpers._echo_embrouter_version()
         return
     if validate_config is True:
         ProxyInitializationHelpers._run_config_validation(config)
@@ -1132,14 +1132,14 @@ def run_server(
             except ImportError as e:
                 raise ImportError(
                     "granian must be installed to use --run_granian. "
-                    "Run `pip install granian` or `pip install 'litellm[proxy]'` "
+                    "Run `pip install granian` or `pip install 'embrouter[proxy]'` "
                     "(Granian requires Python 3.10+)."
                 ) from e
         else:
             try:
                 import uvicorn
             except Exception:
-                raise ImportError("uvicorn, gunicorn needs to be imported. Run - `pip install 'litellm[proxy]'`")
+                raise ImportError("uvicorn, gunicorn needs to be imported. Run - `pip install 'embrouter[proxy]'`")
 
         db_connection_pool_limit = 100
         # Starts optional due to config fallback checks; guaranteed non-None before use.
@@ -1153,8 +1153,8 @@ def run_server(
         general_settings = {}
         ### GET DB TOKEN FOR RDS IAM / AZURE ENTRA AUTH ###
 
-        from litellm.proxy.db.db_url_settings import DatabaseURLSettings
-        from litellm.proxy.db.token_auth import (
+        from embrouter.proxy.db.db_url_settings import DatabaseURLSettings
+        from embrouter.proxy.db.token_auth import (
             AZURE_POSTGRESQL_AUTH_ENV_VAR,
             IAM_TOKEN_DB_AUTH_ENV_VAR,
             resolve_database_token_auth,
@@ -1176,7 +1176,7 @@ def run_server(
 
         ### DECRYPT ENV VAR ###
 
-        from litellm.secret_managers.aws_secret_manager import decrypt_env_var
+        from embrouter.secret_managers.aws_secret_manager import decrypt_env_var
 
         if os.getenv("USE_AWS_KMS", None) is not None and os.getenv("USE_AWS_KMS") == "True":
             ## V2 IMPLEMENTATION OF AWS KMS - USER WANTS TO DECRYPT MULTIPLE KEYS IN THEIR ENV
@@ -1185,7 +1185,7 @@ def run_server(
             for k, v in new_env_var.items():
                 os.environ[k] = v
 
-        litellm_settings = None
+        embrouter_settings = None
         if config is not None:
             """
             Allow user to pass in db url via config
@@ -1196,23 +1196,23 @@ def run_server(
                 import asyncio
 
             except Exception:
-                raise ImportError("yaml needs to be imported. Run - `pip install 'litellm[proxy]'`")
+                raise ImportError("yaml needs to be imported. Run - `pip install 'embrouter[proxy]'`")
 
             proxy_config: Final = ProxyConfig()
             _config: Final = asyncio.run(proxy_config.get_config(config_file_path=config))
 
-            ### LITELLM SETTINGS ###
-            litellm_settings = _config.get("litellm_settings", None)
+            ### EMBROUTER SETTINGS ###
+            embrouter_settings = _config.get("embrouter_settings", None)
             if (
-                litellm_settings is not None
-                and "json_logs" in litellm_settings
-                and litellm_settings["json_logs"] is True
+                embrouter_settings is not None
+                and "json_logs" in embrouter_settings
+                and embrouter_settings["json_logs"] is True
             ):
-                import litellm
+                import embrouter
 
-                litellm.json_logs = True
+                embrouter.json_logs = True
 
-                litellm._turn_on_json()
+                embrouter._turn_on_json()
             ### GENERAL SETTINGS ###
             general_settings = _config.get("general_settings", {})
             if general_settings is None:
@@ -1220,9 +1220,9 @@ def run_server(
             ### LOAD KEY MANAGEMENT SETTINGS FIRST (needed for custom secret manager) ###
             key_management_settings: Final = general_settings.get("key_management_settings", None)
             if key_management_settings is not None:
-                import litellm
+                import embrouter
 
-                litellm._key_management_settings = KeyManagementSettings(**key_management_settings)
+                embrouter._key_management_settings = KeyManagementSettings(**key_management_settings)
 
             if general_settings:
                 ### LOAD SECRET MANAGER ###
@@ -1233,25 +1233,25 @@ def run_server(
             database_url = general_settings.get("database_url", None)
             if database_url is None and os.getenv("DATABASE_URL") is None:
                 # Use helper function to construct DATABASE_URL from individual variables
-                from litellm.proxy.utils import construct_database_url_from_env_vars
+                from embrouter.proxy.utils import construct_database_url_from_env_vars
 
                 database_url = construct_database_url_from_env_vars()
                 if database_url:
                     os.environ["DATABASE_URL"] = database_url
             db_connection_pool_limit = general_settings.get(
                 "database_connection_pool_limit",
-                LiteLLMDatabaseConnectionPool.database_connection_pool_limit.value,
+                EmbRouterDatabaseConnectionPool.database_connection_pool_limit.value,
             )
             db_connection_timeout = general_settings.get("database_connection_timeout")
             if db_connection_timeout is None:
                 db_connection_timeout = general_settings.get("database_connection_pool_timeout")
             if db_connection_timeout is None:
-                db_connection_timeout = LiteLLMDatabaseConnectionPool.database_connection_pool_timeout.value
+                db_connection_timeout = EmbRouterDatabaseConnectionPool.database_connection_pool_timeout.value
             db_connect_timeout = general_settings.get("database_connect_timeout")
             db_socket_timeout = general_settings.get("database_socket_timeout")
             _disable_prepared_statements: Final = general_settings.get("database_disable_prepared_statements", False)
             if isinstance(_disable_prepared_statements, str):
-                from litellm.secret_managers.main import str_to_bool
+                from embrouter.secret_managers.main import str_to_bool
 
                 db_disable_prepared_statements = str_to_bool(_disable_prepared_statements) is True
             else:
@@ -1265,9 +1265,9 @@ def run_server(
                 # set the working directory to where this script is
                 sys.path.insert(
                     0, os.path.abspath("../..")
-                )  # Adds the parent directory to the system path - for litellm local dev
-                import litellm
-                from litellm import get_secret_str
+                )  # Adds the parent directory to the system path - for embrouter local dev
+                import embrouter
+                from embrouter import get_secret_str
 
                 database_url = get_secret_str(database_url, default_value=None)
                 os.chdir(original_dir)
@@ -1277,7 +1277,7 @@ def run_server(
         # Handle database URL construction when no config file is used
         if config is None and os.getenv("DATABASE_URL") is None:
             # Use helper function to construct DATABASE_URL from individual variables
-            from litellm.proxy.utils import construct_database_url_from_env_vars
+            from embrouter.proxy.utils import construct_database_url_from_env_vars
 
             database_url = construct_database_url_from_env_vars()
             if database_url:
@@ -1285,11 +1285,11 @@ def run_server(
 
         # Set default values for connection pool settings when no config is used
         if config is None:
-            db_connection_pool_limit = LiteLLMDatabaseConnectionPool.database_connection_pool_limit.value
-            db_connection_timeout = LiteLLMDatabaseConnectionPool.database_connection_pool_timeout.value
+            db_connection_pool_limit = EmbRouterDatabaseConnectionPool.database_connection_pool_limit.value
+            db_connection_timeout = EmbRouterDatabaseConnectionPool.database_connection_pool_timeout.value
 
         if os.getenv("DATABASE_URL", None) is not None or os.getenv("DIRECT_URL", None) is not None:
-            from litellm.proxy.db.db_url_settings import (
+            from embrouter.proxy.db.db_url_settings import (
                 DISABLE_PREPARED_STATEMENTS_ENV_VAR,
                 add_missing_query_params,
                 idle_lifetime_params,
@@ -1306,12 +1306,12 @@ def run_server(
                 _bad_scheme = unsupported_db_scheme(_candidate_url)
                 if _bad_scheme is not None:
                     print(
-                        f"\033[1;31mLiteLLM Proxy: {unsupported_db_scheme_message(_db_env, _bad_scheme)}\033[0m",
+                        f"\033[1;31mEmbRouter Proxy: {unsupported_db_scheme_message(_db_env, _bad_scheme)}\033[0m",
                         file=sys.stderr,
                         flush=True,
                     )
                     sys.exit(1)
-            from litellm.secret_managers.main import get_secret
+            from embrouter.secret_managers.main import get_secret
 
             env_disable_prepared_statements: Final = token_auth_flag_enabled(
                 os.getenv(DISABLE_PREPARED_STATEMENTS_ENV_VAR), env_var=DISABLE_PREPARED_STATEMENTS_ENV_VAR
@@ -1375,13 +1375,13 @@ def run_server(
                         lifetime_params,
                     )
                 )
-            from litellm_proxy_extras.prisma_toolchain import prisma_cli_available
+            from embrouter_proxy_extras.prisma_toolchain import prisma_cli_available
 
             is_prisma_runnable: Final = prisma_cli_available()
 
             if is_prisma_runnable:
-                from litellm.proxy.db.check_migration import check_prisma_schema_diff
-                from litellm.proxy.db.prisma_client import (
+                from embrouter.proxy.db.check_migration import check_prisma_schema_diff
+                from embrouter.proxy.db.prisma_client import (
                     PrismaManager,
                     should_update_prisma_schema,
                 )
@@ -1395,7 +1395,7 @@ def run_server(
                     )
                     if deprecated_v2_flag_passed_on_cli() and use_v2_resolver:
                         print(
-                            "\033[1;33mLiteLLM Proxy: --use_v2_migration_resolver is "
+                            "\033[1;33mEmbRouter Proxy: --use_v2_migration_resolver is "
                             "deprecated and has no effect, because the v2 migration "
                             "resolver is now the default. You can safely remove it. To "
                             "opt back into the legacy v1 resolver, pass "
@@ -1403,10 +1403,10 @@ def run_server(
                         )
                     if not use_v2_resolver:
                         print(
-                            "\033[1;33mLiteLLM Proxy: Using the legacy (v1) migration "
+                            "\033[1;33mEmbRouter Proxy: Using the legacy (v1) migration "
                             "resolver. It performs the diff-and-force recovery that can "
                             "cause schema thrashing during rolling deploys where two "
-                            "LiteLLM versions contend for the same DB.\033[0m"
+                            "EmbRouter versions contend for the same DB.\033[0m"
                         )
                     try:
                         setup_ok: Final = PrismaManager.setup_database(
@@ -1417,9 +1417,9 @@ def run_server(
                         # Raised on unrecoverable migration errors: the v2
                         # resolver's non-idempotent failures and permission
                         # issues, and any `prisma db push` against a
-                        # partitioned LiteLLM_SpendLogs.
+                        # partitioned EmbRouter_SpendLogs.
                         print(
-                            f"\033[1;31mLiteLLM Proxy: Database migration cannot proceed. {e}\033[0m",
+                            f"\033[1;31mEmbRouter Proxy: Database migration cannot proceed. {e}\033[0m",
                             file=sys.stderr,
                             flush=True,
                         )
@@ -1427,13 +1427,13 @@ def run_server(
                     if not setup_ok:
                         if enforce_prisma_migration_check:
                             print(
-                                "\033[1;31mLiteLLM Proxy: Database setup failed after multiple retries. "
+                                "\033[1;31mEmbRouter Proxy: Database setup failed after multiple retries. "
                                 "The proxy cannot start safely. Please check your database connection and migration status.\033[0m"
                             )
                             sys.exit(1)
                         else:
                             print(
-                                "\033[1;33mLiteLLM Proxy: Database migration failed but continuing startup. "
+                                "\033[1;33mEmbRouter Proxy: Database migration failed but continuing startup. "
                                 "Set --enforce_prisma_migration_check or ENFORCE_PRISMA_MIGRATION_CHECK=true to exit on failure.\033[0m"
                             )
             else:
@@ -1449,7 +1449,7 @@ def run_server(
             )
             if isinstance(pooled_database_url, PgBouncerError):
                 print(
-                    f"\033[1;31mLiteLLM Proxy: LITELLM_PGBOUNCER_ENABLED is set but the in-container pgbouncer "
+                    f"\033[1;31mEmbRouter Proxy: EMBROUTER_PGBOUNCER_ENABLED is set but the in-container pgbouncer "
                     f"could not start: {pooled_database_url.reason}\033[0m",
                     file=sys.stderr,
                     flush=True,
@@ -1461,30 +1461,30 @@ def run_server(
         if prometheus_metrics_port == port:
             raise click.UsageError("--prometheus_metrics_port must differ from --port")
 
-        import litellm
+        import embrouter
 
         if detailed_debug is True:
-            litellm._turn_on_debug()
+            embrouter._turn_on_debug()
 
         # DO NOT DELETE - enables global variables to work across files
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         os.environ["NUM_WORKERS"] = str(num_workers)
 
         # Auto-create PROMETHEUS_MULTIPROC_DIR for multi-worker setups
         prometheus_multiproc_dir: Final = ProxyInitializationHelpers._maybe_setup_prometheus_multiproc_dir(
             num_workers=num_workers,
-            litellm_settings=litellm_settings if config else None,
+            embrouter_settings=embrouter_settings if config else None,
             prometheus_metrics_port=prometheus_metrics_port,
         )
 
         # Skip server startup if requested (after all setup is done)
         if skip_server_startup:
-            print("LiteLLM: Setup complete. Skipping server startup as requested.")
+            print("EmbRouter: Setup complete. Skipping server startup as requested.")
             return
 
         if prometheus_metrics_port is not None and prometheus_multiproc_dir is not None:
-            from litellm.proxy.prometheus_metrics_server import MetricsServerStartupError, start_metrics_server_process
+            from embrouter.proxy.prometheus_metrics_server import MetricsServerStartupError, start_metrics_server_process
 
             try:
                 metrics_process: Final = start_metrics_server_process(
@@ -1493,7 +1493,7 @@ def run_server(
             except MetricsServerStartupError as error:
                 raise click.ClickException(str(error)) from error
             print(
-                f"\033[1;32mLiteLLM: Serving Prometheus metrics on {host}:{prometheus_metrics_port}/metrics "
+                f"\033[1;32mEmbRouter: Serving Prometheus metrics on {host}:{prometheus_metrics_port}/metrics "
                 f"(pid {metrics_process.pid})\033[0m"
             )
 
@@ -1519,7 +1519,7 @@ def run_server(
                 )
             if ssl_certfile_path is not None and ssl_keyfile_path is not None:
                 print(
-                    f"\033[1;32mLiteLLM Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
+                    f"\033[1;32mEmbRouter Proxy: Using SSL with certfile: {ssl_certfile_path} and keyfile: {ssl_keyfile_path}\033[0m\n"
                 )
                 uvicorn_args["ssl_keyfile"] = ssl_keyfile_path
                 uvicorn_args["ssl_certfile"] = ssl_certfile_path

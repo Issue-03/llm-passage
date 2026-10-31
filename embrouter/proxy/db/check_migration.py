@@ -4,7 +4,7 @@ import os
 import subprocess
 from typing import Final
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 def extract_sql_commands(diff_output: str) -> list[str]:
@@ -57,14 +57,14 @@ def check_prisma_schema_diff_helper(db_url: str) -> tuple[bool, list[str]]:
         - The SQL commands that would close the diff, empty when there is none.
     """
     try:
-        from litellm_proxy_extras.prisma_toolchain import (
+        from embrouter_proxy_extras.prisma_toolchain import (
             PRISMA_COMMAND_TIMEOUT_ENV_VAR,
             prisma_command_timeout,
             run_prisma,
         )
     except ImportError as e:
         print(  # noqa: T201  # boot-time operator output, same channel as this helper's other messages
-            f"Skipping the migration diff: litellm-proxy-extras has no Prisma runner. Error: {e}"
+            f"Skipping the migration diff: embrouter-proxy-extras has no Prisma runner. Error: {e}"
         )
         return False, []
 

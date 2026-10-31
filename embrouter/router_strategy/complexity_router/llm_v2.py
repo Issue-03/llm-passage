@@ -10,10 +10,10 @@ from typing import Annotated, Final, Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StringConstraints, TypeAdapter, model_validator
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.llms.base_llm.base_utils import (
+from embrouter.llms.base_llm.base_utils import (
     type_to_response_format_param,  # pyright: ignore[reportUnknownVariableType]  # legacy output validated below
 )
-from litellm.router_strategy.complexity_router.fuse_presets import ProfileText, resolve_fuse_profile
+from embrouter.router_strategy.complexity_router.fuse_presets import ProfileText, resolve_fuse_profile
 
 ShortText: TypeAlias = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=512)]
 VerdictText: TypeAlias = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]

@@ -1,14 +1,14 @@
-# litellm-proxy
+# embrouter-proxy
 
 A local, fast, and lightweight **OpenAI-compatible server** to call 100+ LLM APIs.
 
 ## usage 
 
 ```shell 
-$ uv tool install litellm
+$ uv tool install embrouter
 ```
 ```shell
-$ litellm --model ollama/codellama 
+$ embrouter --model ollama/codellama 
 
 #INFO: Ollama running on http://0.0.0.0:8000
 ```
@@ -17,7 +17,7 @@ $ litellm --model ollama/codellama
 ```python 
 import openai # openai v1.0.0+
 client = openai.OpenAI(api_key="anything",base_url="http://0.0.0.0:8000") # set proxy to base_url
-# request sent to model set on litellm proxy, `litellm --model`
+# request sent to model set on embrouter proxy, `embrouter --model`
 response = client.chat.completions.create(model="gpt-3.5-turbo", messages = [
     {
         "role": "user",

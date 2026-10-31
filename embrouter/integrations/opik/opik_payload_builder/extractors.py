@@ -4,15 +4,15 @@ import json
 from collections.abc import Mapping
 from typing import Any, Final
 
-from litellm import _logging
+from embrouter import _logging
 
 
 def normalize_provider_name(provider: str | None) -> str | None:
     """
-    Normalize LiteLLM provider names to standardized string names.
+    Normalize EmbRouter provider names to standardized string names.
 
     Args:
-        provider: LiteLLM internal provider name
+        provider: EmbRouter internal provider name
 
     Returns:
         Normalized provider name or the original if no mapping exists
@@ -36,18 +36,18 @@ def normalize_provider_name(provider: str | None) -> str | None:
 
 
 def extract_opik_metadata(
-    litellm_metadata: Mapping[str, Any],
+    embrouter_metadata: Mapping[str, Any],
     standard_logging_metadata: Mapping[str, Any],
 ) -> dict[str, Any]:
     """
     Merge Opik metadata from three sources in increasing priority order:
 
       1. user_api_key_auth_metadata– lowest priority (operator-level defaults)
-      2. litellm_metadata (request)– overrides auth-key defaults
+      2. embrouter_metadata (request)– overrides auth-key defaults
       3. requester_metadata – highest priority (e.g. proxy header overrides)
 
     Args:
-        litellm_metadata: Metadata from litellm_params.mak
+        embrouter_metadata: Metadata from embrouter_params.mak
         standard_logging_metadata: Metadata from standard_logging_object.
 
     Returns:
@@ -58,7 +58,7 @@ def extract_opik_metadata(
     opik_meta: Final = (auth_meta.get("opik") or {}).copy()
 
     # Request-level values override auth-key defaults.
-    request_opik: Final = litellm_metadata.get("opik") or {}
+    request_opik: Final = embrouter_metadata.get("opik") or {}
     opik_meta.update(request_opik)
 
     # Requester-level values win over everything else.
@@ -67,7 +67,7 @@ def extract_opik_metadata(
     if requester_opik:
         opik_meta.update(requester_opik)
 
-    _logging.verbose_logger.debug("litellm_opik_metadata - %s", json.dumps(opik_meta, default=str))
+    _logging.verbose_logger.debug("embrouter_opik_metadata - %s", json.dumps(opik_meta, default=str))
 
     return opik_meta
 
@@ -162,7 +162,7 @@ def extract_and_build_metadata(
     opik_metadata: Mapping[str, object],
     standard_logging_metadata: Mapping[str, object],
     standard_logging_object: Mapping[str, object],
-    litellm_kwargs: Mapping[str, object],
+    embrouter_kwargs: Mapping[str, object],
 ) -> dict[str, object]:
     """
     Build the complete metadata dictionary from all available sources.
@@ -171,26 +171,26 @@ def extract_and_build_metadata(
     - Opik-specific metadata (tags, etc.)
     - Standard logging metadata
     - Fields from standard_logging_object (model info, status, etc.)
-    - Cost information from litellm_kwargs (calculated after completion)
+    - Cost information from embrouter_kwargs (calculated after completion)
 
     Args:
         opik_metadata: Opik-specific metadata from request
         standard_logging_metadata: Standard logging metadata
         standard_logging_object: Full standard logging object with call details
-        litellm_kwargs: Original LiteLLM kwargs (includes response_cost)
+        embrouter_kwargs: Original EmbRouter kwargs (includes response_cost)
 
     Returns:
         Complete metadata dictionary for trace/span
     """
     # Start with opik metadata (excluding current_span_data which is used for trace linking)
     metadata: Final = {k: v for k, v in opik_metadata.items() if k != "current_span_data"}
-    metadata["created_from"] = "litellm"
+    metadata["created_from"] = "embrouter"
 
     # Merge with standard logging metadata
     metadata.update(standard_logging_metadata)
 
     # Add fields from standard_logging_object
-    # These come from the LiteLLM logging infrastructure
+    # These come from the EmbRouter logging infrastructure
     field_mappings: Final = {
         "call_type": "type",
         "status": "status",
@@ -211,16 +211,16 @@ def extract_and_build_metadata(
             metadata[dest_key] = standard_logging_object[source_key]
 
     # Add cost information
-    # response_cost is calculated by LiteLLM after completion and added to kwargs
-    # See: litellm/litellm_core_utils/llm_response_utils/response_metadata.py
-    if "response_cost" in litellm_kwargs:
+    # response_cost is calculated by EmbRouter after completion and added to kwargs
+    # See: embrouter/embrouter_core_utils/llm_response_utils/response_metadata.py
+    if "response_cost" in embrouter_kwargs:
         metadata["cost"] = {
-            "total_tokens": litellm_kwargs["response_cost"],
+            "total_tokens": embrouter_kwargs["response_cost"],
             "currency": "USD",
         }
 
     # Add debug info if cost calculation failed
-    if "response_cost_failure_debug_info" in litellm_kwargs:
-        metadata["response_cost_failure_debug_info"] = litellm_kwargs["response_cost_failure_debug_info"]
+    if "response_cost_failure_debug_info" in embrouter_kwargs:
+        metadata["response_cost_failure_debug_info"] = embrouter_kwargs["response_cost_failure_debug_info"]
 
     return metadata

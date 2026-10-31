@@ -3,31 +3,31 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.llms.anthropic.pass_through.adapters.transformation import (
-    LiteLLMAnthropicMessagesAdapter,
+from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+    EmbRouterAnthropicMessagesAdapter,
 )
-from litellm.llms.anthropic.pass_through.messages.handler import (
+from embrouter.llms.anthropic.pass_through.messages.handler import (
     anthropic_messages_handler,
 )
-from litellm.llms.anthropic.pass_through.messages.mcp_handler import (
+from embrouter.llms.anthropic.pass_through.messages.mcp_handler import (
     _build_tool_result_message,
     _extract_tool_use_blocks,
 )
 
 MCP_REFERENCE = {
     "type": "mcp",
-    "server_label": "litellm",
-    "server_url": "litellm_proxy/mcp/deepwiki",
+    "server_label": "embrouter",
+    "server_url": "embrouter_proxy/mcp/deepwiki",
     "require_approval": "never",
 }
 
 
-def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
+def test_anthropic_messages_handler_routes_embrouter_proxy_mcp_to_the_gateway():
     """
-    Regression test (LIT-4517): /v1/messages must expand a litellm_proxy MCP
+    Regression test (LIT-4517): /v1/messages must expand a embrouter_proxy MCP
     reference through the MCP gateway.
 
-    Given: A /v1/messages request whose tools carry a litellm_proxy MCP reference
+    Given: A /v1/messages request whose tools carry a embrouter_proxy MCP reference
     When:  The handler dispatches
     Then:  It hands off to the MCP gateway instead of the provider
 
@@ -38,7 +38,7 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
     dispatch makes the whole feature unreachable while every unit test still passes.
     """
     with patch(
-        "litellm.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
+        "embrouter.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         result = anthropic_messages_handler(
@@ -49,7 +49,7 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
             custom_llm_provider="anthropic",
         )
 
-    assert routed.called, "A litellm_proxy MCP reference must be dispatched to the MCP gateway"
+    assert routed.called, "A embrouter_proxy MCP reference must be dispatched to the MCP gateway"
     assert routed.call_args.kwargs["tools"] == [MCP_REFERENCE]
     assert routed.call_args.kwargs["model"] == "claude-sonnet-4-5"
     assert result is not None
@@ -58,7 +58,7 @@ def test_anthropic_messages_handler_routes_litellm_proxy_mcp_to_the_gateway():
 def test_anthropic_messages_handler_skips_the_gateway_on_recursion():
     """The gateway's own follow-up call must not re-enter the gateway."""
     with patch(
-        "litellm.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
+        "embrouter.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         with pytest.raises(ValueError, match="anthropic_messages_handler is not implemented for sync calls"):
@@ -77,7 +77,7 @@ def test_anthropic_messages_handler_skips_the_gateway_on_recursion():
 def test_anthropic_messages_handler_leaves_native_tools_alone():
     """A plain Anthropic tool is not an MCP reference and must not reach the gateway."""
     with patch(
-        "litellm.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
+        "embrouter.llms.anthropic.pass_through.messages.mcp_handler.anthropic_messages_with_mcp",
         new=AsyncMock(return_value={"routed": True}),
     ) as routed:
         with pytest.raises(ValueError, match="anthropic_messages_handler is not implemented for sync calls"):
@@ -89,7 +89,7 @@ def test_anthropic_messages_handler_leaves_native_tools_alone():
                 custom_llm_provider="anthropic",
             )
 
-    assert not routed.called, "Only litellm_proxy MCP references belong to the gateway"
+    assert not routed.called, "Only embrouter_proxy MCP references belong to the gateway"
 
 
 def test_extract_tool_use_blocks_ignores_text_blocks():
@@ -135,7 +135,7 @@ def test_build_tool_result_message_survives_the_chat_completions_bridge():
         ]
     )
 
-    translated = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    translated = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         [message], model="hosted_vllm/gpt-4o-mini", custom_llm_provider="hosted_vllm"
     )
 
@@ -160,8 +160,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     token, per-user env) silently returns nothing while the model claims it has
     no access. Only a no-auth server would look healthy.
     """
-    from litellm.llms.anthropic.pass_through.messages import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from embrouter.llms.anthropic.pass_through.messages import mcp_handler
+    from embrouter.responses.mcp.request_context import MCPRequestContext
 
     context = MCPRequestContext(
         user_api_key_auth="auth-object",
@@ -170,8 +170,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
         oauth2_headers={"authorization": "Bearer oauth"},
         raw_headers={"x-trace": "abc"},
         request_tags=["team-a"],
-        litellm_trace_id="trace-123",
-        litellm_call_id="call-456",
+        embrouter_trace_id="trace-123",
+        embrouter_call_id="call-456",
         guardrail_context={"metadata": {"guardrails": ("block-all",)}},
     )
 
@@ -185,20 +185,20 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     with (
         patch.object(MCPRequestContext, "resolve", return_value=context),
         patch.object(
-            mcp_handler.LiteLLM_Proxy_MCP_Handler
-            if hasattr(mcp_handler, "LiteLLM_Proxy_MCP_Handler")
+            mcp_handler.EmbRouter_Proxy_MCP_Handler
+            if hasattr(mcp_handler, "EmbRouter_Proxy_MCP_Handler")
             else __import__(
-                "litellm.responses.mcp.litellm_proxy_mcp_handler", fromlist=["LiteLLM_Proxy_MCP_Handler"]
-            ).LiteLLM_Proxy_MCP_Handler,
+                "embrouter.responses.mcp.embrouter_proxy_mcp_handler", fromlist=["EmbRouter_Proxy_MCP_Handler"]
+            ).EmbRouter_Proxy_MCP_Handler,
             "_process_mcp_tools_without_openai_transform",
             new=process,
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("embrouter.responses.mcp.embrouter_proxy_mcp_handler").EmbRouter_Proxy_MCP_Handler,
             "_execute_tool_calls",
             new=execute,
         ),
-        patch("litellm.anthropic_messages", new=AsyncMock(side_effect=responses)),
+        patch("embrouter.anthropic_messages", new=AsyncMock(side_effect=responses)),
     ):
         await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,
@@ -211,7 +211,7 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     assert listing["mcp_auth_header"] == "legacy-header", "tool listing must use the caller's MCP auth"
     assert listing["mcp_server_auth_headers"] == {"deepwiki": {"authorization": "Bearer per-server"}}
     assert listing["request_tags"] == ["team-a"]
-    assert listing["litellm_trace_id"] == "trace-123"
+    assert listing["embrouter_trace_id"] == "trace-123"
 
     execution = execute.call_args.kwargs
     assert execution["user_api_key_auth"] == "auth-object"
@@ -219,8 +219,8 @@ async def test_anthropic_messages_with_mcp_forwards_the_callers_mcp_credentials(
     assert execution["mcp_server_auth_headers"] == {"deepwiki": {"authorization": "Bearer per-server"}}
     assert execution["oauth2_headers"] == {"authorization": "Bearer oauth"}
     assert execution["raw_headers"] == {"x-trace": "abc"}
-    assert execution["litellm_call_id"] == "call-456"
-    assert execution["litellm_trace_id"] == "trace-123"
+    assert execution["embrouter_call_id"] == "call-456"
+    assert execution["embrouter_trace_id"] == "trace-123"
     assert execution["request_tags"] == ["team-a"]
 
     assert execution["guardrail_context"] == {"metadata": {"guardrails": ("block-all",)}}
@@ -240,8 +240,8 @@ async def test_anthropic_messages_with_mcp_stops_when_every_tool_call_is_skipped
     Anthropic rejects that, so the caller would get an unhandled 400 from the middle
     of the loop rather than the model's own answer.
     """
-    from litellm.llms.anthropic.pass_through.messages import mcp_handler
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from embrouter.llms.anthropic.pass_through.messages import mcp_handler
+    from embrouter.responses.mcp.request_context import MCPRequestContext
 
     tool_use_response = {
         "stop_reason": "tool_use",
@@ -252,16 +252,16 @@ async def test_anthropic_messages_with_mcp_stops_when_every_tool_call_is_skipped
     with (
         patch.object(MCPRequestContext, "resolve", return_value=MCPRequestContext(user_api_key_auth="auth")),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("embrouter.responses.mcp.embrouter_proxy_mcp_handler").EmbRouter_Proxy_MCP_Handler,
             "_process_mcp_tools_without_openai_transform",
             new=AsyncMock(return_value=([], {})),
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler,
+            import_module("embrouter.responses.mcp.embrouter_proxy_mcp_handler").EmbRouter_Proxy_MCP_Handler,
             "_execute_tool_calls",
             new=AsyncMock(return_value=[]),
         ),
-        patch("litellm.anthropic_messages", new=anthropic_messages_mock),
+        patch("embrouter.anthropic_messages", new=anthropic_messages_mock),
     ):
         result = await mcp_handler.anthropic_messages_with_mcp(
             max_tokens=100,

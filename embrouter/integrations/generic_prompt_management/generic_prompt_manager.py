@@ -1,6 +1,6 @@
 """
-Generic prompt manager that integrates with LiteLLM's prompt management system.
-Fetches prompts from any API that implements the /beta/litellm_prompt_management endpoint.
+Generic prompt manager that integrates with EmbRouter's prompt management system.
+Fetches prompts from any API that implements the /beta/embrouter_prompt_management endpoint.
 """
 
 import json
@@ -9,30 +9,30 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.integrations.prompt_management_base import (
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.integrations.prompt_management_base import (
     PromptManagementBase,
     PromptManagementClient,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class GenericPromptManager(CustomPromptManagement):
     """
-    Generic prompt manager that integrates with LiteLLM's prompt management system.
+    Generic prompt manager that integrates with EmbRouter's prompt management system.
 
     This class enables using prompts from any API that implements the
-    /beta/litellm_prompt_management endpoint.
+    /beta/embrouter_prompt_management endpoint.
 
     Usage:
         # Configure API access
@@ -43,7 +43,7 @@ class GenericPromptManager(CustomPromptManagement):
         }
 
         # Use with completion
-        response = litellm.completion(
+        response = embrouter.completion(
             model="generic_prompt/gpt-4",
             prompt_id="my_prompt_id",
             prompt_variables={"variable": "value"},
@@ -109,7 +109,7 @@ class GenericPromptManager(CustomPromptManagement):
         if prompt_id is None and prompt_spec is None:
             raise ValueError("prompt_id or prompt_spec is required")
 
-        url: Final = f"{self.api_base}/beta/litellm_prompt_management"
+        url: Final = f"{self.api_base}/beta/embrouter_prompt_management"
         params: Final = {
             "prompt_id": prompt_id,
             **(self.additional_provider_specific_query_params or {}),
@@ -139,12 +139,12 @@ class GenericPromptManager(CustomPromptManagement):
         if prompt_id is None and prompt_spec is None:
             raise ValueError("prompt_id or prompt_spec is required")
 
-        url: Final = f"{self.api_base}/beta/litellm_prompt_management"
+        url: Final = f"{self.api_base}/beta/embrouter_prompt_management"
         params: Final = {
             "prompt_id": prompt_id,
             **(
-                prompt_spec.litellm_params.provider_specific_query_params
-                if prompt_spec and prompt_spec.litellm_params.provider_specific_query_params
+                prompt_spec.embrouter_params.provider_specific_query_params
+                if prompt_spec and prompt_spec.embrouter_params.provider_specific_query_params
                 else {}
             ),
         }
@@ -217,7 +217,7 @@ class GenericPromptManager(CustomPromptManagement):
         in the _compile_prompt_helper method.
         """
         if prompt_id is not None or (
-            prompt_spec is not None and prompt_spec.litellm_params.provider_specific_query_params is not None
+            prompt_spec is not None and prompt_spec.embrouter_params.provider_specific_query_params is not None
         ):
             return True
         return False
@@ -392,7 +392,7 @@ class GenericPromptManager(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -411,7 +411,7 @@ class GenericPromptManager(CustomPromptManagement):
             non_default_params,
             prompt_id=prompt_id,
             prompt_variables=prompt_variables,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             dynamic_callback_params=dynamic_callback_params,
             prompt_spec=prompt_spec,
             tools=tools,

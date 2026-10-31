@@ -9,14 +9,14 @@ import { AllModelsTable } from "./AllModelsTable";
 const makeModel = (overrides: Partial<ModelData> = {}): ModelData =>
   ({
     model_name: "gpt-4-public",
-    litellm_model_name: "openai/gpt-4",
+    embrouter_model_name: "openai/gpt-4",
     provider: "openai",
     input_cost: "30",
     output_cost: "60",
     max_tokens: 8192,
     max_input_tokens: 8192,
-    litellm_params: { model: "openai/gpt-4" },
-    cleanedLitellmParams: {},
+    embrouter_params: { model: "openai/gpt-4" },
+    cleanedEmbrouterParams: {},
     ...overrides,
     model_info: {
       id: "model-1",
@@ -135,7 +135,7 @@ describe("AllModelsTable", () => {
     expect(screen.queryByTestId("model-team-id-model-1")).not.toBeInTheDocument();
   });
 
-  it("renders the model name over the litellm model name", () => {
+  it("renders the model name over the embrouter model name", () => {
     render(<AllModelsTable {...baseProps} />);
 
     const cell = screen.getByTestId("model-information-model-1");
@@ -147,7 +147,7 @@ describe("AllModelsTable", () => {
     const { rerender } = render(
       <AllModelsTable
         {...baseProps}
-        data={[makeModel({ litellm_params: { model: "openai/gpt-4", litellm_credential_name: "openai-prod" } })]}
+        data={[makeModel({ embrouter_params: { model: "openai/gpt-4", embrouter_credential_name: "openai-prod" } })]}
       />,
     );
     expect(screen.getByText("openai-prod")).toBeInTheDocument();

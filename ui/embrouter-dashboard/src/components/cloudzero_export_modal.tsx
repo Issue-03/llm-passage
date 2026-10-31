@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { CircleCheck, FileDown } from "lucide-react";
 import { z } from "zod/v4";
-import { getGlobalLitellmHeaderName } from "@/components/networking";
+import { getGlobalEmbrouterHeaderName } from "@/components/networking";
 import { toast } from "@/lib/toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/shared/Alert";
 import { PasswordInput } from "@/components/shared/PasswordInput";
@@ -58,7 +58,7 @@ const CloudZeroExportModal: React.FC<CloudZeroExportModalProps> = ({ isOpen, onC
       const response = await fetch("/cloudzero/settings", {
         method: "GET",
         headers: {
-          [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+          [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
       });
@@ -101,7 +101,7 @@ const CloudZeroExportModal: React.FC<CloudZeroExportModalProps> = ({ isOpen, onC
       const response = await fetch(endpoint, {
         method,
         headers: {
-          [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+          [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -141,7 +141,7 @@ const CloudZeroExportModal: React.FC<CloudZeroExportModalProps> = ({ isOpen, onC
       const response = await fetch("/cloudzero/export", {
         method: "POST",
         headers: {
-          [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+          [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

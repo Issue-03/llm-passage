@@ -17,9 +17,9 @@ from openai.types.responses.response_create_params import (
     ResponseCreateParamsStreaming,
 )
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.anthropic import AnthropicMessagesRequest
-from litellm.types.rerank import RerankRequest
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+from embrouter.types.rerank import RerankRequest
 
 
 class ModelParamHelper:
@@ -68,13 +68,13 @@ class ModelParamHelper:
         (``_get_relevant_args_to_use_for_logging``). Callers treat the result as
         read-only.
         """
-        chat_completion_kwargs: Final = ModelParamHelper._get_litellm_supported_chat_completion_kwargs()
-        text_completion_kwargs: Final = ModelParamHelper._get_litellm_supported_text_completion_kwargs()
-        embedding_kwargs: Final = ModelParamHelper._get_litellm_supported_embedding_kwargs()
-        transcription_kwargs: Final = ModelParamHelper._get_litellm_supported_transcription_kwargs()
-        rerank_kwargs: Final = ModelParamHelper._get_litellm_supported_rerank_kwargs()
-        responses_api_kwargs: Final = ModelParamHelper._get_litellm_supported_responses_api_kwargs()
-        anthropic_messages_kwargs: Final = ModelParamHelper._get_litellm_supported_anthropic_messages_kwargs()
+        chat_completion_kwargs: Final = ModelParamHelper._get_embrouter_supported_chat_completion_kwargs()
+        text_completion_kwargs: Final = ModelParamHelper._get_embrouter_supported_text_completion_kwargs()
+        embedding_kwargs: Final = ModelParamHelper._get_embrouter_supported_embedding_kwargs()
+        transcription_kwargs: Final = ModelParamHelper._get_embrouter_supported_transcription_kwargs()
+        rerank_kwargs: Final = ModelParamHelper._get_embrouter_supported_rerank_kwargs()
+        responses_api_kwargs: Final = ModelParamHelper._get_embrouter_supported_responses_api_kwargs()
+        anthropic_messages_kwargs: Final = ModelParamHelper._get_embrouter_supported_anthropic_messages_kwargs()
         exclude_kwargs: Final = ModelParamHelper._get_exclude_kwargs()
 
         combined_kwargs = chat_completion_kwargs.union(
@@ -89,30 +89,30 @@ class ModelParamHelper:
         return combined_kwargs
 
     @staticmethod
-    def get_litellm_provider_specific_params_for_chat_params() -> set[str]:
+    def get_embrouter_provider_specific_params_for_chat_params() -> set[str]:
         return set(["thinking"])
 
     @staticmethod
-    def _get_litellm_supported_chat_completion_kwargs() -> set[str]:
+    def _get_embrouter_supported_chat_completion_kwargs() -> set[str]:
         """
-        Get the litellm supported chat completion kwargs
+        Get the embrouter supported chat completion kwargs
 
         This follows the OpenAI API Spec
         """
         non_streaming_params: set[str] = set(getattr(CompletionCreateParamsNonStreaming, "__annotations__", {}).keys())
         streaming_params: Final[set[str]] = set(getattr(CompletionCreateParamsStreaming, "__annotations__", {}).keys())
-        litellm_provider_specific_params: Final[set[str]] = (
-            ModelParamHelper.get_litellm_provider_specific_params_for_chat_params()
+        embrouter_provider_specific_params: Final[set[str]] = (
+            ModelParamHelper.get_embrouter_provider_specific_params_for_chat_params()
         )
         all_chat_completion_kwargs: Final[set[str]] = non_streaming_params.union(streaming_params).union(
-            litellm_provider_specific_params
+            embrouter_provider_specific_params
         )
         return all_chat_completion_kwargs
 
     @staticmethod
-    def _get_litellm_supported_text_completion_kwargs() -> set[str]:
+    def _get_embrouter_supported_text_completion_kwargs() -> set[str]:
         """
-        Get the litellm supported text completion kwargs
+        Get the embrouter supported text completion kwargs
 
         This follows the OpenAI API Spec
         """
@@ -122,25 +122,25 @@ class ModelParamHelper:
         return all_text_completion_kwargs
 
     @staticmethod
-    def _get_litellm_supported_rerank_kwargs() -> set[str]:
+    def _get_embrouter_supported_rerank_kwargs() -> set[str]:
         """
-        Get the litellm supported rerank kwargs
+        Get the embrouter supported rerank kwargs
         """
         return set(RerankRequest.model_fields.keys())
 
     @staticmethod
-    def _get_litellm_supported_embedding_kwargs() -> set[str]:
+    def _get_embrouter_supported_embedding_kwargs() -> set[str]:
         """
-        Get the litellm supported embedding kwargs
+        Get the embrouter supported embedding kwargs
 
         This follows the OpenAI API Spec
         """
         return set(getattr(EmbeddingCreateParams, "__annotations__", {}).keys())
 
     @staticmethod
-    def _get_litellm_supported_transcription_kwargs() -> set[str]:
+    def _get_embrouter_supported_transcription_kwargs() -> set[str]:
         """
-        Get the litellm supported transcription kwargs
+        Get the embrouter supported transcription kwargs
 
         This follows the OpenAI API Spec
         """
@@ -160,9 +160,9 @@ class ModelParamHelper:
             return set()
 
     @staticmethod
-    def _get_litellm_supported_responses_api_kwargs() -> set[str]:
+    def _get_embrouter_supported_responses_api_kwargs() -> set[str]:
         """
-        Get the litellm supported responses API kwargs
+        Get the embrouter supported responses API kwargs
 
         This follows the OpenAI API Spec
         """
@@ -171,9 +171,9 @@ class ModelParamHelper:
         return non_streaming_params.union(streaming_params)
 
     @staticmethod
-    def _get_litellm_supported_anthropic_messages_kwargs() -> frozenset[str]:
+    def _get_embrouter_supported_anthropic_messages_kwargs() -> frozenset[str]:
         """
-        Get the litellm supported Anthropic /v1/messages kwargs
+        Get the embrouter supported Anthropic /v1/messages kwargs
         """
         return frozenset(AnthropicMessagesRequest.__annotations__.keys())
 
@@ -182,7 +182,7 @@ class ModelParamHelper:
         """
         Get the kwargs to exclude from the cache key
         """
-        return set(["metadata", "litellm_metadata"])
+        return set(["metadata", "embrouter_metadata"])
 
 
 ModelParamHelper._relevant_logging_args = frozenset(ModelParamHelper._get_relevant_args_to_use_for_logging())

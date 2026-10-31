@@ -5,15 +5,15 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import LiteLLM_AccessGroupTable
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import EmbRouter_AccessGroupTable
 
 if TYPE_CHECKING:
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
 AccessGroupIds: TypeAlias = tuple[str, ...]
 AccessGroupIdsLoader: TypeAlias = Callable[[str], Awaitable[AccessGroupIds]]  # mutable-ok: Callable params
-LoadedAccessGroup: TypeAlias = LiteLLM_AccessGroupTable | None
+LoadedAccessGroup: TypeAlias = EmbRouter_AccessGroupTable | None
 AccessGroupLoader: TypeAlias = Callable[[str], Awaitable[LoadedAccessGroup]]  # mutable-ok: Callable parameter syntax
 
 
@@ -31,15 +31,15 @@ CeilingResolver: TypeAlias = Callable[[str], Awaitable[AgentAccessGroupCeiling |
 
 
 async def _registry_access_group_ids(agent_id: str) -> AccessGroupIds:
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     agent: Final = await get_agent_with_read_through(agent_id)
     return tuple(agent.access_group_ids or ()) if agent is not None else ()
 
 
 async def _load_access_group(access_group_id: str, *, check_db_only: bool = False) -> LoadedAccessGroup:
-    from litellm.proxy.auth.auth_checks import get_access_object
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.auth.auth_checks import get_access_object
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         verbose_proxy_logger.warning("Agent access group %s cannot be loaded without a DB", access_group_id)

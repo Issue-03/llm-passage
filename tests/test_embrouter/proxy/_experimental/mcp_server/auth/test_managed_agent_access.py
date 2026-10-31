@@ -4,17 +4,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy import proxy_server
-from litellm.proxy._experimental.mcp_server import mcp_server_manager
-from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LiteLLM_UserTable, UserAPIKeyAuth
-from litellm.proxy.auth import auth_checks
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import ManagedAgentContext
+from embrouter.proxy import proxy_server
+from embrouter.proxy._experimental.mcp_server import mcp_server_manager
+from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable, EmbRouter_UserTable, UserAPIKeyAuth
+from embrouter.proxy.auth import auth_checks
+from embrouter.types.agents import AgentResponse
+from embrouter.types.proxy.agent_identity import ManagedAgentContext
 
 
 def actor(tools: tuple[str, ...] | None, *, delegated: bool = False) -> UserAPIKeyAuth:
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="agent-permissions",
         mcp_servers=["slack", "linear"],
         mcp_tool_permissions={"slack": list(tools)} if tools is not None else None,
@@ -69,12 +69,12 @@ async def test_delegated_server_and_tool_intersections(
     user_tools: tuple[str, ...] | None,
     expected: tuple[str, ...],
 ) -> None:
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="user-permissions",
         mcp_servers=["slack", "user-only"],
         mcp_tool_permissions={"slack": list(user_tools)} if user_tools is not None else None,
     )
-    user: Final = LiteLLM_UserTable(user_id="human", teams=[], object_permission=permission)
+    user: Final = EmbRouter_UserTable(user_id="human", teams=[], object_permission=permission)
     monkeypatch.setattr(auth_checks, "get_user_object", AsyncMock(return_value=user))
     auth: Final = actor(agent_tools, delegated=True)
     assert await MCPRequestHandler.get_allowed_mcp_servers(auth) == ["slack"]
@@ -100,9 +100,9 @@ async def test_access_groups_cap_agent_servers_without_granting_new_ones(
     servers: tuple[str, ...],
     expected: tuple[str, ...],
 ) -> None:
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from embrouter.proxy._types import EmbRouter_AccessGroupTable
 
-    group: Final = LiteLLM_AccessGroupTable(
+    group: Final = EmbRouter_AccessGroupTable(
         access_group_id="group", access_group_name="Restricted", access_mcp_server_ids=list(servers)
     )
     monkeypatch.setattr(auth_checks, "get_access_object", AsyncMock(return_value=group))
@@ -119,36 +119,36 @@ async def test_access_groups_cap_agent_servers_without_granting_new_ones(
 async def test_delegated_mcp_revokes_warm_human_policy_before_tool_execution(
     monkeypatch: pytest.MonkeyPatch, change: str
 ) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
 
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="user-grant", mcp_servers=["slack"], mcp_tool_permissions={"slack": ["read", "write"]}
     )
-    user: Final = LiteLLM_UserTable(
+    user: Final = EmbRouter_UserTable(
         user_id="human", teams=[], organization_memberships=[], object_permission_id="user-grant"
     )
     cache: Final = UserApiKeyCache()
     cache.set_cache("human", user)
     cache.set_cache(object_permission_cache_key("user-grant"), permission)
     client: Final = MagicMock()
-    client.writer_db.litellm_usertable.find_unique = AsyncMock(return_value=user)
-    client.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
+    client.writer_db.embrouter_usertable.find_unique = AsyncMock(return_value=user)
+    client.writer_db.embrouter_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
     auth: Final = actor(("read", "write"), delegated=True)
     assert set(await MCPRequestHandler.get_allowed_tools_for_server("slack", auth)) == {"read", "write"}
     if change == "disabled":
-        client.writer_db.litellm_usertable.find_unique.return_value = user.model_copy(
+        client.writer_db.embrouter_usertable.find_unique.return_value = user.model_copy(
             update={"metadata": {"scim_active": False}}
         )
     elif change == "outage":
-        client.writer_db.litellm_usertable.find_unique.side_effect = RuntimeError("writer unavailable")
+        client.writer_db.embrouter_usertable.find_unique.side_effect = RuntimeError("writer unavailable")
     elif change == "servers":
-        client.writer_db.litellm_objectpermissiontable.find_unique.return_value = permission.model_copy(
+        client.writer_db.embrouter_objectpermissiontable.find_unique.return_value = permission.model_copy(
             update={"mcp_servers": [], "mcp_tool_permissions": {}}
         )
     else:
-        client.writer_db.litellm_objectpermissiontable.find_unique.return_value = permission.model_copy(
+        client.writer_db.embrouter_objectpermissiontable.find_unique.return_value = permission.model_copy(
             update={"mcp_tool_permissions": {"slack": ["read"]}}
         )
     if change in ("disabled", "outage"):
@@ -158,8 +158,8 @@ async def test_delegated_mcp_revokes_warm_human_policy_before_tool_execution(
         assert await MCPRequestHandler.get_allowed_tools_for_server("slack", auth) == (
             ["read"] if change == "tools" else []
         )
-    client.db.litellm_usertable.find_unique.assert_not_called()
-    client.db.litellm_objectpermissiontable.find_unique.assert_not_called()
+    client.db.embrouter_usertable.find_unique.assert_not_called()
+    client.db.embrouter_objectpermissiontable.find_unique.assert_not_called()
 
 
 def _server_row(server_id: str, access_groups: tuple[str, ...]) -> MagicMock:
@@ -183,18 +183,18 @@ async def test_autonomous_agent_toolset_and_access_group_revocations_bind_on_the
     """The agent's entitlements are read through the shared toolset and access-group resolvers. Once the
     writer revokes a tool or drops the server from the group, the next managed request must be denied
     even though the legacy cache still holds the warm grant and the replica still shows the old rows"""
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._experimental.mcp_server import toolset_db
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy._experimental.mcp_server import toolset_db
 
     warm_toolset: Final = _toolset_row("slack", "read")
     list_toolsets: Final = AsyncMock(return_value=[warm_toolset])
     monkeypatch.setattr(toolset_db, "list_mcp_toolsets", list_toolsets)
     client: Final = MagicMock()
-    client.db.litellm_mcpservertable.find_many = AsyncMock(return_value=[_server_row("linear", ("grp",))])
-    client.writer_db.litellm_mcpservertable.find_many = AsyncMock(return_value=[_server_row("linear", ("grp",))])
+    client.db.embrouter_mcpservertable.find_many = AsyncMock(return_value=[_server_row("linear", ("grp",))])
+    client.writer_db.embrouter_mcpservertable.find_many = AsyncMock(return_value=[_server_row("linear", ("grp",))])
     monkeypatch.setattr(proxy_server, "prisma_client", client)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", DualCache())
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="agent-permissions", mcp_toolsets=["ts"], mcp_access_groups=["grp"]
     )
     auth: Final = actor(None)
@@ -211,7 +211,7 @@ async def test_autonomous_agent_toolset_and_access_group_revocations_bind_on_the
         list_toolsets.return_value = [_toolset_row("slack", "other")]
         assert await MCPRequestHandler.get_allowed_tools_for_server("slack", auth) == ["other"]
     elif change == "server":
-        client.writer_db.litellm_mcpservertable.find_many.return_value = []
+        client.writer_db.embrouter_mcpservertable.find_many.return_value = []
         assert set(await MCPRequestHandler.get_allowed_mcp_servers(auth)) == {"slack"}
         assert await MCPRequestHandler.get_allowed_tools_for_server("linear", auth) == []
     else:
@@ -221,7 +221,7 @@ async def test_autonomous_agent_toolset_and_access_group_revocations_bind_on_the
         assert failure.value.status_code == 503
     for call in list_toolsets.await_args_list:
         assert call.kwargs["use_writer"] is True, "managed agent toolsets must be read from the writer"
-    client.db.litellm_mcpservertable.find_many.assert_not_called()
+    client.db.embrouter_mcpservertable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -236,8 +236,8 @@ async def test_delegated_mcp_uses_explicit_team_grants_even_for_dashboard_admins
     has_grant: bool,
     agent_tools: tuple[str, ...] | None,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     manager: Final = mcp_server_manager.global_mcp_server_manager
     manager.registry = {
@@ -250,29 +250,29 @@ async def test_delegated_mcp_uses_explicit_team_grants_even_for_dashboard_admins
         )
         for name in ("slack", "linear")
     }
-    from litellm.proxy._experimental.mcp_server import db
+    from embrouter.proxy._experimental.mcp_server import db
 
     monkeypatch.setattr(
         db,
         "get_active_submitted_mcp_server_ids_for_user",
         AsyncMock(return_value=["slack", "linear"] if open_channel == "submitted" else []),
     )
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="team-grant", mcp_servers=["slack"], mcp_tool_permissions={"slack": ["read"]}
     )
-    user: Final = LiteLLM_UserTable(
+    user: Final = EmbRouter_UserTable(
         user_id="human", user_role=role, teams=["team"] if has_grant else [], organization_memberships=[]
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = EmbRouter_TeamTable(
         team_id="team",
         models=[],
         members_with_roles=[{"user_id": "human", "role": "user"}],
         object_permission_id="team-grant",
     )
     client: Final = MagicMock()
-    client.writer_db.litellm_usertable.find_unique = AsyncMock(return_value=user)
-    client.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    client.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
+    client.writer_db.embrouter_usertable.find_unique = AsyncMock(return_value=user)
+    client.writer_db.embrouter_teamtable.find_unique = AsyncMock(return_value=team)
+    client.writer_db.embrouter_objectpermissiontable.find_unique = AsyncMock(return_value=permission)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
     auth: Final = actor(agent_tools, delegated=True)
     auth.team_id = "team"
@@ -287,8 +287,8 @@ async def test_delegated_mcp_uses_explicit_team_grants_even_for_dashboard_admins
 async def test_explicit_grants_never_fall_back_to_open_servers_on_resolution_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy._experimental.mcp_server import db
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server import db
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     manager: Final = mcp_server_manager.global_mcp_server_manager
     manager.registry = {"slack": MCPServer(server_id="slack", name="slack", transport="http", allow_all_keys=True)}
@@ -304,7 +304,7 @@ async def test_explicit_grants_never_fall_back_to_open_servers_on_resolution_fai
 
 @pytest.mark.asyncio
 async def test_absent_agent_policy_and_missing_delegated_subject_grant_no_servers() -> None:
-    from litellm.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_servers
+    from embrouter.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_servers
 
     assert await managed_agent_servers(UserAPIKeyAuth()) == ()
     auth: Final = actor(None, delegated=True)
@@ -316,8 +316,8 @@ async def test_absent_agent_policy_and_missing_delegated_subject_grant_no_server
 
 @pytest.mark.asyncio
 async def test_tool_policy_outage_after_server_admission_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
-    permission: Final = LiteLLM_ObjectPermissionTable(object_permission_id="human-grant", mcp_servers=["slack"])
-    user: Final = LiteLLM_UserTable(user_id="human", teams=[], object_permission=permission)
+    permission: Final = EmbRouter_ObjectPermissionTable(object_permission_id="human-grant", mcp_servers=["slack"])
+    user: Final = EmbRouter_UserTable(user_id="human", teams=[], object_permission=permission)
     monkeypatch.setattr(
         auth_checks, "get_user_object", AsyncMock(side_effect=[user, RuntimeError("tool lookup unavailable")])
     )
@@ -332,9 +332,9 @@ async def test_tool_policy_outage_after_server_admission_fails_closed(monkeypatc
 async def test_manager_preserves_managed_server_grants_across_open_channels(
     monkeypatch: pytest.MonkeyPatch, role: str | None, scoped: bool
 ) -> None:
-    from litellm.proxy._experimental.mcp_server import db
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPServerAccess
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server import db
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPServerAccess
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     manager: Final = mcp_server_manager.global_mcp_server_manager
     manager.registry = {
@@ -358,7 +358,7 @@ async def test_manager_preserves_managed_server_grants_across_open_channels(
 async def test_manager_does_not_replace_managed_policy_failure_with_open_servers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     manager: Final = mcp_server_manager.global_mcp_server_manager
     manager.registry = {"open": MCPServer(server_id="open", name="open", transport="http", allow_all_keys=True)}
@@ -386,28 +386,28 @@ async def test_inline_tool_grant_admits_its_server_without_widening_tools() -> N
 async def test_delegation_never_borrows_another_teams_server_or_tools(
     monkeypatch: pytest.MonkeyPatch, selected_team: str | None, selected_grant: bool
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-    user: Final = LiteLLM_UserTable(user_id="human", teams=["selected", "other"], organization_memberships=[])
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    user: Final = EmbRouter_UserTable(user_id="human", teams=["selected", "other"], organization_memberships=[])
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="selected-grant",
         mcp_servers=["slack"] if selected_grant else [],
         mcp_tool_permissions={"slack": ["read"]} if selected_grant else {},
     )
     teams: Final = {
-        name: LiteLLM_TeamTable(
+        name: EmbRouter_TeamTable(
             team_id=name,
             models=[],
             members_with_roles=[{"user_id": "human", "role": "user"}],
-            object_permission=permission if name == "selected" else LiteLLM_ObjectPermissionTable(
+            object_permission=permission if name == "selected" else EmbRouter_ObjectPermissionTable(
                 object_permission_id="other-grant", mcp_servers=["slack", "linear"]
             ),
         )
         for name in ("selected", "other")
     }
 
-    async def get_team(team_id: str, **kwargs: object) -> LiteLLM_TeamTable:
+    async def get_team(team_id: str, **kwargs: object) -> EmbRouter_TeamTable:
         return teams[team_id]
 
     monkeypatch.setattr(auth_checks, "get_user_object", AsyncMock(return_value=user))
@@ -429,10 +429,10 @@ async def test_managed_mcp_rejects_unavailable_authoritative_entitlements(
     monkeypatch: pytest.MonkeyPatch, entitlement: str
 ) -> None:
     client: Final = MagicMock()
-    client.writer_db.litellm_mcpservertable.find_many = AsyncMock(side_effect=RuntimeError("writer unavailable"))
-    client.writer_db.litellm_mcptoolsettable.find_many = AsyncMock(side_effect=RuntimeError("writer unavailable"))
+    client.writer_db.embrouter_mcpservertable.find_many = AsyncMock(side_effect=RuntimeError("writer unavailable"))
+    client.writer_db.embrouter_mcptoolsettable.find_many = AsyncMock(side_effect=RuntimeError("writer unavailable"))
     monkeypatch.setattr(proxy_server, "prisma_client", client)
-    permission: Final = LiteLLM_ObjectPermissionTable(
+    permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="entitlements",
         mcp_access_groups=["group"] if entitlement == "group" else [],
         mcp_toolsets=["toolset"] if entitlement == "toolset" else [],
@@ -444,8 +444,8 @@ async def test_managed_mcp_rejects_unavailable_authoritative_entitlements(
     with pytest.raises(HTTPException) as failure:
         await MCPRequestHandler.get_allowed_tools_for_server("slack", auth)
     assert failure.value.status_code == 503
-    client.db.litellm_mcpservertable.find_many.assert_not_called()
-    client.db.litellm_mcptoolsettable.find_many.assert_not_called()
+    client.db.embrouter_mcpservertable.find_many.assert_not_called()
+    client.db.embrouter_mcptoolsettable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -455,7 +455,7 @@ async def test_managed_agent_mcp_access_is_capped_at_the_invoking_callers_grants
     """The managed MCP path must honour the agent_caller ceiling the same way the unmanaged path does:
     the agent's own policy grants slack and linear, but the team echoed back on the request reaches
     only slack, so the agent may use slack alone."""
-    from litellm.proxy._types import AgentCaller
+    from embrouter.proxy._types import AgentCaller
 
     monkeypatch.setattr(
         MCPRequestHandler,
@@ -472,7 +472,7 @@ async def test_managed_agent_mcp_access_is_capped_at_the_invoking_callers_grants
         MCPRequestHandler,
         "_get_team_object_permission",
         AsyncMock(
-            return_value=LiteLLM_ObjectPermissionTable(
+            return_value=EmbRouter_ObjectPermissionTable(
                 object_permission_id="caller-team-permissions",
                 mcp_servers=["slack"],
                 mcp_tool_permissions={"slack": ["read"]},
@@ -498,28 +498,28 @@ async def test_managed_agent_mcp_access_is_capped_at_the_invoking_callers_grants
 async def test_caller_mcp_revocation_uses_fresh_policy(
     monkeypatch: pytest.MonkeyPatch, fresh: bool, caller_kind: str,
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
-    from litellm.types.agents import AgentCaller
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+    from embrouter.types.agents import AgentCaller
 
-    cached_permission: Final = LiteLLM_ObjectPermissionTable(
+    cached_permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="caller-permission", mcp_servers=["slack", "linear"],
         mcp_tool_permissions={"slack": ["read", "write"]},
     )
-    current_permission: Final = LiteLLM_ObjectPermissionTable(
+    current_permission: Final = EmbRouter_ObjectPermissionTable(
         object_permission_id="caller-permission", mcp_servers=["slack"],
         mcp_tool_permissions={"slack": ["read"]},
     )
-    team: Final = LiteLLM_TeamTable(
+    team: Final = EmbRouter_TeamTable(
         team_id="caller", object_permission_id="caller-permission", object_permission=current_permission,
     )
-    user: Final = LiteLLM_UserTable(
+    user: Final = EmbRouter_UserTable(
         user_id="caller", teams=[], object_permission_id="caller-permission", object_permission=current_permission,
     )
     database: Final = MagicMock()
-    database.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=team)
-    database.writer_db.litellm_usertable.find_unique = AsyncMock(return_value=user)
-    database.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=current_permission)
+    database.writer_db.embrouter_teamtable.find_unique = AsyncMock(return_value=team)
+    database.writer_db.embrouter_usertable.find_unique = AsyncMock(return_value=user)
+    database.writer_db.embrouter_objectpermissiontable.find_unique = AsyncMock(return_value=current_permission)
     cache: Final = UserApiKeyCache()
     cache.set_cache("team_id:caller", team.model_copy(update={"object_permission": cached_permission}))
     cache.set_cache("caller", user.model_copy(update={"object_permission": cached_permission}))
@@ -539,12 +539,12 @@ async def test_caller_mcp_revocation_uses_fresh_policy(
 async def test_caller_team_outage_cannot_remove_authoritative_server_ceiling(
     monkeypatch: pytest.MonkeyPatch, fresh: bool,
 ) -> None:
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.agents import AgentCaller
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.types.agents import AgentCaller
 
     database: Final = MagicMock()
-    database.writer_db.litellm_teamtable.find_unique = AsyncMock(side_effect=RuntimeError("writer unavailable"))
-    database.db.litellm_teamtable.find_unique = AsyncMock(side_effect=RuntimeError("reader unavailable"))
+    database.writer_db.embrouter_teamtable.find_unique = AsyncMock(side_effect=RuntimeError("writer unavailable"))
+    database.db.embrouter_teamtable.find_unique = AsyncMock(side_effect=RuntimeError("reader unavailable"))
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", UserApiKeyCache())
     auth: Final = actor(("read",))

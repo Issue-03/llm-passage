@@ -1,5 +1,5 @@
 """
-Functions to create audit logs for LiteLLM Proxy
+Functions to create audit logs for EmbRouter Proxy
 """
 
 import asyncio
@@ -7,44 +7,44 @@ import json
 from datetime import datetime, timezone
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import (
     AUDIT_ACTIONS,
-    LiteLLM_AuditLogs,
-    LitellmTableNames,
+    EmbRouter_AuditLogs,
+    EmbrouterTableNames,
     UserAPIKeyAuth,
 )
-from litellm.repositories.table_repositories import AuditLogRepository
-from litellm.types.utils import StandardAuditLogPayload
+from embrouter.repositories.table_repositories import AuditLogRepository
+from embrouter.types.utils import StandardAuditLogPayload
 
 _audit_log_callback_cache: Final[dict[str, CustomLogger]] = {}
-ALLOW_LITELLM_CHANGED_BY_HEADER_METADATA_KEY: Final = "allow_litellm_changed_by_header"
+ALLOW_EMBROUTER_CHANGED_BY_HEADER_METADATA_KEY: Final = "allow_embrouter_changed_by_header"
 
 
 def is_audit_logging_enabled(store_audit_logs: bool | None = None) -> bool:
-    from litellm.secret_managers.main import get_secret_bool
+    from embrouter.secret_managers.main import get_secret_bool
 
-    configured_value: Final[bool | None] = litellm.store_audit_logs if store_audit_logs is None else store_audit_logs
+    configured_value: Final[bool | None] = embrouter.store_audit_logs if store_audit_logs is None else store_audit_logs
     if configured_value is not None:
         return configured_value
 
-    environment_value: Final[bool | None] = get_secret_bool("LITELLM_STORE_AUDIT_LOGS")
+    environment_value: Final[bool | None] = get_secret_bool("EMBROUTER_STORE_AUDIT_LOGS")
     if environment_value is not None:
         return environment_value
 
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
     return premium_user is True
 
 
-def _allows_litellm_changed_by_header(user_api_key_dict: UserAPIKeyAuth) -> bool:
+def _allows_embrouter_changed_by_header(user_api_key_dict: UserAPIKeyAuth) -> bool:
     for admin_metadata in (user_api_key_dict.metadata, user_api_key_dict.team_metadata):
         if (
             isinstance(admin_metadata, dict)
-            and admin_metadata.get(ALLOW_LITELLM_CHANGED_BY_HEADER_METADATA_KEY) is True
+            and admin_metadata.get(ALLOW_EMBROUTER_CHANGED_BY_HEADER_METADATA_KEY) is True
         ):
             return True
     return False
@@ -52,19 +52,19 @@ def _allows_litellm_changed_by_header(user_api_key_dict: UserAPIKeyAuth) -> bool
 
 def get_audit_log_changed_by(
     *,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str | None,
+    embrouter_proxy_admin_name: str | None,
 ) -> str | None:
-    if litellm_changed_by and _allows_litellm_changed_by_header(user_api_key_dict):
-        return litellm_changed_by
-    return user_api_key_dict.user_id or litellm_proxy_admin_name
+    if embrouter_changed_by and _allows_embrouter_changed_by_header(user_api_key_dict):
+        return embrouter_changed_by
+    return user_api_key_dict.user_id or embrouter_proxy_admin_name
 
 
 def _resolve_audit_log_callback(name: str) -> CustomLogger | None:
     """Resolve a string callback name to a CustomLogger instance, with caching.
 
-    For "s3_v2" with `litellm.s3_audit_callback_params` set, constructs a
+    For "s3_v2" with `embrouter.s3_audit_callback_params` set, constructs a
     dedicated `S3Logger` so audit logs can target a different bucket than the
     normal-log singleton served by `_init_custom_logger_compatible_class`.
     """
@@ -72,12 +72,12 @@ def _resolve_audit_log_callback(name: str) -> CustomLogger | None:
         return _audit_log_callback_cache[name]
 
     instance: CustomLogger | None
-    if name == "s3_v2" and getattr(litellm, "s3_audit_callback_params", None) is not None:
-        from litellm.integrations.s3_v2 import S3Logger as S3V2Logger
+    if name == "s3_v2" and getattr(embrouter, "s3_audit_callback_params", None) is not None:
+        from embrouter.integrations.s3_v2 import S3Logger as S3V2Logger
 
-        instance = S3V2Logger(s3_callback_params_override=litellm.s3_audit_callback_params)
+        instance = S3V2Logger(s3_callback_params_override=embrouter.s3_audit_callback_params)
     else:
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             _init_custom_logger_compatible_class,
         )
 
@@ -98,16 +98,16 @@ def reset_audit_log_callback_cache() -> None:
 
 
 def _build_audit_log_payload(
-    request_data: LiteLLM_AuditLogs,
+    request_data: EmbRouter_AuditLogs,
 ) -> StandardAuditLogPayload:
-    """Convert LiteLLM_AuditLogs to StandardAuditLogPayload for callback dispatch."""
+    """Convert EmbRouter_AuditLogs to StandardAuditLogPayload for callback dispatch."""
     updated_at = ""
     if request_data.updated_at is not None:
         updated_at = request_data.updated_at.isoformat()
 
     table_name_str: Final[str] = (
         request_data.table_name.value
-        if isinstance(request_data.table_name, LitellmTableNames)
+        if isinstance(request_data.table_name, EmbrouterTableNames)
         else str(request_data.table_name)
     )
 
@@ -135,15 +135,15 @@ def _audit_log_task_done_callback(task: asyncio.Task) -> None:
 
 
 async def _dispatch_audit_log_to_callbacks(
-    request_data: LiteLLM_AuditLogs,
+    request_data: EmbRouter_AuditLogs,
 ) -> None:
     """Dispatch audit log to all registered audit_log_callbacks."""
-    if not litellm.audit_log_callbacks:
+    if not embrouter.audit_log_callbacks:
         return
 
     payload: Final = _build_audit_log_payload(request_data)
 
-    for callback in litellm.audit_log_callbacks:
+    for callback in embrouter.audit_log_callbacks:
         try:
             resolved: CustomLogger | None = callback if isinstance(callback, CustomLogger) else None
             if isinstance(callback, str):
@@ -162,10 +162,10 @@ async def _dispatch_audit_log_to_callbacks(
 async def create_object_audit_log(
     object_id: str,
     action: AUDIT_ACTIONS,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str | None,
-    table_name: LitellmTableNames,
+    embrouter_proxy_admin_name: str | None,
+    table_name: EmbrouterTableNames,
     before_value: str | None = None,
     after_value: str | None = None,
 ):
@@ -175,22 +175,22 @@ async def create_object_audit_log(
     Parameters:
     - user_id: str - The id of the user to create the audit log for.
     - action: AUDIT_ACTIONS - The action to create the audit log for.
-    - user_row: LiteLLM_UserTable - The user row to create the audit log for.
-    - litellm_changed_by: Optional[str] - The user id of the user who is changing the user.
+    - user_row: EmbRouter_UserTable - The user row to create the audit log for.
+    - embrouter_changed_by: Optional[str] - The user id of the user who is changing the user.
     - user_api_key_dict: UserAPIKeyAuth - The user api key dictionary.
-    - litellm_proxy_admin_name: Optional[str] - The name of the proxy admin.
+    - embrouter_proxy_admin_name: Optional[str] - The name of the proxy admin.
     """
     if not is_audit_logging_enabled():
         return
 
     _changed_by: Final = get_audit_log_changed_by(
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
 
     await create_audit_log_for_update(
-        request_data=LiteLLM_AuditLogs(
+        request_data=EmbRouter_AuditLogs(
             id=str(uuid.uuid4()),
             updated_at=datetime.now(timezone.utc),
             changed_by=_changed_by,
@@ -204,14 +204,14 @@ async def create_object_audit_log(
     )
 
 
-async def create_audit_log_for_update(request_data: LiteLLM_AuditLogs):
+async def create_audit_log_for_update(request_data: EmbRouter_AuditLogs):
     """
     Create an audit log for an object.
     """
     if not is_audit_logging_enabled():
         return
 
-    from litellm.proxy.proxy_server import premium_user, prisma_client
+    from embrouter.proxy.proxy_server import premium_user, prisma_client
 
     if premium_user is not True:
         return

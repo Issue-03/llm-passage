@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
 
 from .flux_lora_depth_transformation import FalAIFluxLoraDepthEditConfig
 from .transformation import FalAIImageEditConfig

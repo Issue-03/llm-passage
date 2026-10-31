@@ -5,16 +5,16 @@ from urllib.parse import unquote
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.llms.vertex_ai.common_utils import (
     VertexAIError,
     _convert_vertex_datetime_to_openai_datetime,
 )
-from litellm.types.llms.openai import BatchJobStatus, CreateBatchRequest
-from litellm.types.llms.vertex_ai import *
-from litellm.types.llms.vertex_ai import GenerateContentResponseBody
-from litellm.types.utils import LiteLLMBatch, ModelInfo, Usage
+from embrouter.types.llms.openai import BatchJobStatus, CreateBatchRequest
+from embrouter.types.llms.vertex_ai import *
+from embrouter.types.llms.vertex_ai import GenerateContentResponseBody
+from embrouter.types.utils import EmbRouterBatch, ModelInfo, Usage
 
 _NATIVE_VERTEX_RESPONSE: Final = TypeAdapter(GenerateContentResponseBody)
 
@@ -155,7 +155,7 @@ class VertexAIBatchTransformation:
         """
         Transforms OpenAI Batch requests to Vertex AI Batch requests
         """
-        request_display_name: Final = f"litellm-vertex-batch-{uuid.uuid4()}"
+        request_display_name: Final = f"embrouter-vertex-batch-{uuid.uuid4()}"
         input_file_id: Final = request.get("input_file_id")
         if input_file_id is None:
             raise ValueError("input_file_id is required, but not provided")
@@ -179,8 +179,8 @@ class VertexAIBatchTransformation:
     @classmethod
     def transform_vertex_ai_batch_response_to_openai_batch_response(
         cls, response: VertexBatchPredictionResponse
-    ) -> LiteLLMBatch:
-        return LiteLLMBatch(
+    ) -> EmbRouterBatch:
+        return EmbRouterBatch(
             id=cls._get_batch_id_from_vertex_ai_batch_response(response),
             completion_window="24h",
             created_at=_convert_vertex_datetime_to_openai_datetime(vertex_datetime=response.get("createTime", "")),
@@ -296,11 +296,11 @@ class VertexAIBatchTransformation:
         Gets the gcs uri prefix from the input file id
 
         Example:
-        input_file_id: "gs://litellm-testing-bucket/vtx_batch.jsonl"
-        returns: "gs://litellm-testing-bucket"
+        input_file_id: "gs://embrouter-testing-bucket/vtx_batch.jsonl"
+        returns: "gs://embrouter-testing-bucket"
 
-        input_file_id: "gs://litellm-testing-bucket/batches/vtx_batch.jsonl"
-        returns: "gs://litellm-testing-bucket/batches"
+        input_file_id: "gs://embrouter-testing-bucket/batches/vtx_batch.jsonl"
+        returns: "gs://embrouter-testing-bucket/batches"
         """
         # Split the path and remove the filename
         path_parts: Final = input_file_id.rsplit("/", 1)
@@ -338,13 +338,13 @@ class VertexAIBatchTransformation:
         """
         Extracts the model from the gcs file uri
 
-        When files are uploaded using LiteLLM (/v1/files), the model is stored in the gcs file uri
+        When files are uploaded using EmbRouter (/v1/files), the model is stored in the gcs file uri
 
         Why?
         - Because Vertex Requires the `model` param in create batch jobs request, but OpenAI does not require this
 
 
-        gcs_file_uri format: gs://litellm-testing-bucket/litellm-vertex-files/publishers/google/models/gemini-1.5-flash-001/e9412502-2c91-42a6-8e61-f5c294cc0fc8
+        gcs_file_uri format: gs://embrouter-testing-bucket/embrouter-vertex-files/publishers/google/models/gemini-1.5-flash-001/e9412502-2c91-42a6-8e61-f5c294cc0fc8
         returns: "publishers/google/models/gemini-1.5-flash-001"
 
         Fine-tuned Gemini endpoints are stored as `endpoints/<numeric id>` in the uri and returned
@@ -360,7 +360,7 @@ class VertexAIBatchTransformation:
                     "Vertex AI batch creation requires the model to be part of `input_file_id`, but "
                     f"'{gcs_file_uri}' contains no 'publishers/<publisher>/models/<model>' or "
                     "'endpoints/<numeric endpoint id>' path segment. "
-                    "Either upload the input file through LiteLLM (POST /v1/files with "
+                    "Either upload the input file through EmbRouter (POST /v1/files with "
                     "custom_llm_provider=vertex_ai), which encodes the model into the returned file id, or "
                     "pass a uri of the form "
                     "gs://<bucket>/<prefix>/publishers/<publisher>/models/<model>/<file> "
@@ -377,7 +377,7 @@ class VertexAIBatchTransformation:
 
         A publisher path wins over an `endpoints/` segment, and the last `endpoints/` occurrence is
         used, so a user-configured bucket prefix that happens to contain `endpoints/<digits>` cannot
-        override the model path LiteLLM appended after it.
+        override the model path EmbRouter appended after it.
         """
         unquoted_uri: Final = unquote(gcs_file_uri)
         _, separator, model_path = unquoted_uri.partition("publishers/")
@@ -397,7 +397,7 @@ class VertexAIBatchTransformation:
     def is_unmanaged_gcs_batch_input_file_id(cls, input_file_id: str | None) -> bool:
         """
         Returns True if `input_file_id` is a raw gs:// Vertex batch input file (i.e. not a
-        LiteLLM-managed unified file id) with a `publishers/` model path that
+        EmbRouter-managed unified file id) with a `publishers/` model path that
         `_get_model_from_gcs_file` can parse.
         """
         return (

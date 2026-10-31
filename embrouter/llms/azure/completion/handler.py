@@ -4,9 +4,9 @@ from typing import Final
 import httpx
 from openai import AsyncAzureOpenAI, AzureOpenAI
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.prompt_templates.factory import prompt_factory
-from litellm.utils import CustomStreamWrapper, ModelResponse, TextCompletionResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.prompt_templates.factory import prompt_factory
+from embrouter.utils import CustomStreamWrapper, ModelResponse, TextCompletionResponse
 
 from ...openai.completion.transformation import OpenAITextCompletionConfig
 from ..common_utils import AzureOpenAIError, BaseAzureLLM
@@ -41,9 +41,9 @@ class AzureTextCompletion(BaseAzureLLM):
         azure_ad_token_provider: Callable | None,
         print_verbose: Callable,
         timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params,
-        litellm_params: dict[str, object],
+        embrouter_params: dict[str, object],
         logger_fn,
         acompletion: bool = False,
         headers: dict | None = None,
@@ -71,7 +71,7 @@ class AzureTextCompletion(BaseAzureLLM):
                     azure_ad_token=azure_ad_token,
                     azure_ad_token_provider=azure_ad_token_provider,
                     acompletion=acompletion,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
                 data = {"model": None, "prompt": prompt, **optional_params}
@@ -94,7 +94,7 @@ class AzureTextCompletion(BaseAzureLLM):
                         azure_ad_token=azure_ad_token,
                         timeout=timeout,
                         client=client,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                     )
                 else:
                     return self.acompletion(
@@ -109,7 +109,7 @@ class AzureTextCompletion(BaseAzureLLM):
                         client=client,
                         logging_obj=logging_obj,
                         max_retries=max_retries,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                     )
             elif "stream" in optional_params and optional_params["stream"] is True:
                 return self.streaming(
@@ -146,7 +146,7 @@ class AzureTextCompletion(BaseAzureLLM):
                     api_base=api_base,
                     api_version=api_version,
                     client=client,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     _is_async=False,
                     model=model,
                 )
@@ -194,11 +194,11 @@ class AzureTextCompletion(BaseAzureLLM):
         data: dict,
         timeout: float | httpx.Timeout | None,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         max_retries: int,
         azure_ad_token: str | None = None,
         client=None,  # this is the AsyncAzureOpenAI
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ):
         response = None
         try:
@@ -211,7 +211,7 @@ class AzureTextCompletion(BaseAzureLLM):
                 model=model,
                 _is_async=True,
                 client=client,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
             if not isinstance(azure_client, AsyncAzureOpenAI):
                 raise AzureOpenAIError(
@@ -248,7 +248,7 @@ class AzureTextCompletion(BaseAzureLLM):
 
     def streaming(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         api_key: str | None,
         api_version: str,
@@ -257,7 +257,7 @@ class AzureTextCompletion(BaseAzureLLM):
         timeout: float | httpx.Timeout | None,
         azure_ad_token: str | None = None,
         client=None,
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ):
         max_retries: Final = data.pop("max_retries", 2)
         if not isinstance(max_retries, int):
@@ -270,7 +270,7 @@ class AzureTextCompletion(BaseAzureLLM):
             model=model,
             _is_async=False,
             client=client,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if not isinstance(azure_client, AzureOpenAI):
             raise AzureOpenAIError(
@@ -301,7 +301,7 @@ class AzureTextCompletion(BaseAzureLLM):
 
     async def async_streaming(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         api_key: str | None,
         api_version: str,
@@ -310,7 +310,7 @@ class AzureTextCompletion(BaseAzureLLM):
         timeout: float | httpx.Timeout | None,
         azure_ad_token: str | None = None,
         client=None,
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ):
         try:
             # init AzureOpenAI Client
@@ -321,7 +321,7 @@ class AzureTextCompletion(BaseAzureLLM):
                 model=model,
                 _is_async=True,
                 client=client,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
             if not isinstance(azure_client, AsyncAzureOpenAI):
                 raise AzureOpenAIError(

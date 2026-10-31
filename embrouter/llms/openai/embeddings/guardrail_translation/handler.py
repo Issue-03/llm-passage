@@ -7,14 +7,14 @@ The handler processes the 'input' parameter for guardrails.
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import EmbeddingResponse
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import EmbeddingResponse
 
 
 class OpenAIEmbeddingsHandler(BaseTranslation):
@@ -36,7 +36,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> Any:
         """
         Process input text by applying guardrails to text content.
@@ -44,7 +44,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         Args:
             data: Request data dictionary containing 'input' parameter
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
 
         Returns:
             Modified data with guardrails applied to input
@@ -55,9 +55,9 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
             return data
 
         if isinstance(input_data, str):
-            data = await self._process_string_input(data, input_data, guardrail_to_apply, litellm_logging_obj)
+            data = await self._process_string_input(data, input_data, guardrail_to_apply, embrouter_logging_obj)
         elif isinstance(input_data, list):
-            data = await self._process_list_input(data, input_data, guardrail_to_apply, litellm_logging_obj)
+            data = await self._process_list_input(data, input_data, guardrail_to_apply, embrouter_logging_obj)
         else:
             verbose_proxy_logger.warning(
                 "OpenAI Embeddings: Unexpected input type: %s. Expected string or list.",
@@ -71,7 +71,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         data: dict,
         input_data: str,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
     ) -> dict:
         """Process a single string input through the guardrail."""
         inputs: Final = GenericGuardrailAPIInputs(texts=[input_data])
@@ -82,7 +82,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         if guardrailed_texts := guardrailed_inputs.get("texts"):
@@ -100,7 +100,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         data: dict,
         input_data: list[str | int | list[int]],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
     ) -> dict:
         """Process a list input through the guardrail (if it contains strings)."""
         if len(input_data) == 0:
@@ -129,7 +129,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         if guardrailed_texts := guardrailed_inputs.get("texts"):
@@ -145,7 +145,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         self,
         response: "EmbeddingResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: Any | None = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -159,7 +159,7 @@ class OpenAIEmbeddingsHandler(BaseTranslation):
         Args:
             response: Embedding response object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata
 
         Returns:

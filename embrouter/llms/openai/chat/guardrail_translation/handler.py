@@ -23,14 +23,14 @@ from typing import TYPE_CHECKING, Any, Final, Union, cast
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamingScanKey,
     StreamTransformSink,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     blocked_chat_stream_usage,
     effective_scan_only_tool_results_for_guardrail,
     effective_skip_system_message_for_guardrail,
@@ -45,12 +45,12 @@ from litellm.llms.base_llm.guardrail_translation.utils import (
     stream_item_items,
     unappliable_request_rewrite,
 )
-from litellm.main import stream_chunk_builder
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
-from litellm.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
+from embrouter.main import stream_chunk_builder
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
     coerce_stream_holdback_value,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionDeltaToolCall,
     ChatCompletionMessageToolCall,
     Choices,
@@ -63,12 +63,12 @@ from litellm.types.utils import (
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
-    from litellm.integrations.custom_guardrail import (
+    from embrouter.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class OpenAIChatCompletionsHandler(BaseTranslation):
@@ -100,7 +100,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> dict:
         """
         Process input messages by applying guardrails to text content.
@@ -164,7 +164,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=data,
                 input_type="request",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -384,7 +384,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         self,
         response: "ModelResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
     ) -> ModelResponse:
@@ -392,9 +392,9 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         Process output response by applying guardrails to text content.
 
         Args:
-            response: LiteLLM ModelResponse object
+            response: EmbRouter ModelResponse object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
 
         Returns:
@@ -456,7 +456,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -491,7 +491,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         self,
         responses_so_far: list["ModelResponseStream"],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
         stream_transform_sink: StreamTransformSink | None = None,
@@ -501,9 +501,9 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         Process output streaming responses by applying guardrails to text content.
 
         Args:
-            responses_so_far: List of LiteLLM ModelResponseStream objects
+            responses_so_far: List of EmbRouter ModelResponseStream objects
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
             stream_transform_sink: Optional out-parameter for the streaming text
                 transformation path. When provided, the guardrail runs over the raw
@@ -526,7 +526,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
             await self._process_streaming_transform(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 user_api_key_dict=user_api_key_dict,
                 request_data=request_data,
                 sink=stream_transform_sink,
@@ -536,7 +536,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         return await self._process_streaming_block_only(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             user_api_key_dict=user_api_key_dict,
             request_data=request_data,
             deliver_ended_stream_rewrites=deliver_ended_stream_rewrites,
@@ -547,7 +547,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         *,
         responses_so_far: list["ModelResponseStream"],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
         user_api_key_dict: "UserAPIKeyAuth | None",
         request_data: dict | None,
         deliver_ended_stream_rewrites: bool = False,
@@ -562,7 +562,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
             await self._process_ended_stream(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 user_api_key_dict=user_api_key_dict,
                 request_data=request_data,
                 deliver_ended_stream_rewrites=deliver_ended_stream_rewrites,
@@ -619,7 +619,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -644,7 +644,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         *,
         responses_so_far: list["ModelResponseStream"],  # mutable-ok: rewrites the caller's buffered chunks in place
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
         user_api_key_dict: "UserAPIKeyAuth | None",
         request_data: dict[str, object] | None,  # mutable-ok: same request-payload shape the hooks take
         deliver_ended_stream_rewrites: bool,
@@ -652,13 +652,13 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         """Ended-stream path: rebuild the full response, run the non-streaming
         output guardrail against it, and (when opted in) write any text or
         tool-call rewrite back across the buffered chunks."""
-        model_response: Final = self._rebuild_ended_stream_per_choice(responses_so_far, litellm_logging_obj)
+        model_response: Final = self._rebuild_ended_stream_per_choice(responses_so_far, embrouter_logging_obj)
         pre_guardrail_texts: Final = self._string_choice_contents(model_response)
         pre_guardrail_tool_calls: Final = self._function_tool_call_shapes(model_response)
         await self.process_output_response(
             response=model_response,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             user_api_key_dict=user_api_key_dict,
             request_data=request_data,
         )
@@ -679,7 +679,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
     @staticmethod
     def _rebuild_ended_stream_per_choice(
         responses_so_far: Sequence["ModelResponseStream"],
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
     ) -> "ModelResponse":
         """``stream_chunk_builder`` folds every choice of a stream into one index-0
         choice, so the stream is rebuilt one choice index at a time (every chunk
@@ -699,7 +699,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                             OpenAIChatCompletionsHandler._narrowed_to_choice(response, index)
                             for response in responses_so_far
                         ],
-                        logging_obj=litellm_logging_obj,
+                        logging_obj=embrouter_logging_obj,
                     ),
                 ),
             )
@@ -724,7 +724,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
     ) -> Sequence[bytes] | None:
         import json
 
-        from litellm.proxy.common_request_processing import sse_error_payload
+        from embrouter.proxy.common_request_processing import sse_error_payload
 
         _, error_obj = sse_error_payload(exc)
         return (f'data: {{"error": {json.dumps(error_obj)}}}\n\n'.encode(),)
@@ -744,9 +744,9 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         accumulated: Final[dict[int, str]] = {}
         for response in responses_so_far:
             for choice in response.choices:
-                if isinstance(choice, litellm.StreamingChoices):
+                if isinstance(choice, embrouter.StreamingChoices):
                     content = choice.delta.content
-                elif isinstance(choice, litellm.Choices):
+                elif isinstance(choice, embrouter.Choices):
                     content = choice.message.content
                 else:
                     continue
@@ -760,7 +760,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         *,
         responses_so_far: list["ModelResponseStream"],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
         user_api_key_dict: "UserAPIKeyAuth | None",
         request_data: dict | None,
         sink: StreamTransformSink,
@@ -800,7 +800,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
             inputs=inputs,
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         returned_texts = guardrailed_inputs.get("texts")
@@ -862,7 +862,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         For streaming, we need to concatenate all delta.content across all chunks.
 
         Args:
-            responses_so_far: List of LiteLLM ModelResponseStream objects
+            responses_so_far: List of EmbRouter ModelResponseStream objects
 
         Returns:
             Dict mapping (choice_idx, content_idx) to combined text string
@@ -871,9 +871,9 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
 
         for response in responses_so_far:
             for choice in response.choices:
-                if isinstance(choice, litellm.StreamingChoices):
+                if isinstance(choice, embrouter.StreamingChoices):
                     content = choice.delta.content
-                elif isinstance(choice, litellm.Choices):
+                elif isinstance(choice, embrouter.Choices):
                     content = choice.message.content
                 else:
                     continue
@@ -909,11 +909,11 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
 
         Override this method to customize text content detection.
         """
-        from litellm.types.utils import ModelResponse, ModelResponseStream
+        from embrouter.types.utils import ModelResponse, ModelResponseStream
 
         if isinstance(response, ModelResponse):
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     # Check for text content
                     if choice.message.content and isinstance(choice.message.content, str):
                         return True
@@ -923,7 +923,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                             return True
         elif isinstance(response, ModelResponseStream):
             for streaming_choice in response.choices:
-                if isinstance(streaming_choice, litellm.StreamingChoices):
+                if isinstance(streaming_choice, embrouter.StreamingChoices):
                     # Check for text content
                     if streaming_choice.delta.content and isinstance(streaming_choice.delta.content, str):
                         return True
@@ -953,10 +953,10 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         # Determine content source and tool calls based on choice type
         content = None
         tool_calls: Sequence[object] | None = None
-        if isinstance(choice, litellm.Choices):
+        if isinstance(choice, embrouter.Choices):
             content = choice.message.content
             tool_calls = choice.message.tool_calls
-        elif isinstance(choice, litellm.StreamingChoices):
+        elif isinstance(choice, embrouter.StreamingChoices):
             content = choice.delta.content
             tool_calls = choice.delta.tool_calls
         else:
@@ -1170,7 +1170,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         )
         fragments_by_tool_call: Final = self._function_tool_call_fragments(responses_so_far)
         if len(stream_choice_indices) != 1:
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(
                 guardrail_name,
@@ -1178,7 +1178,7 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                 "back on single-choice streams",
             )
         if len(fragments_by_tool_call) != len(post_guardrail_tool_calls):
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(
                 guardrail_name,
@@ -1233,9 +1233,9 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
         # choice at list position 0 whose index names the logical choice.
         for response in responses:
             for choice in response.choices:
-                if isinstance(choice, litellm.StreamingChoices):
+                if isinstance(choice, embrouter.StreamingChoices):
                     content = choice.delta.content
-                elif isinstance(choice, litellm.Choices):
+                elif isinstance(choice, embrouter.Choices):
                     content = choice.message.content
                 else:
                     continue
@@ -1249,16 +1249,16 @@ class OpenAIChatCompletionsHandler(BaseTranslation):
                     if str_key in guardrail_map:
                         if str_key not in already_set:
                             # First chunk - set the complete guardrailed text
-                            if isinstance(choice, litellm.StreamingChoices):
+                            if isinstance(choice, embrouter.StreamingChoices):
                                 choice.delta.content = guardrail_map[str_key]
-                            elif isinstance(choice, litellm.Choices):
+                            elif isinstance(choice, embrouter.Choices):
                                 choice.message.content = guardrail_map[str_key]
                             already_set[str_key] = True
                         else:
                             # Subsequent chunks - clear the content
-                            if isinstance(choice, litellm.StreamingChoices):
+                            if isinstance(choice, embrouter.StreamingChoices):
                                 choice.delta.content = ""
-                            elif isinstance(choice, litellm.Choices):
+                            elif isinstance(choice, embrouter.Choices):
                                 choice.message.content = ""
 
                 elif isinstance(content, list):

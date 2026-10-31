@@ -222,12 +222,12 @@ ROUTER_SETTINGS_FIELDS: Final[list[RouterSettingsField]] = [
         ui_field_name="Enable Pre-call Checks",
     ),
     RouterSettingsField(
-        field_name="default_litellm_params",
+        field_name="default_embrouter_params",
         field_type="Dictionary",
         field_value=None,
         field_description="Default parameters for Router.chat.completion.create",
         field_default=None,
-        ui_field_name="Default LiteLLM Params",
+        ui_field_name="Default EmbRouter Params",
     ),
     RouterSettingsField(
         field_name="set_verbose",

@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import Request
-from litellm_enterprise.proxy.auth.user_api_key_auth import enterprise_custom_auth
+from embrouter_enterprise.proxy.auth.user_api_key_auth import enterprise_custom_auth
 
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_enterprise_custom_auth_mode_on():
     request = MagicMock(spec=Request)
 
     with patch(
-        "litellm_enterprise.proxy.proxy_server.custom_auth_settings", {"mode": "on"}
+        "embrouter_enterprise.proxy.proxy_server.custom_auth_settings", {"mode": "on"}
     ):
         result = await enterprise_custom_auth(request, "test-api-key", mock_user_auth)
         assert result == {"user_id": "test-user"}
@@ -36,7 +36,7 @@ async def test_enterprise_custom_auth_mode_auto_with_error():
     request = MagicMock(spec=Request)
 
     with patch(
-        "litellm_enterprise.proxy.proxy_server.custom_auth_settings", {"mode": "auto"}
+        "embrouter_enterprise.proxy.proxy_server.custom_auth_settings", {"mode": "auto"}
     ):
         result = await enterprise_custom_auth(request, "test-api-key", mock_user_auth)
         assert result is None
@@ -45,23 +45,23 @@ async def test_enterprise_custom_auth_mode_auto_with_error():
 
 @pytest.mark.asyncio
 async def test_enterprise_custom_auth_returns_string():
-    from litellm.proxy._types import hash_token
+    from embrouter.proxy._types import hash_token
 
-    # Test when enterprise_custom_auth returns a string (LiteLLM virtual key)
+    # Test when enterprise_custom_auth returns a string (EmbRouter virtual key)
     mock_user_auth = AsyncMock(return_value="sk-test-key")
     request = MagicMock(spec=Request)
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.enterprise_custom_auth",
+            "embrouter.proxy.auth.user_api_key_auth.enterprise_custom_auth",
             mock_user_auth,
         ),
-        patch("litellm.proxy.proxy_server.master_key", "sk-1234"),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-1234"),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
     ):
         # Verify the key is correctly handled in _user_api_key_auth_builder
         with patch(
-            "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key"
+            "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key"
         ) as mock_get_key_object:
             mock_get_key_object.return_value = UserAPIKeyAuth(
                 token="sk-test-key",
@@ -71,7 +71,7 @@ async def test_enterprise_custom_auth_returns_string():
             )
 
             # Call _user_api_key_auth_builder with the returned key
-            from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+            from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
             try:
                 auth_obj = await _user_api_key_auth_builder(
@@ -82,7 +82,7 @@ async def test_enterprise_custom_auth_returns_string():
                     google_ai_studio_api_key_header=None,
                     azure_apim_header=None,
                     request_data={},
-                    custom_litellm_key_header=None,
+                    custom_embrouter_key_header=None,
                 )
             except Exception as e:
                 print("error:", e)

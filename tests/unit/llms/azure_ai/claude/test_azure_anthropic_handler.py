@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.azure_ai.anthropic.handler import AzureAnthropicChatCompletion
-from litellm.types.utils import ModelResponse
+from embrouter.llms.azure_ai.anthropic.handler import AzureAnthropicChatCompletion
+from embrouter.types.utils import ModelResponse
 
 
 class TestAzureAnthropicChatCompletion:
@@ -23,8 +23,8 @@ class TestAzureAnthropicChatCompletion:
         assert hasattr(handler, "acompletion_function")
         assert hasattr(handler, "acompletion_stream_function")
 
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("embrouter.utils.ProviderConfigManager")
+    @patch("embrouter.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_uses_azure_anthropic_config(
         self, mock_azure_config, mock_provider_manager
     ):
@@ -60,7 +60,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
         headers = {}
 
         with patch.object(
@@ -79,7 +79,7 @@ class TestAzureAnthropicChatCompletion:
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 timeout=timeout,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 acompletion=True,
             )
@@ -88,9 +88,9 @@ class TestAzureAnthropicChatCompletion:
             mock_azure_config.assert_called_once()
             mock_config_instance.validate_environment.assert_called_once()
 
-    @patch("litellm.llms.anthropic.chat.handler.make_sync_call")
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("embrouter.llms.anthropic.chat.handler.make_sync_call")
+    @patch("embrouter.utils.ProviderConfigManager")
+    @patch("embrouter.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_streaming(
         self, mock_azure_config, mock_provider_manager, mock_make_sync_call
     ):
@@ -133,7 +133,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {"stream": True}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
         headers = {}
 
         result = handler.completion(
@@ -149,7 +149,7 @@ class TestAzureAnthropicChatCompletion:
             logging_obj=logging_obj,
             optional_params=optional_params,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             acompletion=False,
         )
@@ -158,9 +158,9 @@ class TestAzureAnthropicChatCompletion:
         mock_make_sync_call.assert_called_once()
         assert result is not None
 
-    @patch("litellm.llms.custom_httpx.http_handler._get_httpx_client")
-    @patch("litellm.utils.ProviderConfigManager")
-    @patch("litellm.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
+    @patch("embrouter.llms.custom_httpx.http_handler._get_httpx_client")
+    @patch("embrouter.utils.ProviderConfigManager")
+    @patch("embrouter.llms.azure_ai.anthropic.handler.AzureAnthropicConfig")
     def test_completion_non_streaming(
         self, mock_azure_config, mock_provider_manager, mock_get_client
     ):
@@ -198,7 +198,7 @@ class TestAzureAnthropicChatCompletion:
         logging_obj = MagicMock()
         optional_params = {}
         timeout = 60.0
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
         headers = {}
 
         # Mock HTTP client
@@ -237,7 +237,7 @@ class TestAzureAnthropicChatCompletion:
             logging_obj=logging_obj,
             optional_params=optional_params,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             client=None,  # Let it create the client
             acompletion=False,

@@ -3,8 +3,8 @@ import httpx
 import pytest
 
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.openrouter.chat.transformation import (
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.openrouter.chat.transformation import (
     OpenRouterChatCompletionStreamingHandler,
     OpenrouterConfig,
     OpenRouterException,
@@ -85,7 +85,7 @@ def test_openrouter_extra_body_transformation():
         model="openrouter/deepseek/deepseek-chat",
         messages=[{"role": "user", "content": "Hello, world!"}],
         optional_params={"extra_body": {"provider": {"order": ["DeepSeek"]}}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -107,7 +107,7 @@ def test_openrouter_cache_control_flag_removal():
             }
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert transformed_request["messages"][0].get("cache_control") is None
@@ -165,7 +165,7 @@ def test_openrouter_transform_request_with_cache_control():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -236,7 +236,7 @@ def test_openrouter_transform_request_with_cache_control_list_content():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -295,7 +295,7 @@ def test_openrouter_transform_request_with_cache_control_gemini():
         model="openrouter/google/gemini-2.0-flash-exp:free",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -342,7 +342,7 @@ def test_openrouter_transform_request_multiple_cache_controls():
         model="openrouter/anthropic/claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -371,7 +371,7 @@ def test_openrouter_cost_tracking_non_streaming():
     2. Response extracts cost from usage.cost and stores in _hidden_params
     """
     from unittest.mock import Mock, patch
-    from litellm.types.utils import ModelResponse, Choices, Message, Usage
+    from embrouter.types.utils import ModelResponse, Choices, Message, Usage
 
     config = OpenrouterConfig()
 
@@ -380,7 +380,7 @@ def test_openrouter_cost_tracking_non_streaming():
         model="openrouter/anthropic/claude-sonnet-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "usage" in transformed_request
@@ -433,18 +433,18 @@ def test_openrouter_cost_tracking_non_streaming():
             request_data={},
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
     assert hasattr(result, "_hidden_params")
     assert (
-        "llm_provider-x-litellm-response-cost"
+        "llm_provider-x-embrouter-response-cost"
         in result._hidden_params["additional_headers"]
     )
     assert (
         result._hidden_params["additional_headers"][
-            "llm_provider-x-litellm-response-cost"
+            "llm_provider-x-embrouter-response-cost"
         ]
         == 0.00015
     )
@@ -466,7 +466,7 @@ def test_openrouter_cost_tracking_streaming():
         model="openrouter/anthropic/claude-sonnet-4.5",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "usage" in transformed_request

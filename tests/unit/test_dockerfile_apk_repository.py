@@ -4,7 +4,7 @@ Static checks on the root Dockerfile's apk repository configuration.
 The base image (cgr.dev/chainguard/wolfi-base) only configures the
 authenticated Chainguard apk repo (https://apk.cgr.dev/chainguard) in
 /etc/apk/repositories, which requires a Chainguard enterprise subscription.
-Anyone pulling the published litellm image and running `apk add` inside it
+Anyone pulling the published embrouter image and running `apk add` inside it
 hits SSL/auth failures with no fallback repo configured, so nothing can be
 installed.
 """

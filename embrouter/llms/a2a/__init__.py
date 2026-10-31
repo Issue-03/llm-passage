@@ -1,5 +1,5 @@
 """
-A2A (Agent-to-Agent) Protocol Provider for LiteLLM
+A2A (Agent-to-Agent) Protocol Provider for EmbRouter
 """
 
 from .chat.transformation import A2AConfig

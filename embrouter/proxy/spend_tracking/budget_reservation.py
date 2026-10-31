@@ -12,21 +12,21 @@ from typing import Final, NoReturn, SupportsFloat, SupportsIndex, SupportsInt, c
 
 from fastapi import HTTPException, status
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.litellm_core_utils.llm_cost_calc.tiered_pricing import select_tier_for_input, tier_rate
-from litellm.proxy._types import (
-    Litellm_EntityType,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.embrouter_core_utils.llm_cost_calc.tiered_pricing import select_tier_for_input, tier_rate
+from embrouter.proxy._types import (
+    Embrouter_EntityType,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import get_model_from_request
-from litellm.proxy.auth.budget_throttle import should_throttle_budget_exceeded
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.auth.auth_utils import get_model_from_request
+from embrouter.proxy.auth.budget_throttle import should_throttle_budget_exceeded
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     model_access_group_cache_key,
@@ -36,12 +36,12 @@ from litellm.proxy.common_utils.user_api_key_cache import (
     tag_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.spend_tracking.input_tokens import count_input_tokens, count_input_tokens_for_model
-from litellm.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement, spend_counter_batch_scope
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.router import Router
-from litellm.types.proxy.model_access_group_budget import ModelAccessGroupBudget
-from litellm.types.router import DeploymentTypedDict
+from embrouter.proxy.spend_tracking.input_tokens import count_input_tokens, count_input_tokens_for_model
+from embrouter.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement, spend_counter_batch_scope
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.router import Router
+from embrouter.types.proxy.model_access_group_budget import ModelAccessGroupBudget
+from embrouter.types.router import DeploymentTypedDict
 
 
 @dataclass
@@ -58,15 +58,15 @@ class _BudgetCounter:
 
 
 _COUNTER_ENTITY_TYPES: Final[Mapping[str, str]] = {
-    "Key": Litellm_EntityType.KEY.value,
-    "Team": Litellm_EntityType.TEAM.value,
-    "TeamMember": Litellm_EntityType.TEAM_MEMBER.value,
-    "User": Litellm_EntityType.USER.value,
-    "EndUser": Litellm_EntityType.END_USER.value,
-    "Tag": Litellm_EntityType.TAG.value,
-    "Model access group": Litellm_EntityType.MODEL_ACCESS_GROUP.value,
-    "Organization": Litellm_EntityType.ORGANIZATION.value,
-    "Project": Litellm_EntityType.PROJECT.value,
+    "Key": Embrouter_EntityType.KEY.value,
+    "Team": Embrouter_EntityType.TEAM.value,
+    "TeamMember": Embrouter_EntityType.TEAM_MEMBER.value,
+    "User": Embrouter_EntityType.USER.value,
+    "EndUser": Embrouter_EntityType.END_USER.value,
+    "Tag": Embrouter_EntityType.TAG.value,
+    "Model access group": Embrouter_EntityType.MODEL_ACCESS_GROUP.value,
+    "Organization": Embrouter_EntityType.ORGANIZATION.value,
+    "Project": Embrouter_EntityType.PROJECT.value,
 }
 
 
@@ -113,7 +113,7 @@ def _start_reservation_lease_renewal(budget_reservation: Mapping[str, object], c
     """A reservation lives inside spend counter keys that expire on their Redis TTL. Renew the TTL
     while the request is in flight so a request longer than the TTL does not drop its
     reservation and admit concurrent requests against the DB floor on any worker."""
-    from litellm.proxy.proxy_server import spend_counter_cache
+    from embrouter.proxy.proxy_server import spend_counter_cache
 
     if spend_counter_cache.redis_cache is None or not counter_keys:
         return
@@ -137,9 +137,9 @@ async def _renew_reservation_lease(
 ) -> None:
     """Stops on finalization or once the request task that took the reservation is gone, so a
     disconnect path that skipped reconciliation falls back to the plain counter TTL."""
-    from litellm.proxy.proxy_server import refresh_spend_counter_ttl
+    from embrouter.proxy.proxy_server import refresh_spend_counter_ttl
 
-    deadline: Final = time.monotonic() + litellm.request_timeout
+    deadline: Final = time.monotonic() + embrouter.request_timeout
     while time.monotonic() < deadline:
         await asyncio.sleep(interval)
         if budget_reservation.get("finalized") is True or (request_task is not None and request_task.done()):
@@ -207,7 +207,7 @@ def _raise_counter_budget_exceeded(
     estimated_cost: float | None = None,
 ) -> NoReturn:
     estimate_detail: Final = "" if estimated_cost is None else f"Estimated request cost: {estimated_cost}, "
-    raise litellm.BudgetExceededError(
+    raise embrouter.BudgetExceededError(
         current_cost=current_cost,
         max_budget=counter.max_budget,
         message=(
@@ -250,8 +250,8 @@ async def reserve_budget_for_request(
     route: str,
     llm_router: Router | None,
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
@@ -432,7 +432,7 @@ async def invalidate_budget_reservation_counters(
     if budget_reservation is None:
         return
 
-    from litellm.proxy.proxy_server import _invalidate_spend_counter
+    from embrouter.proxy.proxy_server import _invalidate_spend_counter
 
     for counter_key in get_reserved_counter_keys(budget_reservation=budget_reservation):
         await _invalidate_spend_counter(counter_key=counter_key)
@@ -468,7 +468,7 @@ async def release_or_invalidate_budget_reservation(
 async def release_unbound_budget_reservation(budget_reservation: Mapping[str, object]) -> None:
     """Release a reservation no logging callback took ownership of, once the request ended.
 
-    A handler whose litellm call never builds a logging object (batch cancel, file
+    A handler whose embrouter call never builds a logging object (batch cancel, file
     content, anything without the client decorator) runs no cost callback, so nothing
     else would ever reconcile its reservation. A bound reservation is left alone: its
     success or failure handler settles it, possibly after the response has been sent.
@@ -481,8 +481,8 @@ async def release_unbound_budget_reservation(budget_reservation: Mapping[str, ob
 async def _get_budget_counters(
     request_body: dict,
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
@@ -623,7 +623,7 @@ async def _get_end_user_budget_counter(
     if end_user_object is not None:
         fallback_spend = _to_float(_get_value(end_user_object, "spend")) or 0.0
         if max_budget is None:
-            budget_table: Final = _get_value(end_user_object, "litellm_budget_table")
+            budget_table: Final = _get_value(end_user_object, "embrouter_budget_table")
             max_budget = _to_float(_get_value(budget_table, "max_budget"))
 
     if max_budget is None or max_budget <= 0:
@@ -645,8 +645,8 @@ async def _get_tag_budget_counters(
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
 ) -> list[_BudgetCounter]:
-    from litellm.proxy.auth.auth_checks import get_tag_objects_batch
-    from litellm.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
+    from embrouter.proxy.auth.auth_checks import get_tag_objects_batch
+    from embrouter.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
 
     tag_names: Final = _dedupe_tags(get_tags_from_request_body(request_body=request_body))
     if not tag_names:
@@ -664,7 +664,7 @@ async def _get_tag_budget_counters(
         tag_object = tag_objects.get(tag_name)
         if tag_object is None:
             continue
-        budget_table = _get_value(tag_object, "litellm_budget_table")
+        budget_table = _get_value(tag_object, "embrouter_budget_table")
         max_budget = _to_float(_get_value(budget_table, "max_budget"))
         if max_budget is None or max_budget <= 0:
             continue
@@ -692,7 +692,7 @@ async def _get_model_access_group_budget_counters(
     resolved which granted groups serve the requested model, and re-deriving that here would both
     duplicate the walk and risk disagreeing with what the spend writer attributes.
     """
-    from litellm.proxy.auth.auth_checks import get_model_access_group_budgets_batch
+    from embrouter.proxy.auth.auth_checks import get_model_access_group_budgets_batch
 
     group_names: Final = tuple(dict.fromkeys(valid_token.matched_model_access_groups or ()))
     if not group_names:
@@ -734,8 +734,8 @@ def _dedupe_tags(tags: list[str]) -> list[str]:
 
 async def _get_team_member_budget_counter(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
     user_api_key_cache: UserApiKeyCache,
 ) -> _BudgetCounter | None:
     if team_object is None or team_object.team_id is None or user_object is None or valid_token.user_id is None:
@@ -745,13 +745,13 @@ async def _get_team_member_budget_counter(
         user_id=valid_token.user_id, team_id=team_object.team_id
     )
     cached_team_membership: Final = await user_api_key_cache.async_get_cache(key=membership_cache_key)
-    team_membership: LiteLLM_TeamMembership | None = None
-    if isinstance(cached_team_membership, LiteLLM_TeamMembership):
+    team_membership: EmbRouter_TeamMembership | None = None
+    if isinstance(cached_team_membership, EmbRouter_TeamMembership):
         team_membership = cached_team_membership
     elif isinstance(cached_team_membership, dict):
-        team_membership = LiteLLM_TeamMembership(**cached_team_membership)
+        team_membership = EmbRouter_TeamMembership(**cached_team_membership)
 
-    member_budget_row: Final = team_membership.litellm_budget_table if team_membership is not None else None
+    member_budget_row: Final = team_membership.embrouter_budget_table if team_membership is not None else None
     now: Final = datetime.now(timezone.utc)
     team_member_budget: float | None = None
     if member_budget_row is not None and member_budget_row.max_budget is not None:
@@ -771,7 +771,7 @@ async def _get_team_member_budget_counter(
     if team_member_budget is None or team_member_budget <= 0:
         return None
 
-    team_member_spend = cast(LiteLLM_TeamMembership, team_membership).spend if team_membership is not None else 0.0
+    team_member_spend = cast(EmbRouter_TeamMembership, team_membership).spend if team_membership is not None else 0.0
     return _BudgetCounter(
         counter_key=f"spend:team_member:{valid_token.user_id}:{team_object.team_id}",
         source_cache_key=membership_cache_key,
@@ -784,7 +784,7 @@ async def _get_team_member_budget_counter(
 
 async def _get_org_budget_counter(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     user_api_key_cache: UserApiKeyCache,
 ) -> _BudgetCounter | None:
     org_id: str | None = None
@@ -801,7 +801,7 @@ async def _get_org_budget_counter(
     if org_table is None:
         return None
 
-    org_budget_table: Final = _get_value(org_table, "litellm_budget_table")
+    org_budget_table: Final = _get_value(org_table, "embrouter_budget_table")
     if org_budget_table is None:
         return None
 
@@ -832,7 +832,7 @@ async def _get_project_budget_counter(
     if project_object is None:
         return None
 
-    project_budget_table: Final = _get_value(project_object, "litellm_budget_table")
+    project_budget_table: Final = _get_value(project_object, "embrouter_budget_table")
     if project_budget_table is None:
         return None
 
@@ -935,7 +935,7 @@ async def _reservation_counter_loaded(counter: _BudgetCounter, fail_closed_budge
 
 
 async def _initialize_reservation_counter(counter: _BudgetCounter) -> None:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _ensure_spend_counter_initialized,
         _ensure_window_spend_counter_initialized,
         _invalidate_spend_counter,
@@ -1052,7 +1052,7 @@ async def _reserve_counters(
 ) -> tuple[float | None, ...] | None:
     """One INCRBYFLOAT pipeline reserves every counter. When it fails each counter is dropped, and one that cannot
     be dropped is released instead in case its increment landed, so nothing is left to release by the caller."""
-    from litellm.proxy.proxy_server import _invalidate_spend_counter, run_spend_counter_pipeline
+    from embrouter.proxy.proxy_server import _invalidate_spend_counter, run_spend_counter_pipeline
 
     if not counters:
         return ()
@@ -1087,7 +1087,7 @@ async def _reserve_counters(
 
 
 async def _get_current_counter_value(counter: _BudgetCounter) -> float:
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     return await get_current_spend(
         counter_key=counter.counter_key,
@@ -1097,7 +1097,7 @@ async def _get_current_counter_value(counter: _BudgetCounter) -> float:
 
 def _counters_batch_scope(counter_keys: frozenset[str]) -> spend_counter_batch_scope:
     """Each counter is read once, then written, so one MGET up front serves every read in the loop."""
-    from litellm.proxy.proxy_server import spend_counter_cache
+    from embrouter.proxy.proxy_server import spend_counter_cache
 
     return spend_counter_batch_scope(spend_counter_cache.redis_cache, counter_keys=counter_keys)
 
@@ -1137,7 +1137,7 @@ async def _set_reserved_entries_actual_cost(
     """Every reserved counter is read from one MGET and the consistent adjustments go out in one pipeline, or are
     returned unwritten when ``apply_consistent`` is False. A counter that was flushed or reseeded since reservation
     is settled on its own after the pipeline."""
-    from litellm.proxy.proxy_server import increment_spend_counters_pipeline
+    from embrouter.proxy.proxy_server import increment_spend_counters_pipeline
 
     with _counters_batch_scope(frozenset(str(entry["counter_key"]) for entry in entries if "counter_key" in entry)):
         adjustments: Final = tuple(
@@ -1180,7 +1180,7 @@ async def _reseed_reserved_entry(item: _EntryAdjustment, actual_cost: float) -> 
     reconcile: the optimistic delta no longer applies, so reseed from the DB floor and add the settled cost, since
     increment_spend_counters skips reserved keys. The reconcile runs before this request's spend is enqueued to the
     DB, so the reseeded floor excludes it."""
-    from litellm.proxy.proxy_server import _increment_spend_counter_cache, reseed_spend_counter_from_db
+    from embrouter.proxy.proxy_server import _increment_spend_counter_cache, reseed_spend_counter_from_db
 
     reseeded: Final = await reseed_spend_counter_from_db(counter_key=item.counter_key)
     if reseeded and actual_cost > 0:
@@ -1191,7 +1191,7 @@ async def _counter_can_apply_adjustment(
     counter_key: str,
     adjustment: float,
 ) -> bool:
-    from litellm.proxy.proxy_server import read_spend_counter_cache_value
+    from embrouter.proxy.proxy_server import read_spend_counter_cache_value
 
     try:
         current_value, _ = await read_spend_counter_cache_value(counter_key=counter_key)
@@ -1220,7 +1220,7 @@ async def _release_applied_entries_best_effort(
             if counter_key is None:
                 continue
             try:
-                from litellm.proxy.proxy_server import _invalidate_spend_counter
+                from embrouter.proxy.proxy_server import _invalidate_spend_counter
 
                 await _invalidate_spend_counter(counter_key=counter_key)
             except Exception:
@@ -1525,7 +1525,7 @@ def _get_model_cost_info(
         model_group_info: Final = llm_router.cached_model_group_info(model)
         if model_group_info is not None:
             return model_group_info.model_dump()
-    return dict(litellm.get_model_info(model=model))
+    return dict(embrouter.get_model_info(model=model))
 
 
 def _get_model_cost_infos(
@@ -1561,7 +1561,7 @@ def _deployment_tiered_pricing_table(
     llm_router: Router,
 ) -> Sequence[Mapping[str, object]] | None:
     model_id: Final = _get_value(_get_value(deployment, "model_info"), "id")
-    backend_model: Final = _get_value(_get_value(deployment, "litellm_params"), "model")
+    backend_model: Final = _get_value(_get_value(deployment, "embrouter_params"), "model")
     if not isinstance(model_id, str) or not isinstance(backend_model, str):
         return None
     deployment_model_info: Final = llm_router.cached_deployment_model_info(model_id, backend_model)

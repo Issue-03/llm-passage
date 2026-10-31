@@ -6,28 +6,28 @@ from urllib.parse import unquote
 import httpx
 from openai.types.responses import EasyInputMessageParam, ResponseInputContentParam, ResponseInputItemParam
 
-from litellm.llms.fireworks_ai.common_utils import (
+from embrouter.llms.fireworks_ai.common_utils import (
     resolve_fireworks_api_key,
     resolve_fireworks_resource_name,
     with_fireworks_session_affinity,
 )
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import ResponseInputParam
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import ResponseInputParam
+from embrouter.types.responses.main import DeleteResponseResult
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 FIREWORKS_AI_DEFAULT_API_BASE: Final = "https://api.fireworks.ai/inference/v1"
 
 
-def _session_params(litellm_params: GenericLiteLLMParams) -> Mapping[str, object]:
-    extras: Final[Mapping[str, object]] = litellm_params.model_extra or MappingProxyType({})
+def _session_params(embrouter_params: GenericEmbRouterParams) -> Mapping[str, object]:
+    extras: Final[Mapping[str, object]] = embrouter_params.model_extra or MappingProxyType({})
     return MappingProxyType(
-        {"litellm_session_id": extras.get("litellm_session_id"), "metadata": extras.get("litellm_metadata")}
+        {"embrouter_session_id": extras.get("embrouter_session_id"), "metadata": extras.get("embrouter_metadata")}
     )
 
 
@@ -126,9 +126,9 @@ class FireworksAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         headers: Mapping[str, str],
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:  # mutable-ok: overrides the base class signature
-        params: Final = litellm_params or GenericLiteLLMParams()
+        params: Final = embrouter_params or GenericEmbRouterParams()
         api_key: Final = resolve_fireworks_api_key(params.api_key)
         if api_key is None:
             raise ValueError("FIREWORKS_API_KEY is not set")
@@ -138,7 +138,7 @@ class FireworksAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         pinned: Final = with_fireworks_session_affinity(authorized, _session_params(params))
         return dict(pinned)  # mutable-ok: the HTTP handler updates the returned headers in place
 
-    def get_complete_url(self, api_base: str | None, litellm_params: Mapping[str, object]) -> str:
+    def get_complete_url(self, api_base: str | None, embrouter_params: Mapping[str, object]) -> str:
         base: Final = (api_base or get_secret_str("FIREWORKS_API_BASE") or FIREWORKS_AI_DEFAULT_API_BASE).rstrip("/")
         return f"{base}/responses"
 
@@ -147,7 +147,7 @@ class FireworksAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,  # mutable-ok: overrides the base class signature
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: overrides the base class signature
     ) -> dict:  # mutable-ok: overrides the base class signature
         instructions_param: Final[object] = response_api_optional_request_params.get("instructions")
@@ -169,14 +169,14 @@ class FireworksAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
             model=resolve_fireworks_resource_name(model),
             input=folded_input,
             response_api_optional_request_params=folded_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
     def transform_delete_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> DeleteResponseResult:
         deleted_id: Final = unquote(raw_response.request.url.path.rsplit("/", 1)[-1])
         return DeleteResponseResult(id=deleted_id, object="response", deleted=True)

@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import ModelResponse
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import CONVERTED_SYSTEM_NOTE
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.types.llms.bedrock import ConverseTokenUsageBlock
+import embrouter
+from embrouter import ModelResponse
+from embrouter.embrouter_core_utils.prompt_templates.mid_conversation_system import CONVERTED_SYSTEM_NOTE
+from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from embrouter.types.llms.bedrock import ConverseTokenUsageBlock
 
 
 def test_transform_usage():
@@ -115,8 +115,8 @@ def test_transform_usage_without_cache_details_stays_none():
 def test_bedrock_converse_1h_cache_write_billed_at_1h_rate(monkeypatch):
     """Regression for issue #36760: without the cacheDetails split, the whole
     write is billed at the (cheaper) 5m rate."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
     usage = ConverseTokenUsageBlock(
         **{
             "inputTokens": 16,
@@ -129,8 +129,8 @@ def test_bedrock_converse_1h_cache_write_billed_at_1h_rate(monkeypatch):
     )
     openai_usage = AmazonConverseConfig().transform_usage(usage)
     model = "bedrock/converse/global.anthropic.claude-opus-4-8"
-    prompt_cost, completion_cost = litellm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
-    model_info = litellm.get_model_info(model=model)
+    prompt_cost, completion_cost = embrouter.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
+    model_info = embrouter.get_model_info(model=model)
     expected_prompt_cost = (
         16 * model_info["input_cost_per_token"] + 11632 * model_info["cache_creation_input_token_cost_above_1hr"]
     )
@@ -199,8 +199,8 @@ def test_transform_usage_reads_invoke_model_count_suffixed_cache_keys(
 def test_bedrock_invoke_nova_cache_read_billed_at_discounted_rate(monkeypatch):
     """Nova cache reads are billed at the entry's discounted cache read rate; without a
     ``cache_read_input_token_cost`` entry the cached tokens were billed at nothing."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
     usage = ConverseTokenUsageBlock(
         **{
             "inputTokens": 5,
@@ -212,8 +212,8 @@ def test_bedrock_invoke_nova_cache_read_billed_at_discounted_rate(monkeypatch):
     )
     openai_usage = AmazonConverseConfig().transform_usage(usage)
     model = "bedrock/invoke/us.amazon.nova-pro-v1:0"
-    prompt_cost, completion_cost = litellm.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
-    model_info = litellm.get_model_info(model=model)
+    prompt_cost, completion_cost = embrouter.cost_calculator.cost_per_token(model=model, usage_object=openai_usage)
+    model_info = embrouter.get_model_info(model=model)
     assert 0 < model_info["cache_read_input_token_cost"] < model_info["input_cost_per_token"]
     assert prompt_cost == pytest.approx(
         5 * model_info["input_cost_per_token"] + 12262 * model_info["cache_read_input_token_cost"]
@@ -346,7 +346,7 @@ def test_transform_thinking_blocks_with_redacted_content():
 
 
 def test_apply_tool_call_transformation_if_needed():
-    from litellm.types.utils import Message
+    from embrouter.types.utils import Message
 
     config = AmazonConverseConfig()
     tool_calls = [
@@ -378,7 +378,7 @@ def test_apply_tool_call_transformation_if_needed():
 
 
 def test_transform_tool_call_with_cache_control():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     config = AmazonConverseConfig()
 
@@ -410,7 +410,7 @@ def test_transform_tool_call_with_cache_control():
         model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -629,7 +629,7 @@ def test_output_config_effort_forwarded_into_additional_request_fields(model):
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "high"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -668,7 +668,7 @@ def test_thinking_request_adds_output_tokens_details_response_path():
             "thinking": {"type": "adaptive", "display": "summarized"},
             "output_config": {"effort": "high"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -682,7 +682,7 @@ def test_request_without_thinking_omits_response_field_paths():
         model="bedrock/converse/us.anthropic.claude-opus-4-7",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"maxTokens": 256},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -785,7 +785,7 @@ def test_output_config_effort_forwarded_for_application_inference_profile_arn():
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "max"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -813,7 +813,7 @@ def test_output_config_format_translated_to_native_output_config_converse():
                 "format": {"type": "json_schema", "schema": schema},
             },
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -854,7 +854,7 @@ def test_output_config_format_dropped_on_unsupported_converse_model_warns(caplog
                         "format": {"type": "json_schema", "schema": schema},
                     },
                 },
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -883,7 +883,7 @@ def test_output_config_normalized_marker_does_not_leak_into_optional_params():
         model="bedrock/converse/us.anthropic.claude-opus-4-6-v1",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -912,7 +912,7 @@ def test_output_config_effort_normalized_for_bedrock_converse_opus(
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": "xhigh"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -928,7 +928,7 @@ def test_reasoning_effort_garbage_raises_bad_request_converse(effort):
     """Unmapped reasoning_effort on Bedrock Converse Anthropic raises BadRequestError."""
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         config.map_openai_params(
             non_default_params={"reasoning_effort": effort},
             optional_params={},
@@ -958,7 +958,7 @@ def test_output_config_effort_max_passes_through_on_sonnet_46_variants(model):
             "maxTokens": 256,
             "output_config": {"effort": "max"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1013,8 +1013,8 @@ def test_bedrock_deepseek_v3_advertises_reasoning_effort(model):
 def test_bedrock_deepseek_thinking_raises_without_drop_params(model):
     """Passing `thinking` to Bedrock DeepSeek must fail client-side with a clear
     UnsupportedParamsError instead of leaking through to Bedrock."""
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.utils.get_optional_params(
+    with pytest.raises(embrouter.UnsupportedParamsError):
+        embrouter.utils.get_optional_params(
             model=model,
             custom_llm_provider="bedrock",
             thinking={"type": "enabled", "budget_tokens": 1024},
@@ -1022,8 +1022,8 @@ def test_bedrock_deepseek_thinking_raises_without_drop_params(model):
 
 
 def test_bedrock_deepseek_r1_reasoning_effort_raises_without_drop_params():
-    with pytest.raises(litellm.UnsupportedParamsError):
-        litellm.utils.get_optional_params(
+    with pytest.raises(embrouter.UnsupportedParamsError):
+        embrouter.utils.get_optional_params(
             model="us.deepseek.r1-v1:0",
             custom_llm_provider="bedrock",
             reasoning_effort="high",
@@ -1034,7 +1034,7 @@ def test_bedrock_deepseek_r1_reasoning_effort_raises_without_drop_params():
 def test_bedrock_deepseek_thinking_dropped_does_not_leak_into_request(model):
     """With drop_params, `thinking` is dropped rather than forwarded into
     additionalModelRequestFields for Bedrock DeepSeek."""
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = embrouter.utils.get_optional_params(
         model=model,
         custom_llm_provider="bedrock",
         thinking={"type": "enabled", "budget_tokens": 1024},
@@ -1047,7 +1047,7 @@ def test_bedrock_deepseek_thinking_dropped_does_not_leak_into_request(model):
         model=f"bedrock/converse/{model}",
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "thinking" not in (request.get("additionalModelRequestFields") or {})
@@ -1075,7 +1075,7 @@ def test_bedrock_deepseek_r1_reasoning_params_not_forwarded_by_map(param):
         model=model,
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert request.get("additionalModelRequestFields") is None
@@ -1098,7 +1098,7 @@ def test_bedrock_deepseek_v3_reasoning_effort_forwarded_raw():
         model=model,
         messages=[{"role": "user", "content": "Say hi in one word."}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert request["additionalModelRequestFields"] == {"reasoning_effort": "high"}
@@ -1167,10 +1167,10 @@ def test_get_supported_openai_params_bedrock_converse():
     Test that all documented bedrock converse models have the same set of supported openai params when using
     `bedrock/converse/` or `bedrock/` prefix.
 
-    Note: This test is critical for routing, if we ever remove `litellm.BEDROCK_CONVERSE_MODELS`,
+    Note: This test is critical for routing, if we ever remove `embrouter.BEDROCK_CONVERSE_MODELS`,
     please update this test to read `bedrock_converse` models from the model cost map.
     """
-    for model in litellm.BEDROCK_CONVERSE_MODELS:
+    for model in embrouter.BEDROCK_CONVERSE_MODELS:
         print(f"Testing model: {model}")
         config = AmazonConverseConfig()
         supported_params_without_prefix = config.get_supported_openai_params(
@@ -1223,12 +1223,12 @@ def test_tool_config_cachepoint_is_credited_only_where_it_is_placed(tools, model
         system_content_blocks=[],
         optional_params=optional_params,
         messages=[{"role": "user", "content": "hi"}],
-        litellm_params={"metadata": bucket, "litellm_metadata": None, "model_info": {"id": "dep-bedrock"}},
+        embrouter_params={"metadata": bucket, "embrouter_metadata": None, "model_info": {"id": "dep-bedrock"}},
     )
 
     placed = "cachePoint" in json.dumps(data.get("toolConfig", {}))
     assert placed is (expected_marker is not None)
-    assert bucket.get("litellm_gateway_injected_cache") == expected_marker
+    assert bucket.get("embrouter_gateway_injected_cache") == expected_marker
 
 
 def test_transform_request_helper_includes_anthropic_beta_and_tools():
@@ -1315,10 +1315,10 @@ def test_client_metadata_stripped_from_converse_request(model):
 
 
 def test_parallel_tool_calls_config_kept_for_sonnet_5(monkeypatch):
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         optional_params = config.map_openai_params(
@@ -1340,11 +1340,11 @@ def test_parallel_tool_calls_config_kept_for_sonnet_5(monkeypatch):
             "disable_parallel_tool_use": True,
         }
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
@@ -1352,7 +1352,7 @@ def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
 ):
     model = "anthropic.claude-fable-5"
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         model,
         {"cache_creation_input_token_cost_above_1hr": 2e-05},
     )
@@ -1377,8 +1377,8 @@ def test_parallel_tool_calls_config_dropped_for_ttl_only_model(
 def test_transform_response_with_computer_use_tool():
     """Test response transformation with computer use tool call."""
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a computer-use tool call
     response_json = {
@@ -1467,8 +1467,8 @@ def test_transform_response_with_computer_use_tool():
 def test_transform_response_with_bash_tool():
     """Test response transformation with bash tool call."""
 
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -1546,8 +1546,8 @@ def test_transform_response_with_bash_tool():
 
 def test_transform_response_with_structured_response_being_called():
     """Test response transformation with structured response."""
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -1666,8 +1666,8 @@ def test_transform_response_with_structured_response_being_called():
 
 def test_transform_response_with_structured_response_calling_tool():
     """Test response transformation with structured response."""
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     # Simulate a Bedrock Converse response with a bash tool call
     response_json = {
@@ -1800,11 +1800,11 @@ def _mock_converse_response() -> MagicMock:
 
 
 async def _acompletion_captured_request_body(tools: list, messages: list) -> dict:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     client = AsyncHTTPHandler()
     with patch.object(client, "post", return_value=_mock_converse_response()) as mock_post:
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             tools=tools,
@@ -1908,7 +1908,7 @@ async def test_transformation_directly():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2012,7 +2012,7 @@ def test_transform_request_with_multiple_tools():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2072,7 +2072,7 @@ def test_transform_request_with_computer_tool_only():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2108,7 +2108,7 @@ def test_transform_request_with_bash_tool_only():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2144,7 +2144,7 @@ def test_transform_request_with_text_editor_tool():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2196,7 +2196,7 @@ def test_transform_request_with_function_tool():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"tools": tools},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2276,7 +2276,7 @@ def test_map_openai_params_with_response_format():
 @pytest.mark.asyncio
 async def test_assistant_message_cache_control():
     """Test that assistant messages with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2333,7 +2333,7 @@ async def test_assistant_message_cache_control():
 @pytest.mark.asyncio
 async def test_assistant_message_list_content_cache_control():
     """Test assistant messages with list content and cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2379,7 +2379,7 @@ async def test_assistant_message_list_content_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_cache_control():
     """Test that tool messages with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2448,7 +2448,7 @@ async def test_tool_message_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_string_content_cache_control():
     """Test tool messages with string content and message-level cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2509,7 +2509,7 @@ async def test_tool_message_string_content_cache_control():
 @pytest.mark.asyncio
 async def test_tool_message_search_results_maps_to_bedrock_search_result_block():
     """OpenAI tool message search_results should map to Bedrock searchResult blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2533,14 +2533,14 @@ async def test_tool_message_search_results_maps_to_bedrock_search_result_block()
         {
             "role": "tool",
             "tool_call_id": "tooluse_a4rBqeZNRTKj2lTskvaO4H",
-            "content": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM",
+            "content": "Apptio is a company that makes calls to Bedrock using passthrough APIs via EmbRouter",
             "search_results": [
                 {
                     "source": "Great Source of Information About Apptio",
                     "title": "12adbd74-46bd-4a88-88b2-0048755f6eb5",
                     "content": [
                         {
-                            "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"
+                            "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via EmbRouter"
                         }
                     ],
                     "citations": {"enabled": True},
@@ -2577,7 +2577,7 @@ async def test_tool_message_search_results_maps_to_bedrock_search_result_block()
 @pytest.mark.asyncio
 async def test_tool_message_empty_search_results_falls_back_to_content():
     """Empty search_results must not skip normal tool content processing."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2625,8 +2625,8 @@ async def test_tool_message_empty_search_results_falls_back_to_content():
 
 
 def test_transform_response_omits_annotations_when_citations_not_stitched():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -2695,11 +2695,11 @@ def test_transform_response_omits_annotations_when_citations_not_stitched():
 
 
 def test_extract_search_results_text_counts_hidden_tool_payload():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         convert_content_list_to_str,
         extract_search_results_text,
     )
-    from litellm.litellm_core_utils.token_counter import token_counter
+    from embrouter.embrouter_core_utils.token_counter import token_counter
 
     hidden = "x" * 500
     message = {
@@ -2748,7 +2748,7 @@ def test_extract_search_results_text_counts_hidden_tool_payload():
 @pytest.mark.asyncio
 async def test_assistant_tool_calls_cache_control():
     """Test that assistant tool_calls with cache_control generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2802,7 +2802,7 @@ async def test_assistant_tool_calls_cache_control():
 @pytest.mark.asyncio
 async def test_multiple_tool_calls_with_mixed_cache_control():
     """Test multiple tool calls where only some have cache_control."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2865,7 +2865,7 @@ async def test_multiple_tool_calls_with_mixed_cache_control():
 @pytest.mark.asyncio
 async def test_no_cache_control_no_cache_point():
     """Test that messages without cache_control don't generate cachePoint blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -2914,7 +2914,7 @@ async def test_no_cache_control_no_cache_point():
 
 def test_guarded_text_wraps_in_guardrail_converse_content():
     """Test that guarded_text content type gets wrapped in guardContent blocks."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -2985,7 +2985,7 @@ def test_guarded_text_with_system_messages():
         model="us.amazon.nova-pro-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3017,7 +3017,7 @@ def test_guarded_text_with_system_messages():
 
 def test_guarded_text_with_mixed_content_types():
     """Test guarded_text with mixed content types including images."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3070,7 +3070,7 @@ def test_guarded_text_with_mixed_content_types():
 @pytest.mark.asyncio
 async def test_async_guarded_text():
     """Test async version of guarded_text processing."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
     )
 
@@ -3109,7 +3109,7 @@ async def test_async_guarded_text():
 
 def test_guarded_text_with_tool_calls():
     """Test guarded_text with tool calls in the conversation."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3196,7 +3196,7 @@ def test_guarded_text_guardrail_config_preserved():
         model="us.amazon.nova-pro-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3396,7 +3396,7 @@ def test_auto_convert_in_full_transformation():
         model="anthropic.claude-3-sonnet-20240229-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3590,7 +3590,7 @@ def test_request_metadata_transformation():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": request_metadata},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3616,7 +3616,7 @@ def test_request_metadata_validation():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3628,7 +3628,7 @@ def test_request_metadata_validation():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": too_many_items},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     e = exc_info.value
@@ -3650,7 +3650,7 @@ def test_request_metadata_key_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -3662,7 +3662,7 @@ def test_request_metadata_key_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -3682,7 +3682,7 @@ def test_request_metadata_value_constraints():
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=messages,
             optional_params={"requestMetadata": invalid_metadata},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -3694,7 +3694,7 @@ def test_request_metadata_value_constraints():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3717,7 +3717,7 @@ def test_request_metadata_character_pattern():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": valid_metadata},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3757,7 +3757,7 @@ def test_request_metadata_with_other_params():
             "max_tokens": 100,
             "temperature": 0.7,
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3782,7 +3782,7 @@ def test_request_metadata_empty():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={"requestMetadata": {}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3801,7 +3801,7 @@ def test_request_metadata_not_provided():
         model="anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3815,9 +3815,9 @@ def test_empty_assistant_message_handling():
     empty or whitespace-only content with a placeholder to prevent AWS Bedrock
     Converse API 400 Bad Request errors.
     """
-    # Import the litellm module that factory.py uses to ensure we patch the correct reference
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    # Import the embrouter module that factory.py uses to ensure we patch the correct reference
+    import embrouter.embrouter_core_utils.prompt_templates.factory as factory_module
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3828,9 +3828,9 @@ def test_empty_assistant_message_handling():
         {"role": "user", "content": "How are you?"},
     ]
 
-    # Use patch to ensure we modify the litellm reference that factory.py actually uses
+    # Use patch to ensure we modify the embrouter reference that factory.py actually uses
     # This avoids issues with module reloading during parallel test execution
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.embrouter, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=messages,
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -3908,8 +3908,8 @@ def test_empty_assistant_message_handling():
 
 def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
     """Assistant prefill (prefix: true) must not inject a dummy user 'Please continue.' turn."""
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import embrouter.embrouter_core_utils.prompt_templates.factory as factory_module
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3922,7 +3922,7 @@ def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
         },
     ]
 
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.embrouter, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=list(messages),
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -3937,8 +3937,8 @@ def test_bedrock_converse_trailing_prefix_assistant_skips_user_continue():
 
 def test_bedrock_converse_leading_prefix_assistant_skips_user_continue():
     """Leading assistant with prefix: true should not prepend dummy user."""
-    import litellm.litellm_core_utils.prompt_templates.factory as factory_module
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import embrouter.embrouter_core_utils.prompt_templates.factory as factory_module
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -3947,7 +3947,7 @@ def test_bedrock_converse_leading_prefix_assistant_skips_user_continue():
         {"role": "user", "content": "Go on"},
     ]
 
-    with patch.object(factory_module.litellm, "modify_params", True):
+    with patch.object(factory_module.embrouter, "modify_params", True):
         result = _bedrock_converse_messages_pt(
             messages=list(messages),
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -4042,7 +4042,7 @@ def test_thinking_with_max_completion_tokens():
     assert result["thinking"]["budget_tokens"] == 5000
 
     # Test case 3: Neither max_tokens nor max_completion_tokens specified - should set maxTokens automatically
-    from litellm.constants import DEFAULT_MAX_TOKENS
+    from embrouter.constants import DEFAULT_MAX_TOKENS
 
     non_default_params_without_max = {
         "thinking": {"type": "enabled", "budget_tokens": 5000},
@@ -4075,15 +4075,15 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
 
 
     """
-    from litellm.utils import last_assistant_with_tool_calls_has_no_thinking_blocks
+    from embrouter.utils import last_assistant_with_tool_calls_has_no_thinking_blocks
 
     # Save original modify_params setting
-    original_modify_params = litellm.modify_params
+    original_modify_params = embrouter.modify_params
 
     try:
         # Test case 1: thinking should be dropped when modify_params=True
         # and assistant message has tool_calls but no thinking_blocks
-        litellm.modify_params = True
+        embrouter.modify_params = True
 
         messages_without_thinking_blocks = [
             {"role": "user", "content": "Search for weather"},
@@ -4117,7 +4117,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
                 messages_without_thinking_blocks
             )
         ):
-            if litellm.modify_params:
+            if embrouter.modify_params:
                 optional_params.pop("thinking", None)
 
         assert (
@@ -4161,7 +4161,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
                 messages_with_thinking_blocks
             )
         ):
-            if litellm.modify_params:
+            if embrouter.modify_params:
                 optional_params_with_thinking.pop("thinking", None)
 
         assert (
@@ -4169,7 +4169,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
         ), "thinking param should NOT be dropped when thinking_blocks are present"
 
         # Test case 3: thinking should NOT be dropped when modify_params=False
-        litellm.modify_params = False
+        embrouter.modify_params = False
 
         optional_params_no_modify = {
             "thinking": {"type": "enabled", "budget_tokens": 1000}
@@ -4183,7 +4183,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
                 messages_without_thinking_blocks
             )
         ):
-            if litellm.modify_params:
+            if embrouter.modify_params:
                 optional_params_no_modify.pop("thinking", None)
 
         assert (
@@ -4192,7 +4192,7 @@ def test_drop_thinking_param_when_thinking_blocks_missing():
 
     finally:
         # Restore original modify_params setting
-        litellm.modify_params = original_modify_params
+        embrouter.modify_params = original_modify_params
 
 
 def test_create_output_config_for_response_format():
@@ -4232,10 +4232,10 @@ def test_create_output_config_for_response_format():
 
 def test_translate_response_format_native_output_config(monkeypatch):
     """For supported models, _translate_response_format_param should produce outputConfig."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
 
@@ -4286,11 +4286,11 @@ def test_translate_response_format_native_output_config(monkeypatch):
             == "WeatherResult"
         )
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 BEDROCK_OPUS_4_7_AND_4_8_MODELS: Final = (
@@ -4337,7 +4337,7 @@ def _converse_request_for_json_schema(model: str, stream: bool) -> tuple[dict, d
         model=model,
         messages=[{"role": "user", "content": "Name the capital of France."}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     return optional_params, request
@@ -4349,8 +4349,8 @@ def test_opus_4_7_and_4_8_json_schema_sent_as_forced_tool_not_output_config(monk
     """Regression for issue #27846: Bedrock rejects outputConfig on Opus 4.7 and 4.8
     (``output_config.format: Extra inputs are not permitted``), so json_schema has to
     go out as the forced json_tool_call tool, streamed through fake_stream."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
     optional_params, request = _converse_request_for_json_schema(model=model, stream=stream)
 
@@ -4361,8 +4361,8 @@ def test_opus_4_7_and_4_8_json_schema_sent_as_forced_tool_not_output_config(monk
 
 
 def test_sonnet_4_6_json_schema_still_uses_native_output_config(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
     optional_params, request = _converse_request_for_json_schema(model="us.anthropic.claude-sonnet-4-6", stream=True)
 
@@ -4405,10 +4405,10 @@ def test_translate_response_format_fallback_tool_call():
 
 def test_native_structured_output_no_fake_stream(monkeypatch):
     """When using native structured outputs with streaming, fake_stream should NOT be set."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
 
@@ -4449,16 +4449,16 @@ def test_native_structured_output_no_fake_stream(monkeypatch):
             "additionalProperties": False,
         }
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_transform_request_with_output_config():
     """Test that outputConfig flows through _transform_request_helper into the final request."""
-    from litellm.types.llms.bedrock import (
+    from embrouter.types.llms.bedrock import (
         JsonSchemaDefinition,
         OutputConfigBlock,
         OutputFormat,
@@ -4489,7 +4489,7 @@ def test_transform_request_with_output_config():
         model="anthropic.claude-sonnet-4-5-20250929-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4515,7 +4515,7 @@ def test_transform_request_strips_anthropic_output_config():
             "maxTokens": 64,
             "output_config": {"effort": "low"},
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4529,8 +4529,8 @@ def test_converse_drop_params_strips_output_config_for_pre_4_5_anthropic():
     config = AmazonConverseConfig()
     messages = [{"role": "user", "content": "hi"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config._transform_request(
             model="bedrock/converse/anthropic.claude-3-haiku-20240307-v1:0",
@@ -4539,11 +4539,11 @@ def test_converse_drop_params_strips_output_config_for_pre_4_5_anthropic():
                 "maxTokens": 256,
                 "output_config": {"effort": "low"},
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     additional = result.get("additionalModelRequestFields", {})
     assert "output_config" not in additional
@@ -4554,8 +4554,8 @@ def test_converse_drop_params_keeps_output_config_for_supporting_anthropic():
     config = AmazonConverseConfig()
     messages = [{"role": "user", "content": "hi"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config._transform_request(
             model="bedrock/converse/us.anthropic.claude-opus-4-7",
@@ -4565,11 +4565,11 @@ def test_converse_drop_params_keeps_output_config_for_supporting_anthropic():
                 "thinking": {"type": "adaptive"},
                 "output_config": {"effort": "high"},
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     additional = result.get("additionalModelRequestFields", {})
     assert additional.get("output_config") == {"effort": "high"}
@@ -4749,10 +4749,10 @@ def test_json_object_no_schema_skips_tool_injection(monkeypatch):
     a tool with an empty schema (properties: {}). The model follows the schema
     and returns {} instead of the requested JSON. Skipping tool injection lets
     the model respond naturally with the JSON the caller asked for."""
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         optional_params: dict = {}
@@ -4773,11 +4773,11 @@ def test_json_object_no_schema_skips_tool_injection(monkeypatch):
         assert "tool_choice" not in result
         assert result["json_mode"] is True
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_output_config_applies_additional_properties():
@@ -4840,7 +4840,7 @@ def test_parallel_tool_calls_newer_model_adds_disable_flag():
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4860,11 +4860,11 @@ def test_parallel_tool_calls_flag_decoupled_from_ttl_pricing(monkeypatch):
     The disable_parallel_tool_use gate must read supports_parallel_tool_use_config,
     not the 1h-TTL pricing field: a model carrying only the former still gets the flag.
     """
-    from litellm.llms.bedrock.common_utils import is_claude_4_5_on_bedrock
+    from embrouter.llms.bedrock.common_utils import is_claude_4_5_on_bedrock
 
     config = AmazonConverseConfig()
     model = "anthropic.claude-parallel-tool-use-only"
-    monkeypatch.setitem(litellm.model_cost, model, {"supports_parallel_tool_use_config": True})
+    monkeypatch.setitem(embrouter.model_cost, model, {"supports_parallel_tool_use_config": True})
     assert is_claude_4_5_on_bedrock(model) is False
     messages = [{"role": "user", "content": "What's the weather in SF and NYC?"}]
 
@@ -4879,7 +4879,7 @@ def test_parallel_tool_calls_flag_decoupled_from_ttl_pricing(monkeypatch):
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4908,7 +4908,7 @@ def test_parallel_tool_calls_older_model_drops_disable_flag():
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4937,7 +4937,7 @@ def test_parallel_tool_calls_emits_typed_auto_tool_choice(parallel_tool_calls, e
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4971,7 +4971,7 @@ def test_parallel_tool_calls_with_explicit_tool_choice_omits_conflicting_type(to
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4994,7 +4994,7 @@ def test_tool_choice_type_kept_when_no_tool_config_choice_conflicts():
         model=model,
         messages=[{"role": "user", "content": "What's the weather in SF and NYC?"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -5082,8 +5082,8 @@ def test_transform_response_with_both_json_tool_call_and_real_tool():
     only the real tool should remain in tool_calls. The json_tool_call should be filtered out.
 
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 200},
@@ -5173,8 +5173,8 @@ def test_transform_response_does_not_mutate_optional_params():
     Verify that optional_params still contains json_mode after _transform_response.
     Previously, .pop() was used which mutated the caller's dict.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 50},
@@ -5241,8 +5241,8 @@ def test_streaming_filters_json_tool_call_with_real_tools():
     Verify json_tool_call chunks are converted to text content while real tool
     chunks pass through normally.
     """
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-    from litellm.types.llms.bedrock import (
+    from embrouter.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from embrouter.types.llms.bedrock import (
         ContentBlockDeltaEvent,
         ContentBlockStartEvent,
     )
@@ -5303,8 +5303,8 @@ def test_streaming_without_json_mode_passes_all_tools():
     Verify backward compatibility: when json_mode=False, all tools
     (including json_tool_call if present) pass through unchanged.
     """
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-    from litellm.types.llms.bedrock import (
+    from embrouter.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from embrouter.types.llms.bedrock import (
         ContentBlockDeltaEvent,
         ContentBlockStartEvent,
     )
@@ -5364,7 +5364,7 @@ def test_cache_control_injection_tool_config():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
     )
     tool_config = result["toolConfig"]
     tools = tool_config["tools"]
@@ -5389,7 +5389,7 @@ def test_cache_control_injection_tool_config_no_tools():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
     )
     assert "toolConfig" not in result
 
@@ -5423,7 +5423,7 @@ def test_cache_control_injection_tool_config_not_added_without_injection_point()
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
     )
     tools = result["toolConfig"]["tools"]
     # No cachePoint should be appended
@@ -5438,14 +5438,14 @@ def test_cache_control_injection_tool_config_honors_ttl_for_supported_model(monk
     {"type": "default"} cachePoint with no ttl.
 
     Forces the bundled local cost map so `is_claude_4_5_on_bedrock` (which
-    reads `cache_creation_input_token_cost_above_1hr` from litellm.model_cost)
+    reads `cache_creation_input_token_cost_above_1hr` from embrouter.model_cost)
     sees this branch's pricing data rather than the network-fetched `main`
     copy, which lacks it until merge.
     """
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         config = AmazonConverseConfig()
         messages = [
@@ -5474,16 +5474,16 @@ def test_cache_control_injection_tool_config_honors_ttl_for_supported_model(monk
             model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
         )
         tools = result["toolConfig"]["tools"]
         assert tools[-1] == {"cachePoint": {"type": "default", "ttl": "1h"}}
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacking_own_pricing(monkeypatch):
@@ -5493,18 +5493,18 @@ def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacki
     must not shadow the base model entry that carries it; the requested ttl
     survives through the base-model fallback.
     """
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    cost_map = dict(litellm.get_model_cost_map(url=""))
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    cost_map = dict(embrouter.get_model_cost_map(url=""))
     cost_map["jp.anthropic.claude-opus-4-7"] = {
         k: v
         for k, v in cost_map["jp.anthropic.claude-opus-4-7"].items()
         if k != "cache_creation_input_token_cost_above_1hr"
     }
-    litellm.model_cost = cost_map
+    embrouter.model_cost = cost_map
     try:
-        assert "cache_creation_input_token_cost_above_1hr" in litellm.model_cost["anthropic.claude-opus-4-7"]
+        assert "cache_creation_input_token_cost_above_1hr" in embrouter.model_cost["anthropic.claude-opus-4-7"]
         config = AmazonConverseConfig()
         messages = [
             {"role": "user", "content": "What is the weather?"},
@@ -5532,16 +5532,16 @@ def test_cache_control_injection_tool_config_honors_ttl_for_regional_model_lacki
             model="jp.anthropic.claude-opus-4-7",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
         )
         tools = result["toolConfig"]["tools"]
         assert tools[-1] == {"cachePoint": {"type": "default", "ttl": "1h"}}
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_cache_control_injection_tool_config_drops_ttl_for_unsupported_model():
@@ -5577,7 +5577,7 @@ def test_cache_control_injection_tool_config_drops_ttl_for_unsupported_model():
         model="anthropic.claude-3-5-haiku-20241022-v1:0",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
     )
     tools = result["toolConfig"]["tools"]
     assert tools[-1] == {"cachePoint": {"type": "default"}}
@@ -5609,8 +5609,8 @@ def test_cache_points_emitted_only_for_models_that_support_prompt_caching(model,
     model without the capability must not receive them. Unmapped ids (application
     inference profile ARNs, models newer than the map) keep emitting so existing
     caching setups never silently degrade."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
     body = AmazonConverseConfig().transform_request(
         model=model,
@@ -5619,7 +5619,7 @@ def test_cache_points_emitted_only_for_models_that_support_prompt_caching(model,
             {"role": "user", "content": [{"type": "text", "text": "hi", "cache_control": {"type": "ephemeral"}}]},
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -5632,8 +5632,8 @@ def test_tool_config_cachepoint_not_placed_or_credited_for_model_without_prompt_
     """The tool_config injection point must stand down with the rest of the cachePoint
     emission when the model cannot cache, and spend attribution must not credit the
     gateway for a breakpoint that was never placed."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
     bucket: dict = {"user_api_key": "sk-test"}
     data = AmazonConverseConfig()._transform_request_helper(
@@ -5657,11 +5657,11 @@ def test_tool_config_cachepoint_not_placed_or_credited_for_model_without_prompt_
             "cache_control_injection_points": [{"location": "tool_config"}],
         },
         messages=[{"role": "user", "content": "hi"}],
-        litellm_params={"metadata": bucket, "litellm_metadata": None, "model_info": {"id": "dep-bedrock"}},
+        embrouter_params={"metadata": bucket, "embrouter_metadata": None, "model_info": {"id": "dep-bedrock"}},
     )
 
     assert "cachePoint" not in json.dumps(data.get("toolConfig", {}))
-    assert "litellm_gateway_injected_cache" not in bucket
+    assert "embrouter_gateway_injected_cache" not in bucket
 
 
 
@@ -5675,8 +5675,8 @@ def test_transform_response_finish_reason_stop_when_json_mode_filters_all_tools(
     After filtering, the response is plain JSON content and should not look
     like a pending tool invocation to callers.
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -5765,8 +5765,8 @@ def test_transform_response_finish_reason_stop_when_json_mode_filters_all_tools(
 
 
 def test_transform_response_citations_content_maps_to_annotations():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -5778,7 +5778,7 @@ def test_transform_response_citations_content_maps_to_annotations():
                         "citationsContent": {
                             "content": [
                                 {
-                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"
+                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via EmbRouter"
                                 }
                             ],
                             "citations": [
@@ -5849,8 +5849,8 @@ def test_transform_response_citations_content_maps_to_annotations():
 
 
 def test_transform_response_citation_null_source_title_become_empty_strings():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -5925,8 +5925,8 @@ def test_transform_response_citation_null_source_title_become_empty_strings():
 
 
 def test_transform_response_citations_offset_tracks_text_only_blocks():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     leading_text = "First sentence without a citation. "
     cited_text = "Apptio is a company that makes calls to Bedrock"
@@ -6011,8 +6011,8 @@ def test_transform_response_citations_offset_tracks_text_only_blocks():
 
 
 def test_transform_response_stitches_citations_for_whitespace_punctuation_text():
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.types.utils import ModelResponse
 
     response_json = {
         "metrics": {"latencyMs": 100},
@@ -6024,7 +6024,7 @@ def test_transform_response_stitches_citations_for_whitespace_punctuation_text()
                         "citationsContent": {
                             "content": [
                                 {
-                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via LiteLLM"
+                                    "text": "Apptio is a company that makes calls to Bedrock using passthrough APIs via EmbRouter"
                                 }
                             ],
                             "citations": [
@@ -6094,7 +6094,7 @@ def test_bedrock_tool_message_openai_file_pdf_becomes_document():
     inside a tool message content list should translate to a Bedrock
     toolResult.content[].document block.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -6139,7 +6139,7 @@ def test_bedrock_tool_message_image_url_pdf_data_uri_becomes_document():
     BedrockImageProcessor correctly returns a {"document": ...} block, but the
     tool-result wrapper only appended the "image" case, silently dropping documents.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -6184,7 +6184,7 @@ def test_bedrock_tool_message_file_id_http_url_becomes_document():
     """
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockImageProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -6241,8 +6241,8 @@ def test_bedrock_tool_message_file_without_data_or_id_raises():
     tool-result path must match — silently dropping the block makes the model
     see an empty tool result and obscures the caller bug.
     """
-    import litellm
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    import embrouter
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -6261,7 +6261,7 @@ def test_bedrock_tool_message_file_without_data_or_id_raises():
         },
     ]
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         _bedrock_converse_messages_pt(messages=messages, model="", llm_provider="")
 
 
@@ -6271,7 +6271,7 @@ def test_bedrock_tool_message_image_url_png_still_becomes_image():
     to a Bedrock image block (not document). Locks in existing behavior after
     the document-passthrough fix.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -6307,7 +6307,7 @@ def test_bedrock_tool_message_image_url_png_still_becomes_image():
 
 
 def test_transform_response_does_not_leak_body_on_parse_failure():
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from embrouter.llms.bedrock.common_utils import BedrockError
 
     leaky_body = {"output": {"message": {"content": [{"text": "secret content"}]}}}
 
@@ -6322,7 +6322,7 @@ def test_transform_response_does_not_leak_body_on_parse_failure():
             return json.dumps(leaky_body)
 
     with patch(
-        "litellm.llms.bedrock.chat.converse_transformation.ConverseResponseBlock",
+        "embrouter.llms.bedrock.chat.converse_transformation.ConverseResponseBlock",
         side_effect=KeyError("missing required field"),
     ):
         with pytest.raises(BedrockError) as exc_info:
@@ -6362,10 +6362,10 @@ def test_converse_drops_sampling_params_for_models_that_removed_them():
 
 
 def test_converse_sampling_params_raise_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params={"temperature": 0.5},
             optional_params={},
@@ -6398,7 +6398,7 @@ def test_converse_top_k_dropped_for_models_that_removed_it():
         model="us.anthropic.claude-fable-5",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 40},
-        litellm_params={"drop_params": True},
+        embrouter_params={"drop_params": True},
         headers={},
     )
 
@@ -6406,15 +6406,15 @@ def test_converse_top_k_dropped_for_models_that_removed_it():
 
 
 def test_converse_top_k_raises_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.transform_request(
             model="us.anthropic.claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"top_k": 40},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -6426,7 +6426,7 @@ def test_converse_top_k_forwarded_on_models_that_accept_it():
         model="us.anthropic.claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 40},
-        litellm_params={"drop_params": True},
+        embrouter_params={"drop_params": True},
         headers={},
     )
 
@@ -6437,15 +6437,15 @@ def test_converse_top_k_zero_raises_without_drop_params(monkeypatch):
     """``top_k=0`` must hit the same gating as any other value; previously the
     truthiness check let it silently disappear on models that removed sampling
     params, diverging from the Anthropic boundary that treats ``0`` as present."""
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.transform_request(
             model="us.anthropic.claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"top_k": 0},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -6457,7 +6457,7 @@ def test_converse_top_k_zero_forwarded_on_models_that_accept_it():
         model="us.anthropic.claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"top_k": 0},
-        litellm_params={"drop_params": True},
+        embrouter_params={"drop_params": True},
         headers={},
     )
 
@@ -6470,7 +6470,7 @@ async def test_grounding_source_and_query_rendered_as_text():
     generate path (the model needs to see the RAG context + question). The bedrock
     converse dispatch silently drops unrecognised content types, so these would
     otherwise vanish from the prompt."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -6686,14 +6686,14 @@ def test_transform_request_no_tools_with_tool_history_succeeds_24158(monkeypatch
     """#24158: a compaction-style call (tool blocks in history, no tools=) must
     not raise and must send no toolConfig or structured tool blocks, on
     default settings."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6707,14 +6707,14 @@ def test_transform_request_tool_unsupported_model_no_toolconfig_27138(monkeypatc
     """#27138: a tool-incapable model with tool blocks in history and no tools=
     must not get a toolConfig/toolUse/toolResult injected (which Bedrock would
     400 on), even with modify_params on."""
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(embrouter, "modify_params", True)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
         model="meta.llama3-2-3b-instruct-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6726,14 +6726,14 @@ def test_transform_request_empty_tools_with_tool_history(monkeypatch, tools_valu
     """tools=[] / tools=None must be neutralized like no tools at all; a
     key-presence gate would skip them and emit toolUse/toolResult with no
     toolConfig."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={"tools": tools_value},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6743,7 +6743,7 @@ def test_transform_request_empty_tools_with_tool_history(monkeypatch, tools_valu
 def test_transform_request_tool_result_only_history(monkeypatch):
     """A role:"tool"-only history (no assistant tool_calls) currently emits a
     lone toolResult with no toolConfig; it must be neutralized."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
@@ -6753,7 +6753,7 @@ def test_transform_request_tool_result_only_history(monkeypatch):
             {"role": "tool", "tool_call_id": "call_xyz", "content": "lookup result"},
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6766,7 +6766,7 @@ def test_transform_request_neutralized_tool_output_is_guarded(monkeypatch):
     trailing user turn must be emitted as guardContent, not plain text, so
     untrusted tool output does not bypass the guardrail (neutralize must run
     before guarded-text conversion)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
@@ -6789,7 +6789,7 @@ def test_transform_request_neutralized_tool_output_is_guarded(monkeypatch):
         optional_params={
             "guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "1"}
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6806,7 +6806,7 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
     user turn, so neutralize itself must guard untrusted tool output regardless
     of position, else an attacker controlling the tool response bypasses the
     guardrail (bot review)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
@@ -6831,7 +6831,7 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
         optional_params={
             "guardrailConfig": {"guardrailIdentifier": "gid", "guardrailVersion": "1"}
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6850,14 +6850,14 @@ def test_transform_request_neutralized_tool_output_guarded_mid_history(monkeypat
 @pytest.mark.asyncio
 async def test_async_transform_request_no_tools_with_tool_history(monkeypatch):
     """Async is a separate request assembler; it must neutralize identically."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = await config._async_transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6868,7 +6868,7 @@ async def test_async_transform_request_no_tools_with_tool_history(monkeypatch):
 def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
     """Guard: when a non-empty tools= IS provided, tool blocks are legitimate and
     a toolConfig must still be produced (neutralization must not regress this)."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
@@ -6886,7 +6886,7 @@ def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
                 }
             ]
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6896,16 +6896,16 @@ def test_transform_request_with_tools_still_builds_toolconfig(monkeypatch):
 def test_transform_request_flag_off_restores_raise(monkeypatch):
     """Opt-out: with bedrock_neutralize_orphaned_tool_blocks=False and
     modify_params=False, the legacy UnsupportedParamsError contract is restored."""
-    monkeypatch.setattr(litellm, "bedrock_neutralize_orphaned_tool_blocks", False)
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "bedrock_neutralize_orphaned_tool_blocks", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="without `tools="):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="without `tools="):
         config.transform_request(
             model="us.anthropic.claude-opus-4-5-20251101-v1:0",
             messages=_orphaned_tool_history_messages(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -6913,15 +6913,15 @@ def test_transform_request_flag_off_restores_raise(monkeypatch):
 def test_transform_request_flag_off_with_modify_params_restores_dummy_tool(monkeypatch):
     """Opt-out: with the flag off and modify_params=True, the legacy dummy-tool
     injection is restored (a toolConfig is produced, not neutralized text)."""
-    monkeypatch.setattr(litellm, "bedrock_neutralize_orphaned_tool_blocks", False)
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(embrouter, "bedrock_neutralize_orphaned_tool_blocks", False)
+    monkeypatch.setattr(embrouter, "modify_params", True)
     config = AmazonConverseConfig()
 
     result = config.transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6931,15 +6931,15 @@ def test_transform_request_flag_off_with_modify_params_restores_dummy_tool(monke
 
 def test_transform_request_flag_on_is_default(monkeypatch):
     """Default-on: without touching the flag, neutralization is the behavior."""
-    monkeypatch.setattr(litellm, "modify_params", False)
+    monkeypatch.setattr(embrouter, "modify_params", False)
     config = AmazonConverseConfig()
 
-    assert litellm.bedrock_neutralize_orphaned_tool_blocks is True
+    assert embrouter.bedrock_neutralize_orphaned_tool_blocks is True
     result = config.transform_request(
         model="us.anthropic.claude-opus-4-5-20251101-v1:0",
         messages=_orphaned_tool_history_messages(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6997,7 +6997,7 @@ async def test_message_level_cache_control_honors_ttl_for_supported_model(
     system-message path. Regression test for the gap left by the system-only
     fix: the message paths called `_get_cache_point_block` without `model` (or
     hardcoded `{"type": "default"}`), silently downgrading 1h to 5m."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockConverseMessagesProcessor,
         _bedrock_converse_messages_pt,
     )
@@ -7027,7 +7027,7 @@ async def test_message_level_cache_control_honors_ttl_for_supported_model(
 def test_message_level_cache_control_drops_ttl_for_unsupported_model(ttl_target):
     """Models outside the extended-caching allow-list must keep emitting the
     plain `{"type": "default"}` cachePoint (Bedrock rejects `ttl` for them)."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         _bedrock_converse_messages_pt,
     )
 
@@ -7118,7 +7118,7 @@ def test_legacy_thinking_translated_to_adaptive_on_adaptive_only_converse(model,
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -7171,7 +7171,7 @@ def test_adaptive_thinking_dropped_when_max_tokens_too_small_converse():
     """When max_tokens can't fit even the minimum thinking budget, the raw
     adaptive block must be dropped entirely rather than translated, so the
     Bedrock Converse request still succeeds."""
-    from litellm.constants import ANTHROPIC_MIN_THINKING_BUDGET_TOKENS
+    from embrouter.constants import ANTHROPIC_MIN_THINKING_BUDGET_TOKENS
 
     config = AmazonConverseConfig()
 
@@ -7300,7 +7300,7 @@ def test_usage_from_batch_output_inflates_input_by_cache_counts():
 
 def test_streaming_usage_chunk_is_transformed():
     """The streaming decoder's usage event feeds the same public transform."""
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from embrouter.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
 
     decoder = AWSEventStreamDecoder(model="us.amazon.nova-lite-v1:0")
     chunk = decoder.converse_chunk_parser({"usage": {"inputTokens": 11, "outputTokens": 4, "totalTokens": 15}})
@@ -7337,7 +7337,7 @@ def test_disabled_thinking_omitted_for_always_on_models_converse(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"maxTokens": 64, "thinking": {"type": "disabled"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -7374,10 +7374,10 @@ def test_forced_tool_choice_downgraded_to_auto_on_fable_5_1_converse(
 def test_forced_tool_choice_raises_clean_error_on_fable_5_1_converse(
     local_model_cost_map, tool_choice, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="forced tool use"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="forced tool use"):
         config.map_tool_choice_values(
             model="anthropic.claude-fable-5-1", tool_choice=tool_choice, drop_params=False
         )
@@ -7430,7 +7430,7 @@ def test_response_format_avoids_native_and_forced_tool_choice_on_fable_5_1_conve
 def test_forced_tool_choice_forwarded_on_converse_models_that_support_it(
     local_model_cost_map, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
 
     result = config.map_tool_choice_values(
@@ -7470,7 +7470,7 @@ def test_transform_response_honors_json_mode_kwarg_when_optional_params_lack_it(
         request_data={},
         messages=[],
         optional_params={"tools": [{"type": "function", "function": {"name": "json_tool_call", "parameters": {}}}]},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
         json_mode=True,
     )
@@ -7579,7 +7579,7 @@ def test_eager_input_streaming_beta_never_written_back_into_client_header_list()
 
 
 def test_eager_input_streaming_non_boolean_is_a_bad_request():
-    with pytest.raises(litellm.BadRequestError, match="eager_input_streaming must be a boolean"):
+    with pytest.raises(embrouter.BadRequestError, match="eager_input_streaming must be a boolean"):
         _converse_request(
             "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
             [_eager_openai_tool(eager_input_streaming="true")],
@@ -7625,7 +7625,7 @@ def test_mid_conversation_system_after_multiple_tool_results():
 
 def test_mid_conversation_system_reorders_around_a_pydantic_assistant_tool_call():
     config = AmazonConverseConfig()
-    assistant = litellm.Message(
+    assistant = embrouter.Message(
         role="assistant",
         content="calling tools",
         tool_calls=[{"id": "call_a", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
@@ -7814,7 +7814,7 @@ def test_flagged_model_replays_a_byte_identical_prefix_around_a_mid_conversation
             model="bedrock/us.anthropic.claude-fable-5-1",
             messages=copy.deepcopy(turn),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
@@ -7828,7 +7828,7 @@ def test_flagged_model_replays_a_byte_identical_prefix_around_a_mid_conversation
 
 @pytest.mark.parametrize("model", ("anthropic.claude-opus-4-7", "us.anthropic.claude-opus-4-7"))
 def test_converse_accepts_anthropic_default_temperature(model: str) -> None:
-    result: Final = litellm.utils.get_optional_params(
+    result: Final = embrouter.utils.get_optional_params(
         model=model,
         custom_llm_provider="bedrock",
         temperature=1,
@@ -7877,13 +7877,13 @@ def test_map_openai_params_drops_temperature_and_top_p_when_drop_params_true():
 
 
 def test_map_openai_params_raises_unsupported_params_when_drop_params_false(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AmazonConverseConfig()
     for model in [
         "bedrock/converse/global.openai.gpt-5.6-luna",
         "openai.gpt-5.6-luna",
     ]:
-        with pytest.raises(litellm.utils.UnsupportedParamsError) as exc_info:
+        with pytest.raises(embrouter.utils.UnsupportedParamsError) as exc_info:
             config.map_openai_params(
                 non_default_params={"temperature": 1.0},
                 optional_params={},
@@ -7907,7 +7907,7 @@ def test_map_openai_params_retains_sampling_params_for_supported_models():
 
 def test_supports_sampling_params_prefixed_and_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "global.custom-test-reasoning-model",
         {"supports_sampling_params": False},
     )

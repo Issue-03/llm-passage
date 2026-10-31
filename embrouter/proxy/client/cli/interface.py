@@ -6,7 +6,7 @@ from typing import Final
 # third party imports
 import click
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 def styled_prompt():
@@ -79,7 +79,7 @@ def show_commands():
     from .commands.config import hidden_command_names
 
     commands = [
-        ("login", "Authenticate with the LiteLLM proxy server"),
+        ("login", "Authenticate with the EmbRouter proxy server"),
         ("logout", "Clear stored authentication"),
         ("whoami", "Show current authentication status"),
         ("models", "Manage and view model configurations"),
@@ -108,13 +108,13 @@ def show_commands():
 
 def setup_shell(ctx: click.Context):
     """Set up the interactive shell with banner and initial info."""
-    from litellm.proxy.common_utils.banner import show_banner
+    from embrouter.proxy.common_utils.banner import show_banner
 
     show_banner()
 
     # Show server connection info
     base_url: Final = ctx.obj.get("base_url")
-    click.secho(f"Connected to LiteLLM server: {base_url}\n", fg="green")
+    click.secho(f"Connected to EmbRouter server: {base_url}\n", fg="green")
 
     show_commands()
 
@@ -130,7 +130,7 @@ def handle_special_commands(user_input: str) -> bool:
         return True
     elif user_input.lower() == "clear":
         click.clear()
-        from litellm.proxy.common_utils.banner import show_banner
+        from embrouter.proxy.common_utils.banner import show_banner
 
         show_banner()
         show_commands()

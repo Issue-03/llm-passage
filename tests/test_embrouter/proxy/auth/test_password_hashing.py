@@ -4,7 +4,7 @@ import hashlib
 
 import pytest
 
-from litellm.proxy.utils import hash_password, verify_password
+from embrouter.proxy.utils import hash_password, verify_password
 
 
 class TestHashPassword:

@@ -10,10 +10,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.llms.modelscope.image_generation.transformation import (
+from embrouter.llms.modelscope.image_generation.transformation import (
     ModelScopeImageGenerationConfig,
 )
-from litellm.types.utils import ImageResponse
+from embrouter.types.utils import ImageResponse
 
 
 class TestModelScopeImageGenerationTransformation:
@@ -73,7 +73,7 @@ class TestModelScopeImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://api-inference.modelscope.cn/v1/images/generations"
@@ -87,7 +87,7 @@ class TestModelScopeImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == f"{custom_base}/images/generations"
@@ -101,12 +101,12 @@ class TestModelScopeImageGenerationTransformation:
             api_key="test_key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://custom.modelscope.cn/v1/images/generations"
 
-    @patch("litellm.llms.modelscope.image_generation.transformation.get_secret_str")
+    @patch("embrouter.llms.modelscope.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_api_key(self, mock_get_secret):
         """Test that validate_environment correctly sets authorization header."""
         headers = {}
@@ -117,7 +117,7 @@ class TestModelScopeImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
         )
 
@@ -125,7 +125,7 @@ class TestModelScopeImageGenerationTransformation:
         assert result["Content-Type"] == "application/json"
         mock_get_secret.assert_not_called()
 
-    @patch("litellm.llms.modelscope.image_generation.transformation.get_secret_str")
+    @patch("embrouter.llms.modelscope.image_generation.transformation.get_secret_str")
     def test_validate_environment_with_secret_key(self, mock_get_secret):
         """Test that validate_environment uses secret API key when api_key is None."""
         mock_get_secret.return_value = "secret_api_key"
@@ -136,14 +136,14 @@ class TestModelScopeImageGenerationTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
         )
 
         assert result["Authorization"] == "Bearer secret_api_key"
         mock_get_secret.assert_called_once_with("MODELSCOPE_API_KEY")
 
-    @patch("litellm.llms.modelscope.image_generation.transformation.get_secret_str")
+    @patch("embrouter.llms.modelscope.image_generation.transformation.get_secret_str")
     def test_validate_environment_no_api_key(self, mock_get_secret):
         """Test that validate_environment raises error when no API key is available."""
         mock_get_secret.return_value = None
@@ -155,7 +155,7 @@ class TestModelScopeImageGenerationTransformation:
                 model=self.model,
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
             )
 
@@ -170,7 +170,7 @@ class TestModelScopeImageGenerationTransformation:
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -190,7 +190,7 @@ class TestModelScopeImageGenerationTransformation:
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -212,7 +212,7 @@ class TestModelScopeImageGenerationTransformation:
             model=self.model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -244,7 +244,7 @@ class TestModelScopeImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -275,7 +275,7 @@ class TestModelScopeImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -309,7 +309,7 @@ class TestModelScopeImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -340,7 +340,7 @@ class TestModelScopeImageGenerationTransformation:
             logging_obj=self.logging_obj,
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -362,7 +362,7 @@ class TestModelScopeImageGenerationTransformation:
 
         model_response = ImageResponse(data=[])
 
-        with pytest.raises(Exception, match='litellm\\.BadRequestError: ModelScope error: Invalid prompt') as exc_info:
+        with pytest.raises(Exception, match='embrouter\\.BadRequestError: ModelScope error: Invalid prompt') as exc_info:
             self.config.transform_image_generation_response(
                 model=self.model,
                 raw_response=mock_response,
@@ -370,7 +370,7 @@ class TestModelScopeImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -388,7 +388,7 @@ class TestModelScopeImageGenerationTransformation:
 
         model_response = ImageResponse(data=[])
 
-        with pytest.raises(Exception, match='litellm\\.InternalServerError: Error parsing ModelScope') as exc_info:
+        with pytest.raises(Exception, match='embrouter\\.InternalServerError: Error parsing ModelScope') as exc_info:
             self.config.transform_image_generation_response(
                 model=self.model,
                 raw_response=mock_response,
@@ -396,7 +396,7 @@ class TestModelScopeImageGenerationTransformation:
                 logging_obj=self.logging_obj,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -404,7 +404,7 @@ class TestModelScopeImageGenerationTransformation:
 
     def test_get_error_class_bad_request(self):
         """Test that get_error_class returns BadRequestError for 400 status."""
-        from litellm.exceptions import BadRequestError
+        from embrouter.exceptions import BadRequestError
 
         error = self.config.get_error_class(
             error_message="Bad request",
@@ -416,7 +416,7 @@ class TestModelScopeImageGenerationTransformation:
 
     def test_get_error_class_authentication_error(self):
         """Test that get_error_class returns AuthenticationError for 401 status."""
-        from litellm.exceptions import AuthenticationError
+        from embrouter.exceptions import AuthenticationError
 
         error = self.config.get_error_class(
             error_message="Invalid API key",
@@ -428,7 +428,7 @@ class TestModelScopeImageGenerationTransformation:
 
     def test_get_error_class_internal_server_error(self):
         """Test that get_error_class returns InternalServerError for 500+ status."""
-        from litellm.exceptions import InternalServerError
+        from embrouter.exceptions import InternalServerError
 
         error = self.config.get_error_class(
             error_message="Internal server error",
@@ -440,7 +440,7 @@ class TestModelScopeImageGenerationTransformation:
 
     def test_get_error_class_default(self):
         """Test that get_error_class returns BadRequestError for other status codes."""
-        from litellm.exceptions import BadRequestError
+        from embrouter.exceptions import BadRequestError
 
         error = self.config.get_error_class(
             error_message="Some error",

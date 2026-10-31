@@ -13,18 +13,18 @@ from datetime import datetime
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import (
     DEFAULT_COOLDOWN_TIME_SECONDS,
     DEFAULT_FAILURE_THRESHOLD_MINIMUM_REQUESTS,
     DEFAULT_FAILURE_THRESHOLD_PERCENT,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
     SINGLE_DEPLOYMENT_TRAFFIC_FAILURE_THRESHOLD,
 )
-from litellm.router_utils.cooldown_callbacks import router_cooldown_event_callback
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+from embrouter.router_utils.cooldown_callbacks import router_cooldown_event_callback
+from embrouter.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
 from .router_callbacks.track_deployment_metrics import (
     get_deployment_failures_for_current_minute,
@@ -34,15 +34,15 @@ from .router_callbacks.track_deployment_metrics import (
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.router import Router as _Router
+    from embrouter.router import Router as _Router
 
-    LitellmRouter = _Router
+    EmbrouterRouter = _Router
     Span = _Span | Any
 else:
-    LitellmRouter = Any
+    EmbrouterRouter = Any
     Span = Any
 
-_ADVISOR_ORCHESTRATION_FAILURE_ATTR: Final = "_litellm_advisor_orchestration_failure"
+_ADVISOR_ORCHESTRATION_FAILURE_ATTR: Final = "_embrouter_advisor_orchestration_failure"
 
 
 def mark_advisor_orchestration_failure(exception: BaseException) -> None:
@@ -64,26 +64,26 @@ def is_advisor_orchestration_failure(exception: BaseException | None) -> bool:
     return bool(getattr(exception, _ADVISOR_ORCHESTRATION_FAILURE_ATTR, False))
 
 
-def is_background_response_cost_poll_not_found(exception: Exception, litellm_params: Mapping[str, object]) -> bool:
+def is_background_response_cost_poll_not_found(exception: Exception, embrouter_params: Mapping[str, object]) -> bool:
     """Whether a background response cost poll failed with a provider 404."""
     return getattr(exception, "status_code", None) == 404 and any(
         isinstance(candidate, Mapping)
         and candidate.get(INTERNAL_CALL_ORIGIN_METADATA_KEY) == BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
-        for candidate in (litellm_params.get("metadata"), litellm_params.get("litellm_metadata"))
+        for candidate in (embrouter_params.get("metadata"), embrouter_params.get("embrouter_metadata"))
     )
 
 
 _EXCEPTION_POLICY_FIELDS: Final[tuple[tuple[type, str], ...]] = (
     # ContentPolicyViolationError subclasses BadRequestError, so it must be checked first.
-    (litellm.ContentPolicyViolationError, "ContentPolicyViolationErrorAllowedFails"),
-    (litellm.BadRequestError, "BadRequestErrorAllowedFails"),
-    (litellm.AuthenticationError, "AuthenticationErrorAllowedFails"),
-    (litellm.Timeout, "TimeoutErrorAllowedFails"),
-    (litellm.RateLimitError, "RateLimitErrorAllowedFails"),
-    (litellm.InternalServerError, "InternalServerErrorAllowedFails"),
-    (litellm.ServiceUnavailableError, "ServiceUnavailableErrorAllowedFails"),
-    (litellm.BadGatewayError, "BadGatewayErrorAllowedFails"),
-    (litellm.NotFoundError, "NotFoundErrorAllowedFails"),
+    (embrouter.ContentPolicyViolationError, "ContentPolicyViolationErrorAllowedFails"),
+    (embrouter.BadRequestError, "BadRequestErrorAllowedFails"),
+    (embrouter.AuthenticationError, "AuthenticationErrorAllowedFails"),
+    (embrouter.Timeout, "TimeoutErrorAllowedFails"),
+    (embrouter.RateLimitError, "RateLimitErrorAllowedFails"),
+    (embrouter.InternalServerError, "InternalServerErrorAllowedFails"),
+    (embrouter.ServiceUnavailableError, "ServiceUnavailableErrorAllowedFails"),
+    (embrouter.BadGatewayError, "BadGatewayErrorAllowedFails"),
+    (embrouter.NotFoundError, "NotFoundErrorAllowedFails"),
 )
 
 
@@ -101,19 +101,19 @@ def _first_present(*sources: Mapping[str, Any] | None, key: str) -> int | float 
 
 
 def _get_deployment_cooldown_policy(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str,
 ) -> tuple[Mapping[str, int] | None, int | None]:
     """Return (allowed_fails_policy, allowed_fails) from deployment model_info, or (None, None).
 
     `model_info` is the only supported location for these two fields (unlike
-    `cooldown_time`, they have no pre-existing `litellm_params` precedent): `litellm_params`
+    `cooldown_time`, they have no pre-existing `embrouter_params` precedent): `embrouter_params`
     gets copied wholesale into the actual provider call kwargs (see e.g.
-    Router._image_generation's `data = deployment["litellm_params"].copy()`), so a new
+    Router._image_generation's `data = deployment["embrouter_params"].copy()`), so a new
     field placed there would leak into the outgoing LLM request instead of staying
     router-internal.
     """
-    dep: Final = litellm_router_instance.get_model_info(id=deployment)
+    dep: Final = embrouter_router_instance.get_model_info(id=deployment)
     if dep is None:
         return None, None
     mi: Final[Mapping[str, Any]] = dep.get("model_info") or MappingProxyType({})
@@ -139,7 +139,7 @@ def _resolve_allowed_fails_from_policy(
 
 
 def _should_cooldown_based_on_deployment_policy(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str,
     original_exception: Exception,
     dep_policy: Mapping[str, int] | None,
@@ -172,15 +172,15 @@ def _should_cooldown_based_on_deployment_policy(
         else ("generic" if dep_allowed_fails is not None else None)
     )
 
-    dep: Final = litellm_router_instance.get_model_info(id=deployment)
+    dep: Final = embrouter_router_instance.get_model_info(id=deployment)
     cooldown_time_override: Final = (
-        _first_present(dep.get("model_info"), dep.get("litellm_params"), key="cooldown_time")
+        _first_present(dep.get("model_info"), dep.get("embrouter_params"), key="cooldown_time")
         if dep is not None
         else None
     )
 
     return should_cooldown_based_on_allowed_fails_policy(
-        litellm_router_instance=litellm_router_instance,
+        embrouter_router_instance=embrouter_router_instance,
         deployment=deployment,
         original_exception=original_exception,
         allowed_fails_override=allowed_fails_override,
@@ -190,7 +190,7 @@ def _should_cooldown_based_on_deployment_policy(
 
 
 def _has_explicit_allowed_fails_policy_for_exception(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str | None,
     original_exception: Exception,
 ) -> bool:
@@ -211,12 +211,12 @@ def _has_explicit_allowed_fails_policy_for_exception(
     """
     if deployment is None:
         return False
-    dep_policy, _ = _get_deployment_cooldown_policy(litellm_router_instance, deployment)
+    dep_policy, _ = _get_deployment_cooldown_policy(embrouter_router_instance, deployment)
     return _resolve_allowed_fails_from_policy(dep_policy, original_exception) is not None
 
 
 def _is_cooldown_required(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     model_id: str,
     exception_status: str | int,
     exception_str: str | None = None,
@@ -233,7 +233,7 @@ def _is_cooldown_required(
     """
     try:
         ignored_strings: Final = ["APIConnectionError"]
-        if exception_str is not None:  # don't cooldown on litellm api connection errors errors
+        if exception_str is not None:  # don't cooldown on embrouter api connection errors errors
             for ignored_string in ignored_strings:
                 if ignored_string in exception_str:
                     return False
@@ -269,7 +269,7 @@ def _is_cooldown_required(
 
 
 def _should_run_cooldown_logic(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str | None,
     exception_status: str | int,
     original_exception: Exception,
@@ -283,10 +283,10 @@ def _should_run_cooldown_logic(
     - router.disable_cooldowns is True
     - deployment is None
     - _is_cooldown_required() returns False
-    - deployment is in litellm_router_instance.provider_default_deployment_ids
+    - deployment is in embrouter_router_instance.provider_default_deployment_ids
     - exception_status is not one that should be immediately retried (e.g. 401)
     """
-    if deployment is None or litellm_router_instance.get_model_group(id=deployment) is None:
+    if deployment is None or embrouter_router_instance.get_model_group(id=deployment) is None:
         verbose_router_logger.debug(
             "Should Not Run Cooldown Logic: deployment id is none or model group can't be found."
         )
@@ -299,7 +299,7 @@ def _should_run_cooldown_logic(
         verbose_router_logger.debug("Should Not Run Cooldown Logic: time_to_cooldown is effectively 0")
         return False
 
-    if litellm_router_instance.disable_cooldowns:
+    if embrouter_router_instance.disable_cooldowns:
         verbose_router_logger.debug("Should Not Run Cooldown Logic: disable_cooldowns is True")
         return False
 
@@ -308,19 +308,19 @@ def _should_run_cooldown_logic(
         return False
 
     if not _is_cooldown_required(
-        litellm_router_instance=litellm_router_instance,
+        embrouter_router_instance=embrouter_router_instance,
         model_id=deployment,
         exception_status=exception_status,
         exception_str=str(original_exception),
     ) and not _has_explicit_allowed_fails_policy_for_exception(
-        litellm_router_instance=litellm_router_instance,
+        embrouter_router_instance=embrouter_router_instance,
         deployment=deployment,
         original_exception=original_exception,
     ):
         verbose_router_logger.debug("Should Not Run Cooldown Logic: _is_cooldown_required returned False")
         return False
 
-    if deployment in litellm_router_instance.provider_default_deployment_ids:
+    if deployment in embrouter_router_instance.provider_default_deployment_ids:
         verbose_router_logger.debug("Should Not Run Cooldown Logic: deployment is in provider_default_deployment_ids")
         return False
 
@@ -328,7 +328,7 @@ def _should_run_cooldown_logic(
 
 
 def _should_cooldown_deployment(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str,
     exception_status: str | int,
     original_exception: Exception,
@@ -346,25 +346,25 @@ def _should_cooldown_deployment(
     cooldown if:
         - got a 429 error from LLM API
         - if %fails/%(successes + fails) > ALLOWED_FAILURE_RATE_PER_MINUTE
-        - got 401 Auth error, 404 NotFounder - checked by litellm._should_retry()
+        - got 401 Auth error, 404 NotFounder - checked by embrouter._should_retry()
 
 
 
     - v1 logic (Legacy): if allowed fails or allowed fail policy set, coolsdown if num fails in this minute > allowed fails
     """
-    model_group: Final = litellm_router_instance.get_model_group(id=deployment)
+    model_group: Final = embrouter_router_instance.get_model_group(id=deployment)
     is_single_deployment_model_group = False
     if model_group is not None and len(model_group) == 1:
         is_single_deployment_model_group = not (
-            litellm_router_instance.routing_group_has_alternatives(requested_model_group)
-            or litellm_router_instance.team_model_has_alternatives(deployment)
+            embrouter_router_instance.routing_group_has_alternatives(requested_model_group)
+            or embrouter_router_instance.team_model_has_alternatives(deployment)
         )
 
     ## CHECK DEPLOYMENT-LEVEL POLICY FIRST (overrides router-level)
-    dep_policy, dep_allowed_fails = _get_deployment_cooldown_policy(litellm_router_instance, deployment)
+    dep_policy, dep_allowed_fails = _get_deployment_cooldown_policy(embrouter_router_instance, deployment)
     if dep_policy is not None or dep_allowed_fails is not None:
         return _should_cooldown_based_on_deployment_policy(
-            litellm_router_instance,
+            embrouter_router_instance,
             deployment,
             original_exception,
             dep_policy,
@@ -374,14 +374,14 @@ def _should_cooldown_deployment(
 
     ## BASE CASE - single deployment
     if (
-        litellm_router_instance.allowed_fails_policy is None
-        and _is_allowed_fails_set_on_router(litellm_router_instance=litellm_router_instance) is False
+        embrouter_router_instance.allowed_fails_policy is None
+        and _is_allowed_fails_set_on_router(embrouter_router_instance=embrouter_router_instance) is False
     ):
         num_successes_this_minute: Final = get_deployment_successes_for_current_minute(
-            litellm_router_instance=litellm_router_instance, deployment_id=deployment
+            embrouter_router_instance=embrouter_router_instance, deployment_id=deployment
         )
         num_fails_this_minute: Final = get_deployment_failures_for_current_minute(
-            litellm_router_instance=litellm_router_instance, deployment_id=deployment
+            embrouter_router_instance=embrouter_router_instance, deployment_id=deployment
         )
 
         total_requests_this_minute: Final = num_successes_this_minute + num_fails_this_minute
@@ -410,13 +410,13 @@ def _should_cooldown_deployment(
             # Only apply error rate cooldown when we have enough requests to make the percentage meaningful
             return True
 
-        elif litellm._should_retry(status_code=cast_exception_status_to_int(exception_status)) is False:
+        elif embrouter._should_retry(status_code=cast_exception_status_to_int(exception_status)) is False:
             return True
 
         return False
     else:
         return should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=litellm_router_instance,
+            embrouter_router_instance=embrouter_router_instance,
             deployment=deployment,
             original_exception=original_exception,
         )
@@ -425,7 +425,7 @@ def _should_cooldown_deployment(
 
 
 def _set_cooldown_deployments(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     original_exception: Exception,
     exception_status: str | int,
     deployment: str | None = None,
@@ -447,7 +447,7 @@ def _set_cooldown_deployments(
 
     if (
         _should_run_cooldown_logic(
-            litellm_router_instance=litellm_router_instance,
+            embrouter_router_instance=embrouter_router_instance,
             deployment=deployment,
             exception_status=exception_status,
             original_exception=original_exception,
@@ -463,13 +463,13 @@ def _set_cooldown_deployments(
     verbose_router_logger.debug("Attempting to add %s to cooldown list", deployment)
 
     if _should_cooldown_deployment(
-        litellm_router_instance=litellm_router_instance,
+        embrouter_router_instance=embrouter_router_instance,
         deployment=deployment,
         exception_status=exception_status,
         original_exception=original_exception,
         requested_model_group=requested_model_group,
     ):
-        litellm_router_instance.cooldown_cache.add_deployment_to_cooldown(
+        embrouter_router_instance.cooldown_cache.add_deployment_to_cooldown(
             model_id=deployment,
             original_exception=original_exception,
             exception_status=exception_status_int,
@@ -479,7 +479,7 @@ def _set_cooldown_deployments(
         # Trigger cooldown callback handler
         asyncio.create_task(
             router_cooldown_event_callback(
-                litellm_router_instance=litellm_router_instance,
+                embrouter_router_instance=embrouter_router_instance,
                 deployment_id=deployment,
                 exception_status=exception_status,
                 cooldown_time=time_to_cooldown,
@@ -490,14 +490,14 @@ def _set_cooldown_deployments(
 
 
 async def _async_get_cooldown_deployments(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     parent_otel_span: Span | None,
 ) -> list[str]:
     """
     Async implementation of '_get_cooldown_deployments'
     """
-    model_ids: Final = litellm_router_instance.get_model_ids()
-    cooldown_models: Final = await litellm_router_instance.cooldown_cache.async_get_active_cooldowns(
+    model_ids: Final = embrouter_router_instance.get_model_ids()
+    cooldown_models: Final = await embrouter_router_instance.cooldown_cache.async_get_active_cooldowns(
         model_ids=model_ids,
         parent_otel_span=parent_otel_span,
     )
@@ -516,14 +516,14 @@ async def _async_get_cooldown_deployments(
 
 
 async def _async_get_cooldown_deployments_with_debug_info(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     parent_otel_span: Span | None,
 ) -> list[tuple]:
     """
     Async implementation of '_get_cooldown_deployments'
     """
-    model_ids: Final = litellm_router_instance.get_model_ids()
-    cooldown_models: Final = await litellm_router_instance.cooldown_cache.async_get_active_cooldowns(
+    model_ids: Final = embrouter_router_instance.get_model_ids()
+    cooldown_models: Final = await embrouter_router_instance.cooldown_cache.async_get_active_cooldowns(
         model_ids=model_ids, parent_otel_span=parent_otel_span
     )
 
@@ -531,7 +531,7 @@ async def _async_get_cooldown_deployments_with_debug_info(
     return cooldown_models
 
 
-def _get_cooldown_deployments(litellm_router_instance: LitellmRouter, parent_otel_span: Span | None) -> list[str]:
+def _get_cooldown_deployments(embrouter_router_instance: EmbrouterRouter, parent_otel_span: Span | None) -> list[str]:
     """
     Get the list of models being cooled down for this minute
     """
@@ -540,9 +540,9 @@ def _get_cooldown_deployments(litellm_router_instance: LitellmRouter, parent_ote
     # ----------------------
     # Return cooldown models
     # ----------------------
-    model_ids: Final = litellm_router_instance.get_model_ids()
+    model_ids: Final = embrouter_router_instance.get_model_ids()
 
-    cooldown_models: Final = litellm_router_instance.cooldown_cache.get_active_cooldowns(
+    cooldown_models: Final = embrouter_router_instance.cooldown_cache.get_active_cooldowns(
         model_ids=model_ids, parent_otel_span=parent_otel_span
     )
 
@@ -559,7 +559,7 @@ def _get_cooldown_deployments(litellm_router_instance: LitellmRouter, parent_ote
 
 
 def should_cooldown_based_on_allowed_fails_policy(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment: str,
     original_exception: Exception,
     allowed_fails_override: int | None = None,
@@ -583,7 +583,7 @@ def should_cooldown_based_on_allowed_fails_policy(
     - True if fails exceed the allowed limit (should cooldown)
     - False if fails are within the allowed limit (should not cooldown)
     """
-    allowed_fails_from_policy: Final = litellm_router_instance.get_allowed_fails_from_policy(
+    allowed_fails_from_policy: Final = embrouter_router_instance.get_allowed_fails_from_policy(
         exception=original_exception
     )
     allowed_fails: Final = (
@@ -592,19 +592,19 @@ def should_cooldown_based_on_allowed_fails_policy(
         else (
             allowed_fails_from_policy
             if allowed_fails_from_policy is not None
-            else litellm_router_instance.allowed_fails
+            else embrouter_router_instance.allowed_fails
         )
     )
     cooldown_time: Final = (
         cooldown_time_override
         if cooldown_time_override is not None
-        else (litellm_router_instance.cooldown_time or DEFAULT_COOLDOWN_TIME_SECONDS)
+        else (embrouter_router_instance.cooldown_time or DEFAULT_COOLDOWN_TIME_SECONDS)
     )
 
     base_key: Final = f"deployment:{deployment}:allowed_fails"
     cache_key: Final = f"{base_key}:{cache_key_suffix}" if cache_key_suffix else base_key
     updated_fails: Final = _increment_allowed_fails(
-        cache=litellm_router_instance.cache, cache_key=cache_key, ttl=cooldown_time
+        cache=embrouter_router_instance.cache, cache_key=cache_key, ttl=cooldown_time
     )
     return updated_fails > allowed_fails
 
@@ -623,7 +623,7 @@ def _increment_allowed_fails(cache: DualCache, cache_key: str, ttl: float) -> in
 
 
 def _is_allowed_fails_set_on_router(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
 ) -> bool:
     """
     Check if Router.allowed_fails is set or is Non-default Value
@@ -632,9 +632,9 @@ def _is_allowed_fails_set_on_router(
     - True if Router.allowed_fails is set or is Non-default Value
     - False if Router.allowed_fails is None or is Default Value
     """
-    if litellm_router_instance.allowed_fails is None:
+    if embrouter_router_instance.allowed_fails is None:
         return False
-    if litellm_router_instance.allowed_fails != litellm.allowed_fails:
+    if embrouter_router_instance.allowed_fails != embrouter.allowed_fails:
         return True
     return False
 
@@ -660,10 +660,10 @@ def is_caller_timeout_408(
     failure logger has stamped the current API call's end time."""
     if cast_exception_status_to_int(exception_status) != 408:
         return False
-    litellm_params: Final = model_call_details.get("litellm_params")
-    if not isinstance(litellm_params, Mapping) or not litellm_params.get("client_side_timeout"):
+    embrouter_params: Final = model_call_details.get("embrouter_params")
+    if not isinstance(embrouter_params, Mapping) or not embrouter_params.get("client_side_timeout"):
         return False
-    timeout: Final = litellm_params.get("timeout")
+    timeout: Final = embrouter_params.get("timeout")
     started: Final = model_call_details.get("api_call_start_time") or model_call_details.get("start_time")
     finished: Final = ended if ended is not None else model_call_details.get("end_time")
     if not isinstance(timeout, (int, float)) or not isinstance(started, datetime) or not isinstance(finished, datetime):

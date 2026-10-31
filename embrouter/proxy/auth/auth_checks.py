@@ -22,10 +22,10 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import NotRequired, ReadOnly, Required, TypedDict, Unpack
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache, LimitedSizeOrderedDict
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache, LimitedSizeOrderedDict
+from embrouter.constants import (
     CLI_JWT_EXPIRATION_HOURS,
     CLI_SESSION_KEY_PREFIX,
     DEFAULT_ACCESS_GROUP_CACHE_TTL,
@@ -37,30 +37,30 @@ from litellm.constants import (
     REGISTRY_ERROR_NEGATIVE_CACHE_TTL,
     TAG_REGISTRY_MAX_SIZE,
 )
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.models.project import LiteLLM_ProjectTable
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.models.project import EmbRouter_ProjectTable
+from embrouter.proxy._types import (
     RBAC_ROLES,
     CallInfo,
-    LiteLLM_AccessGroupTable,
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    Litellm_EntityType,
-    LiteLLM_JWTAuth,
-    LiteLLM_ManagedVectorStoresTable,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTableCachedObj,
-    LiteLLM_TagTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LiteLLMRoutes,
-    LitellmUserRoles,
+    EmbRouter_AccessGroupTable,
+    EmbRouter_BudgetTable,
+    EmbRouter_EndUserTable,
+    Embrouter_EntityType,
+    EmbRouter_JWTAuth,
+    EmbRouter_ManagedVectorStoresTable,
+    EmbRouter_ObjectPermissionTable,
+    EmbRouter_OrganizationMembershipTable,
+    EmbRouter_OrganizationTable,
+    EmbRouter_ProjectTableCachedObj,
+    EmbRouter_TagTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_UserTable,
+    EmbRouterRoutes,
+    EmbrouterUserRoles,
     ModelAccessDeniedProxyException,
     NewTeamRequest,
     ProxyErrorTypes,
@@ -69,31 +69,31 @@ from litellm.proxy._types import (
     SpecialModelNames,
     UserAPIKeyAuth,
 )
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import (
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import (
     CeilingResolver,
     resolve_agent_access_group_ceiling,
 )
-from litellm.proxy.agent_endpoints.auth.agent_caller import (
+from embrouter.proxy.agent_endpoints.auth.agent_caller import (
     agent_caller_auth,
     load_agent_caller_team,
     load_agent_caller_user,
 )
-from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
-from litellm.proxy.auth.budget_throttle import (
+from embrouter.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
+from embrouter.proxy.auth.budget_throttle import (
     budget_throttle_percentage,
     should_throttle_budget_exceeded,
 )
-from litellm.proxy.auth.model_access_denied import model_access_denied_client_message
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import publish_auth_cache_invalidation
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.auth.model_access_denied import model_access_denied_client_message
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import publish_auth_cache_invalidation
+from embrouter.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _safe_get_request_headers,
     _safe_get_request_query_params,
 )
-from litellm.proxy.common_utils.model_listing_utils import alias_map
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.model_listing_utils import alias_map
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.common_utils.user_api_key_cache import (
     END_USER_RESTRICTED_REGISTRY_OVERFLOW_SENTINEL,
     MODEL_ACCESS_GROUP_REGISTRY_OVERFLOW_SENTINEL,
     NO_TEAM_MEMBERSHIP_SENTINEL,
@@ -113,22 +113,22 @@ from litellm.proxy.common_utils.user_api_key_cache import (
     team_membership_auth_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.db.db_lookup_gate import bounded_db_lookup, db_lookup_gate
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.guardrails.tool_name_extraction import (
+from embrouter.proxy.db.db_lookup_gate import bounded_db_lookup, db_lookup_gate
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.guardrails.tool_name_extraction import (
     TOOL_CAPABLE_CALL_TYPES,
     extract_request_tool_names,
 )
-from litellm.proxy.route_llm_request import route_request
-from litellm.proxy.spend_tracking.budget_reservation import get_budget_window_start
-from litellm.proxy.spend_tracking.carried_budget_state import carry_organization_budget_state
-from litellm.proxy.utils import PrismaClient, ProxyLogging, log_db_metrics
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.prisma_protocols import DatabaseClient, RowT_co
-from litellm.repositories.project_repository import ProjectRepository
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.route_llm_request import route_request
+from embrouter.proxy.spend_tracking.budget_reservation import get_budget_window_start
+from embrouter.proxy.spend_tracking.carried_budget_state import carry_organization_budget_state
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, log_db_metrics
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.prisma_protocols import DatabaseClient, RowT_co
+from embrouter.repositories.project_repository import ProjectRepository
+from embrouter.repositories.table_repositories import (
     AccessGroupRepository,
     EndUserRepository,
     JWTKeyMappingRepository,
@@ -137,12 +137,12 @@ from litellm.repositories.table_repositories import (
     TagRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.router import Router
-from litellm.types.proxy.auth.auth_checks import UserNotFoundError
-from litellm.types.proxy.model_access_group_budget import ModelAccessGroupBudget
-from litellm.utils import get_utc_datetime
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.router import Router
+from embrouter.types.proxy.auth.auth_checks import UserNotFoundError
+from embrouter.types.proxy.model_access_group_budget import ModelAccessGroupBudget
+from embrouter.utils import get_utc_datetime
 
 from .auth_checks_organization import (
     add_team_org_context_to_request_body,
@@ -344,7 +344,7 @@ class _PrismaModelAccessGroupBudgetRow(Protocol):
     def spend(self) -> float | None: ...
 
     @property
-    def litellm_budget_table(self) -> _PrismaMaxBudgetRow | None: ...
+    def embrouter_budget_table(self) -> _PrismaMaxBudgetRow | None: ...
 
 
 def _model_access_group_budget_table(
@@ -360,12 +360,12 @@ class _MemberModelScope(Protocol):
 
 class _TeamMembershipModelScope(Protocol):
     @property
-    def litellm_budget_table(self) -> _MemberModelScope | None: ...
+    def embrouter_budget_table(self) -> _MemberModelScope | None: ...
 
 
 def _member_allowed_models(membership: _TeamMembershipModelScope) -> Sequence[str]:
     """The member's own model scope, read through a narrowed view of the membership row."""
-    budget_table: Final = membership.litellm_budget_table
+    budget_table: Final = membership.embrouter_budget_table
     return () if budget_table is None else (budget_table.allowed_models or ())
 
 
@@ -405,11 +405,11 @@ class _TeamMembershipCacheMiss:
 
 _TEAM_MEMBERSHIP_CACHE_MISS: Final = _TeamMembershipCacheMiss()
 
-all_routes: Final = LiteLLMRoutes.openai_routes.value + LiteLLMRoutes.management_routes.value
+all_routes: Final = EmbRouterRoutes.openai_routes.value + EmbRouterRoutes.management_routes.value
 
 
-def _membership_from_shared_load(result: object) -> LiteLLM_TeamMembership | None:
-    return result if isinstance(result, LiteLLM_TeamMembership) else None
+def _membership_from_shared_load(result: object) -> EmbRouter_TeamMembership | None:
+    return result if isinstance(result, EmbRouter_TeamMembership) else None
 
 
 def _log_budget_lookup_failure(entity: str, error: Exception) -> None:
@@ -459,7 +459,7 @@ def _is_model_cost_zero(model: str | list[str] | None, llm_router: Router | None
 
     Args:
         model: The model name or list of model names
-        llm_router: The LiteLLM router instance
+        llm_router: The EmbRouter router instance
 
     Returns:
         bool: True if all costs for the model are zero, False otherwise
@@ -560,7 +560,7 @@ def _is_model_cost_zero(model: str | list[str] | None, llm_router: Router | None
 
 
 _NO_MODEL_INFO: Final[Mapping[str, object]] = MappingProxyType({})
-_TEAM_GRANT_RELATIONS: Final[Mapping[str, object]] = MappingProxyType({"litellm_model_table": True})
+_TEAM_GRANT_RELATIONS: Final[Mapping[str, object]] = MappingProxyType({"embrouter_model_table": True})
 
 
 def _has_ptu_flat_cost(model: str, llm_router: "Router") -> bool:
@@ -583,7 +583,7 @@ def _has_ptu_flat_cost(model: str, llm_router: "Router") -> bool:
 def _is_cost_explicitly_configured(model: str, llm_router: "Router") -> bool:
     """
     Check if any deployment in the model group has cost fields explicitly
-    set in its litellm.model_cost entry.
+    set in its embrouter.model_cost entry.
 
     When Router._create_deployment() registers a model not in the global
     cost map, it creates a sparse entry like {"id": "<hash>"} with no cost
@@ -600,7 +600,7 @@ def _is_cost_explicitly_configured(model: str, llm_router: "Router") -> bool:
         model_id = (deployment.get("model_info") or _EMPTY_COST_ENTRY).get("id")
         if model_id is None:
             continue
-        raw_entry = litellm.model_cost.get(model_id, _EMPTY_COST_ENTRY)
+        raw_entry = embrouter.model_cost.get(model_id, _EMPTY_COST_ENTRY)
         if "input_cost_per_token" in raw_entry or "output_cost_per_token" in raw_entry:
             return True
     return False
@@ -633,13 +633,13 @@ def _entry_declares_price(entry: Mapping[str, object]) -> bool:
 def _model_group_has_pricing(model: str, llm_router: "Router") -> bool:
     """
     A model group counts as priced when a deployment overrides any *cost_per* field or
-    tiered_pricing in its litellm_params, even at zero, or when its resolved model info carries
+    tiered_pricing in its embrouter_params, even at zero, or when its resolved model info carries
     tiered_pricing or a positive price on any billed metric (tokens, characters, seconds, pages,
     images, queries, ...), so models billed by a non-token metric are not treated as unpriced.
     """
     for deployment in llm_router.get_model_list(model_name=model) or ():
-        litellm_params = deployment.get("litellm_params") or _EMPTY_COST_ENTRY
-        if _entry_declares_price(litellm_params):
+        embrouter_params = deployment.get("embrouter_params") or _EMPTY_COST_ENTRY
+        if _entry_declares_price(embrouter_params):
             return True
 
         model_id = (deployment.get("model_info") or _EMPTY_COST_ENTRY).get("id")
@@ -647,7 +647,7 @@ def _model_group_has_pricing(model: str, llm_router: "Router") -> bool:
             continue
 
         model_info = llm_router.get_deployment_model_info(
-            model_id=model_id, model_name=litellm_params.get("model") or ""
+            model_id=model_id, model_name=embrouter_params.get("model") or ""
         )
         if model_info is not None and _entry_has_priced_metric(model_info):
             return True
@@ -679,14 +679,14 @@ def _unpriced_models_block_message(models: tuple[str, ...]) -> str:
     names: Final = ", ".join(f"'{model}'" for model in models)
     subject: Final = f"Model {names} has" if len(models) == 1 else f"Models {names} have"
     return (
-        f"{subject} no pricing in the cost map, so litellm cannot price the request. "
+        f"{subject} no pricing in the cost map, so embrouter cannot price the request. "
         "Requests for unpriced models are blocked because 'block_requests_for_models_without_pricing' "
         "is enabled. Add pricing (input_cost_per_token/output_cost_per_token) to allow the request."
     )
 
 
 async def _run_project_checks(
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     _model: str | list[str] | None,
     llm_router: Router | None,
     skip_budget_checks: bool,
@@ -738,8 +738,8 @@ def _enforce_user_param_check(general_settings: dict, request: Request, request_
     http_method: Final = request.method if hasattr(request, "method") else None
     is_post_method: Final = http_method and http_method.upper() == "POST"
     is_openai_route: Final = RouteChecks.is_llm_api_route(route=route)
-    is_mcp_route: Final = route in LiteLLMRoutes.mcp_routes.value or RouteChecks.check_route_access(
-        route=route, allowed_routes=LiteLLMRoutes.mcp_routes.value
+    is_mcp_route: Final = route in EmbRouterRoutes.mcp_routes.value or RouteChecks.check_route_access(
+        route=route, allowed_routes=EmbRouterRoutes.mcp_routes.value
     )
 
     if is_post_method and is_openai_route and not is_mcp_route and "user" not in request_body:
@@ -766,18 +766,18 @@ def _reject_clientside_metadata_tags_check(general_settings: dict, request_body:
 
 def _global_proxy_budget_check(global_proxy_spend: float | None, skip_budget_checks: bool, route: str) -> None:
     if (
-        litellm.max_budget > 0
+        embrouter.max_budget > 0
         and not skip_budget_checks
         and global_proxy_spend is not None
         and RouteChecks.is_llm_api_route(route=route)
         and route != "/v1/models"
         and route != "/models"
     ):
-        if math.isfinite(litellm.max_budget) and global_proxy_spend > litellm.max_budget:
-            raise litellm.BudgetExceededError(
+        if math.isfinite(embrouter.max_budget) and global_proxy_spend > embrouter.max_budget:
+            raise embrouter.BudgetExceededError(
                 current_cost=global_proxy_spend,
-                max_budget=litellm.max_budget,
-                entity_type=Litellm_EntityType.PROXY.value,
+                max_budget=embrouter.max_budget,
+                entity_type=Embrouter_EntityType.PROXY.value,
             )
 
 
@@ -789,7 +789,7 @@ _GUARDRAIL_MODIFICATION_KEYS: Final[tuple] = (
 )
 
 
-def _guardrail_modification_check(request_body: Mapping[str, object], team_object: LiteLLM_TeamTable | None) -> None:
+def _guardrail_modification_check(request_body: Mapping[str, object], team_object: EmbRouter_TeamTable | None) -> None:
     """
     Reject user-supplied metadata flags that would modify guardrail behavior
     unless the team has explicit permission. Checked keys include the plural
@@ -802,7 +802,7 @@ def _guardrail_modification_check(request_body: Mapping[str, object], team_objec
     failing loudly at the auth layer so operators see an explicit 403 instead
     of a confusing silent-ignore.
     """
-    from litellm.proxy.guardrails.guardrail_helpers import can_modify_guardrails
+    from embrouter.proxy.guardrails.guardrail_helpers import can_modify_guardrails
 
     def _coerce_to_dict(container: object) -> dict | None:
         """Accept dict or JSON-string (from multipart/form-data or extra_body).
@@ -810,7 +810,7 @@ def _guardrail_modification_check(request_body: Mapping[str, object], team_objec
         Without this, an attacker can smuggle guardrail keys past the check by
         sending ``{"metadata": "{\\"disable_global_guardrails\\": true}"}`` —
         ``isinstance(dict)`` on the string returns False, the check returns
-        no-modification, and ``add_litellm_data_to_request`` parses the string
+        no-modification, and ``add_embrouter_data_to_request`` parses the string
         to a dict downstream.
         """
         if isinstance(container, dict):
@@ -830,7 +830,7 @@ def _guardrail_modification_check(request_body: Mapping[str, object], team_objec
     # endpoint. Cover the top-level too so root-level injection is rejected.
     modifies: Final = (
         _user_requested_modification(request_body.get("metadata"))
-        or _user_requested_modification(request_body.get("litellm_metadata"))
+        or _user_requested_modification(request_body.get("embrouter_metadata"))
         or _user_requested_modification(request_body)
     )
     if not modifies:
@@ -846,7 +846,7 @@ def _guardrail_modification_check(request_body: Mapping[str, object], team_objec
 async def check_tools_allowlist(
     request_body: dict,
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     route: str,
 ) -> None:
     """
@@ -854,7 +854,7 @@ async def check_tools_allowlist(
     effective allowlist is read from valid_token.metadata and valid_token.team_metadata.
     Raises ProxyException with tool_access_denied if a tool is not allowed.
     """
-    from litellm.litellm_core_utils.api_route_to_call_types import (
+    from embrouter.embrouter_core_utils.api_route_to_call_types import (
         get_call_types_for_route,
     )
 
@@ -920,9 +920,9 @@ def request_skips_budget_checks(route: str, model: str | list[str] | None, llm_r
 
 async def common_checks(
     request_body: dict,
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
-    end_user_object: LiteLLM_EndUserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
+    end_user_object: EmbRouter_EndUserTable | None,
     global_proxy_spend: float | None,
     general_settings: dict,
     route: str,
@@ -931,7 +931,7 @@ async def common_checks(
     valid_token: UserAPIKeyAuth | None,
     request: Request,
     skip_budget_checks: bool = False,
-    project_object: LiteLLM_ProjectTableCachedObj | None = None,
+    project_object: EmbRouter_ProjectTableCachedObj | None = None,
 ) -> bool:
     """
     Common checks across jwt + key-based auth.
@@ -947,13 +947,13 @@ async def common_checks(
     4. If user passed in (JWT or key.user_id) - is in budget
     5. If end_user (either via JWT or 'user' passed to /chat/completions, /embeddings endpoint) is in budget
     6. [OPTIONAL] If 'enforce_end_user' enabled - did developer pass in 'user' param for openai endpoints
-    7. [OPTIONAL] If 'litellm.max_budget' is set (>0), is proxy under budget
+    7. [OPTIONAL] If 'embrouter.max_budget' is set (>0), is proxy under budget
     8. [OPTIONAL] If guardrails modified - is request allowed to change this
     9. Check if request body is safe
     10. [OPTIONAL] Organization checks - is user_object.organization_id is set, run these checks
     11. [OPTIONAL] Vector store checks - is the object allowed to access the vector store
     """
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
     _model: Final[str | list[str] | None] = get_model_from_request(
         request_data=request_body,
@@ -985,7 +985,7 @@ async def common_checks(
 
     unpriced_models: Final = (
         _unpriced_models_in_request(model=_model, llm_router=llm_router)
-        if litellm.block_requests_for_models_without_pricing and RouteChecks.is_llm_api_route(route=route)
+        if embrouter.block_requests_for_models_without_pricing and RouteChecks.is_llm_api_route(route=route)
         else ()
     )
     if unpriced_models:
@@ -1002,7 +1002,7 @@ async def common_checks(
 
     # 2. If team can call model (or key's access_group_ids grant it)
     if _model and team_object:
-        with tracer.trace("litellm.proxy.auth.common_checks.can_team_access_model"):
+        with tracer.trace("embrouter.proxy.auth.common_checks.can_team_access_model"):
             try:
                 await can_team_access_model(
                     model=_model,
@@ -1025,7 +1025,7 @@ async def common_checks(
 
     # 2.2. If team member has per-member model scope, enforce it
     if _model and team_object and valid_token and valid_token.user_id:
-        with tracer.trace("litellm.proxy.auth.common_checks.check_team_member_model_access"):
+        with tracer.trace("embrouter.proxy.auth.common_checks.check_team_member_model_access"):
             await _check_team_member_model_access(
                 model=_model,
                 team_object=team_object,
@@ -1041,18 +1041,18 @@ async def common_checks(
 
     # Require trace id for agent keys when agent has require_trace_id_on_calls_by_agent
     if valid_token is not None and valid_token.agent_id:
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-        from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
         agent: Final = global_agent_registry.get_agent_by_id(agent_id=valid_token.agent_id)
         if agent is not None:
-            require_trace_id: Final = (agent.litellm_params or {}).get("require_trace_id_on_calls_by_agent")
+            require_trace_id: Final = (agent.embrouter_params or {}).get("require_trace_id_on_calls_by_agent")
             if require_trace_id:
                 headers_dict: Final = dict(request.headers)
                 trace_id: Final = get_chain_id_from_headers(headers_dict)
                 if not trace_id:
                     raise ProxyException(
-                        message="Requests made with this agent's key must include the x-litellm-trace-id header.",
+                        message="Requests made with this agent's key must include the x-embrouter-trace-id header.",
                         type=ProxyErrorTypes.bad_request_error,
                         param=None,
                         code=status.HTTP_400_BAD_REQUEST,
@@ -1084,7 +1084,7 @@ async def common_checks(
 
     ## 2.1 If user can call model (if personal key)
     if _model and team_object is None and user_object is not None:
-        with tracer.trace("litellm.proxy.auth.common_checks.can_user_call_model"):
+        with tracer.trace("embrouter.proxy.auth.common_checks.can_user_call_model"):
             await can_user_call_model(
                 model=_model,
                 llm_router=llm_router,
@@ -1093,7 +1093,7 @@ async def common_checks(
             )
 
     # 1.1 - 2.2 - 3.0.2 - 3.0.3: Project checks (blocked, model access, budget)
-    with tracer.trace("litellm.proxy.auth.common_checks.run_project_checks"):
+    with tracer.trace("embrouter.proxy.auth.common_checks.run_project_checks"):
         await _run_project_checks(
             project_object=project_object,
             _model=_model,
@@ -1125,14 +1125,14 @@ async def common_checks(
         # Key metadata.tags are injected into request_body here so the tag budget
         # check can read them; this mutation must run before the gathered checks.
         if valid_token is not None:
-            from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+            from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-            LiteLLMProxyRequestSetup.pre_seed_litellm_metadata_for_route(
+            EmbRouterProxyRequestSetup.pre_seed_embrouter_metadata_for_route(
                 request_data=request_body,
                 route=route,
             )
 
-            LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+            EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
                 request_data=request_body,
                 user_api_key_dict=valid_token,
             )
@@ -1145,7 +1145,7 @@ async def common_checks(
             if is_team_key and general_settings.get("apply_user_budget_to_team_keys") is not True:
                 return
 
-            from litellm.proxy.proxy_server import get_current_spend
+            from embrouter.proxy.proxy_server import get_current_spend
 
             user_budget: Final = user_object.max_budget
             user_spend: Final = await get_current_spend(
@@ -1158,7 +1158,7 @@ async def common_checks(
                 max_budget=user_budget,
                 user_id=user_object.user_id,
                 user_email=user_object.user_email,
-                event_group=Litellm_EntityType.USER,
+                event_group=Embrouter_EntityType.USER,
             )
             asyncio.create_task(
                 proxy_logging_obj.budget_alerts(
@@ -1167,11 +1167,11 @@ async def common_checks(
                 )
             )
             if math.isfinite(user_budget) and user_spend >= user_budget:
-                raise litellm.BudgetExceededError(
+                raise embrouter.BudgetExceededError(
                     current_cost=user_spend,
                     max_budget=user_budget,
                     message=f"ExceededBudget: User={user_object.user_id} over budget. Spend={user_spend}, Budget={user_budget}",
-                    entity_type=Litellm_EntityType.USER.value,
+                    entity_type=Embrouter_EntityType.USER.value,
                     entity_id=user_object.user_id,
                 )
 
@@ -1228,13 +1228,13 @@ async def common_checks(
                     team_membership_loaded=team_membership_loaded,
                 ),
                 _check_end_user_budget(end_user_obj=end_user_object, route=route)
-                if end_user_object is not None and end_user_object.litellm_budget_table is not None
+                if end_user_object is not None and end_user_object.embrouter_budget_table is not None
                 else None,
             )
             if coro is not None
         )
 
-        with tracer.trace("litellm.proxy.auth.common_checks.budget_checks"):
+        with tracer.trace("embrouter.proxy.auth.common_checks.budget_checks"):
             budget_results: Final = await asyncio.gather(*budget_check_coros, return_exceptions=True)
         budget_error: Final = next((r for r in budget_results if isinstance(r, BaseException)), None)
         if budget_error is not None:
@@ -1275,7 +1275,7 @@ async def common_checks(
     )
 
     # 11. [OPTIONAL] Vector store checks - is the object allowed to access the vector store
-    with tracer.trace("litellm.proxy.auth.common_checks.vector_store_access_check"):
+    with tracer.trace("embrouter.proxy.auth.common_checks.vector_store_access_check"):
         await vector_store_access_check(
             request_body=request_body,
             team_object=team_object,
@@ -1283,7 +1283,7 @@ async def common_checks(
         )
 
     # 12. [OPTIONAL] Tool allowlist - key/team allowed_tools (no DB in hot path)
-    with tracer.trace("litellm.proxy.auth.common_checks.check_tools_allowlist"):
+    with tracer.trace("embrouter.proxy.auth.common_checks.check_tools_allowlist"):
         await check_tools_allowlist(
             request_body=request_body,
             valid_token=valid_token,
@@ -1294,16 +1294,16 @@ async def common_checks(
     return True
 
 
-def effective_user_role(user_role: str | None) -> LitellmUserRoles:
+def effective_user_role(user_role: str | None) -> EmbrouterUserRoles:
     try:
-        return LitellmUserRoles(user_role)
+        return EmbrouterUserRoles(user_role)
     except ValueError:
-        return LitellmUserRoles.INTERNAL_USER
+        return EmbrouterUserRoles.INTERNAL_USER
 
 
 def _get_user_role(
-    user_obj: LiteLLM_UserTable | None,
-) -> LitellmUserRoles | None:
+    user_obj: EmbRouter_UserTable | None,
+) -> EmbrouterUserRoles | None:
     if user_obj is None:
         return None
     return effective_user_role(user_obj.user_role)
@@ -1314,7 +1314,7 @@ def _is_api_route_allowed(
     request: Request,
     request_data: dict,
     valid_token: UserAPIKeyAuth | None,
-    user_obj: LiteLLM_UserTable | None = None,
+    user_obj: EmbRouter_UserTable | None = None,
 ) -> bool:
     """
     - Route b/w api token check and normal token check
@@ -1336,11 +1336,11 @@ def _is_api_route_allowed(
     return True
 
 
-def _is_user_proxy_admin(user_obj: LiteLLM_UserTable | None):
+def _is_user_proxy_admin(user_obj: EmbRouter_UserTable | None):
     if user_obj is None:
         return False
 
-    if user_obj.user_role is not None and user_obj.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_obj.user_role is not None and user_obj.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return True
 
     return False
@@ -1352,14 +1352,14 @@ def _allowed_routes_check(user_route: str, allowed_routes: list) -> bool:
 
     Parameters:
     - user_route: str - the route the user is trying to call
-    - allowed_routes: List[str|LiteLLMRoutes] - the list of allowed routes for the user. Entries are a route group name
+    - allowed_routes: List[str|EmbRouterRoutes] - the list of allowed routes for the user. Entries are a route group name
       (e.g. "openai_routes"), an exact route, or a trailing-wildcard prefix (e.g. "/internal-models/*").
     """
     from starlette.routing import compile_path
 
     for allowed_route in allowed_routes:
-        if allowed_route in LiteLLMRoutes.__members__:
-            for template in LiteLLMRoutes[allowed_route].value:
+        if allowed_route in EmbRouterRoutes.__members__:
+            for template in EmbRouterRoutes[allowed_route].value:
                 regex, _, _ = compile_path(template)
                 if regex.match(user_route):
                     return True
@@ -1369,32 +1369,32 @@ def _allowed_routes_check(user_route: str, allowed_routes: list) -> bool:
 
 
 def allowed_routes_check(
-    user_role: LitellmUserRoles,
+    user_role: EmbrouterUserRoles,
     user_route: str,
-    litellm_proxy_roles: LiteLLM_JWTAuth,
+    embrouter_proxy_roles: EmbRouter_JWTAuth,
 ) -> bool:
     """
     Check if user -> not admin - allowed to access these routes
     """
 
-    if user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_role == EmbrouterUserRoles.PROXY_ADMIN:
         is_allowed = _allowed_routes_check(
             user_route=user_route,
-            allowed_routes=litellm_proxy_roles.admin_allowed_routes,
+            allowed_routes=embrouter_proxy_roles.admin_allowed_routes,
         )
         return is_allowed
 
-    elif user_role == LitellmUserRoles.TEAM:
-        if litellm_proxy_roles.team_allowed_routes is None:
+    elif user_role == EmbrouterUserRoles.TEAM:
+        if embrouter_proxy_roles.team_allowed_routes is None:
             """
             By default allow a team to call openai + info routes
             """
             is_allowed = _allowed_routes_check(user_route=user_route, allowed_routes=["openai_routes", "info_routes"])
             return is_allowed
-        elif litellm_proxy_roles.team_allowed_routes is not None:
+        elif embrouter_proxy_roles.team_allowed_routes is not None:
             is_allowed = _allowed_routes_check(
                 user_route=user_route,
-                allowed_routes=litellm_proxy_roles.team_allowed_routes,
+                allowed_routes=embrouter_proxy_roles.team_allowed_routes,
             )
             return is_allowed
     return False
@@ -1406,8 +1406,8 @@ def allowed_route_check_inside_route(
 ) -> bool:
     ret_val = True
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
     ):
         ret_val = False
     if requested_user_id is not None and user_api_key_dict.user_id is not None:
@@ -1420,7 +1420,7 @@ def get_actual_routes(allowed_routes: list) -> list:
     actual_routes: Final[list] = []
     for route_name in allowed_routes:
         try:
-            route_value = LiteLLMRoutes[route_name].value
+            route_value = EmbRouterRoutes[route_name].value
             if isinstance(route_value, set):
                 actual_routes.extend(list(route_value))
             else:
@@ -1447,12 +1447,12 @@ async def get_default_end_user_budget(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     budget_id: str | None = None,
-) -> LiteLLM_BudgetTable | None:
+) -> EmbRouter_BudgetTable | None:
     """
     Fetches the default end user budget from the database.
 
     ``budget_id`` selects the budget row; when omitted the proxy-wide
-    ``litellm.max_end_user_budget_id`` is used. This budget is applied to end
+    ``embrouter.max_end_user_budget_id`` is used. This budget is applied to end
     users who don't have an explicit budget_id set. Results are cached for performance.
 
     Args:
@@ -1462,9 +1462,9 @@ async def get_default_end_user_budget(
         budget_id: Budget row to load instead of the proxy-wide default
 
     Returns:
-        LiteLLM_BudgetTable if configured and found, None otherwise
+        EmbRouter_BudgetTable if configured and found, None otherwise
     """
-    default_budget_id: Final = budget_id if budget_id is not None else litellm.max_end_user_budget_id
+    default_budget_id: Final = budget_id if budget_id is not None else embrouter.max_end_user_budget_id
     if prisma_client is None or default_budget_id is None:
         return None
 
@@ -1473,7 +1473,7 @@ async def get_default_end_user_budget(
     # Check cache first
     cached_budget: Final = await user_api_key_cache.async_get_cache(
         key=cache_key,
-        model_type=LiteLLM_BudgetTable,
+        model_type=EmbRouter_BudgetTable,
     )
     if cached_budget is not None:
         return cached_budget
@@ -1491,12 +1491,12 @@ async def get_default_end_user_budget(
             )
             return None
 
-        _budget_obj: Final = LiteLLM_BudgetTable.model_validate(budget_record.dict())
+        _budget_obj: Final = EmbRouter_BudgetTable.model_validate(budget_record.dict())
         # Cache the budget for 60 seconds
         await user_api_key_cache.async_set_cache(
             key=cache_key,
             value=_budget_obj,
-            model_type=LiteLLM_BudgetTable,
+            model_type=EmbRouter_BudgetTable,
             ttl=get_management_object_ttl(user_api_key_cache),
         )
 
@@ -1512,7 +1512,7 @@ async def get_team_member_default_budget(
     budget_id: str,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
-) -> LiteLLM_BudgetTable | None:
+) -> EmbRouter_BudgetTable | None:
     """
     Fetches the team-level default per-member budget referenced by team.metadata["team_member_budget_id"].
 
@@ -1526,7 +1526,7 @@ async def get_team_member_default_budget(
         user_api_key_cache: Cache for storing/retrieving budget data
 
     Returns:
-        LiteLLM_BudgetTable if found, None otherwise
+        EmbRouter_BudgetTable if found, None otherwise
     """
     if prisma_client is None:
         return None
@@ -1535,7 +1535,7 @@ async def get_team_member_default_budget(
 
     cached_budget: Final = await user_api_key_cache.async_get_cache(
         key=cache_key,
-        model_type=LiteLLM_BudgetTable,
+        model_type=EmbRouter_BudgetTable,
     )
     if cached_budget is not None:
         return cached_budget
@@ -1552,11 +1552,11 @@ async def get_team_member_default_budget(
         verbose_proxy_logger.warning("Team-default member budget not found in database: %s", budget_id)
         return None
 
-    budget: Final = LiteLLM_BudgetTable.model_validate(budget_record.dict())
+    budget: Final = EmbRouter_BudgetTable.model_validate(budget_record.dict())
     await user_api_key_cache.async_set_cache(
         key=cache_key,
         value=budget,
-        model_type=LiteLLM_BudgetTable,
+        model_type=EmbRouter_BudgetTable,
         ttl=get_management_object_ttl(user_api_key_cache),
     )
 
@@ -1568,12 +1568,12 @@ async def resolve_default_end_user_budget(
     user_api_key_cache: UserApiKeyCache,
     key_end_user_budget_id: str | None,
     parent_otel_span: Span | None = None,
-) -> LiteLLM_BudgetTable | None:
+) -> EmbRouter_BudgetTable | None:
     """
     The default budget for an end user with no budget of its own.
 
     The key's ``end_user_budget_id`` takes precedence over the proxy-wide
-    ``litellm.max_end_user_budget_id``; the proxy-wide default is the fallback when the key
+    ``embrouter.max_end_user_budget_id``; the proxy-wide default is the fallback when the key
     names no budget or its budget row is missing.
     """
     if key_end_user_budget_id is not None:
@@ -1586,7 +1586,7 @@ async def resolve_default_end_user_budget(
         if key_budget is not None:
             return key_budget
 
-    if litellm.max_end_user_budget_id is None:
+    if embrouter.max_end_user_budget_id is None:
         return None
 
     return await get_default_end_user_budget(
@@ -1597,12 +1597,12 @@ async def resolve_default_end_user_budget(
 
 
 async def _apply_default_budget_to_end_user(
-    end_user_obj: LiteLLM_EndUserTable,
+    end_user_obj: EmbRouter_EndUserTable,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     key_end_user_budget_id: str | None = None,
-) -> LiteLLM_EndUserTable:
+) -> EmbRouter_EndUserTable:
     """
     Returns the end user with the resolved default budget when it has no budget of its own.
 
@@ -1618,10 +1618,10 @@ async def _apply_default_budget_to_end_user(
         parent_otel_span: Optional OpenTelemetry span for tracing
         key_end_user_budget_id: The requesting key's ``end_user_budget_id``, if any
     """
-    if end_user_obj.budget_id is not None and end_user_obj.litellm_budget_table is not None:
+    if end_user_obj.budget_id is not None and end_user_obj.embrouter_budget_table is not None:
         return end_user_obj
 
-    if key_end_user_budget_id is None and litellm.max_end_user_budget_id is None:
+    if key_end_user_budget_id is None and embrouter.max_end_user_budget_id is None:
         return end_user_obj
 
     default_budget: Final = await resolve_default_end_user_budget(
@@ -1637,11 +1637,11 @@ async def _apply_default_budget_to_end_user(
     verbose_proxy_logger.debug(
         "Applied default budget %s to end user %s", default_budget.budget_id, end_user_obj.user_id
     )
-    return end_user_obj.model_copy(update=MappingProxyType({"litellm_budget_table": default_budget}))
+    return end_user_obj.model_copy(update=MappingProxyType({"embrouter_budget_table": default_budget}))
 
 
 async def _check_end_user_budget(
-    end_user_obj: LiteLLM_EndUserTable,
+    end_user_obj: EmbRouter_EndUserTable,
     route: str,
 ) -> None:
     """
@@ -1652,19 +1652,19 @@ async def _check_end_user_budget(
         route: The request route
 
     Raises:
-        litellm.BudgetExceededError: If end user has exceeded their budget
+        embrouter.BudgetExceededError: If end user has exceeded their budget
     """
     if RouteChecks.is_info_route(route):
         return
 
-    if end_user_obj.litellm_budget_table is None:
+    if end_user_obj.embrouter_budget_table is None:
         return
 
-    end_user_budget: Final = end_user_obj.litellm_budget_table.max_budget
+    end_user_budget: Final = end_user_obj.embrouter_budget_table.max_budget
     if end_user_budget is None:
         return
 
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     end_user_spend: Final = await get_current_spend(
         counter_key=f"spend:end_user:{end_user_obj.user_id}",
@@ -1673,11 +1673,11 @@ async def _check_end_user_budget(
         fallback_authoritative=True,
     )
     if end_user_spend > end_user_budget:
-        raise litellm.BudgetExceededError(
+        raise embrouter.BudgetExceededError(
             current_cost=end_user_spend,
             max_budget=end_user_budget,
             message=f"ExceededBudget: End User={end_user_obj.user_id} over budget. Spend={end_user_spend}, Budget={end_user_budget}",
-            entity_type=Litellm_EntityType.END_USER.value,
+            entity_type=Embrouter_EntityType.END_USER.value,
             entity_id=end_user_obj.user_id,
         )
 
@@ -1819,7 +1819,7 @@ async def _load_end_user_restricted_registry(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
 ) -> frozenset[str] | None:
-    """The set of end-user ids whose ``LiteLLM_EndUserTable`` row carries a restriction."""
+    """The set of end-user ids whose ``EmbRouter_EndUserTable`` row carries a restriction."""
 
     async def fetch_ids() -> tuple[str, ...]:
         restricted_rows: Final = await _end_user_table(EndUserRepository(prisma_client)).find_many(
@@ -1857,9 +1857,9 @@ async def _end_user_is_known_unrestricted(
     one against an otherwise unrestricted row) is enforced against the row's recorded spend.
     """
     if (
-        litellm.max_end_user_budget_id is not None
+        embrouter.max_end_user_budget_id is not None
         or key_end_user_budget_id is not None
-        or litellm.validate_end_user_id_in_db
+        or embrouter.validate_end_user_id_in_db
         or token_end_user_max_budget is not None
     ):
         return False
@@ -1881,12 +1881,12 @@ async def get_end_user_object(
     proxy_logging_obj: ProxyLogging | None = None,
     token_end_user_max_budget: float | None = None,
     key_end_user_budget_id: str | None = None,
-) -> LiteLLM_EndUserTable | None:
+) -> EmbRouter_EndUserTable | None:
     """
     Returns end user object from database or cache.
 
     If end user exists but has no budget_id, applies the default budget: the key's
-    ``end_user_budget_id`` when set, otherwise ``litellm.max_end_user_budget_id``.
+    ``end_user_budget_id`` when set, otherwise ``embrouter.max_end_user_budget_id``.
 
     Args:
         end_user_id: The ID of the end user
@@ -1901,7 +1901,7 @@ async def get_end_user_object(
         key_end_user_budget_id: The requesting key's default end-user budget, if any
 
     Returns:
-        LiteLLM_EndUserTable if found, None otherwise
+        EmbRouter_EndUserTable if found, None otherwise
     """
     if prisma_client is None:
         raise Exception("No db connected")
@@ -1914,7 +1914,7 @@ async def get_end_user_object(
     # Check cache first
     cached_user_obj: Final = await user_api_key_cache.async_get_cache(
         key=_key,
-        model_type=LiteLLM_EndUserTable,
+        model_type=EmbRouter_EndUserTable,
     )
     if cached_user_obj is not None:
         return await _apply_default_budget_to_end_user(
@@ -1938,14 +1938,14 @@ async def get_end_user_object(
     try:
         response: Final = await _dictable_table(EndUserRepository(prisma_client), "end_user").find_unique(
             where={"user_id": end_user_id},
-            include={"litellm_budget_table": True, "object_permission": True},
+            include={"embrouter_budget_table": True, "object_permission": True},
         )
 
         if response is None:
             raise Exception
 
         end_user_row: Final = await _apply_default_budget_to_end_user(
-            end_user_obj=LiteLLM_EndUserTable.model_validate(response.dict()),
+            end_user_obj=EmbRouter_EndUserTable.model_validate(response.dict()),
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
             parent_otel_span=parent_otel_span,
@@ -1954,7 +1954,7 @@ async def get_end_user_object(
         await user_api_key_cache.async_set_cache(
             key=_key,
             value=end_user_row,
-            model_type=LiteLLM_EndUserTable,
+            model_type=EmbRouter_EndUserTable,
             ttl=get_management_object_ttl(user_api_key_cache),
         )
 
@@ -1988,18 +1988,18 @@ async def resolve_and_validate_end_user_id(
 ) -> str | None:
     """Optionally drop end-user ids that don't resolve to a known DB row.
 
-    Default: pass-through. LiteLLM's documented pattern is that the `user`
+    Default: pass-through. EmbRouter's documented pattern is that the `user`
     field is an arbitrary caller-supplied identifier, so validation is
-    opt-in behind ``litellm.validate_end_user_id_in_db`` to preserve
+    opt-in behind ``embrouter.validate_end_user_id_in_db`` to preserve
     backwards compatibility.
 
     When the flag is set: accept the id when it matches any of
-      - LiteLLM_EndUserTable.user_id
-      - LiteLLM_UserTable.user_id
-      - LiteLLM_UserTable.user_email (case-insensitive)
+      - EmbRouter_EndUserTable.user_id
+      - EmbRouter_UserTable.user_id
+      - EmbRouter_UserTable.user_email (case-insensitive)
 
     If the id doesn't match but a default end-user budget is configured
-    (``litellm.max_end_user_budget_id`` or the key's ``end_user_budget_id``),
+    (``embrouter.max_end_user_budget_id`` or the key's ``end_user_budget_id``),
     we still preserve the id so that budget is applied downstream; otherwise
     we return None.
 
@@ -2009,12 +2009,12 @@ async def resolve_and_validate_end_user_id(
     """
     if raw_end_user_id is None:
         return None
-    if not litellm.validate_end_user_id_in_db:
+    if not embrouter.validate_end_user_id_in_db:
         return raw_end_user_id
     if prisma_client is None:
         return raw_end_user_id
 
-    has_default_budget: Final = bool(litellm.max_end_user_budget_id) or key_end_user_budget_id is not None
+    has_default_budget: Final = bool(embrouter.max_end_user_budget_id) or key_end_user_budget_id is not None
     cache_key: Final = f"end_user_validation:{raw_end_user_id}"
     cached: Final = await _raw_cache(user_api_key_cache).async_get_cache(key=cache_key)
     if cached == "valid":
@@ -2086,7 +2086,7 @@ async def _load_tag_registry(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
 ) -> frozenset[str] | None:
-    """The set of tag names that have a row in ``LiteLLM_TagTable``."""
+    """The set of tag names that have a row in ``EmbRouter_TagTable``."""
 
     async def fetch_ids() -> tuple[str, ...]:
         registry_rows: Final = await _tag_table(TagRepository(prisma_client)).find_many(
@@ -2108,7 +2108,7 @@ async def _load_model_access_group_registry(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
 ) -> frozenset[str] | None:
-    """The set of model access group names that have a row in ``LiteLLM_ModelAccessGroupBudgetTable``."""
+    """The set of model access group names that have a row in ``EmbRouter_ModelAccessGroupBudgetTable``."""
 
     async def fetch_ids() -> tuple[str, ...]:
         registry_rows: Final = await _model_access_group_budget_table(
@@ -2145,7 +2145,7 @@ async def _fetch_uncached_model_access_group_budgets(
             ModelAccessGroupBudgetRepository(prisma_client)
         ).find_many(
             where={"access_group_name": {"in": list(uncached_groups)}},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
         fetched: Final = tuple((row.access_group_name, _model_access_group_budget(row)) for row in db_rows)
         for fetched_name, fetched_obj in fetched:
@@ -2163,7 +2163,7 @@ async def _fetch_uncached_model_access_group_budgets(
 
 
 def _model_access_group_budget(row: _PrismaModelAccessGroupBudgetRow) -> ModelAccessGroupBudget:
-    budget_table: Final = row.litellm_budget_table
+    budget_table: Final = row.embrouter_budget_table
     return ModelAccessGroupBudget(
         access_group_name=row.access_group_name,
         spend=row.spend or 0.0,
@@ -2207,7 +2207,7 @@ async def _fetch_uncached_tags(
     uncached_tags: Sequence[str],
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
-) -> tuple[tuple[str, LiteLLM_TagTable], ...]:
+) -> tuple[tuple[str, EmbRouter_TagTable], ...]:
     """Rows for the tags a cache probe missed; names absent from the registry never reach the DB."""
     if not uncached_tags:
         return ()
@@ -2225,14 +2225,14 @@ async def _fetch_uncached_tags(
     try:
         db_tags: Final = await _tag_table(TagRepository(prisma_client)).find_many(
             where={"tag_name": {"in": list(tags_to_fetch)}},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
-        fetched: Final = tuple((db_tag.tag_name, LiteLLM_TagTable.model_validate(db_tag.dict())) for db_tag in db_tags)
+        fetched: Final = tuple((db_tag.tag_name, EmbRouter_TagTable.model_validate(db_tag.dict())) for db_tag in db_tags)
         for fetched_name, fetched_obj in fetched:
             await user_api_key_cache.async_set_cache(
                 key=tag_cache_key(fetched_name),
                 value=fetched_obj,
-                model_type=LiteLLM_TagTable,
+                model_type=EmbRouter_TagTable,
                 ttl=get_management_object_ttl(user_api_key_cache),
             )
     except Exception as e:  # noqa: BLE001  # fail-safe: a tag fetch error must yield "no budget objects", never break auth
@@ -2249,13 +2249,13 @@ async def get_tag_objects_batch(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> dict[str, LiteLLM_TagTable]:
+) -> dict[str, EmbRouter_TagTable]:
     """
     Batch fetch multiple tag objects from cache and db.
 
     Optimizes for latency by:
     1. Serving already-cached tags without touching the DB
-    2. Skipping tags that no ``LiteLLM_TagTable`` row exists for, via the cached name registry
+    2. Skipping tags that no ``EmbRouter_TagTable`` row exists for, via the cached name registry
     3. Batch fetching the remaining uncached tags in one DB query
 
     Args:
@@ -2266,7 +2266,7 @@ async def get_tag_objects_batch(
         proxy_logging_obj: Optional proxy logging object
 
     Returns:
-        Dictionary mapping tag_name to LiteLLM_TagTable object
+        Dictionary mapping tag_name to EmbRouter_TagTable object
     """
     if prisma_client is None or not tag_names:
         return {}
@@ -2274,7 +2274,7 @@ async def get_tag_objects_batch(
     probed: Final = [
         (
             tag_name,
-            await user_api_key_cache.async_get_cache(key=tag_cache_key(tag_name), model_type=LiteLLM_TagTable),
+            await user_api_key_cache.async_get_cache(key=tag_cache_key(tag_name), model_type=EmbRouter_TagTable),
         )
         for tag_name in tag_names
     ]
@@ -2293,7 +2293,7 @@ async def get_tag_object(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> LiteLLM_TagTable | None:
+) -> EmbRouter_TagTable | None:
     """
     Returns tag object from cache or db.
 
@@ -2307,7 +2307,7 @@ async def get_tag_object(
         proxy_logging_obj: Optional proxy logging object
 
     Returns:
-        LiteLLM_TagTable object if found, None otherwise
+        EmbRouter_TagTable object if found, None otherwise
     """
     if prisma_client is None or tag_name is None:
         return None
@@ -2326,12 +2326,12 @@ async def get_tag_object(
 
 def _membership_from_cached_payload(
     cached: object,
-) -> LiteLLM_TeamMembership | None | _TeamMembershipCacheMiss:
+) -> EmbRouter_TeamMembership | None | _TeamMembershipCacheMiss:
     if cached is None:
         return _TEAM_MEMBERSHIP_CACHE_MISS
     if cached == NO_TEAM_MEMBERSHIP_SENTINEL:
         return None
-    cached_membership: Final = CacheCodec.deserialize(cached, model_type=LiteLLM_TeamMembership)
+    cached_membership: Final = CacheCodec.deserialize(cached, model_type=EmbRouter_TeamMembership)
     return cached_membership if cached_membership is not None else _TEAM_MEMBERSHIP_CACHE_MISS
 
 
@@ -2343,13 +2343,13 @@ async def _fetch_team_membership_from_db(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> LiteLLM_TeamMembership | None:
+) -> EmbRouter_TeamMembership | None:
     _ = parent_otel_span, proxy_logging_obj
     response: Final = await _dictable_table(TeamMembershipRepository(prisma_client), "team_membership").find_unique(
         where={"user_id_team_id": {"user_id": user_id, "team_id": team_id}},
-        include={"litellm_budget_table": True},
+        include={"embrouter_budget_table": True},
     )
-    membership: Final = None if response is None else LiteLLM_TeamMembership.model_validate(response.dict())
+    membership: Final = None if response is None else EmbRouter_TeamMembership.model_validate(response.dict())
     _key: Final = team_membership_reservation_cache_key(user_id=user_id, team_id=team_id)
     if membership is None:
         await user_api_key_cache.async_set_cache(
@@ -2361,7 +2361,7 @@ async def _fetch_team_membership_from_db(
         await user_api_key_cache.async_set_cache(
             key=_key,
             value=membership,
-            model_type=LiteLLM_TeamMembership,
+            model_type=EmbRouter_TeamMembership,
         )
     return membership
 
@@ -2374,7 +2374,7 @@ async def _load_team_membership_on_cache_miss(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None,
     proxy_logging_obj: ProxyLogging | None,
-) -> LiteLLM_TeamMembership | None:
+) -> EmbRouter_TeamMembership | None:
     redis_cached: Final[object] = await user_api_key_cache.async_get_cache(key=cache_key)
     redis_membership: Final = _membership_from_cached_payload(redis_cached)
     if not isinstance(redis_membership, _TeamMembershipCacheMiss):
@@ -2397,7 +2397,7 @@ async def get_team_membership(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> Optional["LiteLLM_TeamMembership"]:
+) -> Optional["EmbRouter_TeamMembership"]:
     """
     Returns team membership object if user is member of team.
 
@@ -2586,9 +2586,9 @@ async def _get_fuzzy_user_object(
 async def _backfill_null_user_email(
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
-    user_row: LiteLLM_UserTable,
+    user_row: EmbRouter_UserTable,
     user_email: str | None,
-) -> LiteLLM_UserTable:
+) -> EmbRouter_UserTable:
     if user_email is None or user_row.user_email is not None or prisma_client is None:
         return user_row
 
@@ -2605,7 +2605,7 @@ async def _backfill_null_user_email(
     await user_api_key_cache.async_set_cache(
         key=user_row.user_id,
         value=updated_row,
-        model_type=LiteLLM_UserTable,
+        model_type=EmbRouter_UserTable,
         ttl=get_management_object_ttl(user_api_key_cache),
     )
     return updated_row
@@ -2622,10 +2622,10 @@ async def get_user_object(
     sso_user_id: str | None = None,
     user_email: str | None = None,
     check_db_only: bool | None = None,
-) -> LiteLLM_UserTable | None:
+) -> EmbRouter_UserTable | None:
     """
     - Check if user id in proxy User Table
-    - if valid, return LiteLLM_UserTable object with defined limits
+    - if valid, return EmbRouter_UserTable object with defined limits
     - if not, then raise an error
     """
 
@@ -2636,7 +2636,7 @@ async def get_user_object(
     if not check_db_only:
         cached_user_obj: Final = await user_api_key_cache.async_get_cache(
             key=user_id,
-            model_type=LiteLLM_UserTable,
+            model_type=EmbRouter_UserTable,
         )
         if cached_user_obj is not None:
             return await _backfill_null_user_email(
@@ -2673,12 +2673,12 @@ async def get_user_object(
 
         if response is None:
             if user_id_upsert:
-                from litellm.proxy.management_endpoints.internal_user_endpoints import (
+                from embrouter.proxy.management_endpoints.internal_user_endpoints import (
                     add_new_user_to_default_team,
                     check_if_default_team_set,
                 )
 
-                default_params: Final = litellm.default_internal_user_params or {}
+                default_params: Final = embrouter.default_internal_user_params or {}
                 scalar_default_params: Final = {
                     key: value for key, value in default_params.items() if key not in ("teams", "available_teams")
                 }
@@ -2705,7 +2705,7 @@ async def get_user_object(
                     await add_new_user_to_default_team(
                         user_id=user_id,
                         user_email=user_email,
-                        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+                        user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
                         teams=default_teams,
                         prisma_client=prisma_client,
                     )
@@ -2719,15 +2719,15 @@ async def get_user_object(
                 raise UserNotFoundError(user_id=user_id)
 
         if response.organization_memberships is not None and len(response.organization_memberships) > 0:
-            # dump each organization membership to type LiteLLM_OrganizationMembershipTable
+            # dump each organization membership to type EmbRouter_OrganizationMembershipTable
             _dumped_memberships: Final = [
-                LiteLLM_OrganizationMembershipTable.model_validate(membership.model_dump())
+                EmbRouter_OrganizationMembershipTable.model_validate(membership.model_dump())
                 for membership in response.organization_memberships
                 if membership is not None
             ]
             response.organization_memberships = _dumped_memberships
 
-        _response = LiteLLM_UserTable.model_validate(dict(response))
+        _response = EmbRouter_UserTable.model_validate(dict(response))
         _response = await _backfill_null_user_email(
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -2740,7 +2740,7 @@ async def get_user_object(
         await user_api_key_cache.async_set_cache(
             key=user_id,
             value=_response,
-            model_type=LiteLLM_UserTable,
+            model_type=EmbRouter_UserTable,
             ttl=get_management_object_ttl(user_api_key_cache),
         )
 
@@ -2790,7 +2790,7 @@ async def _cache_management_object(
 
 async def _cache_team_object(
     team_id: str,
-    team_table: LiteLLM_TeamTableCachedObj,
+    team_table: EmbRouter_TeamTableCachedObj,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging | None,
 ):
@@ -2811,7 +2811,7 @@ async def _cache_team_object(
         value=team_table,
         user_api_key_cache=user_api_key_cache,
         proxy_logging_obj=proxy_logging_obj,
-        model_type=LiteLLM_TeamTableCachedObj,
+        model_type=EmbRouter_TeamTableCachedObj,
     )
 
     # Invalidate the alias-keyed cache so the JWT auth path with
@@ -2879,7 +2879,7 @@ async def invalidate_team_member_spend_state(
     reset or a raised cap takes effect on the next request instead of
     waiting on the membership cache's TTL.
 
-    Two independently-keyed cache entries hold the same LiteLLM_TeamMembership
+    Two independently-keyed cache entries hold the same EmbRouter_TeamMembership
     row: user_api_key_auth.py's admission check writes ``{team_id}_{user_id}``,
     while budget_reservation.py's pre-call reservation and auth_checks.py's own
     get_team_membership() (used by _check_team_member_budget) both write
@@ -2919,7 +2919,7 @@ async def invalidate_team_member_spend_state(
     first, so returning success would leave the old value authoritative for
     every worker despite the DB write having committed.
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
         evict_and_broadcast,
         publish_auth_cache_invalidation,
     )
@@ -2931,7 +2931,7 @@ async def invalidate_team_member_spend_state(
         await asyncio.wait((inflight,))
 
     if new_spend is not None:
-        from litellm.proxy.proxy_server import SPEND_DB_FLOOR_CACHE_TTL_SECONDS, spend_counter_cache
+        from embrouter.proxy.proxy_server import SPEND_DB_FLOOR_CACHE_TTL_SECONDS, spend_counter_cache
 
         spend_counter_key: Final = f"spend:team_member:{user_id}:{team_id}"
         spend_db_floor_key: Final = f"spend_db_floor:{spend_counter_key}"
@@ -3148,19 +3148,19 @@ async def _get_team_db_check(
     )
 
     if response is None and team_id_upsert:
-        from litellm.proxy.management_endpoints.team_endpoints import new_team
+        from embrouter.proxy.management_endpoints.team_endpoints import new_team
 
         new_team_data: Final = NewTeamRequest(team_id=team_id)
 
         mock_request: Final = Request(scope={"type": "http"})
-        system_admin_user: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        system_admin_user: Final = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
         created_team_dict: Final = await new_team(
             data=new_team_data,
             http_request=mock_request,
             user_api_key_dict=system_admin_user,
         )
-        response = LiteLLM_TeamTable.model_validate(created_team_dict)
+        response = EmbRouter_TeamTable.model_validate(created_team_dict)
     return response
 
 
@@ -3178,7 +3178,7 @@ async def _get_team_object_from_user_api_key_cache(
     key: str,
     team_id_upsert: bool | None = None,
     use_writer: bool = False,
-) -> LiteLLM_TeamTableCachedObj:
+) -> EmbRouter_TeamTableCachedObj:
     db_access_time_key: Final = key
     should_check_db: Final = _should_check_db(
         key=db_access_time_key,
@@ -3199,7 +3199,7 @@ async def _get_team_object_from_user_api_key_cache(
     if response is None:
         raise Exception
 
-    _response: Final = LiteLLM_TeamTableCachedObj.model_validate(response.dict())
+    _response: Final = EmbRouter_TeamTableCachedObj.model_validate(response.dict())
 
     # Load object_permission if object_permission_id exists but object_permission is not loaded
     if _response.object_permission_id and not _response.object_permission:
@@ -3244,11 +3244,11 @@ async def _get_team_object_from_cache(
     key: str,
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None,
-) -> LiteLLM_TeamTableCachedObj | None:
+) -> EmbRouter_TeamTableCachedObj | None:
     decoded: Final = await user_api_key_cache.async_get_cache(
         key=key,
         parent_otel_span=parent_otel_span,
-        model_type=LiteLLM_TeamTableCachedObj,
+        model_type=EmbRouter_TeamTableCachedObj,
     )
     return decoded
 
@@ -3262,10 +3262,10 @@ async def get_team_object(
     check_cache_only: bool | None = None,
     check_db_only: bool | None = None,
     team_id_upsert: bool | None = None,
-) -> LiteLLM_TeamTableCachedObj:
+) -> EmbRouter_TeamTableCachedObj:
     """
     - Check if team id in proxy Team Table
-    - if valid, return LiteLLM_TeamTable object with defined limits
+    - if valid, return EmbRouter_TeamTable object with defined limits
     - if not, then raise an error
 
     Raises:
@@ -3317,7 +3317,7 @@ async def get_team_object(
 
 async def _cache_access_object(
     access_group_id: str,
-    access_group_table: LiteLLM_AccessGroupTable,
+    access_group_table: EmbRouter_AccessGroupTable,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging | None = None,
 ):
@@ -3325,7 +3325,7 @@ async def _cache_access_object(
     await user_api_key_cache.async_set_cache(
         key=key,
         value=access_group_table,
-        model_type=LiteLLM_AccessGroupTable,
+        model_type=EmbRouter_AccessGroupTable,
         ttl=DEFAULT_ACCESS_GROUP_CACHE_TTL,
     )
 
@@ -3352,11 +3352,11 @@ async def get_access_object(
     proxy_logging_obj: ProxyLogging | None = None,
     *,
     check_db_only: bool = False,
-) -> LiteLLM_AccessGroupTable:
+) -> EmbRouter_AccessGroupTable:
     """
     - Check if access_group_id in proxy AccessGroupTable
     - Checks cache first unless authoritative writer admission is requested
-    - if valid, return LiteLLM_AccessGroupTable object
+    - if valid, return EmbRouter_AccessGroupTable object
     - if not, then raise an error
 
     Raises:
@@ -3370,7 +3370,7 @@ async def get_access_object(
     cached_access_obj: Final = (
         None
         if check_db_only
-        else await user_api_key_cache.async_get_cache(key=key, model_type=LiteLLM_AccessGroupTable)
+        else await user_api_key_cache.async_get_cache(key=key, model_type=EmbRouter_AccessGroupTable)
     )
     if cached_access_obj is not None:
         return cached_access_obj
@@ -3387,7 +3387,7 @@ async def get_access_object(
                 detail={"error": f"Access group doesn't exist in db. Access group={access_group_id}."},
             )
 
-        _response: Final = LiteLLM_AccessGroupTable.model_validate(response.dict())
+        _response: Final = EmbRouter_AccessGroupTable.model_validate(response.dict())
 
         # Save to cache
         await _cache_access_object(
@@ -3422,7 +3422,7 @@ async def get_team_object_by_alias(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Optional["Span"] = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> LiteLLM_TeamTableCachedObj:
+) -> EmbRouter_TeamTableCachedObj:
     """
     Look up a team by its team_alias (name) in the database.
 
@@ -3434,7 +3434,7 @@ async def get_team_object_by_alias(
         proxy_logging_obj: Optional proxy logging object
 
     Returns:
-        LiteLLM_TeamTableCachedObj: The team object if found
+        EmbRouter_TeamTableCachedObj: The team object if found
 
     Raises:
         HTTPException: If team doesn't exist or multiple teams have the same alias
@@ -3477,7 +3477,7 @@ async def get_team_object_by_alias(
             )
 
         team: Final = teams[0]
-        team_obj: Final = LiteLLM_TeamTableCachedObj.model_validate(team.model_dump())
+        team_obj: Final = EmbRouter_TeamTableCachedObj.model_validate(team.model_dump())
 
         # Load object_permission if object_permission_id exists but object_permission is not loaded
         if team_obj.object_permission_id and not team_obj.object_permission:
@@ -3501,7 +3501,7 @@ async def get_team_object_by_alias(
         await user_api_key_cache.async_set_cache(
             key=cache_key,
             value=team_obj,
-            model_type=LiteLLM_TeamTableCachedObj,
+            model_type=EmbRouter_TeamTableCachedObj,
             ttl=DEFAULT_IN_MEMORY_TTL,
         )
         # Also cache by team_id for consistency
@@ -3509,7 +3509,7 @@ async def get_team_object_by_alias(
         await user_api_key_cache.async_set_cache(
             key=team_id_cache_key,
             value=team_obj,
-            model_type=LiteLLM_TeamTableCachedObj,
+            model_type=EmbRouter_TeamTableCachedObj,
             ttl=DEFAULT_IN_MEMORY_TTL,
         )
 
@@ -3532,7 +3532,7 @@ async def get_org_object_by_alias(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Optional["Span"] = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> LiteLLM_OrganizationTable | None:
+) -> EmbRouter_OrganizationTable | None:
     """
     Look up an organization by its organization_alias in the database.
 
@@ -3544,7 +3544,7 @@ async def get_org_object_by_alias(
         proxy_logging_obj: Optional proxy logging object
 
     Returns:
-        LiteLLM_OrganizationTable if found, None otherwise
+        EmbRouter_OrganizationTable if found, None otherwise
 
     Raises:
         HTTPException: If organization not found or multiple orgs have the same alias
@@ -3556,7 +3556,7 @@ async def get_org_object_by_alias(
     cache_key: Final = f"org_alias:{org_alias}"
     cached_org_obj: Final = await user_api_key_cache.async_get_cache(
         key=cache_key,
-        model_type=LiteLLM_OrganizationTable,
+        model_type=EmbRouter_OrganizationTable,
     )
     if cached_org_obj is not None:
         return cached_org_obj
@@ -3584,20 +3584,20 @@ async def get_org_object_by_alias(
             )
 
         org: Final = orgs[0]
-        org_obj: Final = LiteLLM_OrganizationTable.model_validate(org.model_dump())
+        org_obj: Final = EmbRouter_OrganizationTable.model_validate(org.model_dump())
 
         # Cache the result
         await user_api_key_cache.async_set_cache(
             key=cache_key,
             value=org_obj,
-            model_type=LiteLLM_OrganizationTable,
+            model_type=EmbRouter_OrganizationTable,
             ttl=DEFAULT_IN_MEMORY_TTL,
         )
         # Also cache by org_id for consistency
         await user_api_key_cache.async_set_cache(
             key=f"org_id:{org_obj.organization_id}",
             value=org_obj,
-            model_type=LiteLLM_OrganizationTable,
+            model_type=EmbRouter_OrganizationTable,
             ttl=DEFAULT_IN_MEMORY_TTL,
         )
 
@@ -3613,22 +3613,22 @@ async def get_org_object_by_alias(
         )
 
 
-LITELLM_SESSION_TOKEN_PREFIX: Final = "litellm_login_"
+EMBROUTER_SESSION_TOKEN_PREFIX: Final = "embrouter_login_"
 
 
 class ExperimentalUIJWTToken:
     @staticmethod
-    def get_experimental_ui_login_jwt_auth_token(user_info: LiteLLM_UserTable) -> str:
+    def get_experimental_ui_login_jwt_auth_token(user_info: EmbRouter_UserTable) -> str:
         from datetime import timedelta
 
-        from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+        from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
             encrypt_bearer_token,
         )
 
         if user_info.user_role is None:
             raise Exception("User role is required for experimental UI login")
 
-        # Experimental UI flow uses fixed 10-min expiry for security (does not use LITELLM_UI_SESSION_DURATION)
+        # Experimental UI flow uses fixed 10-min expiry for security (does not use EMBROUTER_UI_SESSION_DURATION)
         expiration_time: Final = get_utc_datetime() + timedelta(minutes=10)
 
         # Format the expiration time as ISO 8601 string
@@ -3638,21 +3638,21 @@ class ExperimentalUIJWTToken:
             token="ui-token",
             key_name="ui-token",
             key_alias="ui-token",
-            max_budget=litellm.max_ui_session_budget,
+            max_budget=embrouter.max_ui_session_budget,
             rpm_limit=100,  # allow user to have a conversation on test key pane of UI
             expires=expires,
             user_id=user_info.user_id,
-            team_id="litellm-dashboard",
+            team_id="embrouter-dashboard",
             models=user_info.models,
             max_parallel_requests=None,
-            user_role=LitellmUserRoles(user_info.user_role),
+            user_role=EmbrouterUserRoles(user_info.user_role),
         )
 
-        return encrypt_bearer_token(valid_token.model_dump_json(exclude_none=True), prefix=LITELLM_SESSION_TOKEN_PREFIX)
+        return encrypt_bearer_token(valid_token.model_dump_json(exclude_none=True), prefix=EMBROUTER_SESSION_TOKEN_PREFIX)
 
     @staticmethod
     def get_cli_jwt_auth_token(
-        user_info: LiteLLM_UserTable,
+        user_info: EmbRouter_UserTable,
         team_id: str | None = None,
         team_alias: str | None = None,
         team_models: Sequence[str] | None = None,
@@ -3662,7 +3662,7 @@ class ExperimentalUIJWTToken:
         """
         Generate a JWT token for CLI authentication with configurable expiration.
 
-        The expiration time can be controlled via the LITELLM_CLI_JWT_EXPIRATION_HOURS
+        The expiration time can be controlled via the EMBROUTER_CLI_JWT_EXPIRATION_HOURS
         environment variable (defaults to 24 hours).
 
         Args:
@@ -3678,14 +3678,14 @@ class ExperimentalUIJWTToken:
         import secrets
         from datetime import timedelta
 
-        from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+        from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
             encrypt_bearer_token,
         )
 
         if user_info.user_role is None:
             raise Exception("User role is required for CLI JWT login")
 
-        # Calculate expiration time (configurable via LITELLM_CLI_JWT_EXPIRATION_HOURS env var)
+        # Calculate expiration time (configurable via EMBROUTER_CLI_JWT_EXPIRATION_HOURS env var)
         expiration_time: Final = get_utc_datetime() + timedelta(hours=CLI_JWT_EXPIRATION_HOURS)
 
         # Format the expiration time as ISO 8601 string
@@ -3713,11 +3713,11 @@ class ExperimentalUIJWTToken:
             team_model_aliases=dict(team_model_aliases) if team_model_aliases is not None else None,
             models=[] if _team_id is not None else user_info.models,
             max_parallel_requests=None,
-            user_role=LitellmUserRoles(user_info.user_role),
+            user_role=EmbrouterUserRoles(user_info.user_role),
             is_session_token=True,
         )
 
-        return encrypt_bearer_token(valid_token.model_dump_json(exclude_none=True), prefix=LITELLM_SESSION_TOKEN_PREFIX)
+        return encrypt_bearer_token(valid_token.model_dump_json(exclude_none=True), prefix=EMBROUTER_SESSION_TOKEN_PREFIX)
 
     @staticmethod
     def get_key_object_from_ui_hash_key(
@@ -3725,12 +3725,12 @@ class ExperimentalUIJWTToken:
     ) -> UserAPIKeyAuth | None:
         import json
 
-        from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-        from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+        from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+        from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
             decrypt_bearer_token,
         )
 
-        decrypted_token: Final = decrypt_bearer_token(hashed_token, prefix=LITELLM_SESSION_TOKEN_PREFIX)
+        decrypted_token: Final = decrypt_bearer_token(hashed_token, prefix=EMBROUTER_SESSION_TOKEN_PREFIX)
         if decrypted_token is None:
             return None
         try:
@@ -3816,7 +3816,7 @@ def jwt_key_mapping_cache_key(jwt_claim_name: str, jwt_claim_value: str, jwt_iss
     Scoped by issuer (when one is configured) so a cached hit or ``__NO_MAPPING__`` miss
     for one issuer's claim value can never be served to a different issuer whose claim
     value happens to collide. Unchanged for the global scope, keeping the single-issuer
-    (no ``litellm_jwtauth.issuers`` configured) cache key format stable across this fix.
+    (no ``embrouter_jwtauth.issuers`` configured) cache key format stable across this fix.
     """
     if not jwt_issuer:
         return f"jwt_key_mapping:{jwt_claim_name}:{jwt_claim_value}"
@@ -3893,7 +3893,7 @@ async def get_key_object(
 ) -> UserAPIKeyAuth:
     """
     - Check if team id in proxy Team Table
-    - if valid, return LiteLLM_TeamTable object with defined limits
+    - if valid, return EmbRouter_TeamTable object with defined limits
     - if not, then raise an error
     """
     if prisma_client is None:
@@ -3985,10 +3985,10 @@ async def get_object_permission(
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
     check_db_only: bool = False,
-) -> LiteLLM_ObjectPermissionTable | None:
+) -> EmbRouter_ObjectPermissionTable | None:
     """
     - Check if object permission id in proxy ObjectPermissionTable
-    - if valid, return LiteLLM_ObjectPermissionTable object
+    - if valid, return EmbRouter_ObjectPermissionTable object
     - if not, then raise an error
     """
     if prisma_client is None:
@@ -4001,7 +4001,7 @@ async def get_object_permission(
         if check_db_only
         else await user_api_key_cache.async_get_cache(
             key=key,
-            model_type=LiteLLM_ObjectPermissionTable,
+            model_type=EmbRouter_ObjectPermissionTable,
         )
     )
     if deserialized_perm is not None:
@@ -4018,11 +4018,11 @@ async def get_object_permission(
                 raise HTTPException(status_code=403, detail="Referenced object permission does not exist")
             return None
 
-        _perm_obj: Final = LiteLLM_ObjectPermissionTable.model_validate(response.dict())
+        _perm_obj: Final = EmbRouter_ObjectPermissionTable.model_validate(response.dict())
         await user_api_key_cache.async_set_cache(
             key=key,
             value=_perm_obj,
-            model_type=LiteLLM_ObjectPermissionTable,
+            model_type=EmbRouter_ObjectPermissionTable,
             ttl=get_management_object_ttl(user_api_key_cache),
         )
 
@@ -4040,7 +4040,7 @@ async def get_managed_vector_store_rows_by_uuids(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> list[LiteLLM_ManagedVectorStoresTable]:
+) -> list[EmbRouter_ManagedVectorStoresTable]:
     """
     Fetch managed vector store rows by their internal UUIDs.
 
@@ -4052,14 +4052,14 @@ async def get_managed_vector_store_rows_by_uuids(
     if not uuids or prisma_client is None:
         return []
 
-    result: Final[list[LiteLLM_ManagedVectorStoresTable]] = []
+    result: Final[list[EmbRouter_ManagedVectorStoresTable]] = []
     cache_misses: Final[list[str]] = []
 
     for uuid in uuids:
         key = f"managed_vector_store_id:{uuid}"
         deserialized_vs = await user_api_key_cache.async_get_cache(
             key=key,
-            model_type=LiteLLM_ManagedVectorStoresTable,
+            model_type=EmbRouter_ManagedVectorStoresTable,
         )
         if deserialized_vs is not None:
             result.append(deserialized_vs)
@@ -4080,12 +4080,12 @@ async def get_managed_vector_store_rows_by_uuids(
             row_dict = dict(row) if hasattr(row, "__dict__") else {}
         if not row_dict:
             continue
-        cached_obj = LiteLLM_ManagedVectorStoresTable.model_validate(row_dict)
+        cached_obj = EmbRouter_ManagedVectorStoresTable.model_validate(row_dict)
         key = f"managed_vector_store_id:{cached_obj.vector_store_id}"
         await user_api_key_cache.async_set_cache(
             key=key,
             value=cached_obj,
-            model_type=LiteLLM_ManagedVectorStoresTable,
+            model_type=EmbRouter_ManagedVectorStoresTable,
             ttl=get_management_object_ttl(user_api_key_cache),
         )
         result.append(cached_obj)
@@ -4110,10 +4110,10 @@ async def get_org_object(
     parent_otel_span: Span | None = None,
     proxy_logging_obj: ProxyLogging | None = None,
     include_budget_table: bool = False,
-) -> LiteLLM_OrganizationTable | None:
+) -> EmbRouter_OrganizationTable | None:
     """
     - Check if org id in proxy Org Table
-    - if valid, return LiteLLM_OrganizationTable object
+    - if valid, return EmbRouter_OrganizationTable object
     - if not, then raise an error
 
     Args:
@@ -4122,7 +4122,7 @@ async def get_org_object(
         user_api_key_cache: Cache for storing results
         parent_otel_span: Optional OpenTelemetry span
         proxy_logging_obj: Optional proxy logging object
-        include_budget_table: If True, includes litellm_budget_table in the query
+        include_budget_table: If True, includes embrouter_budget_table in the query
     """
     if prisma_client is None:
         raise Exception("No DB Connected.")
@@ -4137,7 +4137,7 @@ async def get_org_object(
     # check if in cache
     deserialized_org: Final = await user_api_key_cache.async_get_cache(
         key=cache_key,
-        model_type=LiteLLM_OrganizationTable,
+        model_type=EmbRouter_OrganizationTable,
     )
     if deserialized_org is not None:
         return deserialized_org
@@ -4145,7 +4145,7 @@ async def get_org_object(
     try:
         query_kwargs: Final[dict[str, Mapping[str, object]]] = {"where": {"organization_id": org_id}}
         if include_budget_table:
-            query_kwargs["include"] = {"litellm_budget_table": True}
+            query_kwargs["include"] = {"embrouter_budget_table": True}
 
         response: Final = await _model_dump_table(OrganizationRepository(prisma_client), "organization").find_unique(
             **query_kwargs
@@ -4163,12 +4163,12 @@ async def get_org_object(
             f"Organization doesn't exist in db. Organization={org_id}. Create organization via `/organization/new` call."
         )
 
-    _org_obj: Final = LiteLLM_OrganizationTable.model_validate(response.model_dump())
+    _org_obj: Final = EmbRouter_OrganizationTable.model_validate(response.model_dump())
     # Cache the result
     await user_api_key_cache.async_set_cache(
         key=cache_key,
         value=_org_obj,
-        model_type=LiteLLM_OrganizationTable,
+        model_type=EmbRouter_OrganizationTable,
         ttl=DEFAULT_IN_MEMORY_TTL,
     )
 
@@ -4180,18 +4180,18 @@ def _last_known_org_cache_key(org_id: str) -> str:
 
 
 async def _keep_last_known_org(
-    org: LiteLLM_OrganizationTable, org_id: str, user_api_key_cache: UserApiKeyCache
+    org: EmbRouter_OrganizationTable, org_id: str, user_api_key_cache: UserApiKeyCache
 ) -> None:
     cache_key: Final = _last_known_org_cache_key(org_id)
     held_locally: Final = await user_api_key_cache.async_get_cache(
-        key=cache_key, local_only=True, model_type=LiteLLM_OrganizationTable
+        key=cache_key, local_only=True, model_type=EmbRouter_OrganizationTable
     )
     if held_locally is not None:
         return
     await user_api_key_cache.async_set_cache(
         key=cache_key,
         value=org,
-        model_type=LiteLLM_OrganizationTable,
+        model_type=EmbRouter_OrganizationTable,
         ttl=get_management_object_ttl(user_api_key_cache),
     )
 
@@ -4202,7 +4202,7 @@ async def get_org_object_for_request(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None,
     proxy_logging_obj: ProxyLogging | None,
-) -> LiteLLM_OrganizationTable | None:
+) -> EmbRouter_OrganizationTable | None:
     try:
         org: Final = await get_org_object(
             org_id=org_id,
@@ -4220,7 +4220,7 @@ async def get_org_object_for_request(
             return None
         last_known_org: Final = await user_api_key_cache.async_get_cache(
             key=_last_known_org_cache_key(org_id),
-            model_type=LiteLLM_OrganizationTable,
+            model_type=EmbRouter_OrganizationTable,
         )
         if last_known_org is not None:
             return last_known_org
@@ -4263,9 +4263,9 @@ async def _get_resources_from_access_groups(
 
     # Lazy import to avoid circular imports
     if prisma_client is None or user_api_key_cache is None:
-        from litellm.proxy.proxy_server import prisma_client as _prisma_client
-        from litellm.proxy.proxy_server import proxy_logging_obj as _proxy_logging_obj
-        from litellm.proxy.proxy_server import user_api_key_cache as _user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client as _prisma_client
+        from embrouter.proxy.proxy_server import proxy_logging_obj as _proxy_logging_obj
+        from embrouter.proxy.proxy_server import user_api_key_cache as _user_api_key_cache
 
         prisma_client = prisma_client or _prisma_client
         user_api_key_cache = user_api_key_cache or _user_api_key_cache
@@ -4461,12 +4461,12 @@ def _can_object_call_model(
             )
         return True
 
-    from litellm.router_strategy.complexity_router.context_compaction import native_compaction_parent
+    from embrouter.router_strategy.complexity_router.context_compaction import native_compaction_parent
 
     compaction_parent: Final = native_compaction_parent(model)
     global_or_router_alias_target: Final = (
-        litellm.model_alias_map[model]
-        if model in litellm.model_alias_map
+        embrouter.model_alias_map[model]
+        if model in embrouter.model_alias_map
         else (
             llm_router._get_model_from_alias(model)
             if llm_router is not None and model in llm_router.model_group_alias
@@ -4477,7 +4477,7 @@ def _can_object_call_model(
     after_key_alias: Final = (
         key_model_aliases.get(after_team_alias, after_team_alias) if key_model_aliases else after_team_alias
     )
-    after_global_alias: Final = litellm.model_alias_map.get(after_key_alias, after_key_alias)
+    after_global_alias: Final = embrouter.model_alias_map.get(after_key_alias, after_key_alias)
     dispatched_model: Final = (
         key_model_aliases.get(after_global_alias, after_global_alias) if key_model_aliases else after_global_alias
     )
@@ -4554,7 +4554,7 @@ async def _check_agent_access_group_model_access(
     if not model or valid_token is None or not valid_token.agent_id:
         return True
 
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
+    from embrouter.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
 
     managed: Final = managed_agent_policy(valid_token)
     unmanaged: Final = await resolve_ceiling(valid_token.agent_id) if managed is None else None
@@ -4586,8 +4586,8 @@ async def _check_agent_access_group_model_access(
     return True
 
 
-LoadedCallerTeam: TypeAlias = LiteLLM_TeamTable | None
-LoadedCallerUser: TypeAlias = LiteLLM_UserTable | None
+LoadedCallerTeam: TypeAlias = EmbRouter_TeamTable | None
+LoadedCallerUser: TypeAlias = EmbRouter_UserTable | None
 CallerTeamLoader: TypeAlias = Callable[[UserAPIKeyAuth], Awaitable[LoadedCallerTeam]]  # mutable-ok: Callable params
 CallerUserLoader: TypeAlias = Callable[[UserAPIKeyAuth], Awaitable[LoadedCallerUser]]  # mutable-ok: Callable params
 
@@ -4697,11 +4697,11 @@ def _model_access_groups_serving_model(
 
 async def _team_member_granted_models(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
 ) -> Sequence[str]:
     """The member's own ``allowed_models`` scope; empty when the member is not narrowed below the team."""
@@ -4721,7 +4721,7 @@ async def _team_member_granted_models(
 
 async def _org_granted_models(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
@@ -4746,12 +4746,12 @@ async def _org_granted_models(
 
 async def _granted_model_lists(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    team_object: EmbRouter_TeamTable | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
 ) -> tuple[Sequence[str], ...]:
     """One model allowlist per level that participates in authorizing the request."""
@@ -4783,7 +4783,7 @@ async def _user_object_or_none(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-) -> LiteLLM_UserTable | None:
+) -> EmbRouter_UserTable | None:
     try:
         return await get_user_object(
             user_id=valid_token.user_id,
@@ -4854,13 +4854,13 @@ async def enforced_model_allowlists(
 async def collect_matched_model_access_groups(
     model: str | Sequence[str] | None,
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    team_object: EmbRouter_TeamTable | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     llm_router: Router | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
 ) -> tuple[str, ...]:
     """
@@ -4918,13 +4918,13 @@ async def collect_matched_model_access_groups(
 async def stamp_matched_model_access_groups(
     model: str | Sequence[str] | None,
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    team_object: EmbRouter_TeamTable | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     llm_router: Router | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
 ) -> tuple[str, ...]:
     """Record the groups that authorized this request on its auth object, for the post-call spend
@@ -4959,7 +4959,7 @@ async def can_key_call_model(
     model: str | list[str],
     llm_model_list: Sequence[object] | None,
     valid_token: UserAPIKeyAuth,
-    llm_router: litellm.Router | None,
+    llm_router: embrouter.Router | None,
     prisma_client: DatabaseClient | None = None,
 ) -> Literal[True]:
     """
@@ -5010,9 +5010,9 @@ async def can_key_call_resolved_model(
     model: str,
     llm_model_list: Sequence[object] | None,
     valid_token: UserAPIKeyAuth,
-    llm_router: litellm.Router | None,
+    llm_router: embrouter.Router | None,
 ) -> None:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -5029,7 +5029,7 @@ async def can_key_call_resolved_model(
             llm_router=llm_router,
         )
 
-    team_object: LiteLLM_TeamTableCachedObj | None = None
+    team_object: EmbRouter_TeamTableCachedObj | None = None
     team_object_from_lookup = False
     if valid_token.team_id is not None:
         try:
@@ -5042,7 +5042,7 @@ async def can_key_call_resolved_model(
             )
             team_object_from_lookup = True
         except Exception:
-            team_object = LiteLLM_TeamTableCachedObj(
+            team_object = EmbRouter_TeamTableCachedObj(
                 team_id=valid_token.team_id,
                 models=valid_token.team_models,
                 blocked=valid_token.team_blocked,
@@ -5103,7 +5103,7 @@ async def can_key_call_resolved_model(
 
 def can_org_access_model(
     model: str,
-    org_object: LiteLLM_OrganizationTable | None,
+    org_object: EmbRouter_OrganizationTable | None,
     llm_router: Router | None,
     team_model_aliases: dict[str, str] | None = None,
 ) -> Literal[True]:
@@ -5122,7 +5122,7 @@ def can_org_access_model(
 
 async def can_team_access_model(
     model: str | list[str],
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     llm_router: Router | None,
     team_model_aliases: dict[str, str] | None = None,
     key_model_aliases: Mapping[str, str] | None = None,
@@ -5167,11 +5167,11 @@ async def can_team_access_model(
 
 async def get_authorized_resources_from_key_access_groups(
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     resource_field: Literal["access_model_names", "access_mcp_server_ids", "access_agent_ids"],
 ) -> list[str]:
     """
-    For each access_group_id on the key, fetch the LiteLLM_AccessGroupTable row
+    For each access_group_id on the key, fetch the EmbRouter_AccessGroupTable row
     and contribute its `resource_field` only if the group authorizes the caller
     as an owner — that is, the group's `assigned_team_ids` includes the key's
     `team_id`, or the group's `assigned_key_ids` includes the key's token. This
@@ -5184,9 +5184,9 @@ async def get_authorized_resources_from_key_access_groups(
     if not key_access_group_ids:
         return []
 
-    from litellm.proxy.proxy_server import prisma_client as _prisma_client
-    from litellm.proxy.proxy_server import proxy_logging_obj as _proxy_logging_obj
-    from litellm.proxy.proxy_server import user_api_key_cache as _user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client as _prisma_client
+    from embrouter.proxy.proxy_server import proxy_logging_obj as _proxy_logging_obj
+    from embrouter.proxy.proxy_server import user_api_key_cache as _user_api_key_cache
 
     if _prisma_client is None or _user_api_key_cache is None:
         return []
@@ -5216,7 +5216,7 @@ async def get_authorized_resources_from_key_access_groups(
 async def _key_access_group_grants_model(
     model: str | list[str],
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     llm_router: Router | None,
     key_model_aliases: Mapping[str, str] | None = None,
 ) -> bool:
@@ -5249,7 +5249,7 @@ async def _key_access_group_grants_model(
 
 def can_project_access_model(
     model: str | list[str],
-    project_object: LiteLLM_ProjectTable,
+    project_object: EmbRouter_ProjectTable,
     llm_router: Router | None,
     key_model_aliases: Mapping[str, str] | None = None,
 ) -> Literal[True]:
@@ -5270,7 +5270,7 @@ def can_project_access_model(
 async def can_user_call_model(
     model: str | list[str],
     llm_router: Router | None,
-    user_object: LiteLLM_UserTable | None,
+    user_object: EmbRouter_UserTable | None,
     key_model_aliases: Mapping[str, str] | None = None,
 ) -> Literal[True]:
     if user_object is None:
@@ -5299,7 +5299,7 @@ async def can_user_call_model(
 
 
 def _search_tool_names_from_object_permission(
-    object_permission: LiteLLM_ObjectPermissionTable | None,
+    object_permission: EmbRouter_ObjectPermissionTable | None,
 ) -> list[str]:
     """Return allowlisted search tool names from object_permission (empty = unrestricted)."""
     if object_permission is None:
@@ -5377,7 +5377,7 @@ async def can_key_call_search_tool(
 
 async def can_team_call_search_tool(
     search_tool_name: str,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
 ) -> Literal[True]:
     """
     Check if a team can access a specific search tool.
@@ -5407,7 +5407,7 @@ async def can_team_call_search_tool(
 async def can_user_view_search_tool(
     search_tool_name: str,
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
 ) -> bool:
     """
     Boolean variant of the key + team authorization enforced on /search, used to
@@ -5452,7 +5452,7 @@ async def is_valid_fallback_model(
     return True
 
 
-# The shape abbreviate_api_key writes into LiteLLM_VerificationToken.key_name. The
+# The shape abbreviate_api_key writes into EmbRouter_VerificationToken.key_name. The
 # last four characters are only barred from being whitespace or a control code,
 # because a custom key's can be anything else, punctuation and non-ASCII included;
 # a real key is at least MINIMUM_CUSTOM_KEY_LENGTH long, so it never fullmatches.
@@ -5480,7 +5480,7 @@ def _apply_budget_exceeded_throttle(valid_token: UserAPIKeyAuth) -> bool:
 async def _virtual_key_max_budget_check(
     valid_token: UserAPIKeyAuth,
     proxy_logging_obj: ProxyLogging,
-    user_obj: LiteLLM_UserTable | None = None,
+    user_obj: EmbRouter_UserTable | None = None,
 ):
     """
     Raises:
@@ -5489,7 +5489,7 @@ async def _virtual_key_max_budget_check(
 
     """
     if valid_token.max_budget is not None:
-        from litellm.proxy.proxy_server import get_current_spend
+        from embrouter.proxy.proxy_server import get_current_spend
 
         fallback_spend: Final = valid_token.spend or 0.0
         counter_key: Final = f"spend:key:{valid_token.token}"
@@ -5520,7 +5520,7 @@ async def _virtual_key_max_budget_check(
             organization_id=valid_token.org_id,
             user_email=user_email,
             key_alias=valid_token.key_alias,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         asyncio.create_task(
             proxy_logging_obj.budget_alerts(
@@ -5548,11 +5548,11 @@ async def _virtual_key_max_budget_check(
                 if valid_token.key_name and _MASKED_KEY_NAME_RE.fullmatch(valid_token.key_name)
                 else key_label
             )
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 current_cost=spend,
                 max_budget=valid_token.max_budget,
                 message=f"Budget has been exceeded! Key={key_descriptor} Current cost: {spend}, Max budget: {valid_token.max_budget}",
-                entity_type=Litellm_EntityType.KEY.value,
+                entity_type=Embrouter_EntityType.KEY.value,
                 entity_id=valid_token.token,
             )
 
@@ -5574,7 +5574,7 @@ async def _virtual_key_multi_budget_check(
     if not valid_token.budget_limits:
         return
 
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     for window in valid_token.budget_limits:
         w: dict = window if isinstance(window, dict) else window.model_dump()
@@ -5589,14 +5589,14 @@ async def _virtual_key_multi_budget_check(
             window_start=get_budget_window_start(w),
         )
         if math.isfinite(w["max_budget"]) and window_spend >= w["max_budget"]:
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 current_cost=window_spend,
                 max_budget=w["max_budget"],
                 message=(
                     f"ExceededBudget: Key over {w['budget_duration']} budget. "
                     f"Spend=${window_spend:.4f}, Limit=${w['max_budget']:.2f}"
                 ),
-                entity_type=Litellm_EntityType.KEY.value,
+                entity_type=Embrouter_EntityType.KEY.value,
                 entity_id=valid_token.token,
             )
 
@@ -5604,7 +5604,7 @@ async def _virtual_key_multi_budget_check(
 async def _virtual_key_soft_budget_check(
     valid_token: UserAPIKeyAuth,
     proxy_logging_obj: ProxyLogging,
-    user_obj: LiteLLM_UserTable | None = None,
+    user_obj: EmbRouter_UserTable | None = None,
 ):
     """
     Triggers a budget alert if the token is over it's soft budget.
@@ -5629,7 +5629,7 @@ async def _virtual_key_soft_budget_check(
             organization_id=valid_token.org_id,
             user_email=user_obj.user_email if user_obj else None,
             key_alias=valid_token.key_alias,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
 
         asyncio.create_task(
@@ -5684,7 +5684,7 @@ def _merge_budget_alert_email_configs(
 async def _virtual_key_max_budget_alert_check(
     valid_token: UserAPIKeyAuth,
     proxy_logging_obj: ProxyLogging,
-    user_obj: LiteLLM_UserTable | None = None,
+    user_obj: EmbRouter_UserTable | None = None,
 ):
     """
     Triggers a budget alert if the token has reached EMAIL_BUDGET_ALERT_MAX_SPEND_ALERT_PERCENTAGE
@@ -5696,7 +5696,7 @@ async def _virtual_key_max_budget_alert_check(
     if valid_token.max_budget is not None and valid_token.spend is not None and valid_token.spend > 0:
         owner_email: Final = user_obj.user_email if user_obj else None
         alert_email_config: Final[dict[str, list[str]] | None] = _merge_budget_alert_email_configs(
-            global_cfg=litellm.default_key_max_budget_alert_emails,
+            global_cfg=embrouter.default_key_max_budget_alert_emails,
             per_key_cfg=(valid_token.metadata or {}).get("max_budget_alert_emails"),
         )
 
@@ -5720,7 +5720,7 @@ async def _virtual_key_max_budget_alert_check(
                 organization_id=valid_token.org_id,
                 user_email=owner_email,
                 key_alias=valid_token.key_alias,
-                event_group=Litellm_EntityType.KEY,
+                event_group=Embrouter_EntityType.KEY,
                 max_budget_alert_emails=alert_email_config,
             )
             asyncio.create_task(
@@ -5752,7 +5752,7 @@ async def _virtual_key_max_budget_alert_check(
                     organization_id=valid_token.org_id,
                     user_email=owner_email,
                     key_alias=valid_token.key_alias,
-                    event_group=Litellm_EntityType.KEY,
+                    event_group=Embrouter_EntityType.KEY,
                 )
 
                 asyncio.create_task(
@@ -5815,20 +5815,20 @@ def _team_member_max_budget_alert_check(
         team_alias=team_alias,
         organization_id=organization_id,
         user_email=user_email,
-        event_group=Litellm_EntityType.TEAM_MEMBER,
+        event_group=Embrouter_EntityType.TEAM_MEMBER,
         max_budget_alert_emails=alert_email_config,
     )
     asyncio.create_task(proxy_logging_obj.budget_alerts(type="max_budget_alert", user_info=call_info))
 
 
 async def _check_team_member_budget(
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
     valid_token: UserAPIKeyAuth | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
 ):
     """Check if team member is over their max budget within the team."""
@@ -5851,7 +5851,7 @@ async def _check_team_member_budget(
         # Per-member override wins; otherwise fall back to the team-level
         # default configured via team.metadata["team_member_budget_id"].
         team_member_budget: float | None = None
-        member_budget_row: Final = loaded_membership.litellm_budget_table if loaded_membership is not None else None
+        member_budget_row: Final = loaded_membership.embrouter_budget_table if loaded_membership is not None else None
         now: Final = get_utc_datetime()
         if member_budget_row is not None and member_budget_row.max_budget is not None:
             team_member_budget = member_budget_row.effective_max_budget(now=now)
@@ -5878,7 +5878,7 @@ async def _check_team_member_budget(
             team_member_spend = (loaded_membership.spend if loaded_membership is not None else 0.0) or 0.0
 
             # Read from cross-pod counter (Redis-first) if available
-            from litellm.proxy.proxy_server import get_current_spend
+            from embrouter.proxy.proxy_server import get_current_spend
 
             team_member_spend = await get_current_spend(
                 counter_key=f"spend:team_member:{valid_token.user_id}:{team_object.team_id}",
@@ -5902,24 +5902,24 @@ async def _check_team_member_budget(
             )
 
             if team_member_spend >= team_member_budget:
-                raise litellm.BudgetExceededError(
+                raise embrouter.BudgetExceededError(
                     current_cost=team_member_spend,
                     max_budget=team_member_budget,
                     message=f"Budget has been exceeded! User={valid_token.user_id} in Team={team_object.team_id} Current cost: {team_member_spend}, Max budget: {team_member_budget}",
-                    entity_type=Litellm_EntityType.TEAM_MEMBER.value,
+                    entity_type=Embrouter_EntityType.TEAM_MEMBER.value,
                     entity_id=f"{valid_token.user_id}:{team_object.team_id}",
                 )
 
 
 async def _check_team_member_model_access(
     model: str | list[str],
-    team_object: LiteLLM_TeamTable,
+    team_object: EmbRouter_TeamTable,
     valid_token: UserAPIKeyAuth,
     llm_router: Router | None,
     prisma_client: Optional["PrismaClient"],
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-    team_membership: LiteLLM_TeamMembership | None = None,
+    team_membership: EmbRouter_TeamMembership | None = None,
     team_membership_loaded: bool = False,
     key_model_aliases: Mapping[str, str] | None = None,
 ) -> None:
@@ -5944,12 +5944,12 @@ async def _check_team_member_model_access(
 
     if (
         loaded_membership is None
-        or loaded_membership.litellm_budget_table is None
-        or not loaded_membership.litellm_budget_table.allowed_models
+        or loaded_membership.embrouter_budget_table is None
+        or not loaded_membership.embrouter_budget_table.allowed_models
     ):
         return  # no per-member restriction — inherit team-level check
 
-    member_allowed_models: Final[list[str]] = loaded_membership.litellm_budget_table.allowed_models
+    member_allowed_models: Final[list[str]] = loaded_membership.embrouter_budget_table.allowed_models
     try:
         _can_object_call_model(
             model=model,
@@ -5974,7 +5974,7 @@ async def _check_team_member_model_access(
 
 
 async def _team_max_budget_check(
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     valid_token: UserAPIKeyAuth | None,
     proxy_logging_obj: ProxyLogging,
 ):
@@ -5986,7 +5986,7 @@ async def _team_max_budget_check(
         Triggers a budget alert if the team is over it's max budget.
     """
     if team_object is not None and team_object.max_budget is not None:
-        from litellm.proxy.proxy_server import get_current_spend
+        from embrouter.proxy.proxy_server import get_current_spend
 
         # Read spend from cross-pod counter (Redis-first) or cached object (fallback)
         spend: Final = await get_current_spend(
@@ -6005,7 +6005,7 @@ async def _team_max_budget_check(
                     team_id=valid_token.team_id,
                     team_alias=valid_token.team_alias,
                     organization_id=valid_token.org_id,
-                    event_group=Litellm_EntityType.TEAM,
+                    event_group=Embrouter_EntityType.TEAM,
                 )
                 asyncio.create_task(
                     proxy_logging_obj.budget_alerts(
@@ -6014,17 +6014,17 @@ async def _team_max_budget_check(
                     )
                 )
 
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 current_cost=spend,
                 max_budget=team_object.max_budget,
                 message=f"Budget has been exceeded! Team={team_object.team_id} Current cost: {spend}, Max budget: {team_object.max_budget}",
-                entity_type=Litellm_EntityType.TEAM.value,
+                entity_type=Embrouter_EntityType.TEAM.value,
                 entity_id=team_object.team_id,
             )
 
 
 async def _team_multi_budget_check(
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
 ):
     """
     Raises BudgetExceededError if any budget window in team_object.budget_limits is exceeded.
@@ -6036,7 +6036,7 @@ async def _team_multi_budget_check(
     if team_object is None or not team_object.budget_limits:
         return
 
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     for window in team_object.budget_limits:
         w: dict = window if isinstance(window, dict) else window.model_dump()
@@ -6051,20 +6051,20 @@ async def _team_multi_budget_check(
             window_start=get_budget_window_start(w),
         )
         if math.isfinite(w["max_budget"]) and window_spend >= w["max_budget"]:
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 current_cost=window_spend,
                 max_budget=w["max_budget"],
                 message=(
                     f"ExceededBudget: Team={team_object.team_id} over {w['budget_duration']} budget. "
                     f"Spend=${window_spend:.4f}, Limit=${w['max_budget']:.2f}"
                 ),
-                entity_type=Litellm_EntityType.TEAM.value,
+                entity_type=Embrouter_EntityType.TEAM.value,
                 entity_id=team_object.team_id,
             )
 
 
 async def _team_soft_budget_check(
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     valid_token: UserAPIKeyAuth | None,
     proxy_logging_obj: ProxyLogging,
 ):
@@ -6122,7 +6122,7 @@ async def _team_soft_budget_check(
                 organization_id=valid_token.org_id,
                 user_email=None,  # Team-level alert, no specific user email
                 key_alias=valid_token.key_alias,
-                event_group=Litellm_EntityType.TEAM,
+                event_group=Embrouter_EntityType.TEAM,
                 alert_emails=alert_emails,
             )
 
@@ -6135,7 +6135,7 @@ async def _team_soft_budget_check(
 
 
 async def _project_max_budget_check(
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     valid_token: UserAPIKeyAuth | None,
     proxy_logging_obj: ProxyLogging,
 ):
@@ -6150,13 +6150,13 @@ async def _project_max_budget_check(
         return
 
     max_budget = None
-    if project_object.litellm_budget_table is not None:
-        max_budget = project_object.litellm_budget_table.max_budget
+    if project_object.embrouter_budget_table is not None:
+        max_budget = project_object.embrouter_budget_table.max_budget
 
     if max_budget is None or not math.isfinite(max_budget):
         return
 
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     project_spend: Final = await get_current_spend(
         counter_key=project_spend_counter_key(project_object.project_id),
@@ -6174,7 +6174,7 @@ async def _project_max_budget_check(
                 team_id=valid_token.team_id,
                 team_alias=valid_token.team_alias,
                 organization_id=valid_token.org_id,
-                event_group=Litellm_EntityType.PROJECT,
+                event_group=Embrouter_EntityType.PROJECT,
             )
             asyncio.create_task(
                 proxy_logging_obj.budget_alerts(
@@ -6183,17 +6183,17 @@ async def _project_max_budget_check(
                 )
             )
 
-        raise litellm.BudgetExceededError(
+        raise embrouter.BudgetExceededError(
             current_cost=project_spend,
             max_budget=max_budget,
             message=f"Budget has been exceeded! Project={project_object.project_id} Current cost: {project_spend}, Max budget: {max_budget}",
-            entity_type=Litellm_EntityType.PROJECT.value,
+            entity_type=Embrouter_EntityType.PROJECT.value,
             entity_id=project_object.project_id,
         )
 
 
 async def _project_soft_budget_check(
-    project_object: LiteLLM_ProjectTableCachedObj | None,
+    project_object: EmbRouter_ProjectTableCachedObj | None,
     valid_token: UserAPIKeyAuth | None,
     proxy_logging_obj: ProxyLogging,
 ):
@@ -6206,8 +6206,8 @@ async def _project_soft_budget_check(
         return
 
     soft_budget = None
-    if project_object.litellm_budget_table is not None:
-        soft_budget = project_object.litellm_budget_table.soft_budget
+    if project_object.embrouter_budget_table is not None:
+        soft_budget = project_object.embrouter_budget_table.soft_budget
 
     if soft_budget is not None and project_object.spend is not None and project_object.spend >= soft_budget:
         verbose_proxy_logger.debug(
@@ -6226,7 +6226,7 @@ async def _project_soft_budget_check(
                 team_id=valid_token.team_id,
                 team_alias=valid_token.team_alias,
                 organization_id=valid_token.org_id,
-                event_group=Litellm_EntityType.PROJECT,
+                event_group=Embrouter_EntityType.PROJECT,
             )
             asyncio.create_task(
                 proxy_logging_obj.budget_alerts(
@@ -6241,13 +6241,13 @@ async def get_project_object(
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging | None = None,
-) -> LiteLLM_ProjectTableCachedObj | None:
+) -> EmbRouter_ProjectTableCachedObj | None:
     """
     Fetch project object from cache or DB.
 
     Follows get_team_object() caching pattern with TTL and last_refreshed_at.
 
-    Returns LiteLLM_ProjectTableCachedObj or None if not found.
+    Returns EmbRouter_ProjectTableCachedObj or None if not found.
     """
     if prisma_client is None:
         return None
@@ -6256,7 +6256,7 @@ async def get_project_object(
     cache_key: Final = project_cache_key(project_id)
     deserialized_project: Final = await user_api_key_cache.async_get_cache(
         key=cache_key,
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=EmbRouter_ProjectTableCachedObj,
     )
     if deserialized_project is not None:
         return deserialized_project
@@ -6264,12 +6264,12 @@ async def get_project_object(
     # Fetch from DB
     project_row: Final = await _model_dump_table(ProjectRepository(prisma_client), "project").find_unique(
         where={"project_id": project_id},
-        include={"litellm_budget_table": True},
+        include={"embrouter_budget_table": True},
     )
     if project_row is None:
         return None
 
-    project_obj: Final = LiteLLM_ProjectTableCachedObj.model_validate(project_row.model_dump())
+    project_obj: Final = EmbRouter_ProjectTableCachedObj.model_validate(project_row.model_dump())
 
     # Cache with TTL following _cache_management_object pattern
     project_obj.last_refreshed_at = time.time()
@@ -6278,7 +6278,7 @@ async def get_project_object(
         value=project_obj,
         user_api_key_cache=user_api_key_cache,
         proxy_logging_obj=proxy_logging_obj,
-        model_type=LiteLLM_ProjectTableCachedObj,
+        model_type=EmbRouter_ProjectTableCachedObj,
     )
 
     return project_obj
@@ -6289,10 +6289,10 @@ async def delete_cached_project_object(
     user_api_key_cache: UserApiKeyCache,
 ) -> None:
     """
-    Every endpoint that mutates litellm_projecttable must call this, or a stale project (e.g. a
+    Every endpoint that mutates embrouter_projecttable must call this, or a stale project (e.g. a
     pre-update empty model allowlist) keeps being enforced until the TTL expires (LIT-3803).
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
 
     await evict_and_broadcast(
         cache_keys=(project_cache_key(project_id),),
@@ -6302,7 +6302,7 @@ async def delete_cached_project_object(
 
 async def _organization_max_budget_check(
     valid_token: UserAPIKeyAuth | None,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
@@ -6355,14 +6355,14 @@ async def _organization_max_budget_check(
 
     # Get max_budget from organization's budget table
     org_max_budget: float | None = None
-    if org_table.litellm_budget_table is not None:
-        org_max_budget = org_table.litellm_budget_table.max_budget
+    if org_table.embrouter_budget_table is not None:
+        org_max_budget = org_table.embrouter_budget_table.max_budget
 
     if org_max_budget is None:
         return
 
     # Read spend from cross-pod counter (Redis-first) or cached object (fallback)
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     org_spend: Final = await get_current_spend(
         counter_key=f"spend:org:{org_id}",
@@ -6381,7 +6381,7 @@ async def _organization_max_budget_check(
             team_id=valid_token.team_id,
             team_alias=valid_token.team_alias,
             organization_id=org_id,
-            event_group=Litellm_EntityType.ORGANIZATION,
+            event_group=Embrouter_EntityType.ORGANIZATION,
         )
         asyncio.create_task(
             proxy_logging_obj.budget_alerts(
@@ -6390,11 +6390,11 @@ async def _organization_max_budget_check(
             )
         )
 
-        raise litellm.BudgetExceededError(
+        raise embrouter.BudgetExceededError(
             current_cost=org_spend,
             max_budget=org_max_budget,
             message=f"Budget has been exceeded! Organization={org_id} Current cost: {org_spend}, Max budget: {org_max_budget}",
-            entity_type=Litellm_EntityType.ORGANIZATION.value,
+            entity_type=Embrouter_EntityType.ORGANIZATION.value,
             entity_id=org_id,
         )
 
@@ -6413,7 +6413,7 @@ async def _tag_max_budget_check(
         BudgetExceededError if any tag is over its max budget.
         Triggers a budget alert if any tag is over its max budget.
     """
-    from litellm.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
+    from embrouter.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
 
     await tag_max_budget_check_for_tags(
         tags=get_tags_from_request_body(request_body=request_body),
@@ -6448,22 +6448,22 @@ async def tag_max_budget_check_for_tags(
             continue
 
         # Check if tag has budget limits
-        if tag_object.litellm_budget_table is not None and tag_object.litellm_budget_table.max_budget is not None:
-            from litellm.proxy.proxy_server import get_current_spend
+        if tag_object.embrouter_budget_table is not None and tag_object.embrouter_budget_table.max_budget is not None:
+            from embrouter.proxy.proxy_server import get_current_spend
 
             tag_spend = await get_current_spend(
                 counter_key=f"spend:tag:{tag_name}",
                 fallback_spend=tag_object.spend or 0.0,
-                max_budget=tag_object.litellm_budget_table.max_budget,
+                max_budget=tag_object.embrouter_budget_table.max_budget,
                 fallback_authoritative=True,
             )
-            if tag_spend <= tag_object.litellm_budget_table.max_budget:
+            if tag_spend <= tag_object.embrouter_budget_table.max_budget:
                 continue
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 current_cost=tag_spend,
-                max_budget=tag_object.litellm_budget_table.max_budget,
-                message=f"Budget has been exceeded! Tag={tag_name} Current cost: {tag_spend}, Max budget: {tag_object.litellm_budget_table.max_budget}",
-                entity_type=Litellm_EntityType.TAG.value,
+                max_budget=tag_object.embrouter_budget_table.max_budget,
+                message=f"Budget has been exceeded! Tag={tag_name} Current cost: {tag_spend}, Max budget: {tag_object.embrouter_budget_table.max_budget}",
+                entity_type=Embrouter_EntityType.TAG.value,
                 entity_id=tag_name,
             )
 
@@ -6499,7 +6499,7 @@ async def _model_access_group_max_budget_check(
         user_api_key_cache=user_api_key_cache,
     )
 
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     for group in matched_model_access_groups:
         budget = budgets.get(group)
@@ -6514,11 +6514,11 @@ async def _model_access_group_max_budget_check(
         )
         if group_spend < budget.max_budget:
             continue
-        raise litellm.BudgetExceededError(
+        raise embrouter.BudgetExceededError(
             current_cost=group_spend,
             max_budget=budget.max_budget,
             message=f"Budget has been exceeded! Model access group={group} Current cost: {group_spend}, Max budget: {budget.max_budget}",
-            entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP.value,
+            entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP.value,
             entity_id=group,
         )
 
@@ -6612,7 +6612,7 @@ def _is_wildcard_pattern(allowed_model_pattern: str) -> bool:
 
 async def vector_store_access_check(
     request_body: dict,
-    team_object: LiteLLM_TeamTable | None,
+    team_object: EmbRouter_TeamTable | None,
     valid_token: UserAPIKeyAuth | None,
 ):
     """
@@ -6620,7 +6620,7 @@ async def vector_store_access_check(
 
     Raises ProxyException if the object (key, team, org) cannot access the specific vector store.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     #########################################################
     # Get the vector store the user is trying to access
@@ -6629,11 +6629,11 @@ async def vector_store_access_check(
         verbose_proxy_logger.debug("Prisma client not found, skipping vector store access check")
         return True
 
-    if litellm.vector_store_registry is None:
+    if embrouter.vector_store_registry is None:
         verbose_proxy_logger.debug("Vector store registry not found, skipping vector store access check")
         return True
 
-    vector_store_ids_to_run: Final = litellm.vector_store_registry.get_vector_store_ids_to_run(
+    vector_store_ids_to_run: Final = embrouter.vector_store_registry.get_vector_store_ids_to_run(
         non_default_params=request_body, tools=request_body.get("tools", None)
     )
     if not vector_store_ids_to_run:

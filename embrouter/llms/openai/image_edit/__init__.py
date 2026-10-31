@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
 
 from .dalle2_transformation import DallE2ImageEditConfig
 from .transformation import OpenAIImageEditConfig

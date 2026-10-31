@@ -15,13 +15,13 @@ import json
 from collections.abc import Awaitable, Callable
 from typing import Final
 
-from litellm import verbose_logger
-from litellm.llms.gemini.realtime.transformation import GeminiRealtimeConfig
-from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import (
+from embrouter import verbose_logger
+from embrouter.llms.gemini.realtime.transformation import GeminiRealtimeConfig
+from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import (
     VertexChirpRealtimeConfig,
     is_vertex_speech_to_text_model,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
 
 class VertexAIRealtimeConfig(GeminiRealtimeConfig):
@@ -120,8 +120,8 @@ class VertexAIRealtimeConfig(GeminiRealtimeConfig):
         Also enables automatic activity detection (server VAD) and output
         audio transcription so the proxy forwards transcript events.
         """
-        from litellm.types.llms.gemini import BidiGenerateContentSetup
-        from litellm.types.llms.vertex_ai import GeminiResponseModalities
+        from embrouter.types.llms.gemini import BidiGenerateContentSetup
+        from embrouter.types.llms.vertex_ai import GeminiResponseModalities
 
         response_modalities: Final[list[GeminiResponseModalities]] = ["AUDIO"]
         full_model_path: Final = f"projects/{self._project}/locations/{self._location}/publishers/google/models/{model}"

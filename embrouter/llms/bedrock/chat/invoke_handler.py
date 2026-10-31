@@ -5,31 +5,31 @@ from typing import TYPE_CHECKING, Final, cast
 import httpx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.caching.caching import InMemoryCache
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.anthropic.chat.handler import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.caching.caching import InMemoryCache
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.anthropic.chat.handler import (
     ModelResponseIterator as AnthropicModelResponseIterator,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.bedrock import *
-from litellm.types.llms.openai import (
+from embrouter.types.llms.bedrock import *
+from embrouter.types.llms.openai import (
     ChatCompletionRedactedThinkingBlock,
     ChatCompletionThinkingBlock,
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
     ChatCompletionUsageBlock,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Delta,
@@ -38,7 +38,7 @@ from litellm.types.utils import (
     StreamingChoices,
     Usage,
 )
-from litellm.types.utils import GenericStreamingChunk as GChunk
+from embrouter.types.utils import GenericStreamingChunk as GChunk
 
 from ..common_utils import (
     BedrockError,
@@ -49,7 +49,7 @@ from ..common_utils import (
 )
 
 bedrock_tool_name_mappings: Final[InMemoryCache] = InMemoryCache(max_size_in_memory=50, default_ttl=600)
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
 if TYPE_CHECKING:
     from botocore.eventstream import EventStreamMessage
@@ -167,7 +167,7 @@ class AmazonCohereChatConfig:
 
 
 def _stream_decoder(
-    bedrock_invoke_provider: litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL | None,
+    bedrock_invoke_provider: embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL | None,
     *,
     model: str,
     json_mode: bool | None,
@@ -192,16 +192,16 @@ async def make_call(
     logging_obj: Logging,
     fake_stream: bool = False,
     json_mode: bool | None = False,
-    bedrock_invoke_provider: litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL | None = None,
+    bedrock_invoke_provider: embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL | None = None,
     stream_chunk_size: int | None = None,
 ) -> "tuple[MockResponseIterator | AsyncIterator[GChunk | ModelResponseStream | dict], httpx.Headers]":
     try:
         if client is None:
             client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.BEDROCK,
+                llm_provider=embrouter.LlmProviders.BEDROCK,
                 params=(
-                    {"ssl_verify": logging_obj.litellm_params.get("ssl_verify")}
-                    if logging_obj and logging_obj.litellm_params and logging_obj.litellm_params.get("ssl_verify")
+                    {"ssl_verify": logging_obj.embrouter_params.get("ssl_verify")}
+                    if logging_obj and logging_obj.embrouter_params and logging_obj.embrouter_params.get("ssl_verify")
                     else None
                 ),
             )  # Create a new client if none provided
@@ -223,17 +223,17 @@ async def make_call(
             )
 
         if fake_stream:
-            model_response: Final[ModelResponse] = litellm.AmazonConverseConfig()._transform_response(
+            model_response: Final[ModelResponse] = embrouter.AmazonConverseConfig()._transform_response(
                 model=model,
                 response=response,
-                model_response=litellm.ModelResponse(),
+                model_response=embrouter.ModelResponse(),
                 stream=True,
                 logging_obj=logging_obj,
                 optional_params={},
                 api_key="",
                 data=data,
                 messages=messages,
-                encoding=litellm.encoding,
+                encoding=embrouter.encoding,
             )
             completion_stream: MockResponseIterator | AsyncIterator[GChunk | ModelResponseStream | dict] = (
                 MockResponseIterator(model_response=model_response, json_mode=json_mode)
@@ -282,15 +282,15 @@ def make_sync_call(
     logging_obj: Logging,
     fake_stream: bool = False,
     json_mode: bool | None = False,
-    bedrock_invoke_provider: litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL | None = None,
+    bedrock_invoke_provider: embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL | None = None,
     stream_chunk_size: int | None = None,
 ) -> "tuple[MockResponseIterator | Iterator[GChunk | ModelResponseStream | dict], httpx.Headers]":
     try:
         if client is None:
             client = _get_httpx_client(
                 params=(
-                    {"ssl_verify": logging_obj.litellm_params.get("ssl_verify")}
-                    if logging_obj and logging_obj.litellm_params and logging_obj.litellm_params.get("ssl_verify")
+                    {"ssl_verify": logging_obj.embrouter_params.get("ssl_verify")}
+                    if logging_obj and logging_obj.embrouter_params and logging_obj.embrouter_params.get("ssl_verify")
                     else None
                 )
             )
@@ -312,17 +312,17 @@ def make_sync_call(
             )
 
         if fake_stream:
-            model_response: Final[ModelResponse] = litellm.AmazonConverseConfig()._transform_response(
+            model_response: Final[ModelResponse] = embrouter.AmazonConverseConfig()._transform_response(
                 model=model,
                 response=response,
-                model_response=litellm.ModelResponse(),
+                model_response=embrouter.ModelResponse(),
                 stream=True,
                 logging_obj=logging_obj,
                 optional_params={},
                 api_key="",
                 data=data,
                 messages=messages,
-                encoding=litellm.encoding,
+                encoding=embrouter.encoding,
             )
             completion_stream: MockResponseIterator | Iterator[GChunk | ModelResponseStream | dict] = (
                 MockResponseIterator(model_response=model_response, json_mode=json_mode)
@@ -498,7 +498,7 @@ class AWSEventStreamDecoder:
         self.content_blocks = []  # reset
         if start_obj is not None:
             if "toolUse" in start_obj and start_obj["toolUse"] is not None:
-                ## check tool name was formatted by litellm
+                ## check tool name was formatted by embrouter
                 _response_tool_name: Final = start_obj["toolUse"]["name"]
                 response_tool_name: Final = get_bedrock_tool_name(response_tool_name=_response_tool_name)
                 self._current_tool_name = response_tool_name
@@ -843,7 +843,7 @@ class AmazonDeepSeekR1StreamDecoder(AWSEventStreamDecoder):
         sync_stream: bool,
     ) -> None:
         super().__init__(model=model)
-        from litellm.llms.bedrock.chat.invoke_transformations.amazon_deepseek_transformation import (
+        from embrouter.llms.bedrock.chat.invoke_transformations.amazon_deepseek_transformation import (
             AmazonDeepseekR1ResponseIterator,
         )
 
@@ -863,7 +863,7 @@ class AmazonOpenAICompatibleStreamDecoder(AWSEventStreamDecoder):
         sync_stream: bool,
     ) -> None:
         super().__init__(model=model)
-        from litellm.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler
+        from embrouter.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler
 
         self.openai_model_response_iterator = OpenAIChatCompletionStreamingHandler(
             streaming_response=None,
@@ -904,7 +904,7 @@ class MockResponseIterator:  # for returning ai21 streaming responses
         """
         tool_use: ChatCompletionToolCallChunk | None = None
         if self.json_mode is True and tool_calls is not None:
-            message: Final = litellm.AnthropicConfig()._convert_tool_response_to_message(tool_calls=tool_calls)
+            message: Final = embrouter.AnthropicConfig()._convert_tool_response_to_message(tool_calls=tool_calls)
             if message is not None:
                 text = message.content or ""
                 tool_use = None

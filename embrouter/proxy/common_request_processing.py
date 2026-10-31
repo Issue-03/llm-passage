@@ -29,16 +29,16 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from starlette.types import Receive, Scope, Send
 
-import litellm
-from litellm._logging import redact_internal_details_from_client_message, verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.anthropic_interface.exceptions import AnthropicErrorSseFrame, anthropic_error_sse_frame
-from litellm.constants import (
+import embrouter
+from embrouter._logging import redact_internal_details_from_client_message, verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.anthropic_interface.exceptions import AnthropicErrorSseFrame, anthropic_error_sse_frame
+from embrouter.constants import (
     DD_TRACER_STREAMING_CHUNK_YIELD_RESOURCE,
     DEFAULT_MAX_RECURSE_DEPTH,
-    LITELLM_DETAILED_TIMING,
-    LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED,
-    MAX_LITELLM_CALL_ID_LENGTH,
+    EMBROUTER_DETAILED_TIMING,
+    EMBROUTER_HTTP_STATUS_CLIENT_DISCONNECTED,
+    MAX_EMBROUTER_CALL_ID_LENGTH,
     MAX_PAYLOAD_SIZE_FOR_DEBUG_LOG,
     NON_INFERENCE_CALL_TYPES,
     RETURN_RAW_MODEL_NAME_METADATA_KEY,
@@ -46,63 +46,63 @@ from litellm.constants import (
     STREAM_SSE_KEEPALIVE_PING_BYTES,
     UNSAFE_PROXY_RESPONSE_HEADERS,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.bug_report import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.bug_report import (
     allowlisted,
     bug_report_notice,
     should_report_bug,
     strip_bug_report_notice,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     get_or_create_metadata_bucket,
     independent_snapshot,
     is_expected_client_error,
     redact_nested_match_and_regex_keys,
 )
-from litellm.litellm_core_utils.dd_tracing import NullTracer, tracer
-from litellm.litellm_core_utils.get_supported_openai_params import (
+from embrouter.embrouter_core_utils.dd_tracing import NullTracer, tracer
+from embrouter.embrouter_core_utils.get_supported_openai_params import (
     get_supported_openai_params,
 )
-from litellm.litellm_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import guardrail_information_cost
-from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+from embrouter.embrouter_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import guardrail_information_cost
+from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
     get_response_headers,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.served_output_texts import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.served_output_texts import (
     record_served_output_texts,
     served_output_texts,
 )
-from litellm.litellm_core_utils.streaming_handler import (
+from embrouter.embrouter_core_utils.streaming_handler import (
     backfill_missing_cache_usage_fields,
 )
-from litellm.proxy._types import LiteLLMRoutes, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy._types import EmbRouterRoutes, ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import (
     can_key_call_resolved_model,
     request_skips_budget_checks,
     tag_max_budget_check_for_tags,
 )
-from litellm.proxy.auth.auth_utils import check_response_size_is_safe, get_request_route
-from litellm.proxy.bug_report_config import build_proxy_bug_report
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.auth.auth_utils import check_response_size_is_safe, get_request_route
+from embrouter.proxy.bug_report_config import build_proxy_bug_report
+from embrouter.proxy.common_utils.callback_utils import (
     get_logging_caching_headers,
     get_remaining_tokens_and_requests_from_request_data,
 )
-from litellm.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
+from embrouter.proxy.common_utils.http_parsing_utils import (
     get_client_requested_model,
     get_tags_from_request_body,
     resolve_inference_model,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
-    LITELLM_CALL_ID_HEADER,
+from embrouter.proxy.common_utils.openai_error_payload import (
+    EMBROUTER_CALL_ID_HEADER,
     attribute_of,
     error_status_code,
     openai_error_param,
     openai_error_type,
 )
-from litellm.proxy.common_utils.sse_keepalive import (
+from embrouter.proxy.common_utils.sse_keepalive import (
     SSE_COMMENT_PING_BYTES,
     SSE_STREAM_START_TAIL,
     advance_sse_tail,
@@ -111,23 +111,23 @@ from litellm.proxy.common_utils.sse_keepalive import (
     seal_open_sse_frame,
     wrap_sse_stream_with_keepalive_pings,
 )
-from litellm.proxy.dd_span_tagger import DDSpanTagger
-from litellm.proxy.guardrails.auto_router_compression import arm_pre_call as _arm_auto_router_compression
-from litellm.proxy.native_compaction import with_proxy_compaction_executor
-from litellm.proxy.route_llm_request import route_request
-from litellm.proxy.utils import ProxyLogging, _check_and_merge_model_level_guardrails
-from litellm.router import Router
-from litellm.router_utils.add_retry_fallback_headers import get_hidden_params_dict
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.router import RouterRateLimitError
-from litellm.types.router_weights import validate_router_weights
+from embrouter.proxy.dd_span_tagger import DDSpanTagger
+from embrouter.proxy.guardrails.auto_router_compression import arm_pre_call as _arm_auto_router_compression
+from embrouter.proxy.native_compaction import with_proxy_compaction_executor
+from embrouter.proxy.route_llm_request import route_request
+from embrouter.proxy.utils import ProxyLogging, _check_and_merge_model_level_guardrails
+from embrouter.router import Router
+from embrouter.router_utils.add_retry_fallback_headers import get_hidden_params_dict
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.router import RouterRateLimitError
+from embrouter.types.router_weights import validate_router_weights
 
 _LateResponseT = TypeVar("_LateResponseT", bound=Response)
 _LlmCallT = TypeVar("_LlmCallT")
 
 KNOWN_PROXY_ROUTES: Final = frozenset(
-    route for member in LiteLLMRoutes for route in member.value if route.startswith("/")
+    route for member in EmbRouterRoutes for route in member.value if route.startswith("/")
 )
 
 ProxyRouteType: TypeAlias = Literal[
@@ -220,7 +220,7 @@ ProxyRouteType: TypeAlias = Literal[
     "acancel_run",
     "adelete_run",
 ]
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
 # Type alias for streaming chunk serializer (chunk after hooks + cost injection -> wire format)
 StreamChunkSerializer = Callable[[object], str]
@@ -228,21 +228,21 @@ StreamChunkSerializer = Callable[[object], str]
 StreamErrorSerializer = Callable[[ProxyException], str]
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import ProxyConfig as _ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig as _ProxyConfig
 
     ProxyConfig = _ProxyConfig
 else:
     ProxyConfig = Any
-from litellm.proxy.anthropic_endpoints.streaming_model_restamp import (
+from embrouter.proxy.anthropic_endpoints.streaming_model_restamp import (
     AnthropicStreamModelRestamper,
 )
-from litellm.proxy.litellm_pre_call_utils import (
-    add_litellm_data_to_request,
+from embrouter.proxy.embrouter_pre_call_utils import (
+    add_embrouter_data_to_request,
     refresh_proxy_server_request_body_snapshot,
     reject_url_valued_destination,
 )
-from litellm.proxy.policy_engine.response_retrieval import attach_post_call_pipelines_to_retrieval
-from litellm.types.utils import (
+from embrouter.proxy.policy_engine.response_retrieval import attach_post_call_pipelines_to_retrieval
+from embrouter.types.utils import (
     ModelResponse,
     ModelResponseStream,
     StandardLoggingPayloadErrorInformation,
@@ -258,7 +258,7 @@ _DD_STREAMING_TRACE_ENABLED: Final = not isinstance(tracer, NullTracer)
 
 
 _CLIENT_DISCONNECTED_ERROR_INFORMATION: Final[StandardLoggingPayloadErrorInformation] = {
-    "error_code": str(LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED),
+    "error_code": str(EMBROUTER_HTTP_STATUS_CLIENT_DISCONNECTED),
     "error_message": "Client disconnected the request",
     "error_class": "ClientDisconnected",
 }
@@ -268,8 +268,8 @@ def _withheld_provider_output(response: object) -> bool:
     return getattr(response, "has_buffered_provider_output", False) is True
 
 
-def resolve_litellm_call_id(client_call_id: str | None) -> str:
-    if client_call_id is not None and 0 < len(client_call_id) <= MAX_LITELLM_CALL_ID_LENGTH:
+def resolve_embrouter_call_id(client_call_id: str | None) -> str:
+    if client_call_id is not None and 0 < len(client_call_id) <= MAX_EMBROUTER_CALL_ID_LENGTH:
         return client_call_id
     return str(uuid.uuid4())
 
@@ -277,7 +277,7 @@ def resolve_litellm_call_id(client_call_id: str | None) -> str:
 def _should_return_raw_model_name(request_data: dict[str, object]) -> bool:
     return any(
         isinstance(metadata, dict) and metadata.get(RETURN_RAW_MODEL_NAME_METADATA_KEY) is True
-        for metadata in (request_data.get("metadata"), request_data.get("litellm_metadata"))
+        for metadata in (request_data.get("metadata"), request_data.get("embrouter_metadata"))
     )
 
 
@@ -303,13 +303,13 @@ async def _record_streaming_client_disconnect_if_needed(
         if not disconnected:
             return False
 
-    logging_obj: Final = request_data.get("litellm_logging_obj")
+    logging_obj: Final = request_data.get("embrouter_logging_obj")
     if logging_obj is not None:
-        litellm_params: Final = logging_obj.model_call_details.setdefault("litellm_params", {})
-        _lp_metadata = litellm_params.get("metadata")
+        embrouter_params: Final = logging_obj.model_call_details.setdefault("embrouter_params", {})
+        _lp_metadata = embrouter_params.get("metadata")
         if _lp_metadata is None:
             _lp_metadata = {}
-            litellm_params["metadata"] = _lp_metadata
+            embrouter_params["metadata"] = _lp_metadata
         _apply_client_disconnect_metadata(_lp_metadata)
 
         _mcd_metadata = logging_obj.model_call_details.get("metadata")
@@ -324,25 +324,25 @@ async def _record_streaming_client_disconnect_if_needed(
         request_data["metadata"] = _rd_metadata
     _apply_client_disconnect_metadata(_rd_metadata)
 
-    _rd_litellm_params = request_data.get("litellm_params")
-    if _rd_litellm_params is None:
-        _rd_litellm_params = {}
-        request_data["litellm_params"] = _rd_litellm_params
-    _rd_lp_metadata = _rd_litellm_params.get("metadata")
+    _rd_embrouter_params = request_data.get("embrouter_params")
+    if _rd_embrouter_params is None:
+        _rd_embrouter_params = {}
+        request_data["embrouter_params"] = _rd_embrouter_params
+    _rd_lp_metadata = _rd_embrouter_params.get("metadata")
     if _rd_lp_metadata is None:
         _rd_lp_metadata = {}
-        _rd_litellm_params["metadata"] = _rd_lp_metadata
+        _rd_embrouter_params["metadata"] = _rd_lp_metadata
     _apply_client_disconnect_metadata(_rd_lp_metadata)
 
     verbose_proxy_logger.debug(
-        "Recorded streaming client disconnect with error_code=499 for litellm_call_id=%s",
-        request_data.get("litellm_call_id"),
+        "Recorded streaming client disconnect with error_code=499 for embrouter_call_id=%s",
+        request_data.get("embrouter_call_id"),
     )
     return True
 
 
 def _deferred_stream_logging_is_armed(request_data: dict) -> bool:
-    logging_obj: Final = request_data.get("litellm_logging_obj")
+    logging_obj: Final = request_data.get("embrouter_logging_obj")
     if logging_obj is None:
         return False
     return (
@@ -384,7 +384,7 @@ def _assembled_model_is_the_name_the_client_asked_for(
     `request_data["model"]` for aliasing and routing, so the client's own name wins when it
     is there, in the same order the proxy picks the name it stamps.
     """
-    client_requested_model: Final = request_data.get("_litellm_client_requested_model")
+    client_requested_model: Final = request_data.get("_embrouter_client_requested_model")
     stamped_model: Final = (
         client_requested_model if isinstance(client_requested_model, str) else request_data.get("model")
     )
@@ -412,10 +412,10 @@ async def _bill_partial_streamed_spend_on_disconnect(request_data: dict, respons
     success event fired (logging disabled, nothing streamed, or assembly
     failed) and the caller must release the slot itself.
     """
-    if litellm.disable_streaming_logging is True:
+    if embrouter.disable_streaming_logging is True:
         return False
-    logging_obj: Final = request_data.get("litellm_logging_obj")
-    if not isinstance(logging_obj, LiteLLMLoggingObj):
+    logging_obj: Final = request_data.get("embrouter_logging_obj")
+    if not isinstance(logging_obj, EmbRouterLoggingObj):
         return False
     if logging_obj.model_call_details.get("has_dispatched_final_stream_success"):
         # A natural end-of-stream success event already fired and released the
@@ -425,13 +425,13 @@ async def _bill_partial_streamed_spend_on_disconnect(request_data: dict, respons
     if not isinstance(chunks, list) or not chunks:
         return False
     verbose_proxy_logger.debug(
-        "Billing partial streamed spend for %s chunks after client disconnect, litellm_call_id=%s",
+        "Billing partial streamed spend for %s chunks after client disconnect, embrouter_call_id=%s",
         len(chunks),
-        request_data.get("litellm_call_id"),
+        request_data.get("embrouter_call_id"),
     )
     messages: Final[object] = getattr(response, "messages", None)
     try:
-        partial_response: Final = litellm.stream_chunk_builder(
+        partial_response: Final = embrouter.stream_chunk_builder(
             chunks=chunks,
             messages=messages if isinstance(messages, list) else None,
             logging_obj=logging_obj,
@@ -476,9 +476,9 @@ async def _cancel_pending_gather_tasks(tasks: Sequence["asyncio.Task[object]"]) 
 
 
 @lru_cache(maxsize=512)
-def _litellm_model_supports_stream_options(litellm_model: str) -> bool:
+def _embrouter_model_supports_stream_options(embrouter_model: str) -> bool:
     try:
-        supported_params: Final = get_supported_openai_params(model=litellm_model)
+        supported_params: Final = get_supported_openai_params(model=embrouter_model)
     except Exception:  # noqa: BLE001  # unmapped or malformed model strings must disable injection, not fail the request
         return False
     return supported_params is not None and "stream_options" in supported_params
@@ -492,10 +492,10 @@ def _model_deployments_support_stream_options(
     if not isinstance(model, str):
         return False
     deployment_models: Final = (
-        llm_router.resolved_litellm_models(model, team_id=team_id) if llm_router is not None else ()
+        llm_router.resolved_embrouter_models(model, team_id=team_id) if llm_router is not None else ()
     )
     candidate_models: Final = deployment_models if deployment_models else (model,)
-    return all(_litellm_model_supports_stream_options(m) for m in candidate_models)
+    return all(_embrouter_model_supports_stream_options(m) for m in candidate_models)
 
 
 def _stream_usage_tracking_updates(
@@ -504,7 +504,7 @@ def _stream_usage_tracking_updates(
     route_type: str,
     supports_stream_options: Callable[[], bool],
 ) -> Mapping[str, object]:
-    scrub: Final = {"_litellm_strip_stream_usage": False} if "_litellm_strip_stream_usage" in data else {}
+    scrub: Final = {"_embrouter_strip_stream_usage": False} if "_embrouter_strip_stream_usage" in data else {}
     if data.get("stream", False) is not True:
         return scrub
     always_include: Final = general_settings.get("always_include_stream_usage")
@@ -524,7 +524,7 @@ def _stream_usage_tracking_updates(
     merged_stream_options: Final = {**stream_options} if isinstance(stream_options, dict) else {}
     return {
         "stream_options": {**merged_stream_options, "include_usage": True},
-        "_litellm_strip_stream_usage": True,
+        "_embrouter_strip_stream_usage": True,
     }
 
 
@@ -646,7 +646,7 @@ async def _authorize_response_file_search_vector_stores(
     if not vector_store_ids:
         return
 
-    from litellm.proxy.vector_store_endpoints.utils import (
+    from embrouter.proxy.vector_store_endpoints.utils import (
         assert_user_can_access_vector_store_id,
     )
 
@@ -713,7 +713,7 @@ async def _enforce_guardrail_added_tag_budgets(
     )
     if not added_tags or request_skips_budget_checks(route=route, model=_request_model(data), llm_router=llm_router):
         return
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
     try:
         await tag_max_budget_check_for_tags(
@@ -723,7 +723,7 @@ async def _enforce_guardrail_added_tag_budgets(
             proxy_logging_obj=proxy_logging_obj,
             valid_token=user_api_key_dict,
         )
-    except litellm.BudgetExceededError as e:
+    except embrouter.BudgetExceededError as e:
         raise ProxyException(
             message=e.message,
             type=ProxyErrorTypes.budget_exceeded,
@@ -990,7 +990,7 @@ async def create_response(
 
     ``refresh_headers`` is consulted once the first chunk has been buffered, for
     callers whose headers can only be known then. ``general_settings`` decides whether
-    the first-chunk error body also carries the ``x-litellm-call-id`` header's value.
+    the first-chunk error body also carries the ``x-embrouter-call-id`` header's value.
     """
     first_chunk_value: str | None = None
     final_status_code = default_status_code
@@ -1010,7 +1010,7 @@ async def create_response(
             return JSONResponse(
                 status_code=first_chunk_value.status_code,
                 content=first_chunk_value.json_body(
-                    error_body_call_id(general_settings, resolved_headers.get(LITELLM_CALL_ID_HEADER))
+                    error_body_call_id(general_settings, resolved_headers.get(EMBROUTER_CALL_ID_HEADER))
                 ),
                 headers=resolved_headers,
             )
@@ -1030,7 +1030,7 @@ async def create_response(
                     # Parse error content
                     error_dict: Final = with_call_id(
                         JSON_OBJECT.validate_python(_extract_error_from_sse_chunk(first_chunk_value)),
-                        error_body_call_id(general_settings, resolved_headers.get(LITELLM_CALL_ID_HEADER)),
+                        error_body_call_id(general_settings, resolved_headers.get(EMBROUTER_CALL_ID_HEADER)),
                     )
 
                     # Consume and close generator (avoid resource leak)
@@ -1052,13 +1052,13 @@ async def create_response(
         # Client vanished during the time-to-first-token wait; the upstream
         # stream is already closed. Return a 499 the (now-gone) client never reads.
         return JSONResponse(
-            status_code=LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED,
+            status_code=EMBROUTER_HTTP_STATUS_CLIENT_DISCONNECTED,
             content={
                 "error": {
                     "message": _CLIENT_DISCONNECT_DETAIL,
                     "type": "client_disconnect",
                     "param": None,
-                    "code": str(LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED),
+                    "code": str(EMBROUTER_HTTP_STATUS_CLIENT_DISCONNECTED),
                 }
             },
             headers=headers,
@@ -1139,7 +1139,7 @@ def ttft_keepalive_interval(request_data: Mapping[str, object], llm_router: Rout
         if llm_router is not None and isinstance(requested_model, str)
         else ()
     )
-    return resolve_ttft_keepalive_interval(deployments, litellm.sse_keepalive_ping_interval_seconds)
+    return resolve_ttft_keepalive_interval(deployments, embrouter.sse_keepalive_ping_interval_seconds)
 
 
 async def _aclose_late_response(produced: Response) -> None:
@@ -1227,7 +1227,7 @@ async def open_sse_before_first_byte(
     ignores, fill the wire until the real response is ready to be replayed onto it.
     Committing the status line that early is the cost: a failure discovered after
     the first ping reaches the client as an SSE error frame under a 200 rather than
-    as an HTTP error status, and LiteLLM's own `x-litellm-*` response headers are
+    as an HTTP error status, and EmbRouter's own `x-embrouter-*` response headers are
     not yet known. Both are why this stays off until an operator sets an interval.
     """
     interval: Final = coerce_keepalive_interval(ping_interval_seconds)
@@ -1302,7 +1302,7 @@ def _is_azure_model_router_request(model: str, hidden_params: Mapping[str, objec
     Returns:
         bool: True if this is an Azure Model Router request
     """
-    from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+    from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
     return AzureFoundryModelInfo.is_model_router_call(model=model, hidden_params=hidden_params)
 
@@ -1317,7 +1317,7 @@ def _override_openai_response_model(
     """
     Force the OpenAI-compatible `model` field in the response to match what the client requested.
 
-    LiteLLM internally prefixes some provider/deployment model identifiers (e.g. `hosted_vllm/...`).
+    EmbRouter internally prefixes some provider/deployment model identifiers (e.g. `hosted_vllm/...`).
     That internal identifier should not be returned to clients in the OpenAI `model` field.
 
     Note: This is intentionally verbose at debug level. A model mismatch is a useful signal that an
@@ -1329,7 +1329,7 @@ def _override_openai_response_model(
     including dict responses with no `model` key.
 
     Exceptions:
-    1. If a fallback occurred (indicated by x-litellm-attempted-fallbacks header),
+    1. If a fallback occurred (indicated by x-embrouter-attempted-fallbacks header),
        we preserve the actual model that was used (the fallback model).
     2. If the request was to an Azure Model Router, we preserve the actual model
        that was used (e.g., gpt-5-nano-2025-08-07) instead of the router model.
@@ -1343,7 +1343,7 @@ def _override_openai_response_model(
     if isinstance(hidden_params, dict):
         # Check if a fallback occurred - if so, preserve the actual model used
         fallback_headers: Final = hidden_params.get("additional_headers", {}) or {}
-        attempted_fallbacks: Final = fallback_headers.get("x-litellm-attempted-fallbacks", None)
+        attempted_fallbacks: Final = fallback_headers.get("x-embrouter-attempted-fallbacks", None)
         if attempted_fallbacks is not None and attempted_fallbacks > 0:
             verbose_proxy_logger.debug(
                 "%s: fallback detected (attempted_fallbacks=%d), preserving actual model used instead of overriding to requested model.",
@@ -1355,7 +1355,7 @@ def _override_openai_response_model(
         # For fastest_response batch completions, use the winning model's group
         # name rather than the comma-separated list the client sent.
         if hidden_params.get("fastest_response_batch_completion"):
-            winning_model: Final = fallback_headers.get("x-litellm-model-group")
+            winning_model: Final = fallback_headers.get("x-embrouter-model-group")
             if winning_model:
                 verbose_proxy_logger.debug(
                     "%s: fastest_response detected, using winning model group=%r instead of requested=%r.",
@@ -1418,7 +1418,7 @@ def _override_openai_response_model(
         )
 
 
-_METADATA_BUCKET_KEYS: Final = ("metadata", "litellm_metadata")
+_METADATA_BUCKET_KEYS: Final = ("metadata", "embrouter_metadata")
 _RESPONSE_REDACTED_KEYS: Final = ("keyword", "snippet", "match", "regex")
 
 
@@ -1506,7 +1506,7 @@ def _totals_to_zero(response_cost: float | str | None) -> bool:
 
 
 def _get_cost_breakdown_from_logging_obj(
-    litellm_logging_obj: LiteLLMLoggingObj | None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None,
     response_cost: float | str | None = None,
 ) -> CostBreakdownHeaderValues:
     """Extract discount, margin, and per-component cost information from logging object's cost breakdown.
@@ -1516,12 +1516,12 @@ def _get_cost_breakdown_from_logging_obj(
     and the cost poller's read of one) reports the breakdown it stored, or nothing at all when the
     breakdown has not landed yet.
     """
-    if not litellm_logging_obj or not hasattr(litellm_logging_obj, "cost_breakdown"):
+    if not embrouter_logging_obj or not hasattr(embrouter_logging_obj, "cost_breakdown"):
         return CostBreakdownHeaderValues()
 
-    cost_breakdown: Final = litellm_logging_obj.cost_breakdown
+    cost_breakdown: Final = embrouter_logging_obj.cost_breakdown
     if not cost_breakdown:
-        if litellm_logging_obj.call_type in NON_INFERENCE_CALL_TYPES and _totals_to_zero(response_cost):
+        if embrouter_logging_obj.call_type in NON_INFERENCE_CALL_TYPES and _totals_to_zero(response_cost):
             return _ZERO_COST_BREAKDOWN
         return CostBreakdownHeaderValues()
 
@@ -1546,14 +1546,14 @@ def _get_cost_breakdown_from_logging_obj(
 def _classifier_cost_from_request_data(request_data: Mapping[str, object] | None) -> float | None:
     """Cost of the auto-router's LLM classifier call, read from the request's routing_decision.
 
-    The pre-routing hook records the decision in `litellm_metadata` on messages/batch-style
+    The pre-routing hook records the decision in `embrouter_metadata` on messages/batch-style
     routes and in `metadata` on chat-style routes, so both buckets are consulted, in the same
     precedence `get_or_create_metadata_bucket` writes them.
     """
-    from litellm.proxy.spend_tracking.savings import classifier_cost_from_decision
+    from embrouter.proxy.spend_tracking.savings import classifier_cost_from_decision
 
     data: Final = request_data or {}
-    for metadata_key in ("litellm_metadata", "metadata"):
+    for metadata_key in ("embrouter_metadata", "metadata"):
         metadata = data.get(metadata_key)
         if not isinstance(metadata, dict):
             continue
@@ -1570,7 +1570,7 @@ def _classifier_cost_from_request_data(request_data: Mapping[str, object] | None
 def _has_attribute_error_in_chain(exc: Exception) -> bool:
     """Walk the exception chain to find an AttributeError at any depth.
 
-    Checks __cause__, __context__, and the litellm-specific original_exception
+    Checks __cause__, __context__, and the embrouter-specific original_exception
     attribute iteratively. Depth is capped at DEFAULT_MAX_RECURSE_DEPTH to
     avoid infinite loops from circular exception references.
     """
@@ -1597,36 +1597,36 @@ _CLIENT_DISCONNECT_DETAIL: Final = "Client disconnected the request"
 
 
 @runtime_checkable
-class _CarriesLitellmCallId(Protocol):
-    litellm_call_id: str | None
+class _CarriesEmbrouterCallId(Protocol):
+    embrouter_call_id: str | None
 
 
-def request_litellm_call_id(data: Mapping[str, object]) -> str | None:
-    logging_obj: Final = data.get("litellm_logging_obj")
-    logged_id: Final = logging_obj.litellm_call_id if isinstance(logging_obj, _CarriesLitellmCallId) else None
-    call_id: Final = logged_id or data.get("litellm_call_id")
+def request_embrouter_call_id(data: Mapping[str, object]) -> str | None:
+    logging_obj: Final = data.get("embrouter_logging_obj")
+    logged_id: Final = logging_obj.embrouter_call_id if isinstance(logging_obj, _CarriesEmbrouterCallId) else None
+    call_id: Final = logged_id or data.get("embrouter_call_id")
     return call_id if isinstance(call_id, str) else None
 
 
-def log_llm_api_exception(e: Exception, litellm_call_id: str | None) -> None:
+def log_llm_api_exception(e: Exception, embrouter_call_id: str | None) -> None:
     if getattr(e, "status_code", None) == 499 and getattr(e, "detail", None) == _CLIENT_DISCONNECT_DETAIL:
         verbose_proxy_logger.info(
-            "litellm.proxy.proxy_server._handle_llm_api_exception(): client disconnected, "
-            "upstream LLM request cancelled - litellm_call_id=%s",
-            litellm_call_id,
-            extra=MappingProxyType({"litellm_call_id": litellm_call_id}),
+            "embrouter.proxy.proxy_server._handle_llm_api_exception(): client disconnected, "
+            "upstream LLM request cancelled - embrouter_call_id=%s",
+            embrouter_call_id,
+            extra=MappingProxyType({"embrouter_call_id": embrouter_call_id}),
         )
         return
     log_fn: Final = (
         verbose_proxy_logger.error
-        if is_expected_client_error(e) and not litellm.log_client_error_tracebacks
+        if is_expected_client_error(e) and not embrouter.log_client_error_tracebacks
         else verbose_proxy_logger.exception
     )
     log_fn(
-        "litellm.proxy.proxy_server._handle_llm_api_exception(): Exception occured - litellm_call_id=%s - %s",
-        litellm_call_id,
+        "embrouter.proxy.proxy_server._handle_llm_api_exception(): Exception occured - embrouter_call_id=%s - %s",
+        embrouter_call_id,
         e,
-        extra=MappingProxyType({"litellm_call_id": litellm_call_id}),
+        extra=MappingProxyType({"embrouter_call_id": embrouter_call_id}),
     )
 
 
@@ -1671,7 +1671,7 @@ async def _await_llm_call_cancelling_on_disconnect(
 def _timing_values(
     *,
     hidden_params: Mapping[str, object],
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: EmbRouterLoggingObj | None,
     use_logging_obj: bool,
 ) -> Mapping[str, object]:
     """Both timing values from one source, so the two headers always describe the same window.
@@ -1690,8 +1690,8 @@ class ProxyBaseLLMRequestProcessing:
         self._tags_before_guardrails: frozenset[str] | None = None
 
     @property
-    def litellm_call_id(self) -> str | None:
-        return request_litellm_call_id(self.data)
+    def embrouter_call_id(self) -> str | None:
+        return request_embrouter_call_id(self.data)
 
     @staticmethod
     def _merge_passthrough_streaming_headers(
@@ -1737,23 +1737,23 @@ class ProxyBaseLLMRequestProcessing:
         fastest_response_batch_completion: bool | None = None,
         request_data: dict | None = {},
         timeout: float | httpx.Timeout | None = None,
-        litellm_logging_obj: LiteLLMLoggingObj | None = None,
+        embrouter_logging_obj: EmbRouterLoggingObj | None = None,
         read_timing_from_logging_obj: bool = True,
         **kwargs,
     ) -> dict:
         exclude_values: Final = {"", None, "None"}
         hidden_params = hidden_params or {}
         resolved_call_id: Final = (
-            call_id or hidden_params.get("litellm_call_id") or (request_data or {}).get("litellm_call_id")
+            call_id or hidden_params.get("embrouter_call_id") or (request_data or {}).get("embrouter_call_id")
         )
         timing_values: Final = _timing_values(
             hidden_params=hidden_params,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             use_logging_obj=read_timing_from_logging_obj,
         )
 
         cost_breakdown: Final = _get_cost_breakdown_from_logging_obj(
-            litellm_logging_obj=litellm_logging_obj, response_cost=response_cost
+            embrouter_logging_obj=embrouter_logging_obj, response_cost=response_cost
         )
 
         # Calculate updated spend for header (include current response_cost)
@@ -1769,72 +1769,72 @@ class ProxyBaseLLMRequestProcessing:
                 # If conversion fails, use original spend
                 pass
 
-        model_name: Final = ProxyBaseLLMRequestProcessing._get_deployment_model_name(litellm_logging_obj)
+        model_name: Final = ProxyBaseLLMRequestProcessing._get_deployment_model_name(embrouter_logging_obj)
         classifier_cost: Final = _classifier_cost_from_request_data(request_data)
 
         headers: Final = {
-            "x-litellm-call-id": resolved_call_id,
-            "x-litellm-model-id": model_id,
-            "x-litellm-model-name": model_name,
-            "x-litellm-cache-key": cache_key,
-            "x-litellm-model-api-base": (
+            "x-embrouter-call-id": resolved_call_id,
+            "x-embrouter-model-id": model_id,
+            "x-embrouter-model-name": model_name,
+            "x-embrouter-cache-key": cache_key,
+            "x-embrouter-model-api-base": (
                 api_base.split("?")[0] if api_base else None
             ),  # don't include query params, risk of leaking sensitive info
-            "x-litellm-version": version,
-            "x-litellm-model-region": model_region,
-            "x-litellm-response-cost": str(response_cost),
-            "x-litellm-response-cost-original": (
+            "x-embrouter-version": version,
+            "x-embrouter-model-region": model_region,
+            "x-embrouter-response-cost": str(response_cost),
+            "x-embrouter-response-cost-original": (
                 str(cost_breakdown.original_cost) if cost_breakdown.original_cost is not None else None
             ),
-            "x-litellm-response-cost-discount-amount": (
+            "x-embrouter-response-cost-discount-amount": (
                 str(cost_breakdown.discount_amount) if cost_breakdown.discount_amount is not None else None
             ),
-            "x-litellm-response-cost-margin-amount": (
+            "x-embrouter-response-cost-margin-amount": (
                 str(cost_breakdown.margin_total_amount) if cost_breakdown.margin_total_amount is not None else None
             ),
-            "x-litellm-response-cost-margin-percent": (
+            "x-embrouter-response-cost-margin-percent": (
                 str(cost_breakdown.margin_percent) if cost_breakdown.margin_percent is not None else None
             ),
-            "x-litellm-response-cost-input": (
+            "x-embrouter-response-cost-input": (
                 str(cost_breakdown.input_cost) if cost_breakdown.input_cost is not None else None
             ),
-            "x-litellm-response-cost-output": (
+            "x-embrouter-response-cost-output": (
                 str(cost_breakdown.output_cost) if cost_breakdown.output_cost is not None else None
             ),
-            "x-litellm-response-cost-cache-read": (
+            "x-embrouter-response-cost-cache-read": (
                 str(cost_breakdown.cache_read_cost) if cost_breakdown.cache_read_cost is not None else None
             ),
-            "x-litellm-response-cost-cache-creation": (
+            "x-embrouter-response-cost-cache-creation": (
                 str(cost_breakdown.cache_creation_cost) if cost_breakdown.cache_creation_cost is not None else None
             ),
-            "x-litellm-response-cost-reasoning": (
+            "x-embrouter-response-cost-reasoning": (
                 str(cost_breakdown.reasoning_cost) if cost_breakdown.reasoning_cost is not None else None
             ),
-            "x-litellm-response-cost-tool-usage": (
+            "x-embrouter-response-cost-tool-usage": (
                 str(cost_breakdown.tool_usage_cost) if cost_breakdown.tool_usage_cost is not None else None
             ),
-            "x-litellm-classifier-cost": (str(classifier_cost) if classifier_cost is not None else None),
-            "x-litellm-key-tpm-limit": str(user_api_key_dict.tpm_limit),
-            "x-litellm-key-rpm-limit": str(user_api_key_dict.rpm_limit),
-            "x-litellm-key-max-budget": str(user_api_key_dict.max_budget),
-            "x-litellm-key-spend": str(updated_spend),
-            "x-litellm-response-duration-ms": str(timing_values.get("_response_ms")),
-            "x-litellm-overhead-duration-ms": str(timing_values.get("litellm_overhead_time_ms")),
-            "x-litellm-callback-duration-ms": str(hidden_params.get("callback_duration_ms", None)),
+            "x-embrouter-classifier-cost": (str(classifier_cost) if classifier_cost is not None else None),
+            "x-embrouter-key-tpm-limit": str(user_api_key_dict.tpm_limit),
+            "x-embrouter-key-rpm-limit": str(user_api_key_dict.rpm_limit),
+            "x-embrouter-key-max-budget": str(user_api_key_dict.max_budget),
+            "x-embrouter-key-spend": str(updated_spend),
+            "x-embrouter-response-duration-ms": str(timing_values.get("_response_ms")),
+            "x-embrouter-overhead-duration-ms": str(timing_values.get("embrouter_overhead_time_ms")),
+            "x-embrouter-callback-duration-ms": str(hidden_params.get("callback_duration_ms", None)),
             **(
                 {
-                    "x-litellm-timing-pre-processing-ms": str(hidden_params.get("timing_pre_processing_ms", None)),
-                    "x-litellm-timing-llm-api-ms": str(hidden_params.get("timing_llm_api_ms", None)),
-                    "x-litellm-timing-post-processing-ms": str(hidden_params.get("timing_post_processing_ms", None)),
-                    "x-litellm-timing-message-copy-ms": str(hidden_params.get("timing_message_copy_ms", None)),
+                    "x-embrouter-timing-pre-processing-ms": str(hidden_params.get("timing_pre_processing_ms", None)),
+                    "x-embrouter-timing-llm-api-ms": str(hidden_params.get("timing_llm_api_ms", None)),
+                    "x-embrouter-timing-post-processing-ms": str(hidden_params.get("timing_post_processing_ms", None)),
+                    "x-embrouter-timing-message-copy-ms": str(hidden_params.get("timing_message_copy_ms", None)),
                 }
-                if LITELLM_DETAILED_TIMING
+                if EMBROUTER_DETAILED_TIMING
                 else {}
             ),
-            "x-litellm-fastest_response_batch_completion": (
+            "x-embrouter-fastest_response_batch_completion": (
                 str(fastest_response_batch_completion) if fastest_response_batch_completion is not None else None
             ),
-            "x-litellm-timeout": str(timeout) if timeout is not None else None,
+            "x-embrouter-timeout": str(timeout) if timeout is not None else None,
             **{k: str(v) for k, v in kwargs.items()},
         }
         if request_data:
@@ -1852,18 +1852,18 @@ class ProxyBaseLLMRequestProcessing:
             return {}
 
     @staticmethod
-    async def build_litellm_proxy_success_headers_from_llm_response(
+    async def build_embrouter_proxy_success_headers_from_llm_response(
         *,
         response: object,
         request_data: dict,
         request: Request,
         user_api_key_dict: UserAPIKeyAuth,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         version: str | None,
         proxy_logging_obj: ProxyLogging,
     ) -> dict[str, str]:
         """
-        Build LiteLLM proxy response headers for routes that call the LLM directly
+        Build EmbRouter proxy response headers for routes that call the LLM directly
         (e.g. Google native :generateContent) instead of base_process_llm_request.
         """
         if isinstance(response, dict):
@@ -1883,7 +1883,7 @@ class ProxyBaseLLMRequestProcessing:
 
         custom_headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
-            call_id=logging_obj.litellm_call_id,
+            call_id=logging_obj.embrouter_call_id,
             model_id=model_id,
             cache_key=cache_key,
             api_base=api_base,
@@ -1893,7 +1893,7 @@ class ProxyBaseLLMRequestProcessing:
             fastest_response_batch_completion=fastest_response_batch_completion,
             request_data=request_data,
             hidden_params=hidden_params,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             **additional_headers,
         )
 
@@ -2016,7 +2016,7 @@ class ProxyBaseLLMRequestProcessing:
         llm_router: Router | None = None,
         rate_limited_model: str | None = None,
         skip_guardrails: bool = False,
-    ) -> tuple[dict, LiteLLMLoggingObj]:
+    ) -> tuple[dict, EmbRouterLoggingObj]:
         start_time: Final = datetime.now()  # start before calling guardrail hooks
 
         requested_model: Final = self.data.get("model")
@@ -2027,7 +2027,7 @@ class ProxyBaseLLMRequestProcessing:
                 param="model",
                 code=status.HTTP_400_BAD_REQUEST,
             )
-        self.data = await add_litellm_data_to_request(
+        self.data = await add_embrouter_data_to_request(
             data=self.data,
             request=request,
             general_settings=general_settings,
@@ -2042,12 +2042,12 @@ class ProxyBaseLLMRequestProcessing:
                 data=self.data,
                 user_api_key_dict=user_api_key_dict,
             )
-        # Calculate request queue time after add_litellm_data_to_request
+        # Calculate request queue time after add_embrouter_data_to_request
         # which sets arrival_time in proxy_server_request. Ends at start_time
         # (not a freshly captured time.time() here) so this window is exactly
         # [arrival_time, start_time], with zero overlap with the
-        # litellm_request_total_latency_metric window of [start_time, end_time] --
-        # otherwise the few lines of add_litellm_data_to_request's own work would
+        # embrouter_request_total_latency_metric window of [start_time, end_time] --
+        # otherwise the few lines of add_embrouter_data_to_request's own work would
         # be double-counted across both metrics.
         proxy_server_request: Final = self.data.get("proxy_server_request", {})
         arrival_time: Final = proxy_server_request.get("arrival_time")
@@ -2055,9 +2055,9 @@ class ProxyBaseLLMRequestProcessing:
         if arrival_time is not None:
             queue_time_seconds = start_time.timestamp() - arrival_time
 
-        # Store queue time in metadata after add_litellm_data_to_request to ensure it's preserved
+        # Store queue time in metadata after add_embrouter_data_to_request to ensure it's preserved
         if queue_time_seconds is not None:
-            from litellm.proxy.litellm_pre_call_utils import _get_metadata_variable_name
+            from embrouter.proxy.embrouter_pre_call_utils import _get_metadata_variable_name
 
             _metadata_variable_name: Final = _get_metadata_variable_name(request)
             if _metadata_variable_name not in self.data:
@@ -2090,8 +2090,8 @@ class ProxyBaseLLMRequestProcessing:
         ### MODEL ALIAS MAPPING ###
         # check if model name in model alias map
         # get the actual model name
-        if isinstance(self.data["model"], str) and self.data["model"] in litellm.model_alias_map:
-            self.data["model"] = litellm.model_alias_map[self.data["model"]]
+        if isinstance(self.data["model"], str) and self.data["model"] in embrouter.model_alias_map:
+            self.data["model"] = embrouter.model_alias_map[self.data["model"]]
 
         # Check key-specific aliases
         if (
@@ -2109,7 +2109,7 @@ class ProxyBaseLLMRequestProcessing:
         # group -- model-level guardrails, per-model budgets and rate limits,
         # the logging object -- sees the group that will actually serve.
         if llm_router is not None and proxy_config is not None:
-            from litellm.proxy.proxy_server import prisma_client
+            from embrouter.proxy.proxy_server import prisma_client
 
             router_settings: Final = await proxy_config._get_hierarchical_router_settings(
                 user_api_key_dict=user_api_key_dict,
@@ -2138,8 +2138,8 @@ class ProxyBaseLLMRequestProcessing:
                 if alias_target is not None:
                     self.data["model"] = alias_target
 
-        self.data["litellm_call_id"] = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-        DDSpanTagger.tag_call_id(self.data.get("litellm_call_id"))
+        self.data["embrouter_call_id"] = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+        DDSpanTagger.tag_call_id(self.data.get("embrouter_call_id"))
         DDSpanTagger.tag_request(
             user_api_key_dict=user_api_key_dict,
             requested_model=self.data.get("model"),
@@ -2162,21 +2162,21 @@ class ProxyBaseLLMRequestProcessing:
 
         ## LOGGING OBJECT ## - initialize logging object for logging success/failure events for call
         ## IMPORTANT Note: - initialize this before running pre-call checks. Ensures we log rejected requests to langfuse.
-        logging_obj, self.data = litellm.utils.function_setup(
+        logging_obj, self.data = embrouter.utils.function_setup(
             original_function=route_type,
-            rules_obj=litellm.utils.Rules(),
+            rules_obj=embrouter.utils.Rules(),
             start_time=start_time,
             **self.data,
         )
 
-        self.data["litellm_logging_obj"] = logging_obj
+        self.data["embrouter_logging_obj"] = logging_obj
 
         # Merge model-level guardrails before pre_call_hook so DB/UI-configured
         # guardrails actually execute on pre_call. Without this, guardrails set
-        # via litellm_params.guardrails are only honored on post_call paths
+        # via embrouter_params.guardrails are only honored on post_call paths
         # (#29652, partial fix in #23774 covered non-streaming post_call only).
         # trust_client_model_info=False on pre_call: route_request hasn't run
-        # and add_litellm_data_to_request preserves client-supplied
+        # and add_embrouter_data_to_request preserves client-supplied
         # model_info when allow_client_pricing_override is set, so a caller
         # could otherwise spoof an unguarded model_info.id while requesting
         # a guarded alias and bypass guardrails (veria-ai HIGH on #29654).
@@ -2227,7 +2227,7 @@ class ProxyBaseLLMRequestProcessing:
 
         # Refresh AFTER pre_call_hook: guardrails (e.g. Presidio PII masking) may
         # have mutated `self.data` in place, and the audit-trail snapshot taken in
-        # add_litellm_data_to_request predates that mutation.
+        # add_embrouter_data_to_request predates that mutation.
         refresh_proxy_server_request_body_snapshot(self.data, guardrails_applied=True)
         verbose_proxy_logger.debug("receiving data: %s", self.data)
 
@@ -2252,8 +2252,8 @@ class ProxyBaseLLMRequestProcessing:
         model: str | None,
         route_type: str,
         llm_router: Router | None,
-    ) -> tuple[dict, LiteLLMLoggingObj]:
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    ) -> tuple[dict, EmbRouterLoggingObj]:
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
         configured_fallbacks: Final = (
             self._configured_fallbacks(llm_router=llm_router, user_api_key_dict=user_api_key_dict)
@@ -2344,7 +2344,7 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _resolve_fallback_models(model: str, fallbacks: list) -> list[str] | None:
-        from litellm.router_utils.fallback_event_handlers import get_fallback_model_group
+        from embrouter.router_utils.fallback_event_handlers import get_fallback_model_group
 
         fallback_model_group, generic_fallback_idx = get_fallback_model_group(
             fallbacks=fallbacks,
@@ -2356,11 +2356,11 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _get_model_id_from_response(hidden_params: Mapping[str, object], data: Mapping[str, object]) -> str:
-        """Extract model_id from hidden_params with fallback to litellm_metadata."""
+        """Extract model_id from hidden_params with fallback to embrouter_metadata."""
         model_id = hidden_params.get("model_id", None) or ""
         if not model_id:
-            litellm_metadata: Final = data.get("litellm_metadata")
-            model_info: Final = litellm_metadata.get("model_info") if isinstance(litellm_metadata, Mapping) else None
+            embrouter_metadata: Final = data.get("embrouter_metadata")
+            model_info: Final = embrouter_metadata.get("model_info") if isinstance(embrouter_metadata, Mapping) else None
             model_id = (model_info.get("id") or "") if isinstance(model_info, Mapping) else ""
         return str(model_id) if model_id else ""
 
@@ -2369,7 +2369,7 @@ class ProxyBaseLLMRequestProcessing:
         *,
         hidden_params: Mapping[str, object],
         user_api_key_dict: UserAPIKeyAuth,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         version: str | None,
         callback_headers: Mapping[str, str],
     ) -> Mapping[str, str]:
@@ -2378,7 +2378,7 @@ class ProxyBaseLLMRequestProcessing:
             {
                 **ProxyBaseLLMRequestProcessing.get_custom_headers(
                     user_api_key_dict=user_api_key_dict,
-                    call_id=logging_obj.litellm_call_id,
+                    call_id=logging_obj.embrouter_call_id,
                     model_id=self._get_model_id_from_response(hidden_params, self.data),
                     cache_key=hidden_params.get("cache_key") or "",
                     api_base=hidden_params.get("api_base") or "",
@@ -2388,7 +2388,7 @@ class ProxyBaseLLMRequestProcessing:
                     fastest_response_batch_completion=hidden_params.get("fastest_response_batch_completion"),
                     request_data=self.data,
                     hidden_params=hidden_params,
-                    litellm_logging_obj=logging_obj,
+                    embrouter_logging_obj=logging_obj,
                     **(hidden_params.get("additional_headers") or MappingProxyType({})),
                 ),
                 **callback_headers,
@@ -2397,20 +2397,20 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _get_deployment_model_name(
-        litellm_logging_obj: LiteLLMLoggingObj | None,
+        embrouter_logging_obj: EmbRouterLoggingObj | None,
     ) -> str | None:
         """Extract the underlying deployment model string (e.g. ``azure/gpt-4o``).
 
         The router rewrites the response ``model`` field to the model-group alias
         the client requested, so neither the response body nor the existing
         headers expose the concrete deployment model. The router records it under
-        ``litellm_params`` metadata as ``deployment``, so read it back from there.
+        ``embrouter_params`` metadata as ``deployment``, so read it back from there.
         """
-        litellm_params: Final = getattr(litellm_logging_obj, "litellm_params", None)
-        if not isinstance(litellm_params, dict):
+        embrouter_params: Final = getattr(embrouter_logging_obj, "embrouter_params", None)
+        if not isinstance(embrouter_params, dict):
             return None
-        for key in ("litellm_metadata", "metadata"):
-            metadata = litellm_params.get(key, {}) or {}
+        for key in ("embrouter_metadata", "metadata"):
+            metadata = embrouter_params.get(key, {}) or {}
             deployment = metadata.get("deployment")
             if deployment:
                 return deployment
@@ -2420,7 +2420,7 @@ class ProxyBaseLLMRequestProcessing:
     def _response_cost_from_logging_obj(
         *,
         response: Any,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> float | str:
         """
         Recover the response cost when the response never recorded one in its
@@ -2443,14 +2443,14 @@ class ProxyBaseLLMRequestProcessing:
         _payload_str: Final = json.dumps(self.data, default=str)
         if len(_payload_str) > MAX_PAYLOAD_SIZE_FOR_DEBUG_LOG:
             verbose_proxy_logger.debug(
-                "Request received by LiteLLM: payload too large to log (%d bytes, limit %d). Keys: %s",
+                "Request received by EmbRouter: payload too large to log (%d bytes, limit %d). Keys: %s",
                 len(_payload_str),
                 MAX_PAYLOAD_SIZE_FOR_DEBUG_LOG,
                 (list(self.data.keys()) if isinstance(self.data, dict) else type(self.data).__name__),
             )
         else:
             verbose_proxy_logger.debug(
-                "Request received by LiteLLM:\n%s",
+                "Request received by EmbRouter:\n%s",
                 _payload_str,
             )
 
@@ -2481,7 +2481,7 @@ class ProxyBaseLLMRequestProcessing:
         Everything below this point, the upstream call included, happens before the
         proxy can write a byte, so a slow time-to-first-token leaves the response
         idle. See ``open_sse_before_first_byte``; unwrapped unless an operator sets
-        ``litellm_settings.sse_keepalive_ping_interval_seconds``.
+        ``embrouter_settings.sse_keepalive_ping_interval_seconds``.
         """
 
         async def _audit_late_failure(exc: Exception) -> HTTPException | None:
@@ -2549,10 +2549,10 @@ class ProxyBaseLLMRequestProcessing:
         self._debug_log_request_payload()
 
         if skip_pre_call_logic:
-            logging_obj = self.data.get("litellm_logging_obj")
+            logging_obj = self.data.get("embrouter_logging_obj")
             if logging_obj is None:
                 raise ValueError(
-                    "skip_pre_call_logic=True requires litellm_logging_obj to be set in data. "
+                    "skip_pre_call_logic=True requires embrouter_logging_obj to be set in data. "
                     "Ensure common_processing_pre_call_logic was called before using this parameter."
                 )
         else:
@@ -2575,7 +2575,7 @@ class ProxyBaseLLMRequestProcessing:
 
         # Defer async logging when post-call guardrails are configured so the
         # StandardLoggingPayload is built after guardrails write to metadata.
-        # Cache the result to avoid scanning litellm.callbacks twice.
+        # Cache the result to avoid scanning embrouter.callbacks twice.
         _post_call_guardrails_active: Final = self._has_post_call_guardrails()
 
         # Non-streaming: defer the create_task in wrapper_async so the
@@ -2654,7 +2654,7 @@ class ProxyBaseLLMRequestProcessing:
                 self.data["deployment"] = llm_router.get_deployment(model_id=model_id)
             asyncio.create_task(
                 proxy_logging_obj.update_request_status(
-                    litellm_call_id=self.data.get("litellm_call_id", ""),
+                    embrouter_call_id=self.data.get("embrouter_call_id", ""),
                     status="success",
                 )
             )
@@ -2696,7 +2696,7 @@ class ProxyBaseLLMRequestProcessing:
                 # aliasing/routing, but the OpenAI-compatible response `model` field should reflect
                 # what the client sent.
                 if requested_model_from_client:
-                    self.data["_litellm_client_requested_model"] = requested_model_from_client
+                    self.data["_embrouter_client_requested_model"] = requested_model_from_client
 
                 if _post_call_guardrails_active:
                     self._arm_deferred_stream_dispatch(
@@ -2790,7 +2790,7 @@ class ProxyBaseLLMRequestProcessing:
                         )
                         selected_data_generator = wrap_sse_stream_with_keepalive_pings(
                             stream=selected_data_generator,
-                            ping_interval_seconds=litellm.anthropic_sse_ping_interval_seconds,
+                            ping_interval_seconds=embrouter.anthropic_sse_ping_interval_seconds,
                         )
                     # Non-streaming response - fall through to normal response handling
                 elif select_data_generator:
@@ -2829,7 +2829,7 @@ class ProxyBaseLLMRequestProcessing:
             if route_type == "allm_passthrough_route":
                 _non_streaming_custom_headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
                     user_api_key_dict=user_api_key_dict,
-                    call_id=logging_obj.litellm_call_id,
+                    call_id=logging_obj.embrouter_call_id,
                     model_id=model_id,
                     cache_key=cache_key,
                     api_base=api_base,
@@ -2839,7 +2839,7 @@ class ProxyBaseLLMRequestProcessing:
                     fastest_response_batch_completion=fastest_response_batch_completion,
                     request_data=self.data,
                     hidden_params=hidden_params,
-                    litellm_logging_obj=logging_obj,
+                    embrouter_logging_obj=logging_obj,
                     **additional_headers,
                 )
                 _early = await self._handle_non_streaming_allm_passthrough_route(
@@ -2903,7 +2903,7 @@ class ProxyBaseLLMRequestProcessing:
         )
         llm_cost_for_headers: Final = (
             0.0
-            if is_unbilled_non_inference_call_from_params(logging_obj.call_type, logging_obj.litellm_params, response)
+            if is_unbilled_non_inference_call_from_params(logging_obj.call_type, logging_obj.embrouter_params, response)
             else computed_cost_for_headers
         )
         _, request_metadata_bucket = get_or_create_metadata_bucket(self.data)
@@ -2923,14 +2923,14 @@ class ProxyBaseLLMRequestProcessing:
             _override_openai_response_model(
                 response_obj=response,
                 requested_model=requested_model_from_client,
-                log_context=f"litellm_call_id={logging_obj.litellm_call_id}",
+                log_context=f"embrouter_call_id={logging_obj.embrouter_call_id}",
                 return_raw_model_name=_should_return_raw_model_name(self.data),
             )
 
         fastapi_response.headers.update(
             ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=user_api_key_dict,
-                call_id=logging_obj.litellm_call_id,
+                call_id=logging_obj.embrouter_call_id,
                 model_id=model_id,
                 cache_key=cache_key,
                 api_base=api_base,
@@ -2940,7 +2940,7 @@ class ProxyBaseLLMRequestProcessing:
                 fastest_response_batch_completion=fastest_response_batch_completion,
                 request_data=self.data,
                 hidden_params=hidden_params,
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 **additional_headers,
             )
         )
@@ -2979,7 +2979,7 @@ class ProxyBaseLLMRequestProcessing:
         user_api_key_dict: UserAPIKeyAuth,
     ) -> None:
         """Register code-interpreter containers so follow-up file APIs pass ownership checks."""
-        from litellm.proxy.container_endpoints.ownership import (
+        from embrouter.proxy.container_endpoints.ownership import (
             record_container_owners_from_responses_response,
         )
 
@@ -3030,7 +3030,7 @@ class ProxyBaseLLMRequestProcessing:
         and starlette cancels the body task on disconnect, so a write that
         waits for the generator to finish never lands. The iterator sets
         ``completed_response`` before it hands over its terminal chunk, so
-        the ``LiteLLM_ManagedObjectTable`` row is written the moment it
+        the ``EmbRouter_ManagedObjectTable`` row is written the moment it
         appears, ahead of the chunk carrying ``response.completed``.
         """
         async for chunk in wrapped_generator:
@@ -3085,7 +3085,7 @@ class ProxyBaseLLMRequestProcessing:
         user_api_base: str | None = None,
         version: str | None = None,
     ):
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             HttpPassThroughEndpointHelpers,
         )
 
@@ -3130,7 +3130,7 @@ class ProxyBaseLLMRequestProcessing:
 
     def _arm_detached_stream_failure_hook(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         user_api_key_dict: "UserAPIKeyAuth",
         proxy_logging_obj: ProxyLogging,
     ) -> None:
@@ -3196,7 +3196,7 @@ class ProxyBaseLLMRequestProcessing:
         matches all hooks in should_run_guardrail but must not defer async logging
         on non-streaming /chat/completions (no post_call_success_hook flush path).
         """
-        for cb in litellm.callbacks:
+        for cb in embrouter.callbacks:
             if not isinstance(cb, CustomGuardrail):
                 continue
             if cb.event_hook is None:
@@ -3216,11 +3216,11 @@ class ProxyBaseLLMRequestProcessing:
         non-streaming response. An event_hook=None guardrail still counts here
         because should_run_guardrail treats it as matching every hook.
         """
-        from litellm.proxy.proxy_server import llm_router
-        from litellm.proxy.utils import _check_and_merge_model_level_guardrails
+        from embrouter.proxy.proxy_server import llm_router
+        from embrouter.proxy.utils import _check_and_merge_model_level_guardrails
 
         guardrail_data: Final = _check_and_merge_model_level_guardrails(data=self.data, llm_router=llm_router)
-        for cb in litellm.callbacks:
+        for cb in embrouter.callbacks:
             if not isinstance(cb, CustomGuardrail):
                 continue
             if cb.should_run_guardrail(
@@ -3240,7 +3240,7 @@ class ProxyBaseLLMRequestProcessing:
         Bedrock invoke-with-response-stream, whose frames the Converse handler
         leaves untouched).
         """
-        from litellm.llms.pass_through.guardrail_translation.handler import (
+        from embrouter.llms.pass_through.guardrail_translation.handler import (
             LlmPassthroughRouteHandler,
         )
 
@@ -3262,7 +3262,7 @@ class ProxyBaseLLMRequestProcessing:
         application/octet-stream. Returns None for providers with no
         event-stream media type, leaving the response headers unchanged.
         """
-        from litellm.llms.pass_through.guardrail_translation.handler import (
+        from embrouter.llms.pass_through.guardrail_translation.handler import (
             LlmPassthroughRouteHandler,
         )
 
@@ -3281,10 +3281,10 @@ class ProxyBaseLLMRequestProcessing:
 
         import json as _json
 
-        from litellm.llms.pass_through.guardrail_translation.handler import (
+        from embrouter.llms.pass_through.guardrail_translation.handler import (
             LlmPassthroughRouteHandler,
         )
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             HttpPassThroughEndpointHelpers,
         )
 
@@ -3367,7 +3367,7 @@ class ProxyBaseLLMRequestProcessing:
         proxy_logging_obj: "ProxyLogging",
         user_api_key_dict: "UserAPIKeyAuth",
     ) -> bytes:
-        from litellm.llms.pass_through.guardrail_translation.handler import (
+        from embrouter.llms.pass_through.guardrail_translation.handler import (
             LlmPassthroughRouteHandler,
         )
 
@@ -3399,7 +3399,7 @@ class ProxyBaseLLMRequestProcessing:
         with the Success row exposing the blocked LLM response.
 
         For streaming early-returns the closure is never stored (wrapper_async
-        returns before the deferred block in litellm/utils.py), so this is a
+        returns before the deferred block in embrouter/utils.py), so this is a
         no-op there.
 
         Extracted as a static method so tests can exercise the production
@@ -3426,7 +3426,7 @@ class ProxyBaseLLMRequestProcessing:
         response: object,
         route_type: str,
         user_api_key_dict: "UserAPIKeyAuth",
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> None:
         """
         Streaming with post-call guardrails active: attach a closure that
@@ -3443,7 +3443,7 @@ class ProxyBaseLLMRequestProcessing:
           that dispatches on the stored args shape, because the arming site
           cannot tell the producers apart: native iterators store a single
           ready-made logging coroutine to enqueue, while bridged streams
-          (LiteLLMCompletionStreamingIterator, and the plain SSE generator
+          (EmbRouterCompletionStreamingIterator, and the plain SSE generator
           AnthropicStreamWrapper returns for bridged /v1/messages) share
           their inner CustomStreamWrapper's logging_obj and so store
           (assembled_response, cache_hit); for those the closure only
@@ -3457,8 +3457,8 @@ class ProxyBaseLLMRequestProcessing:
         HiddenParamsAsyncIteratorWrapper, so class sniffing runs on the
         unwrapped inner iterator.
         """
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.router_utils.add_retry_fallback_headers import HiddenParamsAsyncIteratorWrapper
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.router_utils.add_retry_fallback_headers import HiddenParamsAsyncIteratorWrapper
 
         unwrapped: Final = response._inner if isinstance(response, HiddenParamsAsyncIteratorWrapper) else response
 
@@ -3485,7 +3485,7 @@ class ProxyBaseLLMRequestProcessing:
         if route_type not in ("anthropic_messages", "aresponses") or not self._is_streaming_response(response):
             return
 
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         _captured_native_logging_obj: Final = logging_obj
 
@@ -3513,7 +3513,7 @@ class ProxyBaseLLMRequestProcessing:
     async def _run_deferred_stream_guardrails(
         captured_data: dict,
         captured_user_api_key_dict: "UserAPIKeyAuth",
-        captured_logging_obj: LiteLLMLoggingObj,
+        captured_logging_obj: EmbRouterLoggingObj,
         assembled_response: Any,
         cache_hit: object,
     ) -> None:
@@ -3538,15 +3538,15 @@ class ProxyBaseLLMRequestProcessing:
         """
         _response = assembled_response
         try:
-            from litellm.proxy.proxy_server import llm_router as _global_llm_router
-            from litellm.proxy.utils import (
+            from embrouter.proxy.proxy_server import llm_router as _global_llm_router
+            from embrouter.proxy.utils import (
                 _check_and_merge_model_level_guardrails,
                 stream_gated_guardrail_names,
             )
 
             guardrail_data = _check_and_merge_model_level_guardrails(data=captured_data, llm_router=_global_llm_router)
             stream_gated: Final = stream_gated_guardrail_names(captured_data, captured_user_api_key_dict)
-            for cb in litellm.callbacks:
+            for cb in embrouter.callbacks:
                 if not isinstance(cb, CustomGuardrail):
                     continue
                 if cb.guardrail_name in stream_gated:
@@ -3597,8 +3597,8 @@ class ProxyBaseLLMRequestProcessing:
                 # Proxy streaming always runs in async context and proxy spend
                 # logging is async-only; force async dispatch so DB/spend
                 # callbacks fire regardless of the call-type heuristic in
-                # _is_sync_litellm_request (which only recognizes a subset of
-                # async markers stored in litellm_params).
+                # _is_sync_embrouter_request (which only recognizes a subset of
+                # async markers stored in embrouter_params).
                 asyncio.create_task(
                     _as_success_dispatcher(captured_logging_obj).dispatch_success_handlers(
                         _response,
@@ -3626,7 +3626,7 @@ class ProxyBaseLLMRequestProcessing:
         version: str | None = None,
     ):
         """Raises ProxyException (OpenAI API compatible) if an exception is raised"""
-        log_llm_api_exception(e, self.litellm_call_id)
+        log_llm_api_exception(e, self.embrouter_call_id)
         # Allow callbacks to transform the error response
         transformed_exception: Final = await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict,
@@ -3636,34 +3636,34 @@ class ProxyBaseLLMRequestProcessing:
         # Use transformed exception if callback returned one, otherwise use original
         if transformed_exception is not None:
             e = transformed_exception
-        litellm_debug_info: Final = getattr(e, "litellm_debug_info", "")
+        embrouter_debug_info: Final = getattr(e, "embrouter_debug_info", "")
         verbose_proxy_logger.debug(
-            "\033[1;31mAn error occurred: %s %s\n\n Debug this by setting `--debug`, e.g. `litellm --model gpt-3.5-turbo --debug`",
+            "\033[1;31mAn error occurred: %s %s\n\n Debug this by setting `--debug`, e.g. `embrouter --model gpt-3.5-turbo --debug`",
             e,
-            litellm_debug_info,
+            embrouter_debug_info,
         )
 
         timeout: Final = getattr(
             e, "timeout", None
         )  # returns the timeout set by the wrapper. Used for testing if model-specific timeout are set correctly
-        _litellm_logging_obj: Final[LiteLLMLoggingObj | None] = self.data.get("litellm_logging_obj", None)
+        _embrouter_logging_obj: Final[EmbRouterLoggingObj | None] = self.data.get("embrouter_logging_obj", None)
 
         # Attempt to get model_id from logging object
         #
         # Note: We check the direct model_info path first (not nested in metadata) because that's where the router sets it.
         # The nested metadata path is only a fallback for cases where model_info wasn't set at the top level.
-        model_id: Final = self.maybe_get_model_id(_litellm_logging_obj)
+        model_id: Final = self.maybe_get_model_id(_embrouter_logging_obj)
 
         custom_headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
-            call_id=self.litellm_call_id,
+            call_id=self.embrouter_call_id,
             model_id=model_id,
             version=version,
             response_cost=0,
             model_region=getattr(user_api_key_dict, "allowed_model_region", ""),
             request_data=self.data,
             timeout=timeout,
-            litellm_logging_obj=_litellm_logging_obj,
+            embrouter_logging_obj=_embrouter_logging_obj,
             # a failed request reports no timing, matching /v1/chat/completions
             read_timing_from_logging_obj=False,
         )
@@ -3671,7 +3671,7 @@ class ProxyBaseLLMRequestProcessing:
         if not headers:
             _response: Final = attribute_of(e, "response")
             _response_headers: Final = getattr(_response, "headers", None) if _response is not None else None
-            _provider_headers: Final = _response_headers or getattr(e, "litellm_response_headers", None)
+            _provider_headers: Final = _response_headers or getattr(e, "embrouter_response_headers", None)
             if _provider_headers:
                 headers = get_response_headers(dict(_provider_headers))
         headers.update(custom_headers)
@@ -3852,10 +3852,10 @@ class ProxyBaseLLMRequestProcessing:
                         "async_streaming_data_generator: error closing response stream: %s",
                         e,
                     )
-            logging_obj: Final = request_data.get("litellm_logging_obj")
+            logging_obj: Final = request_data.get("embrouter_logging_obj")
             if (
                 not stream_completed
-                and isinstance(logging_obj, LiteLLMLoggingObj)
+                and isinstance(logging_obj, EmbRouterLoggingObj)
                 and logging_obj.baseline_cache_context is not None
                 and logging_obj.model_call_details.get("prompt_cache_response_complete") is not True
             ):
@@ -3898,7 +3898,7 @@ class ProxyBaseLLMRequestProcessing:
         # await, response-string materialization, and cost-injection call are
         # pure overhead on the streaming hot path (the default config).
         caps: Final = ProxyLogging._callback_capabilities()
-        cost_injection_enabled: Final = bool(getattr(litellm, "include_cost_in_streaming_usage", False))
+        cost_injection_enabled: Final = bool(getattr(embrouter, "include_cost_in_streaming_usage", False))
         fast_path = not caps.has_streaming_chunk_override and not caps.has_guardrail and not cost_injection_enabled
         debug_enabled: Final = verbose_proxy_logger.isEnabledFor(logging.DEBUG)
         stream_completed = False
@@ -3926,7 +3926,7 @@ class ProxyBaseLLMRequestProcessing:
                     )
 
                     if isinstance(chunk, (ModelResponse, ModelResponseStream)):
-                        response_str = litellm.get_response_string(response_obj=chunk)
+                        response_str = embrouter.get_response_string(response_obj=chunk)
                         str_so_far += response_str
                     elif hasattr(chunk, "model_dump"):
                         try:
@@ -3940,7 +3940,7 @@ class ProxyBaseLLMRequestProcessing:
 
                     model_name = request_data.get("model", "")
                     chunk = ProxyBaseLLMRequestProcessing._process_chunk_with_cost_injection(
-                        chunk, model_name, request_data.get("litellm_logging_obj")
+                        chunk, model_name, request_data.get("embrouter_logging_obj")
                     )
 
                 # Set before the yield: an async generator suspends at the yield,
@@ -3968,7 +3968,7 @@ class ProxyBaseLLMRequestProcessing:
             # only sees GeneratorExit on GC) cannot own the refund.
             client_disconnected = not stream_completed
             if not delivered_chunk and not _withheld_provider_output(response):
-                from litellm.proxy.spend_tracking.budget_reservation import (
+                from embrouter.proxy.spend_tracking.budget_reservation import (
                     release_budget_reservation_on_cancel,
                 )
 
@@ -3976,7 +3976,7 @@ class ProxyBaseLLMRequestProcessing:
             raise
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.async_data_generator(): Exception occured - %s", e
+                "embrouter.proxy.proxy_server.async_data_generator(): Exception occured - %s", e
             )
             transformed_exception: Final = await proxy_logging_obj.post_call_failure_hook(
                 user_api_key_dict=user_api_key_dict,
@@ -3986,7 +3986,7 @@ class ProxyBaseLLMRequestProcessing:
             if transformed_exception is not None:
                 e = transformed_exception
             verbose_proxy_logger.debug(
-                "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `litellm --model gpt-3.5-turbo --debug`",
+                "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `embrouter --model gpt-3.5-turbo --debug`",
                 e,
             )
 
@@ -4054,18 +4054,18 @@ class ProxyBaseLLMRequestProcessing:
     @overload
     @staticmethod
     def _process_chunk_with_cost_injection(
-        chunk: bytes, model_name: str, litellm_logging_obj: LiteLLMLoggingObj | None = None
+        chunk: bytes, model_name: str, embrouter_logging_obj: EmbRouterLoggingObj | None = None
     ) -> bytes: ...
 
     @overload
     @staticmethod
     def _process_chunk_with_cost_injection(
-        chunk: object, model_name: str, litellm_logging_obj: LiteLLMLoggingObj | None = None
+        chunk: object, model_name: str, embrouter_logging_obj: EmbRouterLoggingObj | None = None
     ) -> object: ...
 
     @staticmethod
     def _process_chunk_with_cost_injection(
-        chunk: object, model_name: str, litellm_logging_obj: LiteLLMLoggingObj | None = None
+        chunk: object, model_name: str, embrouter_logging_obj: EmbRouterLoggingObj | None = None
     ) -> object:
         """
         Process a streaming chunk and inject cost information if enabled.
@@ -4073,18 +4073,18 @@ class ProxyBaseLLMRequestProcessing:
         Args:
             chunk: The streaming chunk (dict, str, bytes, or bytearray)
             model_name: Model name for cost calculation
-            litellm_logging_obj: The call's logging object, used for pricing
+            embrouter_logging_obj: The call's logging object, used for pricing
 
         Returns:
             The processed chunk with cost information injected if applicable
         """
-        if not getattr(litellm, "include_cost_in_streaming_usage", False):
+        if not getattr(embrouter, "include_cost_in_streaming_usage", False):
             return chunk
 
         try:
             if isinstance(chunk, dict):
                 maybe_modified: Final = ProxyBaseLLMRequestProcessing._inject_cost_into_usage_dict(
-                    chunk, model_name, litellm_logging_obj
+                    chunk, model_name, embrouter_logging_obj
                 )
                 if maybe_modified is not None:
                     return maybe_modified
@@ -4093,7 +4093,7 @@ class ProxyBaseLLMRequestProcessing:
                     s: Final = chunk.decode("utf-8")
                     if s.endswith(("\n\n", "\r\n\r\n")):
                         maybe_mod = ProxyBaseLLMRequestProcessing._inject_cost_into_sse_frame_str(
-                            s, model_name, litellm_logging_obj
+                            s, model_name, embrouter_logging_obj
                         )
                         if maybe_mod is not None:
                             return maybe_mod.encode("utf-8")
@@ -4102,7 +4102,7 @@ class ProxyBaseLLMRequestProcessing:
             elif isinstance(chunk, str):
                 # Try to parse SSE frame and inject cost into the data line
                 maybe_mod = ProxyBaseLLMRequestProcessing._inject_cost_into_sse_frame_str(
-                    chunk, model_name, litellm_logging_obj
+                    chunk, model_name, embrouter_logging_obj
                 )
                 if maybe_mod is not None:
                     # Ensure trailing frame separator
@@ -4115,7 +4115,7 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _inject_cost_into_sse_frame_str(
-        frame_str: str, model_name: str, litellm_logging_obj: LiteLLMLoggingObj | None = None
+        frame_str: str, model_name: str, embrouter_logging_obj: EmbRouterLoggingObj | None = None
     ) -> str | None:
         """
         Inject cost information into an SSE frame string by modifying the JSON in the 'data:' line.
@@ -4123,7 +4123,7 @@ class ProxyBaseLLMRequestProcessing:
         Args:
             frame_str: SSE frame string that may contain multiple lines
             model_name: Model name for cost calculation
-            litellm_logging_obj: The call's logging object, forwarded for pricing
+            embrouter_logging_obj: The call's logging object, forwarded for pricing
 
         Returns:
             Modified SSE frame string with cost injected, or None if no modification needed
@@ -4140,7 +4140,7 @@ class ProxyBaseLLMRequestProcessing:
                         if not isinstance(obj, dict):
                             return None
                         maybe_modified = ProxyBaseLLMRequestProcessing._inject_cost_into_usage_dict(
-                            obj, model_name, litellm_logging_obj
+                            obj, model_name, embrouter_logging_obj
                         )
                         if maybe_modified is not None:
                             lines[idx] = "data: " + safe_dumps(maybe_modified) + ("\r" if ln.endswith("\r") else "")
@@ -4185,7 +4185,7 @@ class ProxyBaseLLMRequestProcessing:
         model_response: ModelResponse, model_name: str, service_tier: str | None
     ) -> float | None:
         try:
-            return litellm.completion_cost(
+            return embrouter.completion_cost(
                 completion_response=model_response, model=model_name, service_tier=service_tier
             )
         except Exception:
@@ -4193,24 +4193,24 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _logging_obj_cost_or_none(
-        model_response: ModelResponse, litellm_logging_obj: LiteLLMLoggingObj
+        model_response: ModelResponse, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> float | None:
         # Pricing a frame stamps cost_breakdown and, on failure, the cost-failure debug key onto
         # the live logging object. The pass-through handlers never recompute either one, so a
         # frame-derived breakdown would outlive the stream and land in the spend log. Snapshot
         # both and put them back, so pricing here stays a read as far as the request is concerned
-        breakdown_before: Final = getattr(litellm_logging_obj, "cost_breakdown", None)
-        call_details: Final = getattr(litellm_logging_obj, "model_call_details", None)
+        breakdown_before: Final = getattr(embrouter_logging_obj, "cost_breakdown", None)
+        call_details: Final = getattr(embrouter_logging_obj, "model_call_details", None)
         debug_key: Final = "response_cost_failure_debug_information"
         debug_missing: Final = object()
         debug_before: Final = call_details.get(debug_key, debug_missing) if isinstance(call_details, dict) else None
         try:
-            cost: Final = litellm_logging_obj._response_cost_calculator(result=model_response)  # pyright: ignore[reportPrivateUsage]  # reuse the call's own cost calc for pricing parity with the logging callback
+            cost: Final = embrouter_logging_obj._response_cost_calculator(result=model_response)  # pyright: ignore[reportPrivateUsage]  # reuse the call's own cost calc for pricing parity with the logging callback
         except Exception:  # noqa: BLE001  # a pricing failure falls back to model-name pricing instead of breaking the stream
             return None
         finally:
-            if hasattr(litellm_logging_obj, "cost_breakdown"):
-                litellm_logging_obj.cost_breakdown = breakdown_before
+            if hasattr(embrouter_logging_obj, "cost_breakdown"):
+                embrouter_logging_obj.cost_breakdown = breakdown_before
             if isinstance(call_details, dict):
                 if debug_before is debug_missing:
                     call_details.pop(debug_key, None)
@@ -4223,13 +4223,13 @@ class ProxyBaseLLMRequestProcessing:
         model_response: ModelResponse,
         model_name: str,
         service_tier: str | None,
-        litellm_logging_obj: LiteLLMLoggingObj | None,
+        embrouter_logging_obj: EmbRouterLoggingObj | None,
     ) -> float | None:
         # Pricing via the logging object inherits the deployment's custom pricing, so the
         # streamed cost matches what the logging callback records instead of sticker price
         cost_from_logging_obj: Final = (
-            ProxyBaseLLMRequestProcessing._logging_obj_cost_or_none(model_response, litellm_logging_obj)
-            if litellm_logging_obj is not None
+            ProxyBaseLLMRequestProcessing._logging_obj_cost_or_none(model_response, embrouter_logging_obj)
+            if embrouter_logging_obj is not None
             else None
         )
         if cost_from_logging_obj is not None:
@@ -4238,7 +4238,7 @@ class ProxyBaseLLMRequestProcessing:
 
     @staticmethod
     def _inject_cost_into_usage_dict(
-        obj: dict, model_name: str, litellm_logging_obj: LiteLLMLoggingObj | None = None
+        obj: dict, model_name: str, embrouter_logging_obj: EmbRouterLoggingObj | None = None
     ) -> dict | None:
         """
         Inject cost information into the usage object of a streamed usage event
@@ -4247,7 +4247,7 @@ class ProxyBaseLLMRequestProcessing:
         Args:
             obj: Dictionary containing the SSE event data
             model_name: Model name for cost calculation
-            litellm_logging_obj: The call's logging object, used for pricing
+            embrouter_logging_obj: The call's logging object, used for pricing
 
         Returns:
             Modified dictionary with cost injected, or None if no modification needed
@@ -4263,13 +4263,13 @@ class ProxyBaseLLMRequestProcessing:
             ModelResponse(usage=stream_usage),
             model_name,
             service_tier if isinstance(service_tier, str) else None,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         )
         if cost_val is None:
             return None
         return {**obj, "usage": {**usage, "cost": cost_val}}
 
-    def maybe_get_model_id(self, _logging_obj: LiteLLMLoggingObj | None) -> str | None:
+    def maybe_get_model_id(self, _logging_obj: EmbRouterLoggingObj | None) -> str | None:
         """
         Get model_id from logging object or request metadata.
 
@@ -4278,15 +4278,15 @@ class ProxyBaseLLMRequestProcessing:
         """
         model_id = None
         if _logging_obj:
-            # 1. Try getting from litellm_params (updated during call)
-            if hasattr(_logging_obj, "litellm_params") and _logging_obj.litellm_params:
+            # 1. Try getting from embrouter_params (updated during call)
+            if hasattr(_logging_obj, "embrouter_params") and _logging_obj.embrouter_params:
                 # First check direct model_info path (set by router.py with selected deployment)
-                model_info = _logging_obj.litellm_params.get("model_info") or {}
+                model_info = _logging_obj.embrouter_params.get("model_info") or {}
                 model_id = model_info.get("id", None)
 
                 # Fallback to nested metadata path
                 if not model_id:
-                    metadata = _logging_obj.litellm_params.get("metadata") or {}
+                    metadata = _logging_obj.embrouter_params.get("metadata") or {}
                     model_info = metadata.get("model_info") or {}
                     model_id = model_info.get("id", None)
 
@@ -4294,21 +4294,21 @@ class ProxyBaseLLMRequestProcessing:
             if not model_id:
                 _kwargs: Final = getattr(_logging_obj, "kwargs", None)
                 if _kwargs:
-                    litellm_params: Final = _kwargs.get("litellm_params", {})
+                    embrouter_params: Final = _kwargs.get("embrouter_params", {})
                     # First check direct model_info path
-                    model_info = litellm_params.get("model_info") or {}
+                    model_info = embrouter_params.get("model_info") or {}
                     model_id = model_info.get("id", None)
 
                     # Fallback to nested metadata path
                     if not model_id:
-                        metadata = litellm_params.get("metadata") or {}
+                        metadata = embrouter_params.get("metadata") or {}
                         model_info = metadata.get("model_info") or {}
                         model_id = model_info.get("id", None)
 
-        # 3. Final fallback to self.data["litellm_metadata"] (for routes like /v1/responses that populate data before error)
+        # 3. Final fallback to self.data["embrouter_metadata"] (for routes like /v1/responses that populate data before error)
         if not model_id:
-            litellm_metadata: Final = self.data.get("litellm_metadata", {}) or {}
-            model_info = litellm_metadata.get("model_info", {}) or {}
+            embrouter_metadata: Final = self.data.get("embrouter_metadata", {}) or {}
+            model_info = embrouter_metadata.get("model_info", {}) or {}
             model_id = model_info.get("id", None)
 
         return model_id

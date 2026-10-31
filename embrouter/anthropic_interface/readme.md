@@ -6,12 +6,12 @@ Note: This is called `anthropic_interface` because `anthropic` is a known python
 ## Usage 
 ---
 
-### LiteLLM Python SDK 
+### EmbRouter Python SDK 
 
 #### Non-streaming example
-```python showLineNumbers title="Example using LiteLLM Python SDK"
-import litellm
-response = await litellm.anthropic.messages.acreate(
+```python showLineNumbers title="Example using EmbRouter Python SDK"
+import embrouter
+response = await embrouter.anthropic.messages.acreate(
     messages=[{"role": "user", "content": "Hello, can you tell me a short joke?"}],
     api_key=api_key,
     model="anthropic/claude-3-haiku-20240307",
@@ -44,9 +44,9 @@ Example response:
 ```
 
 #### Streaming example
-```python showLineNumbers title="Example using LiteLLM Python SDK"
-import litellm
-response = await litellm.anthropic.messages.acreate(
+```python showLineNumbers title="Example using EmbRouter Python SDK"
+import embrouter
+response = await embrouter.anthropic.messages.acreate(
     messages=[{"role": "user", "content": "Hello, can you tell me a short joke?"}],
     api_key=api_key,
     model="anthropic/claude-3-haiku-20240307",
@@ -57,7 +57,7 @@ async for chunk in response:
     print(chunk)
 ```
 
-### LiteLLM Proxy Server 
+### EmbRouter Proxy Server 
 
 
 1. Setup config.yaml
@@ -65,14 +65,14 @@ async for chunk in response:
 ```yaml
 model_list:
     - model_name: anthropic-claude
-      litellm_params:
+      embrouter_params:
         model: claude-3-7-sonnet-latest
 ```
 
 2. Start proxy 
 
 ```bash
-litellm --config /path/to/config.yaml
+embrouter --config /path/to/config.yaml
 ```
 
 3. Test it! 
@@ -80,10 +80,10 @@ litellm --config /path/to/config.yaml
 <Tabs>
 <TabItem label="Anthropic Python SDK" value="python">
 
-```python showLineNumbers title="Example using LiteLLM Proxy Server"
+```python showLineNumbers title="Example using EmbRouter Proxy Server"
 import anthropic
 
-# point anthropic sdk to litellm proxy 
+# point anthropic sdk to embrouter proxy 
 client = anthropic.Anthropic(
     base_url="http://0.0.0.0:4000",
     api_key="<your-master-key>",
@@ -98,10 +98,10 @@ response = client.messages.create(
 </TabItem>
 <TabItem label="curl" value="curl">
 
-```bash showLineNumbers title="Example using LiteLLM Proxy Server"
+```bash showLineNumbers title="Example using EmbRouter Proxy Server"
 curl -L -X POST 'http://0.0.0.0:4000/v1/messages' \
 -H 'content-type: application/json' \
--H 'x-api-key: $LITELLM_API_KEY' \
+-H 'x-api-key: $EMBROUTER_API_KEY' \
 -H 'anthropic-version: 2023-06-01' \
 -d '{
   "model": "anthropic-claude",

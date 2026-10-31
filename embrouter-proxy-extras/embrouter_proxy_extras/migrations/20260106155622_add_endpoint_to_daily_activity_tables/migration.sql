@@ -1,72 +1,72 @@
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyAgentSpend_agent_id_date_api_key_model_custom__key";
+DROP INDEX IF EXISTS "EmbRouter_DailyAgentSpend_agent_id_date_api_key_model_custom__key";
 
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key";
 
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyOrganizationSpend_organization_id_date_api_key_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_date_api_key_key";
 
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key";
 
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyTeamSpend_team_id_date_api_key_model_custom_ll_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyTeamSpend_team_id_date_api_key_model_custom_ll_key";
 
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyUserSpend_user_id_date_api_key_model_custom_ll_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyUserSpend_user_id_date_api_key_model_custom_ll_key";
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyAgentSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyAgentSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyEndUserSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyEndUserSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyOrganizationSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyOrganizationSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyTagSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyTagSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyTeamSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyTeamSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyUserSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
+ALTER TABLE "EmbRouter_DailyUserSpend" ADD COLUMN IF NOT EXISTS "endpoint" TEXT;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyAgentSpend_endpoint_idx" ON "LiteLLM_DailyAgentSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_endpoint_idx" ON "EmbRouter_DailyAgentSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyAgentSpend_agent_id_date_api_key_model_custom__key" ON "LiteLLM_DailyAgentSpend"("agent_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyAgentSpend_agent_id_date_api_key_model_custom__key" ON "EmbRouter_DailyAgentSpend"("agent_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_endpoint_idx" ON "LiteLLM_DailyEndUserSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_endpoint_idx" ON "EmbRouter_DailyEndUserSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key" ON "LiteLLM_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_endpoint_idx" ON "LiteLLM_DailyOrganizationSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_endpoint_idx" ON "EmbRouter_DailyOrganizationSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_organization_id_date_api_key_key" ON "LiteLLM_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_date_api_key_key" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_endpoint_idx" ON "LiteLLM_DailyTagSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_endpoint_idx" ON "EmbRouter_DailyTagSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key" ON "LiteLLM_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key" ON "EmbRouter_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTeamSpend_endpoint_idx" ON "LiteLLM_DailyTeamSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_endpoint_idx" ON "EmbRouter_DailyTeamSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyTeamSpend_team_id_date_api_key_model_custom_ll_key" ON "LiteLLM_DailyTeamSpend"("team_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTeamSpend_team_id_date_api_key_model_custom_ll_key" ON "EmbRouter_DailyTeamSpend"("team_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_endpoint_idx" ON "LiteLLM_DailyUserSpend"("endpoint");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_endpoint_idx" ON "EmbRouter_DailyUserSpend"("endpoint");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_user_id_date_api_key_model_custom_ll_key" ON "LiteLLM_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_user_id_date_api_key_model_custom_ll_key" ON "EmbRouter_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
 

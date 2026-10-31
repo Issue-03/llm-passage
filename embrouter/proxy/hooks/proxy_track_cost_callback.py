@@ -4,34 +4,34 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.batches.batch_utils import batch_cost_is_final
-from litellm.constants import BACKGROUND_INTERACTION_COST_POLLING_ENABLED
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.batches.batch_utils import batch_cost_is_final
+from embrouter.constants import BACKGROUND_INTERACTION_COST_POLLING_ENABLED
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
     _get_parent_otel_span_from_kwargs,
     budget_reservation_from_metadata,
-    get_litellm_metadata_from_kwargs,
+    get_embrouter_metadata_from_kwargs,
 )
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import guardrail_information_cost
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import (
+from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import guardrail_information_cost
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import (
     get_key_object,
     get_team_object,
     log_db_metrics,
 )
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
-from litellm.proxy.db.db_spend_update_writer import (
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
+from embrouter.proxy.db.db_spend_update_writer import (
     DBSpendUpdateWriter,
     debitable_model_access_groups,
     get_llm_router,
 )
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.spend_tracking.spend_counter_batch import post_call_counter_keys, spend_counter_batch_scope
-from litellm.proxy.spend_tracking.spend_event import (
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.proxy.spend_tracking.spend_counter_batch import post_call_counter_keys, spend_counter_batch_scope
+from embrouter.proxy.spend_tracking.spend_event import (
     ObjectMapping,
     SpendEventBuildError,
     SpendEventDecodeError,
@@ -40,27 +40,27 @@ from litellm.proxy.spend_tracking.spend_event import (
     is_offloadable_success,
     spend_event_callback_args,
 )
-from litellm.proxy.spend_tracking.spend_event_producer import SpendEventProducer
-from litellm.proxy.spend_tracking.spend_log_error_logger import (
+from embrouter.proxy.spend_tracking.spend_event_producer import SpendEventProducer
+from embrouter.proxy.spend_tracking.spend_log_error_logger import (
     should_suppress_spend_log_tracebacks,
     spend_log_error,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from embrouter.proxy.spend_tracking.spend_tracking_utils import (
     _sanitize_error_information_for_spend_logs,
     get_request_model_access_groups,
     should_store_prompts_and_responses_in_spend_logs,
 )
-from litellm.proxy.utils import ProxyUpdateSpend
-from litellm.types.utils import (
+from embrouter.proxy.utils import ProxyUpdateSpend
+from embrouter.types.utils import (
     CallTypes,
-    LiteLLMBatch,
+    EmbRouterBatch,
     StandardLoggingPayload,
     StandardLoggingPayloadErrorInformation,
 )
-from litellm.utils import get_end_user_id_for_cost_tracking
+from embrouter.utils import get_end_user_id_for_cost_tracking
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy.utils import ProxyLogging
 
 _UNATTRIBUTED_TRACKABLE_CALL_TYPES: Final[frozenset[str]] = frozenset(
     {
@@ -69,7 +69,7 @@ _UNATTRIBUTED_TRACKABLE_CALL_TYPES: Final[frozenset[str]] = frozenset(
         CallTypes.allm_passthrough_route.value,
         CallTypes.call_mcp_tool.value,
         # CheckBatchCost's synthetic logging_obj for a completed managed batch carries
-        # whatever LiteLLM_ManagedObjectTable stored at create time, and all of it is
+        # whatever EmbRouter_ManagedObjectTable stored at create time, and all of it is
         # None for a batch created before those columns were persisted, or by the master
         # key. The batch already incurred real provider cost, so track it regardless.
         CallTypes.aretrieve_batch.value,
@@ -87,7 +87,7 @@ _CAPTURED_IDENTITY_CALL_TYPES: Final[frozenset[str]] = frozenset(
 
 
 def _proxy_spend_writer() -> DBSpendUpdateWriter:
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     return proxy_logging_obj.db_spend_update_writer
 
@@ -164,9 +164,9 @@ class _ProxyDBLogger(CustomLogger):
             return
 
         _metadata = dict(
-            LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+            EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
         )
-        _metadata["user_api_key"] = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        _metadata["user_api_key"] = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
         _metadata["status"] = "failure"
         _error_information = StandardLoggingPayloadSetup.get_error_information(
             original_exception=original_exception,
@@ -195,54 +195,54 @@ class _ProxyDBLogger(CustomLogger):
         existing_metadata: Final[dict] = request_data.get("metadata", None) or {}
         existing_metadata.update(_metadata)
 
-        litellm_metadata_bucket: Final = request_data.get("litellm_metadata")
+        embrouter_metadata_bucket: Final = request_data.get("embrouter_metadata")
         if (
-            isinstance(litellm_metadata_bucket, dict)
+            isinstance(embrouter_metadata_bucket, dict)
             and "standard_logging_guardrail_information" not in existing_metadata
         ):
-            guardrail_info: Final = litellm_metadata_bucket.get("standard_logging_guardrail_information")
+            guardrail_info: Final = embrouter_metadata_bucket.get("standard_logging_guardrail_information")
             if guardrail_info is not None:
                 existing_metadata["standard_logging_guardrail_information"] = guardrail_info
 
-        if "litellm_params" not in request_data:
-            request_data["litellm_params"] = {}
+        if "embrouter_params" not in request_data:
+            request_data["embrouter_params"] = {}
 
-        existing_litellm_params: Final = request_data.get("litellm_params", {})
-        existing_litellm_metadata: Final = existing_litellm_params.get("metadata", {}) or {}
+        existing_embrouter_params: Final = request_data.get("embrouter_params", {})
+        existing_embrouter_metadata: Final = existing_embrouter_params.get("metadata", {}) or {}
 
         # Preserve tags from existing metadata
-        if existing_litellm_metadata.get("tags"):
-            existing_metadata["tags"] = existing_litellm_metadata.get("tags")
+        if existing_embrouter_metadata.get("tags"):
+            existing_metadata["tags"] = existing_embrouter_metadata.get("tags")
 
-        request_data["litellm_params"]["proxy_server_request"] = (
-            request_data.get("proxy_server_request") or existing_litellm_params.get("proxy_server_request") or {}
+        request_data["embrouter_params"]["proxy_server_request"] = (
+            request_data.get("proxy_server_request") or existing_embrouter_params.get("proxy_server_request") or {}
         )
-        request_data["litellm_params"]["metadata"] = existing_metadata
+        request_data["embrouter_params"]["metadata"] = existing_metadata
 
         # Preserve model name and custom_llm_provider
         if "model" not in request_data:
-            request_data["model"] = existing_litellm_params.get("model") or request_data.get("model", "")
+            request_data["model"] = existing_embrouter_params.get("model") or request_data.get("model", "")
         if "custom_llm_provider" not in request_data:
-            request_data["custom_llm_provider"] = existing_litellm_params.get(
+            request_data["custom_llm_provider"] = existing_embrouter_params.get(
                 "custom_llm_provider"
             ) or request_data.get("custom_llm_provider", "")
 
-        # Propagate standard_logging_object and litellm_trace_id from the Logging
+        # Propagate standard_logging_object and embrouter_trace_id from the Logging
         # instance so the failure row carries the same trace_id Langfuse received.
-        _litellm_logging_obj: Final = request_data.get("litellm_logging_obj")
-        if _litellm_logging_obj is not None:
+        _embrouter_logging_obj: Final = request_data.get("embrouter_logging_obj")
+        if _embrouter_logging_obj is not None:
             if not request_data.get("standard_logging_object"):
-                request_data["standard_logging_object"] = getattr(_litellm_logging_obj, "model_call_details", {}).get(
+                request_data["standard_logging_object"] = getattr(_embrouter_logging_obj, "model_call_details", {}).get(
                     "standard_logging_object"
                 )
-            if request_data.get("litellm_trace_id") is None:
-                request_data["litellm_trace_id"] = getattr(_litellm_logging_obj, "litellm_trace_id", None)
+            if request_data.get("embrouter_trace_id") is None:
+                request_data["embrouter_trace_id"] = getattr(_embrouter_logging_obj, "embrouter_trace_id", None)
 
         lifted_start_time: Final = request_data.get("start_time")
         actual_start_time: Final = (
             lifted_start_time
             if isinstance(lifted_start_time, datetime)
-            else getattr(_litellm_logging_obj, "start_time", None) or datetime.now()
+            else getattr(_embrouter_logging_obj, "start_time", None) or datetime.now()
         )
 
         # A stream that broke mid-flight still billed the provider for the
@@ -252,7 +252,7 @@ class _ProxyDBLogger(CustomLogger):
         # real partial spend to this failure row instead of zero.
         recovered_stream_cost: Final = (
             max(float(request_data.get("response_cost") or 0.0), 0.0)
-            if isinstance(request_data.get("combined_usage_object"), litellm.Usage)
+            if isinstance(request_data.get("combined_usage_object"), embrouter.Usage)
             else 0.0
         )
         recovered_response_cost: Final = recovered_stream_cost + guardrail_information_cost(
@@ -260,7 +260,7 @@ class _ProxyDBLogger(CustomLogger):
         )
 
         await self._spend_writer().update_database(
-            token=LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict),
+            token=EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict),
             response_cost=recovered_response_cost,
             user_id=user_api_key_dict.user_id,
             end_user_id=user_api_key_dict.end_user_id,
@@ -277,11 +277,11 @@ class _ProxyDBLogger(CustomLogger):
     async def _PROXY_track_cost_callback(
         self,
         kwargs,  # kwargs to completion
-        completion_response: litellm.ModelResponse | Any | None,  # response from completion
+        completion_response: embrouter.ModelResponse | Any | None,  # response from completion
         start_time=None,
         end_time=None,  # start/end time for completion
     ):
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             increment_spend_counters,
             proxy_logging_obj,
             update_cache,
@@ -296,9 +296,9 @@ class _ProxyDBLogger(CustomLogger):
                 kwargs.get("complete_streaming_response", None),
             )
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs=kwargs)
-            litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-            end_user_id: Final = get_end_user_id_for_cost_tracking(litellm_params)
-            metadata = get_litellm_metadata_from_kwargs(kwargs=kwargs)
+            embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+            end_user_id: Final = get_end_user_id_for_cost_tracking(embrouter_params)
+            metadata = get_embrouter_metadata_from_kwargs(kwargs=kwargs)
             # Only fetch key details when user_id wasn't already populated (e.g. direct MCP REST calls).
             # Avoids a cache/DB lookup on every normal LLM request.
             if metadata.get("user_api_key") and not metadata.get("user_api_key_user_id"):
@@ -309,7 +309,7 @@ class _ProxyDBLogger(CustomLogger):
                 _write_spend_metadata_to_kwargs(kwargs=kwargs, metadata=metadata)
             budget_reservation: Final = _get_budget_reservation_from_metadata(metadata=metadata)
             if (
-                isinstance(completion_response, LiteLLMBatch)
+                isinstance(completion_response, EmbRouterBatch)
                 and kwargs.get("call_type") == CallTypes.aretrieve_batch.value
                 and not batch_cost_is_final(completion_response)
             ):
@@ -464,15 +464,15 @@ class _ProxyDBLogger(CustomLogger):
                 f"Error in tracking cost callback - {e}\n Traceback:{traceback.format_exc()}\n"
                 f" Args to _PROXY_track_cost_callback\n model: {failing_model}\n call_type: {failing_call_type}\n"
             )
-            failing_litellm_params: Final = kwargs.get("litellm_params") or {}
+            failing_embrouter_params: Final = kwargs.get("embrouter_params") or {}
             verbose_proxy_logger.debug(
                 "Cost tracking callback failed for model=%s call_type=%s;"
-                " chosen_metadata keys=%s litellm_metadata keys=%s old_metadata keys=%s",
+                " chosen_metadata keys=%s embrouter_metadata keys=%s old_metadata keys=%s",
                 failing_model,
                 failing_call_type,
-                _metadata_keys(get_litellm_metadata_from_kwargs(kwargs=kwargs)),
-                _metadata_keys(failing_litellm_params.get("litellm_metadata")),
-                _metadata_keys(failing_litellm_params.get("metadata")),
+                _metadata_keys(get_embrouter_metadata_from_kwargs(kwargs=kwargs)),
+                _metadata_keys(failing_embrouter_params.get("embrouter_metadata")),
+                _metadata_keys(failing_embrouter_params.get("metadata")),
             )
             asyncio.create_task(
                 proxy_logging_obj.failed_tracking_alert(
@@ -502,7 +502,7 @@ class _ProxyDBLogger(CustomLogger):
            fields are null. We look up the full key object to fill in alias, user_id,
            team_id, etc.
         2. Post-auth failures (provider errors, rate limits): key fields are populated
-           but team_alias is missing because LiteLLM_VerificationTokenView SQL view
+           but team_alias is missing because EmbRouter_VerificationTokenView SQL view
            doesn't include it. We look up the team object to fill in team_alias.
 
         Scenario 1 reads the key's identity as it stands right now, so it is only correct
@@ -514,7 +514,7 @@ class _ProxyDBLogger(CustomLogger):
         if not api_key_hash:
             return metadata
 
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -573,7 +573,7 @@ class _ProxyDBLogger(CustomLogger):
 
         If users want to disable error tracking, they can set the disable_error_logs flag in the general_settings
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         if general_settings.get("disable_error_logs") is True:
             return False
@@ -585,9 +585,9 @@ def _write_spend_metadata_to_kwargs(kwargs: dict, metadata: dict) -> None:
     if not patch:
         return
 
-    litellm_params: Final = kwargs.setdefault("litellm_params", {})
-    for bucket_name in ("litellm_metadata", "metadata"):
-        bucket = litellm_params.get(bucket_name)
+    embrouter_params: Final = kwargs.setdefault("embrouter_params", {})
+    for bucket_name in ("embrouter_metadata", "metadata"):
+        bucket = embrouter_params.get(bucket_name)
         if isinstance(bucket, dict):
             for key, value in patch.items():
                 if bucket.get(key) is None:
@@ -599,8 +599,8 @@ async def run_spend_event(line: bytes) -> None:
 
 
 def _is_unbilled_interaction_response(completion_response: object) -> bool:
-    from litellm.interactions.background_cost_polling import missing_usage_is_expected
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.interactions.background_cost_polling import missing_usage_is_expected
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     if not isinstance(completion_response, InteractionsAPIResponse):
         return False
@@ -608,8 +608,8 @@ def _is_unbilled_interaction_response(completion_response: object) -> bool:
 
 
 def _is_unbilled_in_progress_interaction(completion_response: object) -> bool:
-    from litellm.interactions.background_cost_polling import is_pollable_background_interaction
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.interactions.background_cost_polling import is_pollable_background_interaction
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     if not isinstance(completion_response, InteractionsAPIResponse):
         return False
@@ -716,8 +716,8 @@ async def _update_database_and_spend_counters(
     """The reservation is reconciled before the spend is persisted, from its own read. One spend counter batch then
     spans the database write and the counter update, so the post-call counters are read with a single MGET after the
     write and their increments leave in a single pipeline."""
-    from litellm.proxy.proxy_server import spend_counter_cache
-    from litellm.proxy.spend_tracking.budget_reservation import get_reserved_counter_keys
+    from embrouter.proxy.proxy_server import spend_counter_cache
+    from embrouter.proxy.spend_tracking.budget_reservation import get_reserved_counter_keys
 
     if budget_reservation is not None:
         await _reconcile_budget_reservation_before_db_update(
@@ -776,7 +776,7 @@ async def _update_database_and_spend_counters_in_batch(
     project_id: str | None,
     update_cache_read_keys: Sequence[str],
 ) -> bool:
-    from litellm.proxy.proxy_server import arm_update_cache_read
+    from embrouter.proxy.proxy_server import arm_update_cache_read
 
     try:
         charged: Final = await proxy_logging_obj.db_spend_update_writer.update_database(
@@ -844,7 +844,7 @@ async def _reconcile_budget_reservation_before_db_update(
 ) -> None:
     """Reseeds the reserved counters that were flushed since reservation; the adjustments themselves are written by ``increment_spend_counters`` in the same pipeline as its increments, or by
     the release / invalidation that runs when the spend write fails."""
-    from litellm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
+    from embrouter.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
 
     try:
         _ = await reconcile_budget_reservation(
@@ -868,7 +868,7 @@ async def _release_budget_reservation(budget_reservation: dict | None) -> None:
     if budget_reservation is None:
         return
 
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from embrouter.proxy.spend_tracking.budget_reservation import (
         release_budget_reservation,
     )
 
@@ -883,7 +883,7 @@ async def _invalidate_budget_reservation_counters(
     if budget_reservation is None:
         return
 
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from embrouter.proxy.spend_tracking.budget_reservation import (
         invalidate_budget_reservation_counters,
     )
 

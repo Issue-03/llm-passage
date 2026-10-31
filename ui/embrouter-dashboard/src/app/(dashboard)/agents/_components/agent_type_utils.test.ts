@@ -14,7 +14,7 @@ const bedrockAgentcoreInfo: AgentCreateInfo = {
       key: "agent_runtime_arn",
       label: "Agent Runtime ARN",
       required: true,
-      include_in_litellm_params: false,
+      include_in_embrouter_params: false,
     },
   ],
 };
@@ -48,7 +48,7 @@ describe("parseDynamicAgentForForm", () => {
       agent_id: "agent-1",
       agent_name: "bedrock-agent",
       agent_card_params: { description: "" },
-      litellm_params: {
+      embrouter_params: {
         custom_llm_provider: "bedrock",
         model: `bedrock/agentcore/${FULL_RUNTIME_ARN}`,
       },
@@ -64,7 +64,7 @@ describe("parseDynamicAgentForForm", () => {
       agent_id: "agent-1",
       agent_name: "bedrock-agent",
       agent_card_params: { description: "" },
-      litellm_params: { model: `bedrock/agentcore/${FULL_RUNTIME_ARN}` },
+      embrouter_params: { model: `bedrock/agentcore/${FULL_RUNTIME_ARN}` },
       kill_switch: {
         url: "https://ops.example.com/kill",
         method: "DELETE",
@@ -91,7 +91,7 @@ describe("detectAgentType", () => {
     const agent = {
       agent_id: "agent-1",
       agent_name: "bedrock-agent",
-      litellm_params: { model: `bedrock/agentcore/${FULL_RUNTIME_ARN}` },
+      embrouter_params: { model: `bedrock/agentcore/${FULL_RUNTIME_ARN}` },
     } as unknown as Agent;
 
     expect(detectAgentType(agent)).toBe("bedrock_agentcore");

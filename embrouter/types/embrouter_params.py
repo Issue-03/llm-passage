@@ -1,5 +1,5 @@
-"""LiteLLM-owned request kwargs declared as typed fields; types/utils.py splices these with the callback and pricing
-models and KWARG_ARTIFACTS into all_litellm_params."""
+"""EmbRouter-owned request kwargs declared as typed fields; types/utils.py splices these with the callback and pricing
+models and KWARG_ARTIFACTS into all_embrouter_params."""
 
 from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
@@ -15,16 +15,16 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.router_strategy.complexity_router.context_compaction import CompactionState
-    from litellm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
-    from litellm.types.caching import DynamicCacheControl
-    from litellm.types.llms.openai import ChatCompletionAssistantMessage, ChatCompletionUserMessage
-    from litellm.types.proxy.litellm_pre_call_utils import SecretFields
-    from litellm.types.router import ConfigurableClientsideParamsCustomAuth, DeploymentTypedDict, RetryPolicy
-    from litellm.types.router_weights import RouterWeights
-    from litellm.types.utils import ModelResponse, ModelResponseStream, ProviderSpecificHeader
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.router_strategy.complexity_router.context_compaction import CompactionState
+    from embrouter.router_utils.fallback_event_handlers import AttemptedFallbackTargets
+    from embrouter.types.caching import DynamicCacheControl
+    from embrouter.types.llms.openai import ChatCompletionAssistantMessage, ChatCompletionUserMessage
+    from embrouter.types.proxy.embrouter_pre_call_utils import SecretFields
+    from embrouter.types.router import ConfigurableClientsideParamsCustomAuth, DeploymentTypedDict, RetryPolicy
+    from embrouter.types.router_weights import RouterWeights
+    from embrouter.types.utils import ModelResponse, ModelResponseStream, ProviderSpecificHeader
 
     ProviderClient: TypeAlias = (
         OpenAI
@@ -52,8 +52,8 @@ RoutingStrategyName: TypeAlias = Literal[
     "lar1",
 ]
 
-TRUSTED_CALLBACK_VARS_FIELD: Final = "litellm_trusted_callback_vars"
-ADDRESSED_RESPONSE_ID_FIELD: Final = "_litellm_addressed_response_id"
+TRUSTED_CALLBACK_VARS_FIELD: Final = "embrouter_trusted_callback_vars"
+ADDRESSED_RESPONSE_ID_FIELD: Final = "_embrouter_addressed_response_id"
 
 WIRE_NAME: Final = "wire_name"
 
@@ -84,14 +84,14 @@ class ProviderConnection:
     azure_password: str | None = None
     azure_scope: str | None = None
     azure_ad_token_provider: Callable[[], str] | None = None
-    litellm_credential_name: str | None = None
+    embrouter_credential_name: str | None = None
     configurable_clientside_auth_params: "Sequence[str | ConfigurableClientsideParamsCustomAuth] | None" = None
     use_xai_oauth: bool | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BedrockBatchConnection:
-    # Bedrock rejects these names in request bodies, so register them as LiteLLM-owned
+    # Bedrock rejects these names in request bodies, so register them as EmbRouter-owned
     aws_batch_role_arn: str | None = None
     s3_bucket_name: str | None = None
     s3_region_name: str | None = None
@@ -114,7 +114,7 @@ class ConnectionSettings:
 class DispatchOptions:
     custom_llm_provider: str | None = None
     azure: bool | None = None
-    use_litellm_proxy: bool | None = None
+    use_embrouter_proxy: bool | None = None
     use_chat_completions_api: bool | None = None
     use_in_pass_through: bool | None = None
     allowed_openai_params: Sequence[str] | None = None
@@ -191,11 +191,11 @@ class CostOptions:
 class ObservabilityOptions:
     id: str | None = None
     metadata: MutableMapping[str, object] | None = None  # mutable-ok: the router and logging write keys into it
-    litellm_metadata: MutableMapping[str, object] | None = None  # mutable-ok: the proxy writes keys into it
+    embrouter_metadata: MutableMapping[str, object] | None = None  # mutable-ok: the proxy writes keys into it
     tags: Sequence[str] | None = None
-    litellm_trace_id: str | None = None
-    litellm_session_id: str | None = None
-    litellm_request_debug: bool | None = None
+    embrouter_trace_id: str | None = None
+    embrouter_session_id: str | None = None
+    embrouter_request_debug: bool | None = None
     logger_fn: Callable[[Mapping[str, object]], None] | None = None
     verbose: bool | None = None
     no_log: bool | None = field(default=None, metadata=wire("no-log"))
@@ -219,7 +219,7 @@ class PromptOptions:
     prompt_version: str | None = None
     prompt_environment: str | None = None
     prompt_label: str | None = None
-    litellm_system_prompt: str | None = None
+    embrouter_system_prompt: str | None = None
     custom_prompt_dict: Mapping[str, object] | None = None
     roles: Mapping[str, object] | None = None
     final_prompt_value: str | None = None
@@ -270,7 +270,7 @@ class MockOptions:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class LiteLLMOptions:
+class EmbRouterOptions:
     dispatch: DispatchOptions
     routing: RoutingOptions
     deployment: DeploymentOptions
@@ -288,11 +288,11 @@ class LiteLLMOptions:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CallState:
-    litellm_call_id: str | None = None
+    embrouter_call_id: str | None = None
     completion_call_id: str | None = None
     model_alias_map: Mapping[str, str] | None = None
     data_residency: str | None = None
-    litellm_logging_obj: "Logging | None" = None
+    embrouter_logging_obj: "Logging | None" = None
     preset_cache_key: str | None = None
     cache_key: str | None = None
     stream_response: "Mapping[str, ModelResponse] | None" = None
@@ -341,7 +341,7 @@ class ProxyRequestState:
     secret_fields: "SecretFields | None" = None
     trusted_callback_vars: Mapping[str, str] | None = field(default=None, metadata=wire(TRUSTED_CALLBACK_VARS_FIELD))
     addressed_response_id: str | None = field(default=None, metadata=wire(ADDRESSED_RESPONSE_ID_FIELD))
-    strip_stream_usage: bool | None = field(default=None, metadata=wire("_litellm_strip_stream_usage"))
+    strip_stream_usage: bool | None = field(default=None, metadata=wire("_embrouter_strip_stream_usage"))
     client_side_timeout: bool | None = None
     model_file_id_mapping: Mapping[str, Mapping[str, str]] | None = None
 
@@ -368,7 +368,7 @@ class InternalState:
 
 KWARG_ARTIFACTS: Final[tuple[str, ...]] = ("self", "use_client", "model_config", "rust")
 
-LITELLM_OWNED_ROOTS: Final = (ConnectionSettings, LiteLLMOptions, InternalState)
+EMBROUTER_OWNED_ROOTS: Final = (ConnectionSettings, EmbRouterOptions, InternalState)
 
 
 def wire_names(owner: type) -> tuple[str, ...]:
@@ -385,6 +385,6 @@ def owned_wire_names(root: type) -> tuple[str, ...]:
     return tuple(names())
 
 
-OWNED_KWARG_NAMES: Final = tuple(chain.from_iterable(owned_wire_names(root) for root in LITELLM_OWNED_ROOTS))
+OWNED_KWARG_NAMES: Final = tuple(chain.from_iterable(owned_wire_names(root) for root in EMBROUTER_OWNED_ROOTS))
 AGENTIC_LOOP_KWARG_NAMES: Final = (*wire_names(AgenticLoopState), *wire_names(AgenticLoopOptions))
 BEDROCK_BATCH_KWARG_NAMES: Final = wire_names(BedrockBatchConnection)

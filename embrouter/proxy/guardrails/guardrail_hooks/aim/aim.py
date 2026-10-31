@@ -14,24 +14,24 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 from websockets.asyncio.client import ClientConnection, connect
 
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.guardrails._content_utils import (
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.guardrails._content_utils import (
     apply_redacted_messages_back,
     build_inspection_messages,
     has_non_string_content,
     is_non_conversational_call_type,
     is_string_batch_input,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     CallTypesLiteral,
     Choices,
     LLMResponseTypes,
@@ -40,7 +40,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class AimGuardrailMissingSecrets(Exception):
@@ -170,12 +170,12 @@ class AimGuardrail(CustomGuardrail):
 
     async def call_aim_guardrail(self, data: dict, hook: str, key_alias: str | None) -> dict:
         user_email: Final = data.get("metadata", {}).get("headers", {}).get("x-aim-user-email")
-        call_id: Final = data.get("litellm_call_id")
+        call_id: Final = data.get("embrouter_call_id")
         headers: Final = self._build_aim_headers(
             hook=hook,
             key_alias=key_alias,
             user_email=user_email,
-            litellm_call_id=call_id,
+            embrouter_call_id=call_id,
         )
         response: Final = await self.async_handler.post(
             f"{self.api_base}/fw/v1/analyze",
@@ -272,14 +272,14 @@ class AimGuardrail(CustomGuardrail):
         self, request_data: dict, output: str, hook: str, key_alias: str | None
     ) -> AimOutputGuardrailResult | None:
         user_email: Final = request_data.get("metadata", {}).get("headers", {}).get("x-aim-user-email")
-        call_id: Final = request_data.get("litellm_call_id")
+        call_id: Final = request_data.get("embrouter_call_id")
         response: Final = await self.async_handler.post(
             f"{self.api_base}/fw/v1/analyze",
             headers=self._build_aim_headers(
                 hook=hook,
                 key_alias=key_alias,
                 user_email=user_email,
-                litellm_call_id=call_id,
+                embrouter_call_id=call_id,
             ),
             json={
                 "messages": self._build_aim_inspection_messages(request_data)
@@ -336,7 +336,7 @@ class AimGuardrail(CustomGuardrail):
         hook: str,
         key_alias: str | None,
         user_email: str | None,
-        litellm_call_id: str | None,
+        embrouter_call_id: str | None,
     ):
         """
         A helper function to build the http headers that are required by AIM guardrails.
@@ -345,12 +345,12 @@ class AimGuardrail(CustomGuardrail):
             {
                 "Authorization": f"Bearer {self.api_key}",
                 # Used by Aim to apply only the guardrails that should be applied in a specific request phase.
-                "x-aim-litellm-hook": hook,
-                # Used by Aim to track LiteLLM version and provide backward compatibility.
-                "x-aim-litellm-version": litellm_version,
+                "x-aim-embrouter-hook": hook,
+                # Used by Aim to track EmbRouter version and provide backward compatibility.
+                "x-aim-embrouter-version": embrouter_version,
             }
             # Used by Aim to track together single call input and output
-            | ({"x-aim-call-id": litellm_call_id} if litellm_call_id else {})
+            | ({"x-aim-call-id": embrouter_call_id} if embrouter_call_id else {})
             # Used by Aim to track guardrails violations by user.
             | ({"x-aim-user-email": user_email} if user_email else {})
             | (
@@ -414,14 +414,14 @@ class AimGuardrail(CustomGuardrail):
         request_data: dict,
     ) -> AsyncGenerator[ModelResponseStream, None]:
         user_email: Final = request_data.get("metadata", {}).get("headers", {}).get("x-aim-user-email")
-        call_id: Final = request_data.get("litellm_call_id")
+        call_id: Final = request_data.get("embrouter_call_id")
         async with connect(
             f"{self.ws_api_base}/fw/v1/analyze/stream",
             additional_headers=self._build_aim_headers(
                 hook="output",
                 key_alias=user_api_key_dict.key_alias,
                 user_email=user_email,
-                litellm_call_id=call_id,
+                embrouter_call_id=call_id,
             ),
         ) as websocket:
             sender: Final = asyncio.create_task(self.forward_the_stream_to_aim(websocket, response))
@@ -434,7 +434,7 @@ class AimGuardrail(CustomGuardrail):
                     if result.get("done"):
                         return
                     if blocking_message := result.get("blocking_message"):
-                        from litellm.proxy.proxy_server import StreamingCallbackError
+                        from embrouter.proxy.proxy_server import StreamingCallbackError
 
                         raise StreamingCallbackError(blocking_message)
                     verbose_proxy_logger.error("Unknown message received from AIM: %s", result)
@@ -455,7 +455,7 @@ class AimGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.aim import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.aim import (
             AimGuardrailConfigModel,
         )
 

@@ -12,46 +12,46 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 from openai import APIError
 from pydantic import TypeAdapter
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.litellm_core_utils.litellm_logging
-import litellm.types
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.constants import (
+import embrouter
+import embrouter.embrouter_core_utils
+import embrouter.embrouter_core_utils.embrouter_logging
+import embrouter.types
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.constants import (
     HOURS_IN_A_DAY,
     SLACK_DAILY_REPORT_LOCK_ID,
     SLACK_MODEL_DEPRECATION_LOCK_ID,
 )
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
-from litellm.integrations.SlackAlerting.hanging_request_check import (
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
+from embrouter.integrations.SlackAlerting.hanging_request_check import (
     AlertingHangingRequestCheck,
 )
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.litellm_core_utils.exception_mapping_utils import (
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.embrouter_core_utils.exception_mapping_utils import (
     _add_key_name_and_team_to_alert,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     AlertType,
     CallInfo,
     InvitationModel,
     InvitationNew,
-    Litellm_EntityType,
+    Embrouter_EntityType,
     UserAPIKeyAuth,
     VirtualKeyEvent,
     WebhookEvent,
 )
-from litellm.repositories.table_repositories import InvitationLinkRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.types.integrations.slack_alerting import *
-from litellm.types.proxy.model_deprecation import (
+from embrouter.repositories.table_repositories import InvitationLinkRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.types.integrations.slack_alerting import *
+from embrouter.types.proxy.model_deprecation import (
     DEFAULT_DEPRECATION_CHECK_INTERVAL_SECONDS,
     DEPRECATION_IDLE_POLL_SECONDS,
 )
@@ -68,9 +68,9 @@ from .ms_teams import (
 from .utils import process_slack_alerting_variables
 
 if TYPE_CHECKING:
-    from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router as _Router
+    from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router as _Router
 
     Router = _Router
 else:
@@ -78,7 +78,7 @@ else:
 
 
 def _proxy_llm_router() -> Router | None:
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     return llm_router
 
@@ -213,9 +213,9 @@ class SlackAlerting(CustomBatchLogger):
             time_difference: Final = end_time - start_time
             # Convert the timedelta to float (in seconds)
             time_difference_float: Final = time_difference.total_seconds()
-            litellm_params: Final = kwargs.get("litellm_params", {})
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
             model: Final = kwargs.get("model", "")
-            api_base: Final = litellm.get_api_base(model=model, optional_params=litellm_params)
+            api_base: Final = embrouter.get_api_base(model=model, optional_params=embrouter_params)
             messages = kwargs.get("messages", None)
             # if messages does not exist fallback to "input"
             if messages is None:
@@ -280,15 +280,15 @@ class SlackAlerting(CustomBatchLogger):
             start_time=start_time,
             end_time=end_time,
         )
-        if litellm.turn_off_message_logging or litellm.redact_messages_in_exceptions:
-            messages = "Message not logged. litellm.redact_messages_in_exceptions=True"
+        if embrouter.turn_off_message_logging or embrouter.redact_messages_in_exceptions:
+            messages = "Message not logged. embrouter.redact_messages_in_exceptions=True"
         request_info = f"\nRequest Model: `{model}`\nAPI Base: `{api_base}`\nMessages: `{messages}`"
         slow_message = f"`Responses are slow - {round(time_difference_float, 2)}s response time > Alerting threshold: {self.alerting_threshold}s`"
         alerting_metadata: dict = {}
         if time_difference_float > self.alerting_threshold:
             # add deployment latencies to alert
-            if kwargs is not None and "litellm_params" in kwargs and "metadata" in kwargs["litellm_params"]:
-                _metadata: Final[dict] = kwargs["litellm_params"]["metadata"]
+            if kwargs is not None and "embrouter_params" in kwargs and "metadata" in kwargs["embrouter_params"]:
+                _metadata: Final[dict] = kwargs["embrouter_params"]["metadata"]
                 request_info = _add_key_name_and_team_to_alert(request_info=request_info, metadata=_metadata)
 
                 _deployment_latency_map: Final = self._get_deployment_latencies_to_alert(metadata=_metadata)
@@ -418,7 +418,7 @@ class SlackAlerting(CustomBatchLogger):
         )[:5]
         top_5_slowest = [index for index in top_5_slowest if replaced_slowest_values[index] > 0]
 
-        # format alert -> return the litellm model name + api base
+        # format alert -> return the embrouter model name + api base
         message = f"\n\nTime: `{time.time()}`s\nHere are today's key metrics 📈: \n\n"
 
         message += "\n\n*❗️ Top Deployments with Most Failed Requests:*\n\n"
@@ -428,13 +428,13 @@ class SlackAlerting(CustomBatchLogger):
             key = failed_request_keys[top_5_failed[i]].split(":")[0]
             _deployment = router.get_model_info(key)
             if isinstance(_deployment, dict):
-                deployment_name = _deployment["litellm_params"].get("model", "")
+                deployment_name = _deployment["embrouter_params"].get("model", "")
             else:
                 return False
 
-            api_base = litellm.get_api_base(
+            api_base = embrouter.get_api_base(
                 model=deployment_name,
-                optional_params=(_deployment["litellm_params"] if _deployment is not None else {}),
+                optional_params=(_deployment["embrouter_params"] if _deployment is not None else {}),
             )
             if api_base is None:
                 api_base = ""
@@ -450,12 +450,12 @@ class SlackAlerting(CustomBatchLogger):
             key = latency_keys[top_5_slowest[i]].split(":")[0]
             _deployment = router.get_model_info(key)
             if _deployment is not None:
-                deployment_name = _deployment["litellm_params"].get("model", "")
+                deployment_name = _deployment["embrouter_params"].get("model", "")
             else:
                 deployment_name = ""
-            api_base = litellm.get_api_base(
+            api_base = embrouter.get_api_base(
                 model=deployment_name,
-                optional_params=(_deployment["litellm_params"] if _deployment is not None else {}),
+                optional_params=(_deployment["embrouter_params"] if _deployment is not None else {}),
             )
             value = round(replaced_slowest_values[top_5_slowest[i]], 3)
             message += f"\t{i + 1}. Deployment: `{deployment_name}`, Latency per output token: `{value}s/token`,  API Base: `{api_base}`\n\n"
@@ -561,7 +561,7 @@ class SlackAlerting(CustomBatchLogger):
         user_info_str: Final = self._get_user_info_str(user_info)
         event_message = (
             "Team Member Budget: "
-            if user_info.event_group == Litellm_EntityType.TEAM_MEMBER
+            if user_info.event_group == Embrouter_EntityType.TEAM_MEMBER
             else budget_alert_class.get_event_message()
         )
 
@@ -692,7 +692,7 @@ class SlackAlerting(CustomBatchLogger):
         _all_fields_as_dict.pop("token", None)
         msg = ""
         for k, v in _all_fields_as_dict.items():
-            if isinstance(v, Litellm_EntityType):
+            if isinstance(v, Embrouter_EntityType):
                 v = v.value
             msg += f"*{k}:* `{v}`\n"
 
@@ -726,7 +726,7 @@ class SlackAlerting(CustomBatchLogger):
                 projected_exceeded_date=None,
                 projected_spend=None,
                 event="spend_tracked",
-                event_group=Litellm_EntityType.END_USER,
+                event_group=Embrouter_EntityType.END_USER,
                 event_message=f"Customer spend tracked. Customer={end_user_id}, spend={response_cost}",
             )
 
@@ -803,17 +803,17 @@ class SlackAlerting(CustomBatchLogger):
         if deployment is None:
             return
 
-        model = deployment.litellm_params.model
+        model = deployment.embrouter_params.model
         ### GET PROVIDER ###
-        provider = deployment.litellm_params.custom_llm_provider
+        provider = deployment.embrouter_params.custom_llm_provider
         if provider is None:
-            model, provider, _, _ = litellm.get_llm_provider(model=model)
+            model, provider, _, _ = embrouter.get_llm_provider(model=model)
 
         ### GET REGION ###
-        region_name = deployment.litellm_params.region_name
+        region_name = deployment.embrouter_params.region_name
         if region_name is None:
-            region_name = litellm.utils._get_model_region(
-                custom_llm_provider=provider, litellm_params=deployment.litellm_params
+            region_name = embrouter.utils._get_model_region(
+                custom_llm_provider=provider, embrouter_params=deployment.embrouter_params
             )
 
         if region_name is None:
@@ -953,14 +953,14 @@ class SlackAlerting(CustomBatchLogger):
             if deployment is None:
                 return
 
-            model = deployment.litellm_params.model
-            provider = deployment.litellm_params.custom_llm_provider
+            model = deployment.embrouter_params.model
+            provider = deployment.embrouter_params.custom_llm_provider
             if provider is None:
                 try:
-                    model, provider, _, _ = litellm.get_llm_provider(model=model)
+                    model, provider, _, _ = embrouter.get_llm_provider(model=model)
                 except Exception:
                     provider = ""
-            api_base: Final = litellm.get_api_base(model=model, optional_params=deployment.litellm_params)
+            api_base: Final = embrouter.get_api_base(model=model, optional_params=deployment.embrouter_params)
 
             if outage_value is None:
                 outage_value = OutageModel(
@@ -1037,15 +1037,15 @@ class SlackAlerting(CustomBatchLogger):
         except Exception:
             pass
 
-    async def model_added_alert(self, model_name: str, litellm_model_name: str, passed_model_info: object):
+    async def model_added_alert(self, model_name: str, embrouter_model_name: str, passed_model_info: object):
         base_model_from_user: Final = getattr(passed_model_info, "base_model", None)
         model_info = {}
         base_model = ""
         if base_model_from_user is not None:
-            model_info = litellm.model_cost.get(base_model_from_user, {})
+            model_info = embrouter.model_cost.get(base_model_from_user, {})
             base_model = f"Base Model: `{base_model_from_user}`\n"
         else:
-            model_info = litellm.model_cost.get(litellm_model_name, {})
+            model_info = embrouter.model_cost.get(embrouter_model_name, {})
         model_info_str = ""
         for k, v in model_info.items():
             if k == "input_cost_per_token" or k == "output_cost_per_token":
@@ -1113,7 +1113,7 @@ Model Info:
         if not self._deprecation_alerts_enabled():
             return False
 
-        from litellm.proxy.common_utils.model_deprecation import (
+        from embrouter.proxy.common_utils.model_deprecation import (
             collect_model_deprecations,
             format_deprecation_alert_message,
         )
@@ -1227,17 +1227,17 @@ Model Info:
         email_logo_url: str | None = None,
         email_support_contact: str | None = None,
     ):
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         if premium_user is not True:
             if email_logo_url is not None or email_support_contact is not None:
                 raise ValueError(f"Trying to Customize Email Alerting\n {CommonProxyErrors.not_premium_user.value}")
 
     async def _construct_user_invitation_link(self, recipient_user_id: str | None, base_url: str) -> str:
-        from litellm.proxy.management_helpers.user_invitation import (
+        from embrouter.proxy.management_helpers.user_invitation import (
             create_invitation_for_user,
         )
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if recipient_user_id is None or prisma_client is None:
             return base_url
@@ -1273,7 +1273,7 @@ Model Info:
 
     async def send_key_created_or_user_invited_email(self, webhook_event: WebhookEvent) -> bool:
         try:
-            from litellm.proxy.utils import send_email
+            from embrouter.proxy.utils import send_email
 
             if self.alerting is None or "email" not in self.alerting:
                 # do nothing if user does not want email alerts
@@ -1282,15 +1282,15 @@ Model Info:
                     self.alerting,
                 )
                 return False
-            from litellm.proxy.proxy_server import premium_user, prisma_client
+            from embrouter.proxy.proxy_server import premium_user, prisma_client
 
             email_logo_url = os.getenv("SMTP_SENDER_LOGO", os.getenv("EMAIL_LOGO_URL", None))
             email_support_contact = os.getenv("EMAIL_SUPPORT_CONTACT", None)
             await self._check_if_using_premium_email_feature(premium_user, email_logo_url, email_support_contact)
             if email_logo_url is None:
-                email_logo_url = LITELLM_LOGO_URL
+                email_logo_url = EMBROUTER_LOGO_URL
             if email_support_contact is None:
-                email_support_contact = LITELLM_SUPPORT_CONTACT
+                email_support_contact = EMBROUTER_SUPPORT_CONTACT
 
             event_name: Final = webhook_event.event_message
             recipient_email = webhook_event.user_email
@@ -1305,7 +1305,7 @@ Model Info:
             key_budget: Final = webhook_event.max_budget
             base_url: Final = os.getenv("PROXY_BASE_URL", "http://0.0.0.0:4000")
 
-            email_html_content = "Alert from LiteLLM Server"
+            email_html_content = "Alert from EmbRouter Server"
             if recipient_email is None:
                 verbose_proxy_logger.error(
                     "Trying to send email alert to no recipient",
@@ -1348,7 +1348,7 @@ Model Info:
             webhook_event.model_dump_json()
             email_event: Final = {
                 "to": recipient_email,
-                "subject": f"LiteLLM: {event_name}",
+                "subject": f"EmbRouter: {event_name}",
                 "html": email_html_content,
             }
 
@@ -1372,29 +1372,29 @@ Model Info:
 
         Returns -> True if sent, False if not.
         """
-        from litellm.proxy.proxy_server import premium_user
-        from litellm.proxy.utils import send_email
+        from embrouter.proxy.proxy_server import premium_user
+        from embrouter.proxy.utils import send_email
 
         email_logo_url = os.getenv("SMTP_SENDER_LOGO", os.getenv("EMAIL_LOGO_URL", None))
         email_support_contact = os.getenv("EMAIL_SUPPORT_CONTACT", None)
         await self._check_if_using_premium_email_feature(premium_user, email_logo_url, email_support_contact)
 
         if email_logo_url is None:
-            email_logo_url = LITELLM_LOGO_URL
+            email_logo_url = EMBROUTER_LOGO_URL
         if email_support_contact is None:
-            email_support_contact = LITELLM_SUPPORT_CONTACT
+            email_support_contact = EMBROUTER_SUPPORT_CONTACT
 
         event_name: Final = webhook_event.event_message
         recipient_email: Final = webhook_event.user_email
         user_name: Final = webhook_event.user_id
         max_budget: Final = webhook_event.max_budget
-        email_html_content = "Alert from LiteLLM Server"
+        email_html_content = "Alert from EmbRouter Server"
         if recipient_email is None:
             verbose_proxy_logger.error("Trying to send email alert to no recipient", extra=webhook_event.dict())
 
         if webhook_event.event == "budget_crossed":
             email_html_content = f"""
-            <img src="{email_logo_url}" alt="LiteLLM Logo" width="150" height="50" />
+            <img src="{email_logo_url}" alt="EmbRouter Logo" width="150" height="50" />
 
             <p> Hi {user_name}, <br/>
 
@@ -1405,13 +1405,13 @@ Model Info:
             If you have any questions, please send an email to {email_support_contact} <br /> <br />
 
             Best, <br />
-            The LiteLLM team <br />
+            The EmbRouter team <br />
             """
 
         webhook_event.model_dump_json()
         email_event: Final = {
             "to": recipient_email,
-            "subject": f"LiteLLM: {event_name}",
+            "subject": f"EmbRouter: {event_name}",
             "html": email_html_content,
         }
 
@@ -1420,8 +1420,8 @@ Model Info:
             subject=email_event["subject"],
             html=email_event["html"],
         )
-        if webhook_event.event_group == Litellm_EntityType.TEAM:
-            from litellm.integrations.email_alerting import send_team_budget_alert
+        if webhook_event.event_group == Embrouter_EntityType.TEAM:
+            from embrouter.integrations.email_alerting import send_team_budget_alert
 
             await send_team_budget_alert(webhook_event=webhook_event)
 
@@ -1686,14 +1686,14 @@ Model Info:
         """Log deployment latency"""
         try:
             if "daily_reports" in self.alert_types:
-                litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-                model_info: Final = litellm_params.get("model_info", {}) or {}
+                embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+                model_info: Final = embrouter_params.get("model_info", {}) or {}
                 model_id: Final = model_info.get("id", "") or ""
                 response_s: Final[timedelta] = end_time - start_time
 
                 final_value = response_s
 
-                if isinstance(response_obj, litellm.ModelResponse) and (
+                if isinstance(response_obj, embrouter.ModelResponse) and (
                     hasattr(response_obj, "usage")
                     and response_obj.usage is not None
                     and hasattr(response_obj.usage, "completion_tokens")
@@ -1709,7 +1709,7 @@ Model Info:
                         id=model_id,
                         failed_request=False,
                         latency_per_output_token=final_value,
-                        updated_at=litellm.utils.get_utc_datetime(),
+                        updated_at=embrouter.utils.get_utc_datetime(),
                     )
                 )
         except Exception as e:
@@ -1719,8 +1719,8 @@ Model Info:
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
         """Log failure + deployment latency"""
-        _litellm_params: Final = kwargs.get("litellm_params", {})
-        _model_info: Final = _litellm_params.get("model_info", {}) or {}
+        _embrouter_params: Final = kwargs.get("embrouter_params", {})
+        _model_info: Final = _embrouter_params.get("model_info", {}) or {}
         model_id: Final = _model_info.get("id", "")
         try:
             if "daily_reports" in self.alert_types:
@@ -1730,7 +1730,7 @@ Model Info:
                             id=model_id,
                             failed_request=True,
                             latency_per_output_token=None,
-                            updated_at=litellm.utils.get_utc_datetime(),
+                            updated_at=embrouter.utils.get_utc_datetime(),
                         )
                     )
                 except Exception as e:
@@ -1837,7 +1837,7 @@ Model Info:
             return
 
         try:
-            from litellm.proxy.spend_tracking.spend_management_endpoints import (
+            from embrouter.proxy.spend_tracking.spend_management_endpoints import (
                 _get_spend_report_for_time_range,
             )
 
@@ -1901,7 +1901,7 @@ Model Info:
         try:
             from calendar import monthrange
 
-            from litellm.proxy.spend_tracking.spend_management_endpoints import (
+            from embrouter.proxy.spend_tracking.spend_management_endpoints import (
                 _get_spend_report_for_time_range,
             )
 
@@ -1970,13 +1970,13 @@ Model Info:
         if not thresholds_enabled and not anomalies_enabled:
             return
 
-        from litellm.proxy.proxy_server import prisma_client as global_prisma_client
+        from embrouter.proxy.proxy_server import prisma_client as global_prisma_client
 
         client: Final = prisma_client if prisma_client is not None else global_prisma_client
         if client is None:
             return
 
-        from litellm.integrations.SlackAlerting.user_spend_alerts import (
+        from embrouter.integrations.SlackAlerting.user_spend_alerts import (
             evaluate_user_spend,
             fetch_user_spend_rows,
         )
@@ -2029,7 +2029,7 @@ Model Info:
         This runs once per day and sends an overview of all the fallback statistics
         """
         try:
-            from litellm.integrations.prometheus_helpers.prometheus_api import (
+            from embrouter.integrations.prometheus_helpers.prometheus_api import (
                 get_fallback_metric_from_prometheus,
             )
 
@@ -2098,11 +2098,11 @@ Model Info:
         if request_data is None:
             return False
 
-        if request_data.get("litellm_status", "") != "success" and request_data.get("litellm_status", "") != "fail":
+        if request_data.get("embrouter_status", "") != "success" and request_data.get("embrouter_status", "") != "fail":
             ## CHECK IF CACHE IS UPDATED
-            litellm_call_id: Final = request_data.get("litellm_call_id", "")
+            embrouter_call_id: Final = request_data.get("embrouter_call_id", "")
             status: Final[str | None] = await self.internal_usage_cache.async_get_cache(
-                key=f"request_status:{litellm_call_id}", local_only=True
+                key=f"request_status:{embrouter_call_id}", local_only=True
             )
             if status is not None and (status == "success" or status == "fail"):
                 return True

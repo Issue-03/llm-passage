@@ -88,7 +88,7 @@ const mockOrg = {
   created_by: "admin@example.com",
   spend: 0,
   models: ["gpt-4o-mini"],
-  litellm_budget_table: {
+  embrouter_budget_table: {
     tpm_limit: null,
     rpm_limit: null,
     max_budget: 1000,
@@ -287,7 +287,7 @@ test("should keep unsaved settings edits when switching tabs and back", async ()
 test("renders a tpm/rpm limit of 0 as 0 in the overview and settings tabs, never as Unlimited", async () => {
   const zeroLimitOrg = {
     ...mockOrg,
-    litellm_budget_table: { ...mockOrg.litellm_budget_table, tpm_limit: 0, rpm_limit: 0 },
+    embrouter_budget_table: { ...mockOrg.embrouter_budget_table, tpm_limit: 0, rpm_limit: 0 },
   };
   mockUseOrganization.mockReturnValue({ data: zeroLimitOrg, isLoading: false } as unknown as ReturnType<
     typeof useOrganization

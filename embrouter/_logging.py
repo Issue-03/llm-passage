@@ -12,23 +12,23 @@ from logging import Formatter
 from typing import Final, TextIO
 from urllib.parse import unquote
 
-import litellm
-from litellm.constants import (
-    LITELLM_TRUNCATED_PAYLOAD_FIELD,
-    LITELLM_TRUNCATION_STDOUT_SAFEGUARD_NOTE,
+import embrouter
+from embrouter.constants import (
+    EMBROUTER_TRUNCATED_PAYLOAD_FIELD,
+    EMBROUTER_TRUNCATION_STDOUT_SAFEGUARD_NOTE,
     MAX_BASE64_LENGTH_STDOUT_LOG,
     MAX_STRING_LENGTH_STDOUT_LOG,
 )
-from litellm.litellm_core_utils.env_utils import get_env_int
-from litellm.litellm_core_utils.safe_json_dumps import UNSERIALIZABLE_OBJECT, safe_dumps, safe_json_structure
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.secret_redaction import (
+from embrouter.embrouter_core_utils.env_utils import get_env_int
+from embrouter.embrouter_core_utils.safe_json_dumps import UNSERIALIZABLE_OBJECT, safe_dumps, safe_json_structure
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.secret_redaction import (
     _python_redact_string,
     _python_redact_structured_value,
     redact_internal_details,
     redact_string,
 )
-from litellm.rust_bridge import diagnostics
+from embrouter.rust_bridge import diagnostics
 
 set_verbose = False
 
@@ -41,7 +41,7 @@ _MAX_CORRELATION_ID_LENGTH: Final = 256
 def _sanitize_correlation_id(value: str) -> str:
     """Strip control characters, bound length, and redact credential-shaped
     content before a caller-controlled trace_id/session_id (e.g.
-    litellm_session_id, x-litellm-trace-id) is stamped into log lines.
+    embrouter_session_id, x-embrouter-trace-id) is stamped into log lines.
 
     Without the first two, a caller could embed \\r/\\n or terminal escape
     sequences to forge fake log entries, or submit an oversized value repeated
@@ -65,10 +65,10 @@ def set_trace_id(trace_id: str) -> "contextvars.Token[str]":
 
 if set_verbose is True:
     logging.warning(
-        "`litellm.set_verbose` is deprecated. Please set `os.environ['LITELLM_LOG'] = 'DEBUG'` for debug logs."
+        "`embrouter.set_verbose` is deprecated. Please set `os.environ['EMBROUTER_LOG'] = 'DEBUG'` for debug logs."
     )
 
-_ENABLE_SECRET_REDACTION: Final = os.getenv("LITELLM_DISABLE_REDACT_SECRETS", "").lower() != "true"
+_ENABLE_SECRET_REDACTION: Final = os.getenv("EMBROUTER_DISABLE_REDACT_SECRETS", "").lower() != "true"
 
 
 def _redact_string(value: str) -> str:
@@ -77,7 +77,7 @@ def _redact_string(value: str) -> str:
     return redact_string(value)
 
 
-_REDACTED_RECORD_ATTR: Final = "litellm_redacted"
+_REDACTED_RECORD_ATTR: Final = "embrouter_redacted"
 _REDACTED_STAMP: Final = object()
 _UNREDACTED_SCALAR_TYPES: Final = (bool, int, float, type(None))
 
@@ -108,7 +108,7 @@ def redact_secrets(value: str) -> str:
     secrets and will be sent to an external sink.
 
     Not to be confused with redact_message_input_output_from_logging() in
-    litellm_core_utils/redact_messages.py, which redacts LLM prompt/response
+    embrouter_core_utils/redact_messages.py, which redacts LLM prompt/response
     content for privacy — this function redacts credential patterns (API keys,
     PEM blocks, tokens, etc.) by shape.
     """
@@ -240,11 +240,11 @@ def _parse_disabled_access_log_paths(raw: str) -> frozenset[str]:
 def _disabled_access_log_paths() -> frozenset[str]:
     """Read the variable per record so a value loaded later via proxy config
     environment_variables or dotenv is honored."""
-    return _parse_disabled_access_log_paths(os.getenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", ""))
+    return _parse_disabled_access_log_paths(os.getenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", ""))
 
 
 class AccessLogPathFilter(logging.Filter):
-    """Drops uvicorn.access records for request paths listed in LITELLM_DISABLE_ACCESS_LOG_PATHS.
+    """Drops uvicorn.access records for request paths listed in EMBROUTER_DISABLE_ACCESS_LOG_PATHS.
 
     uvicorn passes record.args as (client_addr, method, full_path, http_version, status_code).
     """
@@ -269,8 +269,8 @@ def _get_max_string_length_stdout_log() -> int:
 
 def _stdout_truncation_marker(skipped_chars: int) -> str:
     return (
-        f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. "
-        f"{LITELLM_TRUNCATION_STDOUT_SAFEGUARD_NOTE}) ..."
+        f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. "
+        f"{EMBROUTER_TRUNCATION_STDOUT_SAFEGUARD_NOTE}) ..."
     )
 
 
@@ -575,7 +575,7 @@ class CorrelationContextFilter(logging.Filter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if not litellm.request_correlation_in_logs:
+        if not embrouter.request_correlation_in_logs:
             return True
         trace_id: Final = trace_id_var.get()
         if trace_id:
@@ -622,7 +622,7 @@ class LevelRoutingStreamHandler(logging.StreamHandler):
     """Writes records below WARNING and invalid-key warnings to stdout, others to stderr.
 
     Collectors that derive severity from the stream report every stderr line as an error.
-    Invalid-key warnings route to stdout so LITELLM_LOG=ERROR can suppress them.
+    Invalid-key warnings route to stdout so EMBROUTER_LOG=ERROR can suppress them.
     """
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -640,7 +640,7 @@ class LevelRoutingStreamHandler(logging.StreamHandler):
 def _parse_json_logs_env(value: str | None) -> bool:
     """Strict opt-in parse for the JSON_LOGS env var: only "true" (any case) enables JSON logs.
 
-    Matches the reader in litellm-proxy-extras/_logging.py. The previous
+    Matches the reader in embrouter-proxy-extras/_logging.py. The previous
     bool(os.getenv(...)) treated any non-empty value, including "false" and "0",
     as enabled.
     """
@@ -653,7 +653,7 @@ def resolve_log_level(log_level: str) -> int:
 
 json_logs: Final = _parse_json_logs_env(os.getenv("JSON_LOGS"))
 # Create a handler for the logger (you may need to adapt this based on your needs)
-log_level: Final = os.getenv("LITELLM_LOG", "DEBUG")
+log_level: Final = os.getenv("EMBROUTER_LOG", "DEBUG")
 numeric_level: Final[int] = resolve_log_level(log_level)
 handler: Final = LevelRoutingStreamHandler()
 handler.setLevel(numeric_level)
@@ -824,7 +824,7 @@ def _setup_json_exception_handlers(formatter):
     # Setup excepthook for uncaught exceptions
     def json_excepthook(exc_type, exc_value, exc_traceback):
         record: Final = logging.LogRecord(
-            name="LiteLLM",
+            name="EmbRouter",
             level=logging.ERROR,
             pathname="",
             lineno=0,
@@ -845,7 +845,7 @@ def _setup_json_exception_handlers(formatter):
             if exception:
                 exc_type: Final = type(exception)
                 record: Final = logging.LogRecord(
-                    name="LiteLLM",
+                    name="EmbRouter",
                     level=logging.ERROR,
                     pathname="",
                     lineno=0,
@@ -874,12 +874,12 @@ else:
 
     handler.setFormatter(formatter)
 
-verbose_proxy_logger = logging.getLogger("LiteLLM Proxy")
+verbose_proxy_logger = logging.getLogger("EmbRouter Proxy")
 # Malformed virtual key rejections log through this child; LevelRoutingStreamHandler
 # writes its WARNING records to stdout. It has no handler or level of its own.
 verbose_proxy_stdout_logger: Final = verbose_proxy_logger.getChild("stdout")
-verbose_router_logger = logging.getLogger("LiteLLM Router")
-verbose_logger = logging.getLogger("LiteLLM")
+verbose_router_logger = logging.getLogger("EmbRouter Router")
+verbose_logger = logging.getLogger("EmbRouter")
 
 # Add the handler to the loggers
 verbose_router_logger.addHandler(handler)
@@ -926,11 +926,11 @@ _REDACTED_ACCESS_LOGGERS: Final[tuple[str, ...]] = ("uvicorn.access",)
 
 
 def _redact_third_party_loggers() -> None:
-    """Extend secret redaction to records litellm does not emit directly.
+    """Extend secret redaction to records embrouter does not emit directly.
 
-    litellm's own loggers are covered by the filter on their shared handler, but a
-    litellm value can also reach a log record through a dependency that logs on its
-    own logger. Those records never pass through a litellm handler.
+    embrouter's own loggers are covered by the filter on their shared handler, but a
+    embrouter value can also reach a log record through a dependency that logs on its
+    own logger. Those records never pass through a embrouter handler.
 
     The filter is attached to each emitting logger rather than to the root logger or
     to root's handlers. `Logger.handle` applies the emitting logger's filters before
@@ -970,13 +970,13 @@ def _get_loggers_to_initialize():
     Includes third-party integration loggers (like langfuse) if they are
     configured as callbacks.
     """
-    import litellm
+    import embrouter
 
     loggers: Final = list(ALL_LOGGERS)
 
     # Add langfuse logger if langfuse is being used as a callback
     langfuse_callbacks: Final = {"langfuse", "langfuse_otel"}
-    all_callbacks: Final = set(litellm.success_callback + litellm.failure_callback)
+    all_callbacks: Final = set(embrouter.success_callback + embrouter.failure_callback)
     if langfuse_callbacks & all_callbacks:
         loggers.append(logging.getLogger("langfuse"))
 
@@ -1005,7 +1005,7 @@ def _get_uvicorn_json_log_config():
     This ensures that uvicorn's access logs, error logs, and all application logs
     are formatted as JSON when json_logs is enabled.
     """
-    json_formatter_class: Final = "litellm._logging.JsonFormatter"
+    json_formatter_class: Final = "embrouter._logging.JsonFormatter"
 
     # Use the module-level log_level variable for consistency
     uvicorn_log_level: Final = log_level.upper()

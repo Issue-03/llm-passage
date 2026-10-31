@@ -2,16 +2,16 @@ from typing import Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     KeyManagementRoutes,
-    LiteLLM_DeletedTeamTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
+    EmbRouter_DeletedTeamTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
     Member,
     MemberDeleteRequest,
 )
-from litellm.proxy.common_utils.timezone_utils import budget_duration_error
-from litellm.types.proxy.management_endpoints.management_v1 import ResourceResponse
+from embrouter.proxy.common_utils.timezone_utils import budget_duration_error
+from embrouter.types.proxy.management_endpoints.management_v1 import ResourceResponse
 
 TeamIdSearchMatch = Literal["exact", "prefix"]
 
@@ -73,7 +73,7 @@ class BulkUpdateTeamMemberPermissionsResponse(BaseModel):
     permissions_appended: list[str] | None = None
 
 
-class TeamListItem(LiteLLM_TeamTable):
+class TeamListItem(EmbRouter_TeamTable):
     """A team item in the paginated list response, enriched with computed fields."""
 
     members_count: int = 0
@@ -87,7 +87,7 @@ class TeamListItem(LiteLLM_TeamTable):
 class TeamListResponse(BaseModel):
     """Response to get the list of teams"""
 
-    teams: list[TeamListItem | LiteLLM_TeamTable | LiteLLM_DeletedTeamTable]
+    teams: list[TeamListItem | EmbRouter_TeamTable | EmbRouter_DeletedTeamTable]
     total: int
     page: int
     page_size: int
@@ -207,7 +207,7 @@ class BulkTeamMemberBudgetUpdateResponse(ResourceResponse[tuple[TeamMemberBudget
     """`{data: [...]}` with one `TeamMemberBudgetUpdateResult` per requested member, in request order."""
 
 
-class TeamMemberInfoResponse(LiteLLM_TeamMembership):
+class TeamMemberInfoResponse(EmbRouter_TeamMembership):
     """Response for GET /team/{team_id}/members/me — caller's own membership row."""
 
     role: str | None = None

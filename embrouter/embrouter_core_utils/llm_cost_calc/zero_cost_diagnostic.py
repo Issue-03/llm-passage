@@ -5,14 +5,14 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     PromptTokensDetailsWrapper,
     StandardLoggingZeroCostDiagnostic,
     Usage,
 )
 
-ZERO_COST_COUNTER_NAME: Final = "litellm_zero_cost_requests_total"
+ZERO_COST_COUNTER_NAME: Final = "embrouter_zero_cost_requests_total"
 
 _TEXT_INPUT_RATE: Final = "input_cost_per_token"
 _AUDIO_INPUT_RATE: Final = "input_cost_per_audio_token"

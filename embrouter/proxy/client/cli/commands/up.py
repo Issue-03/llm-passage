@@ -14,9 +14,9 @@ from typing import IO, Final
 import click
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm.litellm_core_utils.cli_keyring import SecretVault
-from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
-from litellm.litellm_core_utils.private_json import ensure_private_dir
+from embrouter.embrouter_core_utils.cli_keyring import SecretVault
+from embrouter.embrouter_core_utils.cli_token_utils import is_cli_token_fresh
+from embrouter.embrouter_core_utils.private_json import ensure_private_dir
 
 from .agents import AgentRunError, resolve_api_key, verify_proxy_key
 from .auth import CliContextObj, context_secret_vault, get_stored_api_key, load_token, login
@@ -134,9 +134,9 @@ def ensure_fresh_login(ctx: click.Context) -> None:
     pkce: Final = _stored_login_is_pkce(vault)
     login_command: Final = "lite login --pkce" if pkce else "lite login"
     if not sys.stdin.isatty():
-        raise UpError(f"No fresh LiteLLM login found for this proxy. Run `{login_command}` first.")
+        raise UpError(f"No fresh EmbRouter login found for this proxy. Run `{login_command}` first.")
 
-    click.echo("No fresh LiteLLM login found for this proxy; starting login...")
+    click.echo("No fresh EmbRouter login found for this proxy; starting login...")
     ctx.invoke(login, config_claude=False, pkce=pkce)
     if not _usable_login(get_stored_api_key(expected_base_url=base_url, vault=vault), vault):
         raise UpError("Login did not produce a usable token.")
@@ -156,7 +156,7 @@ def _restore_and_report() -> None:
 @click.command(name="up")
 @click.pass_context
 def up(ctx: click.Context) -> None:
-    """Route every Claude Code session through your LiteLLM proxy until stopped.
+    """Route every Claude Code session through your EmbRouter proxy until stopped.
 
     Patches ~/.claude/settings.json so Claude Code picks up the proxy on its own
     next startup, from any terminal -- no need to launch it through `lite`. The
@@ -198,7 +198,7 @@ def up(ctx: click.Context) -> None:
     except (AgentRunError, ClaudeSettingsError) as e:
         raise click.ClickException(str(e))
 
-    click.echo(f"litellm: routing Claude Code through proxy at {base_url.rstrip('/')}")
+    click.echo(f"embrouter: routing Claude Code through proxy at {base_url.rstrip('/')}")
     click.echo("Press Ctrl-C to stop and restore your original settings.")
 
     stop_event: Final = threading.Event()

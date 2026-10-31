@@ -12,14 +12,14 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.constants import TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
-from litellm.litellm_core_utils.token_counter import openai_tokenizer_encoding
-from litellm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
-from litellm.rust_bridge import token_counter as bridge
-from litellm.rust_bridge import tokenizer as tokenizer_dispatch
-from litellm.rust_bridge._native import Tokenizer
-from litellm.utils import claude_json_str
+import embrouter
+from embrouter.constants import TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
+from embrouter.embrouter_core_utils.token_counter import openai_tokenizer_encoding
+from embrouter.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
+from embrouter.rust_bridge import token_counter as bridge
+from embrouter.rust_bridge import tokenizer as tokenizer_dispatch
+from embrouter.rust_bridge._native import Tokenizer
+from embrouter.utils import claude_json_str
 
 MODEL: Final = "claude-sonnet-4-5-20250929"
 CL100K_MODEL: Final = "gpt-4"
@@ -170,14 +170,14 @@ def test_rust_tokenizer_mirrors_python_tokenizer_selection(model: str, expected:
 def test_rust_tokenizer_declines_tiktoken_encodings_rust_does_not_have(
     monkeypatch: pytest.MonkeyPatch, model: str, python_encoding: str
 ) -> None:
-    monkeypatch.setattr(litellm, "open_ai_chat_completion_models", litellm.open_ai_chat_completion_models | {model})
+    monkeypatch.setattr(embrouter, "open_ai_chat_completion_models", embrouter.open_ai_chat_completion_models | {model})
 
     assert openai_tokenizer_encoding(model).name == python_encoding
     assert bridge.rust_tokenizer(model) is None
 
 
 def test_rust_tokenizer_declines_the_cohere_tokenizer_download(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "cohere_models", litellm.cohere_models | {"command-r-plus"})
+    monkeypatch.setattr(embrouter, "cohere_models", embrouter.cohere_models | {"command-r-plus"})
 
     assert bridge.rust_tokenizer("command-r-plus") is None
 
@@ -187,12 +187,12 @@ def test_rust_tokenizer_declines_legacy_message_accounting_python_prices_differe
     monkeypatch: pytest.MonkeyPatch, legacy_model: str
 ) -> None:
     monkeypatch.setattr(
-        litellm, "open_ai_chat_completion_models", litellm.open_ai_chat_completion_models | {"gpt-3.5-turbo-0301"}
+        embrouter, "open_ai_chat_completion_models", embrouter.open_ai_chat_completion_models | {"gpt-3.5-turbo-0301"}
     )
-    monkeypatch.setattr(litellm, "azure_llms", {**litellm.azure_llms, "gpt-35-turbo-0301": "azure"})
+    monkeypatch.setattr(embrouter, "azure_llms", {**embrouter.azure_llms, "gpt-35-turbo-0301": "azure"})
     messages: Final = [{"role": "user", "name": "bob", "content": "hello there"}]
 
-    assert litellm.token_counter(model=legacy_model, messages=messages) != litellm.token_counter(
+    assert embrouter.token_counter(model=legacy_model, messages=messages) != embrouter.token_counter(
         model=CL100K_MODEL, messages=messages
     )
     assert bridge.rust_tokenizer(legacy_model) is None
@@ -204,7 +204,7 @@ def test_rust_tokenizer_names_the_encoding_python_actually_counts_with(model: st
     text: Final = (
         "Hello, world! camelCase ABCdef \u00e9\u00e8 12345 \u3053\u3093\u306b\u3061\u306f <|endoftext|>\r\n" * 9
     )
-    python_count: Final = litellm.token_counter(model=model, text=text)
+    python_count: Final = embrouter.token_counter(model=model, text=text)
     cl100k_count: Final = Tokenizer.from_tiktoken("cl100k_base").count(text)
     o200k_count: Final = Tokenizer.from_tiktoken("o200k_base").count(text)
     assert cl100k_count != o200k_count
@@ -221,7 +221,7 @@ def test_rust_tokenizer_names_the_encoding_python_actually_counts_with(model: st
 
 
 def test_disabled_hf_download_routes_anthropic_models_to_cl100k_like_python(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_hf_tokenizer_download", True)
+    monkeypatch.setattr(embrouter, "disable_hf_tokenizer_download", True)
 
     assert bridge.rust_tokenizer(MODEL) == "cl100k_base"
     assert bridge.rust_tokenizer("meta-llama/Llama-3-8b") == "cl100k_base"
@@ -229,7 +229,7 @@ def test_disabled_hf_download_routes_anthropic_models_to_cl100k_like_python(monk
 
 
 def test_disabled_token_counter_declines_every_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_token_counter", True)
+    monkeypatch.setattr(embrouter, "disable_token_counter", True)
 
     assert bridge.rust_tokenizer(MODEL) is None
     assert bridge.rust_tokenizer(CL100K_MODEL) is None
@@ -313,7 +313,7 @@ PARITY_MODELS: Final[tuple[tuple[str, bridge.RustTokenizer], ...]] = (
 async def test_native_count_matches_python_budget_counter(
     request_body: dict[str, object], model: str, tokenizer: bridge.RustTokenizer
 ) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     body: Final = json.dumps(request_body).replace(MODEL, model)
     parsed: Final = json.loads(body)
 
@@ -328,7 +328,7 @@ async def test_tiktoken_counts_long_text_exactly_where_python_chunks(
     model: str, tokenizer: bridge.RustTokenizer
 ) -> None:
     """Python encodes tiktoken text in fixed-size chunks (drift of up to one token per chunk boundary); Rust does not."""
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     text: Final = "x " * 20_000
     body: Final = {"model": model, "messages": [{"role": "user", "content": text}]}
     encoding: Final = Tokenizer.from_tiktoken(tokenizer)
@@ -362,7 +362,7 @@ DECLINED_REQUESTS: Final[tuple[dict[str, object], ...]] = (
 async def test_native_declines_shapes_python_prices_differently(
     request_body: dict[str, object], tokenizer: bridge.RustTokenizer
 ) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     raw, _ = _counted(request_body, MODEL_BY_TOKENIZER[tokenizer])
 
     with pytest.raises(native.RustBridgeDeclined):

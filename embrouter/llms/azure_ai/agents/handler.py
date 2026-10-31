@@ -28,25 +28,25 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias, TypedDict
 import httpx
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.azure_ai.agents.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.azure_ai.agents.transformation import (
     AzureAIAgentsConfig,
     AzureAIAgentsError,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionAnnotation,
     ChatCompletionAnnotationURLCitation,
 )
-from litellm.types.utils import ModelResponse, ModelResponseStream
+from embrouter.types.utils import ModelResponse, ModelResponseStream
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HTTPHandler = Any
     AsyncHTTPHandler = Any
 
@@ -219,7 +219,7 @@ class AzureAIAgentsHandler:
         annotations: list[_TransformedAnnotation] | None = None,
     ) -> ModelResponse:
         """Build the ModelResponse from agent output."""
-        from litellm.types.utils import Choices, Message, Usage
+        from embrouter.types.utils import Choices, Message, Usage
 
         model_response.choices = [
             Choices(
@@ -237,7 +237,7 @@ class AzureAIAgentsHandler:
 
         # Estimate token usage
         try:
-            from litellm.utils import token_counter
+            from embrouter.utils import token_counter
 
             prompt_tokens: Final = token_counter(model="gpt-3.5-turbo", messages=messages)
             completion_tokens: Final = token_counter(model="gpt-3.5-turbo", text=content, count_response_tokens=True)
@@ -306,18 +306,18 @@ class AzureAIAgentsHandler:
         api_base: str,
         api_key: str,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float,
         client: HTTPHandler | None = None,
         headers: dict | None = None,
     ) -> ModelResponse:
         """Execute synchronous completion using Azure Agent Service."""
-        from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
         if client is None:
-            client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
 
         (
             headers,
@@ -430,21 +430,21 @@ class AzureAIAgentsHandler:
         api_base: str,
         api_key: str,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float,
         client: AsyncHTTPHandler | None = None,
         headers: dict | None = None,
     ) -> ModelResponse:
         """Execute asynchronous completion using Azure Agent Service."""
-        import litellm
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        import embrouter
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
         if client is None:
             client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.AZURE_AI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.AZURE_AI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
 
         (
@@ -557,15 +557,15 @@ class AzureAIAgentsHandler:
         messages: list[dict[str, object]],
         api_base: str,
         api_key: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float,
         headers: dict | None = None,
     ) -> AsyncIterator[ModelResponseStream]:
         """Execute async streaming completion using Azure Agent Service with native SSE."""
-        import litellm
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        import embrouter
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
         (
             headers,
@@ -596,10 +596,10 @@ class AzureAIAgentsHandler:
         url: Final = self._build_create_thread_and_run_url(api_base, api_version)
         verbose_logger.debug("Azure AI Agents streaming - URL: %s", url)
 
-        # Use LiteLLM's async HTTP client for streaming
+        # Use EmbRouter's async HTTP client for streaming
         client: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.AZURE_AI,
-            params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+            llm_provider=embrouter.LlmProviders.AZURE_AI,
+            params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
         )
 
         response: Final = await client.post(
@@ -625,7 +625,7 @@ class AzureAIAgentsHandler:
         model: str,
     ) -> AsyncIterator[ModelResponseStream]:
         """Process SSE stream and yield OpenAI-compatible streaming chunks."""
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         response_id: Final = f"chatcmpl-{uuid.uuid4().hex[:8]}"
         created: Final = int(time.time())

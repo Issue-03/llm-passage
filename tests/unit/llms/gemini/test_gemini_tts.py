@@ -6,9 +6,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
-import litellm
-from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-from litellm.utils import get_supported_openai_params
+import embrouter
+from embrouter.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+from embrouter.utils import get_supported_openai_params
 
 
 class TestGeminiTTSTransformation:
@@ -209,7 +209,7 @@ class TestGeminiTTSTransformation:
             )
 
     def test_gemini_tts_utils_integration(self):
-        """Test integration with LiteLLM utils functions"""
+        """Test integration with EmbRouter utils functions"""
         # Test that get_supported_openai_params works with TTS models
         params = get_supported_openai_params("gemini-2.5-flash-preview-tts", "gemini")
         assert "audio" in params
@@ -221,7 +221,7 @@ class TestGeminiTTSTransformation:
 
 def test_gemini_tts_completion_mock():
     """Test Gemini TTS completion with mocked response"""
-    with patch("litellm.completion") as mock_completion:
+    with patch("embrouter.completion") as mock_completion:
         # Mock a successful TTS response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -229,7 +229,7 @@ def test_gemini_tts_completion_mock():
         mock_completion.return_value = mock_response
 
         # Test completion call with audio parameter
-        response = litellm.completion(
+        response = embrouter.completion(
             model="gemini-2.5-flash-preview-tts",
             messages=[{"role": "user", "content": "Say hello"}],
             audio={"voice": "Kore", "format": "pcm16"},
@@ -261,7 +261,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
         self, model, custom_llm_provider
     ):
         """Test that speechConfig is included in generationConfig after _transform_request_body()"""
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from embrouter.llms.vertex_ai.gemini.transformation import (
             _transform_request_body,
         )
 
@@ -281,7 +281,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            embrouter_params={},
             cached_content=None,
         )
 
@@ -309,10 +309,10 @@ class TestGeminiTTSSpeechConfigInRequestBody:
     )
     def test_speechconfig_end_to_end_mapping(self, model, custom_llm_provider):
         """Test full pipeline: audio param -> map_openai_params -> _transform_request_body"""
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from embrouter.llms.vertex_ai.gemini.transformation import (
             _transform_request_body,
         )
 
@@ -340,7 +340,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=mapped_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            embrouter_params={},
             cached_content=None,
         )
 
@@ -372,10 +372,10 @@ class TestGeminiTTSSpeechConfigInRequestBody:
         ],
     )
     def test_language_code_end_to_end_mapping(self, model, custom_llm_provider):
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from embrouter.llms.vertex_ai.gemini.transformation import (
             _transform_request_body,
         )
 
@@ -400,7 +400,7 @@ class TestGeminiTTSSpeechConfigInRequestBody:
             model=model,
             optional_params=mapped_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params={},
+            embrouter_params={},
             cached_content=None,
         )
 

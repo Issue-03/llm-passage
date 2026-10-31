@@ -9,10 +9,10 @@ from typing import Final, Protocol, runtime_checkable
 import httpx
 from pydantic import JsonValue
 
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Rules, SecretManagerContext, decision
-from litellm.rust_bridge.configuration import Decision
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Rules, SecretManagerContext, decision
+from embrouter.rust_bridge.configuration import Decision
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +41,7 @@ class _ClientAdapter:
 _ADAPTERS: Final = (
     _ClientAdapter(
         KeyManagementSystem.AWS_SECRET_MANAGER,
-        "litellm.secret_managers.aws_secret_manager_v2",
+        "embrouter.secret_managers.aws_secret_manager_v2",
         "AWSSecretsManagerV2",
         ("sync_read_secret", "async_read_secret"),
         settings_attributes=(
@@ -58,7 +58,7 @@ _ADAPTERS: Final = (
     ),
     _ClientAdapter(
         KeyManagementSystem.HASHICORP_VAULT,
-        "litellm.secret_managers.hashicorp_secret_manager",
+        "embrouter.secret_managers.hashicorp_secret_manager",
         "HashicorpSecretManager",
         ("sync_read_secret", "async_read_secret", "async_write_secret", "async_delete_secret", "async_rotate_secret"),
         environment_attributes=(
@@ -81,7 +81,7 @@ _ADAPTERS: Final = (
     ),
     _ClientAdapter(
         KeyManagementSystem.CYBERARK,
-        "litellm.secret_managers.cyberark_secret_manager",
+        "embrouter.secret_managers.cyberark_secret_manager",
         "CyberArkSecretManager",
         ("sync_read_secret", "async_read_secret", "async_write_secret", "async_delete_secret", "async_rotate_secret"),
         environment_attributes=(
@@ -98,7 +98,7 @@ _ADAPTERS: Final = (
     ),
     _ClientAdapter(
         KeyManagementSystem.GOOGLE_SECRET_MANAGER,
-        "litellm.secret_managers.google_secret_manager",
+        "embrouter.secret_managers.google_secret_manager",
         "GoogleSecretManager",
         ("get_secret_from_google_secret_manager",),
         environment_attributes=(
@@ -132,7 +132,7 @@ def _capture(client: object, adapter: _ClientAdapter) -> NativeSecretManagerConf
         settings_attributes=adapter.settings_attributes,
         methods=tuple((name, getattr(type(client), name)) for name in adapter.methods),
     )
-    vars(client)["_litellm_native_secret_config"] = config
+    vars(client)["_embrouter_native_secret_config"] = config
     return config
 
 
@@ -154,7 +154,7 @@ def capture_secret_manager(client: object, system: str) -> None:
 
 
 def native_secret_manager_config(client: object) -> NativeSecretManagerConfig | None:
-    captured: Final = getattr(client, "_litellm_native_secret_config", None)
+    captured: Final = getattr(client, "_embrouter_native_secret_config", None)
     if isinstance(captured, NativeSecretManagerConfig):
         return captured
     for adapter in _ADAPTERS:

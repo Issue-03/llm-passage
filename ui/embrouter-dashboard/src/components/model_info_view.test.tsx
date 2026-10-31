@@ -70,11 +70,11 @@ describe("ModelInfoView", () => {
 
   const defaultModelData = {
     model_name: "GPT-4",
-    litellm_params: {
+    embrouter_params: {
       model: "gpt-4",
       api_base: "https://api.openai.com/v1",
       custom_llm_provider: "openai",
-      litellm_credential_name: "selected-credential",
+      embrouter_credential_name: "selected-credential",
     },
     model_info: {
       id: "123",
@@ -289,7 +289,7 @@ describe("ModelInfoView", () => {
     });
 
     const callArgs = mockTestConnectionRequest.mock.calls[0];
-    // Signature: (accessToken, litellm_params, model_info, mode)
+    // Signature: (accessToken, embrouter_params, model_info, mode)
     const modelInfoArg = callArgs[2] as Record<string, unknown>;
     expect(modelInfoArg).toBeDefined();
     expect(modelInfoArg.id).toBe("123");
@@ -420,7 +420,7 @@ describe("ModelInfoView", () => {
     await waitFor(() => {
       expect(mockModelPatchUpdateCall).toHaveBeenCalled();
     });
-    expect(mockModelPatchUpdateCall.mock.calls[0][1].litellm_params.input_cost_per_token).toBeCloseTo(5 / 1_000_000);
+    expect(mockModelPatchUpdateCall.mock.calls[0][1].embrouter_params.input_cost_per_token).toBeCloseTo(5 / 1_000_000);
   });
 
   it("should display model information in overview tab", async () => {
@@ -439,7 +439,7 @@ describe("ModelInfoView", () => {
           {
             ...defaultModelData,
             model_name: "veo-3.1-fast",
-            litellm_params: { model: "vertex_ai/veo-3.1-fast-generate-001" },
+            embrouter_params: { model: "vertex_ai/veo-3.1-fast-generate-001" },
             model_info: {
               ...defaultModelData.model_info,
               input_cost_per_token: 0,
@@ -624,7 +624,7 @@ describe("ModelInfoView", () => {
     });
   });
 
-  it("should keep selector credential and ignore litellm_credential_name from EmbRouter Params json", async () => {
+  it("should keep selector credential and ignore embrouter_credential_name from EmbRouter Params json", async () => {
     const user = userEvent.setup();
     render(<ModelInfoView {...DEFAULT_ADMIN_PROPS} />, { wrapper });
 
@@ -634,19 +634,19 @@ describe("ModelInfoView", () => {
 
     await user.click(screen.getByRole("button", { name: /edit settings/i }));
 
-    const litellmParamsInput = screen
+    const embrouterParamsInput = screen
       .getAllByRole("textbox")
       .find(
         (input) =>
           input.tagName === "TEXTAREA" && (input as HTMLTextAreaElement).value.includes('"custom_llm_provider"'),
       );
-    expect(litellmParamsInput).toBeDefined();
-    if (!litellmParamsInput) {
+    expect(embrouterParamsInput).toBeDefined();
+    if (!embrouterParamsInput) {
       return;
     }
-    expect((litellmParamsInput as HTMLTextAreaElement).value).not.toContain("litellm_credential_name");
-    await user.clear(litellmParamsInput);
-    await user.paste(`{"litellm_credential_name":"from-json","timeout":42}`);
+    expect((embrouterParamsInput as HTMLTextAreaElement).value).not.toContain("embrouter_credential_name");
+    await user.clear(embrouterParamsInput);
+    await user.paste(`{"embrouter_credential_name":"from-json","timeout":42}`);
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
@@ -655,13 +655,13 @@ describe("ModelInfoView", () => {
     });
 
     const updatePayload = mockModelPatchUpdateCall.mock.calls[0][1];
-    expect(updatePayload.litellm_params).not.toHaveProperty("litellm_credential_name");
-    expect(updatePayload.litellm_params.litellm_credential_name).not.toBe("from-json");
+    expect(updatePayload.embrouter_params).not.toHaveProperty("embrouter_credential_name");
+    expect(updatePayload.embrouter_params.embrouter_credential_name).not.toBe("from-json");
   });
 
   it("should not include vector_store_ids in update payload when model has none", async () => {
     // Regression: editing a model without vector stores used to inject
-    // vector_store_ids: [] into litellm_params, which then propagated to
+    // vector_store_ids: [] into embrouter_params, which then propagated to
     // inference requests and broke Anthropic calls.
     const user = userEvent.setup();
     render(<ModelInfoView {...DEFAULT_ADMIN_PROPS} />, { wrapper });
@@ -683,7 +683,7 @@ describe("ModelInfoView", () => {
     });
 
     const updatePayload = mockModelPatchUpdateCall.mock.calls[0][1];
-    expect(updatePayload.litellm_params).not.toHaveProperty("vector_store_ids");
+    expect(updatePayload.embrouter_params).not.toHaveProperty("vector_store_ids");
   });
 
   describe("PTU cost attribution gate", () => {
@@ -691,7 +691,7 @@ describe("ModelInfoView", () => {
       ...defaultModelData,
       // Zero per-token pricing is what the backend stores for a PTU deployment, since the flat
       // cost of its reserved capacity already covers the traffic that capacity serves.
-      litellm_params: { ...defaultModelData.litellm_params, input_cost_per_token: 0, output_cost_per_token: 0 },
+      embrouter_params: { ...defaultModelData.embrouter_params, input_cost_per_token: 0, output_cost_per_token: 0 },
       model_info: {
         ...defaultModelData.model_info,
         team_id: "team-1",
@@ -997,7 +997,7 @@ describe("ModelInfoView", () => {
 
   it("should not include input_cost_per_token or output_cost_per_token in update payload when user does not touch cost fields", async () => {
     // Regression: editing a model without touching cost fields used to inject
-    // input_cost_per_token: 0 and output_cost_per_token: 0 into litellm_params,
+    // input_cost_per_token: 0 and output_cost_per_token: 0 into embrouter_params,
     // overriding the built-in pricing table from model_prices_and_context_window.json.
     const user = userEvent.setup();
     render(<ModelInfoView {...DEFAULT_ADMIN_PROPS} />, { wrapper });
@@ -1019,19 +1019,19 @@ describe("ModelInfoView", () => {
     });
 
     const updatePayload = mockModelPatchUpdateCall.mock.calls[0][1];
-    expect(updatePayload.litellm_params).not.toHaveProperty("input_cost_per_token");
-    expect(updatePayload.litellm_params).not.toHaveProperty("output_cost_per_token");
+    expect(updatePayload.embrouter_params).not.toHaveProperty("input_cost_per_token");
+    expect(updatePayload.embrouter_params).not.toHaveProperty("output_cost_per_token");
   });
 
   it("never re-sends a masked secret on save (regression: masked auth value must not overwrite the real secret)", async () => {
     // /model/info redacts secrets by masking (e.g. "azur****BBCC"), not removing them.
-    // A plain save re-PATCHes the whole litellm_params blob; if the masked value were
+    // A plain save re-PATCHes the whole embrouter_params blob; if the masked value were
     // sent, the backend would encrypt the asterisks over the real azure_ad_token and
     // silently destroy the credential. The edit form must strip masked values entirely.
     const maskedSecret = "azur********************************************BBCC";
     const maskedModelData = {
       ...defaultModelData,
-      litellm_params: {
+      embrouter_params: {
         model: "azure/gpt-4o",
         api_base: "https://example-az.openai.azure.com",
         custom_llm_provider: "azure",
@@ -1063,16 +1063,16 @@ describe("ModelInfoView", () => {
     });
 
     const updatePayload = mockModelPatchUpdateCall.mock.calls[0][1];
-    expect(updatePayload.litellm_params.azure_ad_token).not.toBe(maskedSecret);
+    expect(updatePayload.embrouter_params.azure_ad_token).not.toBe(maskedSecret);
     // No masked value may appear anywhere in the outbound params.
-    expect(JSON.stringify(updatePayload.litellm_params)).not.toContain("**");
+    expect(JSON.stringify(updatePayload.embrouter_params)).not.toContain("**");
   });
 
   it("should display health check model field for wildcard models", async () => {
     const wildcardModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "openai/gpt-4*",
       },
     };
@@ -1102,8 +1102,8 @@ describe("ModelInfoView", () => {
   it("should display edit auto router button for auto router models", async () => {
     const autoRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         auto_router_config: {},
       },
     };
@@ -1125,8 +1125,8 @@ describe("ModelInfoView", () => {
   it("does not offer Test Connection for semantic auto router models (no tier-based test exists yet)", async () => {
     const semanticAutoRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         auto_router_config: {},
       },
     };
@@ -1149,8 +1149,8 @@ describe("ModelInfoView", () => {
   it("tests each complexity tier's model group instead of sending the router pseudo-model to /health/test_connection (regression: raw test previously threw 'Unmapped LLM provider... model=complexity_router')", async () => {
     const complexityRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "auto_router/complexity_router",
         complexity_router_config: {
           tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: ["gpt-4o"], COMPLEX: [], REASONING: [] },
@@ -1181,8 +1181,8 @@ describe("ModelInfoView", () => {
   it("also tests the configured default model when an unconfigured tier would fall back to it in production", async () => {
     const complexityRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "auto_router/complexity_router",
         complexity_router_config: {
           tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: [], COMPLEX: [], REASONING: [] },
@@ -1213,8 +1213,8 @@ describe("ModelInfoView", () => {
   it("does not duplicate the default model as a test target when it is already covered by a configured tier", async () => {
     const complexityRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "auto_router/complexity_router",
         complexity_router_config: {
           tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: ["gpt-4o"], COMPLEX: [], REASONING: [] },
@@ -1245,8 +1245,8 @@ describe("ModelInfoView", () => {
   it("warns instead of erroring when no complexity tiers are configured to test", async () => {
     const complexityRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "auto_router/complexity_router",
         complexity_router_config: {
           tiers: { SIMPLE: [], MEDIUM: [], COMPLEX: [], REASONING: [] },
@@ -1275,14 +1275,14 @@ describe("ModelInfoView", () => {
   });
 
   // Bugbot finding on #36615: complexity_router_config.default_model is a UI-only bookkeeping
-  // marker — init_complexity_router_deployment (litellm/router.py) never reads it, falling back
-  // to tier-derivation instead when litellm_params.complexity_router_default_model is absent.
+  // marker — init_complexity_router_deployment (embrouter/router.py) never reads it, falling back
+  // to tier-derivation instead when embrouter_params.complexity_router_default_model is absent.
   // Probing the blob field here would test a model the running router never calls.
-  it("ignores an unused config blob pin when litellm_params has no default, matching the backend's own tier-derivation fallback", async () => {
+  it("ignores an unused config blob pin when embrouter_params has no default, matching the backend's own tier-derivation fallback", async () => {
     const complexityRouterModelData = {
       ...defaultModelData,
-      litellm_params: {
-        ...defaultModelData.litellm_params,
+      embrouter_params: {
+        ...defaultModelData.embrouter_params,
         model: "auto_router/complexity_router",
         complexity_router_config: {
           tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: [], COMPLEX: [], REASONING: [] },
@@ -1427,8 +1427,8 @@ describe("ModelInfoView", () => {
         data: [
           {
             ...defaultModelData,
-            litellm_params: {
-              ...defaultModelData.litellm_params,
+            embrouter_params: {
+              ...defaultModelData.embrouter_params,
               custom_llm_provider: "zzz-internal",
             },
           },
@@ -1452,9 +1452,9 @@ describe("ModelInfoView", () => {
   // elsewhere. These rows stay reachable from Health Status and direct ?model= links even
   // though the Models table now excludes auto-routers, so the button itself has to be gated.
   describe("Edit Auto Router affordance", () => {
-    const withRouter = (litellmParams: Record<string, unknown>) => {
+    const withRouter = (embrouterParams: Record<string, unknown>) => {
       mockUseModelsInfo.mockReturnValue({
-        data: { data: [{ ...defaultModelData, litellm_params: { ...litellmParams } }] },
+        data: { data: [{ ...defaultModelData, embrouter_params: { ...embrouterParams } }] },
         isLoading: false,
         error: null,
       });
@@ -1482,9 +1482,9 @@ describe("ModelInfoView", () => {
   // An auto router has no upstream credential, so the credential actions are meaningless for
   // every strategy, and the destructive action should name what it actually removes.
   describe("auto-router header actions", () => {
-    const withParams = (litellmParams: Record<string, unknown>) => {
+    const withParams = (embrouterParams: Record<string, unknown>) => {
       mockUseModelsInfo.mockReturnValue({
-        data: { data: [{ ...defaultModelData, litellm_params: { ...litellmParams } }] },
+        data: { data: [{ ...defaultModelData, embrouter_params: { ...embrouterParams } }] },
         isLoading: false,
         error: null,
       });
@@ -1562,7 +1562,7 @@ describe("ModelInfoView", () => {
       await waitFor(() => expect(mockModelPatchUpdateCall).toHaveBeenCalled());
       return mockModelPatchUpdateCall.mock.calls[0][1] as {
         model_name: string;
-        litellm_params: Record<string, unknown>;
+        embrouter_params: Record<string, unknown>;
         model_info: Record<string, unknown>;
       };
     };
@@ -1574,7 +1574,7 @@ describe("ModelInfoView", () => {
 
       expect(payload).toEqual({
         model_name: "GPT-4",
-        litellm_params: {
+        embrouter_params: {
           model: "gpt-4",
           api_base: "https://api.openai.com/v1",
           custom_llm_provider: "openai",
@@ -1623,7 +1623,7 @@ describe("ModelInfoView", () => {
       const payload = await save(user);
 
       expect(payload.model_name).toBe("renamed-model");
-      expect(payload.litellm_params).toMatchObject({
+      expect(payload.embrouter_params).toMatchObject({
         model: "gpt-4o",
         api_base: "https://example.test/v1",
         custom_llm_provider: "azure",
@@ -1648,7 +1648,7 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params).toMatchObject({
+      expect(payload.embrouter_params).toMatchObject({
         output_cost_per_token: 0.000012,
         cache_read_input_token_cost: 0.000005,
         cache_creation_input_token_cost: 0.000009,
@@ -1672,8 +1672,8 @@ describe("ModelInfoView", () => {
       const payload = await save(user);
 
       expect(payload.model_info.access_groups).toEqual(["beta-testers"]);
-      expect(payload.litellm_params.guardrails).toEqual(["content_filter"]);
-      expect(payload.litellm_params.tags).toEqual(["production_tag"]);
+      expect(payload.embrouter_params.guardrails).toEqual(["content_filter"]);
+      expect(payload.embrouter_params.tags).toEqual(["production_tag"]);
     });
 
     it("sends the edited model info JSON", async () => {
@@ -1795,7 +1795,7 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params.drop_params).toBe(true);
+      expect(payload.embrouter_params.drop_params).toBe(true);
     });
 
     it("sends the credential picked in the selector", async () => {
@@ -1813,7 +1813,7 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params.litellm_credential_name).toBe("other-credential");
+      expect(payload.embrouter_params.embrouter_credential_name).toBe("other-credential");
     });
 
     it("sends explicit null when None is picked for a model with a stored credential", async () => {
@@ -1825,8 +1825,8 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params.litellm_credential_name).toBeNull();
-      expect("litellm_credential_name" in payload.litellm_params).toBe(true);
+      expect(payload.embrouter_params.embrouter_credential_name).toBeNull();
+      expect("embrouter_credential_name" in payload.embrouter_params).toBe(true);
     });
 
     it("omits the credential when it is cleared and then restored before saving", async () => {
@@ -1840,15 +1840,15 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params).not.toHaveProperty("litellm_credential_name");
+      expect(payload.embrouter_params).not.toHaveProperty("embrouter_credential_name");
     });
 
     it("omits the credential when None is picked for a model that never had one", async () => {
-      const { litellm_credential_name: _storedCredential, ...litellmParamsWithoutCredential } =
-        defaultModelData.litellm_params;
+      const { embrouter_credential_name: _storedCredential, ...embrouterParamsWithoutCredential } =
+        defaultModelData.embrouter_params;
       const modelWithoutCredential = {
         ...defaultModelData,
-        litellm_params: litellmParamsWithoutCredential,
+        embrouter_params: embrouterParamsWithoutCredential,
       };
       mockUseModelsInfo.mockReturnValue({ data: { data: [modelWithoutCredential] }, isLoading: false, error: null });
       mockModelInfoV1Call.mockResolvedValue({ data: [modelWithoutCredential] });
@@ -1860,8 +1860,8 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params).not.toHaveProperty("litellm_credential_name");
-      expect(payload.litellm_params.litellm_credential_name).not.toBe("");
+      expect(payload.embrouter_params).not.toHaveProperty("embrouter_credential_name");
+      expect(payload.embrouter_params.embrouter_credential_name).not.toBe("");
     });
 
     it("restores the stored credential in the selector after cancel", async () => {
@@ -1924,13 +1924,13 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params.vector_store_ids).toEqual(["vs-beta"]);
+      expect(payload.embrouter_params.vector_store_ids).toEqual(["vs-beta"]);
     });
 
     it("sends the health check model picked for a wildcard deployment", async () => {
       const wildcard = {
         ...defaultModelData,
-        litellm_params: { ...defaultModelData.litellm_params, model: "openai/gpt-4*" },
+        embrouter_params: { ...defaultModelData.embrouter_params, model: "openai/gpt-4*" },
       };
       mockUseModelsInfo.mockReturnValue({ data: { data: [wildcard] }, isLoading: false, error: null });
       mockModelInfoV1Call.mockResolvedValue({ data: [wildcard] });
@@ -1968,8 +1968,8 @@ describe("ModelInfoView", () => {
 
       const payload = await save(user);
 
-      expect(payload.litellm_params.input_cost_per_token).toBe(0.00003);
-      expect(payload.litellm_params.cache_read_input_token_cost).toBe(0.00003);
+      expect(payload.embrouter_params.input_cost_per_token).toBe(0.00003);
+      expect(payload.embrouter_params.cache_read_input_token_cost).toBe(0.00003);
     });
 
     it("clears a pricing override with an explicit null once the field is emptied", async () => {
@@ -1979,15 +1979,15 @@ describe("ModelInfoView", () => {
       await user.clear(screen.getByPlaceholderText("Enter input cost"));
       const payload = await save(user);
 
-      expect(payload.litellm_params.input_cost_per_token).toBeNull();
-      expect(payload.litellm_params).not.toHaveProperty("cache_read_input_token_cost");
+      expect(payload.embrouter_params.input_cost_per_token).toBeNull();
+      expect(payload.embrouter_params).not.toHaveProperty("cache_read_input_token_cost");
     });
 
     describe("cache control injection points", () => {
       const withCachePoints = (points: unknown) => {
         const data = {
           ...defaultModelData,
-          litellm_params: { ...defaultModelData.litellm_params, cache_control_injection_points: points },
+          embrouter_params: { ...defaultModelData.embrouter_params, cache_control_injection_points: points },
         };
         mockUseModelsInfo.mockReturnValue({ data: { data: [data] }, isLoading: false, error: null });
         mockModelInfoV1Call.mockResolvedValue({ data: [data] });
@@ -1998,7 +1998,7 @@ describe("ModelInfoView", () => {
         await enterEditMode(user);
         const payload = await save(user);
 
-        expect(payload.litellm_params).not.toHaveProperty("cache_control_injection_points");
+        expect(payload.embrouter_params).not.toHaveProperty("cache_control_injection_points");
       });
 
       it("hides the injection point rows until the toggle is on", async () => {
@@ -2018,7 +2018,7 @@ describe("ModelInfoView", () => {
         await enterEditMode(user);
         const payload = await save(user);
 
-        expect(payload.litellm_params.cache_control_injection_points).toEqual([{ location: "message", role: "user" }]);
+        expect(payload.embrouter_params.cache_control_injection_points).toEqual([{ location: "message", role: "user" }]);
       });
 
       it("sends an explicit null when the operator turns the toggle off so the backend clears the stored points", async () => {
@@ -2029,7 +2029,7 @@ describe("ModelInfoView", () => {
         await user.click(screen.getByRole("switch"));
         const payload = await save(user);
 
-        expect(payload.litellm_params.cache_control_injection_points).toBeNull();
+        expect(payload.embrouter_params.cache_control_injection_points).toBeNull();
       });
 
       it("adds a typed index as a string, matching what the deployment already stores", async () => {
@@ -2040,7 +2040,7 @@ describe("ModelInfoView", () => {
         await user.type(screen.getByPlaceholderText("Optional"), "2");
         const payload = await save(user);
 
-        expect(payload.litellm_params.cache_control_injection_points).toEqual([{ location: "message", index: "2" }]);
+        expect(payload.embrouter_params.cache_control_injection_points).toEqual([{ location: "message", index: "2" }]);
       });
     });
 
@@ -2055,7 +2055,7 @@ describe("ModelInfoView", () => {
       const payload = await save(user);
 
       expect(mockModelPatchUpdateCall.mock.calls[0][2]).toBe("123");
-      expect(payload.litellm_params.input_cost_per_token).toBe(5 / 1_000_000);
+      expect(payload.embrouter_params.input_cost_per_token).toBe(5 / 1_000_000);
     });
 
     it.fails(
@@ -2066,7 +2066,7 @@ describe("ModelInfoView", () => {
         setInputCost("5");
         const payload = await save(user);
 
-        expect(payload).toStrictEqual({ litellm_params: { input_cost_per_token: 5 / 1_000_000 } });
+        expect(payload).toStrictEqual({ embrouter_params: { input_cost_per_token: 5 / 1_000_000 } });
       },
     );
 

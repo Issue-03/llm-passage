@@ -5,18 +5,18 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.exceptions import InternalServerError
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
-from litellm.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import InternalServerError
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import ProxyErrorTypes, UserAPIKeyAuth
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy
+from embrouter.types.guardrails import GuardrailEventHooks
 
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from litellm.proxy.utils import get_custom_url, join_paths
+from embrouter.proxy.utils import get_custom_url, join_paths
 
 ISSUE_URL_BASE = "https://issues.example.com/new"
 
@@ -24,15 +24,15 @@ ISSUE_URL_BASE = "https://issues.example.com/new"
 @pytest.fixture(autouse=True)
 def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
-    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+    monkeypatch.setenv("EMBROUTER_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
 
 
 def test_get_custom_url(monkeypatch):
-    monkeypatch.setenv("SERVER_ROOT_PATH", "/litellm")
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/embrouter")
     custom_url = get_custom_url(request_base_url="http://0.0.0.0:4000", route="ui/")
-    assert custom_url == "http://0.0.0.0:4000/litellm/ui/"
+    assert custom_url == "http://0.0.0.0:4000/embrouter/ui/"
 
 
 def test_proxy_only_error_true_for_llm_route():
@@ -84,19 +84,19 @@ def test_proxy_only_error_false_for_other_error_type():
 async def test_proxy_only_error_log_marks_no_upstream_llm_call():
     """A proxy-gate error (auth/rate-limit) synthesizes a ``Logging`` object and
     fires ``pre_call`` so the failure is logged — but it must tag the object with
-    ``LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL`` so tracing callbacks don't fabricate
+    ``EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL`` so tracing callbacks don't fabricate
     an LLM-call span for a request that never reached a provider (root cause of the
     misplaced gen-AI span on auth failure)."""
-    from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.constants import EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
 
     def fake_pre_call(self, *args, **kwargs):
-        captured["flag"] = self.model_call_details.get(LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL)
+        captured["flag"] = self.model_call_details.get(EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL)
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     orig_pre_call = Logging.pre_call
     orig_async_failure = Logging.async_failure_handler
@@ -124,22 +124,22 @@ async def test_proxy_only_error_log_marks_no_upstream_llm_call():
 
 
 @pytest.mark.asyncio
-async def test_proxy_only_error_log_keeps_litellm_metadata_in_litellm_params():
-    """Responses API requests carry guardrail info under ``litellm_metadata``
-    (not ``metadata``). It must land in litellm_params so
-    ``merge_litellm_metadata`` can surface ``guardrail_information`` in the
+async def test_proxy_only_error_log_keeps_embrouter_metadata_in_embrouter_params():
+    """Responses API requests carry guardrail info under ``embrouter_metadata``
+    (not ``metadata``). It must land in embrouter_params so
+    ``merge_embrouter_metadata`` can surface ``guardrail_information`` in the
     spend-log failure row, matching the chat completions path."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
     guardrail_info = [{"guardrail_name": "test-guard", "guardrail_status": "blocked"}]
 
     def fake_update_environment_variables(self, *args, **kwargs):
-        captured["litellm_params"] = kwargs.get("litellm_params")
+        captured["embrouter_params"] = kwargs.get("embrouter_params")
         captured["optional_params"] = kwargs.get("optional_params")
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     orig_update_env = Logging.update_environment_variables
     orig_pre_call = Logging.pre_call
@@ -156,7 +156,7 @@ async def test_proxy_only_error_log_keeps_litellm_metadata_in_litellm_params():
             request_data={
                 "model": "gpt-4o",
                 "input": "blocked prompt",
-                "litellm_metadata": {"standard_logging_guardrail_information": guardrail_info},
+                "embrouter_metadata": {"standard_logging_guardrail_information": guardrail_info},
             },
             user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/v1/responses"),
             route="/v1/responses",
@@ -167,29 +167,29 @@ async def test_proxy_only_error_log_keeps_litellm_metadata_in_litellm_params():
         Logging.pre_call = orig_pre_call
         Logging.async_failure_handler = orig_async_failure
 
-    assert captured["litellm_params"]["litellm_metadata"]["standard_logging_guardrail_information"] == guardrail_info
-    assert "litellm_metadata" not in captured["optional_params"]
+    assert captured["embrouter_params"]["embrouter_metadata"]["standard_logging_guardrail_information"] == guardrail_info
+    assert "embrouter_metadata" not in captured["optional_params"]
 
 
 @pytest.mark.asyncio
-async def test_proxy_only_error_log_keeps_the_request_litellm_call_id(monkeypatch: pytest.MonkeyPatch):
-    """LIT-7836: a route that already stamped the caller's litellm_call_id must
+async def test_proxy_only_error_log_keeps_the_request_embrouter_call_id(monkeypatch: pytest.MonkeyPatch):
+    """LIT-7836: a route that already stamped the caller's embrouter_call_id must
     keep it when the failure is a proxy-only error, so the spend-log row and the
     error line share one id instead of a fresh uuid minted here."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     call_id: Final = "caller-supplied-7836"
     captured: dict[str, object] = {}
 
     def fake_pre_call(self, *args, **kwargs):
-        captured["litellm_call_id"] = self.litellm_call_id
+        captured["embrouter_call_id"] = self.embrouter_call_id
 
     async def _noop_async_failure(self, *args, **kwargs):
         return None
 
     monkeypatch.setattr(Logging, "pre_call", fake_pre_call)
     monkeypatch.setattr(Logging, "async_failure_handler", _noop_async_failure)
-    request_data: Final[dict[str, object]] = {"model": "gpt-4o", "input": "hi", "litellm_call_id": call_id}
+    request_data: Final[dict[str, object]] = {"model": "gpt-4o", "input": "hi", "embrouter_call_id": call_id}
 
     await ProxyLogging(user_api_key_cache=DualCache())._handle_logging_proxy_only_error(
         request_data=request_data,
@@ -198,26 +198,26 @@ async def test_proxy_only_error_log_keeps_the_request_litellm_call_id(monkeypatc
         original_exception=Exception("bad key"),
     )
 
-    assert request_data["litellm_call_id"] == call_id
-    assert captured["litellm_call_id"] == call_id
+    assert request_data["embrouter_call_id"] == call_id
+    assert captured["embrouter_call_id"] == call_id
 
 
 def test_get_model_group_info_order():
-    from litellm import Router
-    from litellm.proxy.proxy_server import _get_model_group_info
+    from embrouter import Router
+    from embrouter.proxy.proxy_server import _get_model_group_info
 
     router = Router(
         model_list=[
             {
                 "model_name": "openai/tts-1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/tts-1",
                     "api_key": "sk-1234",
                 },
             },
             {
                 "model_name": "openai/gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-3.5-turbo",
                     "api_key": "sk-1234",
                 },
@@ -282,11 +282,11 @@ def _patch_today(monkeypatch, year, month, day):
         def today(cls):
             return real_datetime.date(year, month, day)
 
-    monkeypatch.setattr("litellm.proxy.utils.date", PatchedDate)
+    monkeypatch.setattr("embrouter.proxy.utils.date", PatchedDate)
 
 
 def test_get_projected_spend_over_limit_day_one(monkeypatch):
-    from litellm.proxy.utils import _get_projected_spend_over_limit
+    from embrouter.proxy.utils import _get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 1, 1)
     result = _get_projected_spend_over_limit(100.0, 1.0)
@@ -298,7 +298,7 @@ def test_get_projected_spend_over_limit_day_one(monkeypatch):
 
 
 def test_get_projected_spend_over_limit_december(monkeypatch):
-    from litellm.proxy.utils import _get_projected_spend_over_limit
+    from embrouter.proxy.utils import _get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 12, 15)
     result = _get_projected_spend_over_limit(100.0, 1.0)
@@ -310,7 +310,7 @@ def test_get_projected_spend_over_limit_december(monkeypatch):
 
 
 def test_get_projected_spend_over_limit_includes_current_spend(monkeypatch):
-    from litellm.proxy.utils import _get_projected_spend_over_limit
+    from embrouter.proxy.utils import _get_projected_spend_over_limit
 
     _patch_today(monkeypatch, 2026, 4, 11)
     result = _get_projected_spend_over_limit(100.0, 200.0)
@@ -329,7 +329,7 @@ def test_get_projected_spend_over_limit_includes_current_spend(monkeypatch):
 
 def test_enrich_http_exception_with_guardrail_context_dict_detail():
     """L2: dict-detail HTTPException is enriched with guardrail_name and mode."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "bedrock-pii-guard"
@@ -343,7 +343,7 @@ def test_enrich_http_exception_with_guardrail_context_dict_detail():
 
 def test_enrich_http_exception_string_detail_noop():
     """L2: string-detail HTTPException is not mutated (can't add fields to a str)."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "x"
@@ -356,7 +356,7 @@ def test_enrich_http_exception_string_detail_noop():
 
 def test_enrich_http_exception_setdefault_does_not_overwrite():
     """L2: a guardrail that already populates guardrail_name explicitly wins."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "inferred-name"
@@ -372,7 +372,7 @@ def test_enrich_http_exception_setdefault_does_not_overwrite():
 
 def test_enrich_http_exception_non_http_exception_noop():
     """L2: non-HTTPException is left alone and the helper does not raise."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         guardrail_name = "x"
@@ -385,7 +385,7 @@ def test_enrich_http_exception_non_http_exception_noop():
 
 def test_enrich_http_exception_callback_without_guardrail_name_noop():
     """L2: callback without guardrail_name attribute leaves detail alone."""
-    from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+    from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
 
     class StubCallback:
         pass
@@ -407,7 +407,7 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []  # skip alerting branch
@@ -425,13 +425,13 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
         logging_obj.model_call_details = {"first_api_call_start_time": handoff}
         user_meta = {}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
             "metadata": user_meta,
         }
         await self._run(request_data)
 
         assert request_data["first_api_call_start_time"] == handoff
-        assert "litellm_logging_obj" not in request_data
+        assert "embrouter_logging_obj" not in request_data
         # user metadata is never touched
         assert user_meta == {}
         assert "first_api_call_start_time" not in request_data["metadata"]
@@ -446,10 +446,10 @@ class TestPostCallFailureHookLiftsFirstApiCallStartTime:
     async def test_logging_obj_without_anchor_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj}
+        request_data = {"embrouter_logging_obj": logging_obj}
         await self._run(request_data)
         assert "first_api_call_start_time" not in request_data
-        assert "litellm_logging_obj" not in request_data
+        assert "embrouter_logging_obj" not in request_data
 
 
 class TestPostCallFailureHookLiftsRecoveredPartialSpend:
@@ -463,7 +463,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -476,7 +476,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
 
     @pytest.mark.asyncio
     async def test_lifts_recovered_usage_and_cost(self):
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31)
         logging_obj = MagicMock()
@@ -484,22 +484,22 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
             "combined_usage_object": recovered_usage,
             "response_cost": 3.5e-05,
         }
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"embrouter_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
 
         assert request_data["combined_usage_object"] is recovered_usage
         assert request_data["response_cost"] == 3.5e-05
-        assert "litellm_logging_obj" not in request_data
+        assert "embrouter_logging_obj" not in request_data
 
     @pytest.mark.asyncio
     async def test_recovered_usage_without_cost_clobbers_client_cost_with_zero(self):
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31)
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"combined_usage_object": recovered_usage}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
             "response_cost": 999.0,
             "metadata": {},
         }
@@ -512,7 +512,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
     async def test_no_recovered_usage_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"embrouter_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert "combined_usage_object" not in request_data
         assert "response_cost" not in request_data
@@ -520,7 +520,7 @@ class TestPostCallFailureHookLiftsRecoveredPartialSpend:
 
 class TestPostCallFailureHookLiftsStandardLoggingObject:
     """Failure callbacks read standard_logging_object from request_data, but
-    post_call_failure_hook pops litellm_logging_obj before they run. The hook
+    post_call_failure_hook pops embrouter_logging_obj before they run. The hook
     must lift the logging obj's standard_logging_object onto request_data so
     failed-request spend logs keep deployment attribution (LIT-5795).
     """
@@ -528,7 +528,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -544,10 +544,10 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         sl_object = {"model_id": "mid-123", "model_group": "group-x"}
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"standard_logging_object": sl_object}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"embrouter_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert request_data["standard_logging_object"] is sl_object
-        assert "litellm_logging_obj" not in request_data
+        assert "embrouter_logging_obj" not in request_data
 
     @pytest.mark.asyncio
     async def test_logging_obj_value_overwrites_preexisting_key(self):
@@ -555,7 +555,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"standard_logging_object": authoritative}
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
             "standard_logging_object": {"model_id": "client-injected"},
             "metadata": {},
         }
@@ -572,7 +572,7 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
         request_data_with_obj = {
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
             "standard_logging_object": spoofed,
             "metadata": {},
         }
@@ -586,8 +586,8 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
 
         from fastapi import HTTPException
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         logging_obj = Logging(
             model="claude-haiku-4-5",
@@ -595,11 +595,11 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
             stream=False,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
         )
         request_data = {
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
             "standard_logging_object": {"model_id": "client-injected"},
             "metadata": {},
         }
@@ -618,14 +618,14 @@ class TestPostCallFailureHookLiftsStandardLoggingObject:
     async def test_no_standard_logging_object_is_noop(self):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {}
-        request_data = {"litellm_logging_obj": logging_obj, "metadata": {}}
+        request_data = {"embrouter_logging_obj": logging_obj, "metadata": {}}
         await self._run(request_data)
         assert "standard_logging_object" not in request_data
 
 
 class TestPostCallFailureHookLiftsCallTypeAndStartTime:
     """A guardrail-blocked MCP tool call fails before any LLM call. The failure
-    spend row is built from request_data after ``litellm_logging_obj`` is popped,
+    spend row is built from request_data after ``embrouter_logging_obj`` is popped,
     so ``call_type`` and the request ``start_time`` must be lifted off the logging
     object first, or the Logs page shows the row as an LLM call with a blank call
     type and a 0s duration (LIT-7453).
@@ -637,9 +637,9 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
+        from embrouter.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
 
         request_start = real_datetime.datetime.now() - real_datetime.timedelta(seconds=2)
         logging_obj = Logging(
@@ -648,27 +648,27 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
             stream=False,
             call_type="call_mcp_tool",
             start_time=request_start,
-            litellm_call_id="call-1",
+            embrouter_call_id="call-1",
             function_id="fn-1",
         )
         logging_obj.update_environment_variables(
             model="MCP: deepwiki-ask_question",
             user="",
             optional_params={},
-            litellm_params={"metadata": {"user_api_key_hash": "hashed"}},
+            embrouter_params={"metadata": {"user_api_key_hash": "hashed"}},
         )
         blocked = Exception("Content blocked: keyword 'confidential' detected")
         logging_obj.failure_handler(blocked, traceback.format_exc(), request_start, real_datetime.datetime.now())
         request_data = {
             "name": "deepwiki-ask_question",
             "arguments": {"question": "confidential"},
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
         }
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
         spend_writer = SimpleNamespace(update_database=AsyncMock())
-        original_callbacks = list(litellm.callbacks)
-        litellm.callbacks = [_ProxyDBLogger(spend_writer=lambda: spend_writer)]
+        original_callbacks = list(embrouter.callbacks)
+        embrouter.callbacks = [_ProxyDBLogger(spend_writer=lambda: spend_writer)]
         try:
             with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
                 await proxy_logging_obj.post_call_failure_hook(
@@ -677,7 +677,7 @@ class TestPostCallFailureHookLiftsCallTypeAndStartTime:
                     user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
                 )
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
             ProxyLogging._callback_capabilities_cache.clear()
 
         db_call = spend_writer.update_database.call_args.kwargs
@@ -703,7 +703,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def _run(self, request_data):
         from unittest.mock import AsyncMock, patch
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -723,10 +723,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_dispatched_failure_estimates_input_tokens_with_zero_cost(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -749,7 +749,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     @pytest.mark.asyncio
     async def test_failure_before_dispatch_stays_zero(self):
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": "never dispatched"}],
@@ -766,15 +766,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_proxy_only_error_never_dispatched_stays_zero(self):
         from datetime import datetime
 
-        from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
+        from embrouter.constants import EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "no-such-model",
                     "messages": [{"role": "user", "content": "hi"}],
-                    LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: True,
+                    EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL: True,
                 }
             ),
             "metadata": {},
@@ -788,11 +788,11 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_recovered_partial_usage_wins_over_estimate(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         recovered_usage = Usage(prompt_tokens=30, completion_tokens=7, total_tokens=37)
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -813,10 +813,10 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
     async def test_dispatched_failure_with_text_completion_prompt(self):
         from datetime import datetime
 
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         request_data = {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -837,7 +837,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
         from datetime import datetime
 
         return {
-            "litellm_logging_obj": self._logging_obj(
+            "embrouter_logging_obj": self._logging_obj(
                 {
                     "first_api_call_start_time": datetime.now(),
                     "model": "gpt-3.5-turbo",
@@ -851,8 +851,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_image_message_estimated_without_fetching_image(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         messages = [
             {
@@ -871,7 +871,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", messages=messages, use_default_image_token_count=True
         )
         assert estimated.prompt_tokens == expected
@@ -879,8 +879,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_embedding_string_list_input_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         embedding_input = ["first embedding text", "second embedding text"]
         request_data = self._dispatched_request_data(embedding_input, {}, call_type="aembedding")
@@ -888,7 +888,7 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(model="gpt-3.5-turbo", text="".join(embedding_input))
+        expected = embrouter_module.token_counter(model="gpt-3.5-turbo", text="".join(embedding_input))
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
@@ -901,8 +901,8 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
     @pytest.mark.asyncio
     async def test_anthropic_system_prompt_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         system_prompt = "You are a verbose historian who narrates every fact in exhaustive detail."
         messages = [{"role": "user", "content": "write a short essay"}]
@@ -911,15 +911,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
+        ) + embrouter_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_anthropic_system_text_blocks_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         system_blocks = [
             {"type": "text", "text": "part one of the system prompt. "},
@@ -931,17 +931,17 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(
+        ) + embrouter_module.token_counter(
             model="gpt-3.5-turbo", text="part one of the system prompt. part two of the system prompt."
         )
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_responses_instructions_counted_in_estimate(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         instructions = "Answer every question as a meticulous archivist."
         request_data = self._dispatched_request_data("summarize the archive", {"instructions": instructions})
@@ -949,15 +949,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", text="summarize the archive"
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=instructions)
+        ) + embrouter_module.token_counter(model="gpt-3.5-turbo", text=instructions)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_request_body_system_counted_when_optional_params_empty(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         system_prompt = "You are a meticulous cartographer who labels every landmark."
         messages = [{"role": "user", "content": "draw me a map"}]
@@ -969,15 +969,15 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
+        ) + embrouter_module.token_counter(model="gpt-3.5-turbo", text=system_prompt)
         assert estimated.prompt_tokens == expected
 
     @pytest.mark.asyncio
     async def test_optional_params_system_wins_over_request_body_system(self):
-        import litellm as litellm_module
-        from litellm.types.utils import Usage
+        import embrouter as embrouter_module
+        from embrouter.types.utils import Usage
 
         dispatched_system = "short dispatched system prompt"
         messages = [{"role": "user", "content": "hello"}]
@@ -989,18 +989,18 @@ class TestPostCallFailureHookEstimatesDispatchedInputTokens:
 
         estimated = request_data["combined_usage_object"]
         assert isinstance(estimated, Usage)
-        expected = litellm_module.token_counter(
+        expected = embrouter_module.token_counter(
             model="gpt-3.5-turbo", messages=messages
-        ) + litellm_module.token_counter(model="gpt-3.5-turbo", text=dispatched_system)
+        ) + embrouter_module.token_counter(model="gpt-3.5-turbo", text=dispatched_system)
         assert estimated.prompt_tokens == expected
 
 
 from typing import cast
 
-import litellm
-from litellm.proxy.utils import create_model_info_response
-from litellm.types.router import DeploymentModelListingInfo
-from litellm.types.utils import ModelInfo
+import embrouter
+from embrouter.proxy.utils import create_model_info_response
+from embrouter.types.router import DeploymentModelListingInfo
+from embrouter.types.utils import ModelInfo
 
 
 def _fake_model_info(**fields: object) -> ModelInfo:
@@ -1059,15 +1059,15 @@ def test_create_model_info_response_uses_deployment_limits_when_not_in_cost_map(
 
 
 def test_create_model_info_response_uses_deployment_mode_for_auto_router():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
             },
             {
                 "model_name": "claude-auto",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {
                         "tiers": {
@@ -1165,13 +1165,13 @@ def test_create_model_info_response_resolves_alias_once_per_listing():
 
 
 def test_create_model_info_response_survives_malformed_configured_limits():
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "bad-limit-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": "128,000"},
             }
         ]
@@ -1216,18 +1216,18 @@ def test_create_model_info_response_keeps_valid_cost_map_limit_beside_malformed_
 
 
 def test_create_model_info_response_survives_malformed_limits_registered_by_router():
-    """A deployment's model_info is registered into litellm.model_cost verbatim, so a
+    """A deployment's model_info is registered into embrouter.model_cost verbatim, so a
     malformed configured limit reaches the listing through the real cost-map lookup and
     not just the router index. Guarding only the index path still 500s the whole listing."""
-    from litellm import Router
+    from embrouter import Router
 
-    saved_model_cost = dict(litellm.model_cost)
+    saved_model_cost = dict(embrouter.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "openai/some-unmapped-model",
-                    "litellm_params": {"model": "openai/some-unmapped-model"},
+                    "embrouter_params": {"model": "openai/some-unmapped-model"},
                     "model_info": {"max_input_tokens": "128,000"},
                 }
             ]
@@ -1239,8 +1239,8 @@ def test_create_model_info_response_survives_malformed_limits_registered_by_rout
             llm_router=router,
         )
     finally:
-        litellm.model_cost.clear()
-        litellm.model_cost.update(saved_model_cost)
+        embrouter.model_cost.clear()
+        embrouter.model_cost.update(saved_model_cost)
 
     assert response["id"] == "openai/some-unmapped-model"
     assert "max_input_tokens" not in response
@@ -1350,7 +1350,7 @@ class TestPostCallFailureHookLLMExceptionAlerting:
     async def _alerted(self, exc: Exception) -> AsyncMock:
         import asyncio
 
-        from litellm.proxy._types import AlertType, UserAPIKeyAuth
+        from embrouter.proxy._types import AlertType, UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = [AlertType.llm_exceptions]
@@ -1369,7 +1369,7 @@ class TestPostCallFailureHookLLMExceptionAlerting:
 
     @pytest.mark.asyncio
     async def test_proxy_exception_does_not_alert(self):
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         exc = ProxyException(
             message="content blocked",
@@ -1405,7 +1405,7 @@ class TestPostCallFailureHookLLMExceptionAlerting:
 
     @pytest.mark.asyncio
     async def test_proxy_exception_5xx_alerts(self):
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         alerting_handler = await self._alerted(
             ProxyException(
@@ -1433,7 +1433,7 @@ class TestPostCallFailureHookProxyExceptionLogging:
     async def _logged(self, exc, *, request_route) -> bool:
         from unittest.mock import AsyncMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
         proxy_logging_obj.alert_types = []
@@ -1454,7 +1454,7 @@ class TestPostCallFailureHookProxyExceptionLogging:
         return handle_mock.await_count > 0
 
     def _block(self):
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         return ProxyException(
             message="content blocked",
@@ -1476,19 +1476,19 @@ class TestPostCallFailureHookProxyExceptionLogging:
 
 class TestShouldUseSmtpSsl:
     def test_port_465_uses_ssl(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from embrouter.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         assert _should_use_smtp_ssl(smtp_port=465) is True
 
     def test_smtp_use_ssl_env_var_forces_ssl_on_any_port(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from embrouter.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.setenv("SMTP_USE_SSL", "True")
         assert _should_use_smtp_ssl(smtp_port=2465) is True
 
     def test_port_587_uses_plain_smtp(self, monkeypatch):
-        from litellm.proxy.utils import _should_use_smtp_ssl
+        from embrouter.proxy.utils import _should_use_smtp_ssl
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         assert _should_use_smtp_ssl(smtp_port=587) is False
@@ -1498,7 +1498,7 @@ class TestCreateSmtpConnection:
     def test_port_465_creates_smtp_ssl_with_verified_context(self, monkeypatch):
         import ssl
 
-        from litellm.proxy.utils import _create_smtp_connection
+        from embrouter.proxy.utils import _create_smtp_connection
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         with (
@@ -1519,7 +1519,7 @@ class TestCreateSmtpConnection:
         assert context.check_hostname is True
 
     def test_port_587_creates_plain_smtp(self, monkeypatch):
-        from litellm.proxy.utils import _create_smtp_connection
+        from embrouter.proxy.utils import _create_smtp_connection
 
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
         with (
@@ -1538,7 +1538,7 @@ class TestSendEmailStartTls:
     async def test_starttls_uses_verified_context(self, monkeypatch):
         import ssl
 
-        from litellm.proxy.utils import send_email
+        from embrouter.proxy.utils import send_email
 
         monkeypatch.setenv("SMTP_HOST", "mail.example.com")
         monkeypatch.setenv("SMTP_PORT", "587")
@@ -1547,7 +1547,7 @@ class TestSendEmailStartTls:
         monkeypatch.delenv("SMTP_USE_SSL", raising=False)
 
         mock_server = MagicMock(spec=smtplib.SMTP)
-        with patch("litellm.proxy.utils._create_smtp_connection") as mock_create_connection:
+        with patch("embrouter.proxy.utils._create_smtp_connection") as mock_create_connection:
             mock_create_connection.return_value.__enter__.return_value = mock_server
             await send_email(
                 receiver_email="receiver@example.com",
@@ -1603,13 +1603,13 @@ class _NativeMCPGuardrail(CustomGuardrail):
 def restore_callbacks():
     """Restore the process-wide callback state post_mcp_call_hook reads.
 
-    ProxyLogging caches callback capabilities keyed on id()s of litellm.callbacks,
+    ProxyLogging caches callback capabilities keyed on id()s of embrouter.callbacks,
     so a restored-but-different list can collide with a stale entry after GC and
     leak a has_guardrail verdict into unrelated tests in the same worker.
     """
-    original = list(litellm.callbacks)
+    original = list(embrouter.callbacks)
     yield
-    litellm.callbacks = original
+    embrouter.callbacks = original
     ProxyLogging._callback_capabilities_cache.clear()
 
 
@@ -1619,7 +1619,7 @@ async def test_post_mcp_call_hook_masks_tool_result(restore_callbacks):
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _RecordingMCPGuardrail(event_hook=GuardrailEventHooks.post_mcp_call)
-    litellm.callbacks = [guardrail]
+    embrouter.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -1640,7 +1640,7 @@ async def test_post_mcp_call_hook_skips_guardrail_configured_for_other_hooks(res
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _RecordingMCPGuardrail(event_hook=GuardrailEventHooks.post_call)
-    litellm.callbacks = [guardrail]
+    embrouter.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -1661,7 +1661,7 @@ async def test_post_mcp_call_hook_skips_guardrail_without_apply_guardrail(restor
     from mcp.types import CallToolResult, TextContent
 
     guardrail = _NativeMCPGuardrail()
-    litellm.callbacks = [guardrail]
+    embrouter.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -1680,13 +1680,13 @@ async def test_post_mcp_call_hook_propagates_guardrail_block(restore_callbacks):
     """A guardrail rejecting the tool result must raise out of the hook."""
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.exceptions import BlockedPiiEntityError
+    from embrouter.exceptions import BlockedPiiEntityError
 
     guardrail = _RecordingMCPGuardrail(
         event_hook=GuardrailEventHooks.post_mcp_call,
         raises=BlockedPiiEntityError(entity_type="EMAIL_ADDRESS", guardrail_name="mcp-output-guardrail"),
     )
-    litellm.callbacks = [guardrail]
+    embrouter.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -1710,7 +1710,7 @@ async def test_prisma_health_check_failure_names_itself_at_operator_visible_leve
     from functools import partial
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.query_raw = AsyncMock(side_effect=Exception("connection refused"))
@@ -1719,7 +1719,7 @@ async def test_prisma_health_check_failure_names_itself_at_operator_visible_leve
     client._run_health_probe = partial(PrismaClient._run_health_probe, client)
     client._report_health_check_failure = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         with pytest.raises(Exception, match="connection refused"):
             await PrismaClient.health_check(client)
 
@@ -1736,14 +1736,14 @@ async def test_prisma_connect_failure_is_reported_at_operator_visible_level(capl
     import logging
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.is_connected = MagicMock(return_value=False)
     client.db.connect = AsyncMock(side_effect=Exception("could not reach database"))
     client.proxy_logging_obj.failure_handler = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         with pytest.raises(Exception, match="could not reach database"):
             await PrismaClient.connect(client)
 
@@ -1760,22 +1760,22 @@ async def test_prisma_health_check_failure_redacts_database_credentials(caplog):
     from functools import partial
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.db.query_raw = AsyncMock(
-        side_effect=Exception("could not connect to postgresql://admin:hunter2@db.internal:5432/litellm")
+        side_effect=Exception("could not connect to postgresql://admin:hunter2@db.internal:5432/embrouter")
     )
     client.proxy_logging_obj.failure_handler = AsyncMock()
     client._probe_target_wrapper = MagicMock(return_value=client.db)
     client._run_health_probe = partial(PrismaClient._run_health_probe, client)
     client._report_health_check_failure = AsyncMock()
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         with pytest.raises(Exception, match="could not connect to"):
             await PrismaClient.health_check(client)
 
-    emitted = [record.getMessage() for record in caplog.records if record.name == "LiteLLM Proxy"]
+    emitted = [record.getMessage() for record in caplog.records if record.name == "EmbRouter Proxy"]
 
     assert emitted
     assert all("hunter2" not in message for message in emitted)
@@ -1789,17 +1789,17 @@ async def test_update_data_key_branch_stamps_settings_updated_at():
     from datetime import datetime, timezone
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
     client = MagicMock()
     client.jsonify_object = MagicMock(side_effect=lambda data: dict(data))
-    client.db.litellm_verificationtoken.update = AsyncMock(return_value=None)
+    client.db.embrouter_verificationtoken.update = AsyncMock(return_value=None)
 
     before = datetime.now(timezone.utc)
     await PrismaClient.update_data(client, token="sk-test-key", data={"models": ["gpt-4"]})
     after = datetime.now(timezone.utc)
 
-    sent = client.db.litellm_verificationtoken.update.call_args.kwargs["data"]
+    sent = client.db.embrouter_verificationtoken.update.call_args.kwargs["data"]
     assert sent["models"] == ["gpt-4"]
     assert before <= sent["settings_updated_at"] <= after
 
@@ -1820,7 +1820,7 @@ async def test_post_mcp_call_hook_skips_opted_out_guardrail(restore_callbacks):
             return await super().apply_guardrail(inputs, request_data, input_type, **kwargs)
 
     guardrail = _OptedOutMCPGuardrail(event_hook=GuardrailEventHooks.post_mcp_call)
-    litellm.callbacks = [guardrail]
+    embrouter.callbacks = [guardrail]
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     result = CallToolResult(content=[TextContent(type="text", text="jane@example.com")], isError=False)
 
@@ -1855,13 +1855,13 @@ class _LoggingObj:
     ],
 )
 def test_a_system_prompt_reads_the_same_whatever_shape_it_arrived_in(system_input, expected):
-    from litellm.proxy.utils import _system_prompt_text
+    from embrouter.proxy.utils import _system_prompt_text
 
     assert _system_prompt_text(system_input) == expected
 
 
 def test_a_system_prompt_is_counted_on_top_of_the_request():
-    from litellm.proxy.utils import _count_request_input_tokens
+    from embrouter.proxy.utils import _count_request_input_tokens
 
     without = _count_request_input_tokens(FAILURE_USAGE_MODEL, "hello world", None)
     with_system = _count_request_input_tokens(FAILURE_USAGE_MODEL, "hello world", "be brief")
@@ -1871,14 +1871,14 @@ def test_a_system_prompt_is_counted_on_top_of_the_request():
 
 
 def test_a_request_with_nothing_in_it_counts_zero():
-    from litellm.proxy.utils import _count_request_input_tokens
+    from embrouter.proxy.utils import _count_request_input_tokens
 
     assert _count_request_input_tokens(FAILURE_USAGE_MODEL, [], None) == 0
     assert _count_request_input_tokens(FAILURE_USAGE_MODEL, None, None) == 0
 
 
 def test_a_failed_dispatch_is_estimated_as_input_only():
-    from litellm.proxy.utils import _count_request_input_tokens, _estimate_dispatched_failure_usage
+    from embrouter.proxy.utils import _count_request_input_tokens, _estimate_dispatched_failure_usage
 
     usage = _estimate_dispatched_failure_usage(FAILURE_USAGE_MODEL, ONE_USER_MESSAGE, None)
 
@@ -1890,14 +1890,14 @@ def test_a_failed_dispatch_is_estimated_as_input_only():
 
 @pytest.mark.parametrize("request_input", [[], object()])
 def test_nothing_is_estimated_when_there_is_nothing_to_count(request_input):
-    from litellm.proxy.utils import _estimate_dispatched_failure_usage
+    from embrouter.proxy.utils import _estimate_dispatched_failure_usage
 
     assert _estimate_dispatched_failure_usage(FAILURE_USAGE_MODEL, request_input, None) is None
 
 
 def test_usage_the_stream_already_recovered_beats_an_estimate():
-    from litellm.proxy.utils import _failure_usage_to_lift
-    from litellm.types.utils import Usage
+    from embrouter.proxy.utils import _failure_usage_to_lift
+    from embrouter.types.utils import Usage
 
     recovered = Usage(prompt_tokens=5, completion_tokens=7, total_tokens=12)
 
@@ -1911,7 +1911,7 @@ def test_usage_the_stream_already_recovered_beats_an_estimate():
 
 
 def test_a_request_that_reached_a_provider_bills_its_input_at_no_cost():
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from embrouter.proxy.utils import _failure_usage_to_lift
 
     lifted = _failure_usage_to_lift(
         model_call_details={
@@ -1936,7 +1936,7 @@ def test_a_request_that_reached_a_provider_bills_its_input_at_no_cost():
         ({"call_type": "acompletion", "model": FAILURE_USAGE_MODEL, "messages": ONE_USER_MESSAGE}, False),
         (
             {
-                "litellm_no_upstream_llm_call": True,
+                "embrouter_no_upstream_llm_call": True,
                 "call_type": "acompletion",
                 "model": FAILURE_USAGE_MODEL,
                 "messages": ONE_USER_MESSAGE,
@@ -1948,19 +1948,19 @@ def test_a_request_that_reached_a_provider_bills_its_input_at_no_cost():
     ids=["never dispatched", "no upstream call", "call type has no input to price"],
 )
 def test_a_failure_that_cost_the_provider_nothing_lifts_nothing(model_call_details, dispatched):
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from embrouter.proxy.utils import _failure_usage_to_lift
 
     assert _failure_usage_to_lift(model_call_details=model_call_details, request_body={}, dispatched=dispatched) is None
 
 
 def test_the_no_upstream_call_key_the_module_uses_is_the_one_asserted_above():
-    from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL
+    from embrouter.constants import EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL
 
-    assert LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL == "litellm_no_upstream_llm_call"
+    assert EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL == "embrouter_no_upstream_llm_call"
 
 
 def test_the_dispatched_system_prompt_wins_over_the_one_in_the_request_body():
-    from litellm.proxy.utils import _failure_usage_to_lift
+    from embrouter.proxy.utils import _failure_usage_to_lift
 
     def lift(model_call_details, request_body):
         lifted = _failure_usage_to_lift(
@@ -1985,18 +1985,18 @@ def test_the_dispatched_system_prompt_wins_over_the_one_in_the_request_body():
 
 
 def test_a_failure_with_no_logging_object_lifts_nothing():
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from embrouter.proxy.utils import _failure_fields_to_lift
 
     assert dict(_failure_fields_to_lift({})) == {}
-    assert dict(_failure_fields_to_lift({"litellm_logging_obj": _LoggingObj({})})) == {}
+    assert dict(_failure_fields_to_lift({"embrouter_logging_obj": _LoggingObj({})})) == {}
 
 
 def test_a_dispatched_failure_lifts_the_fields_the_spend_log_needs():
-    from litellm.proxy.utils import _failure_fields_to_lift
+    from embrouter.proxy.utils import _failure_fields_to_lift
 
     lifted = _failure_fields_to_lift(
         {
-            "litellm_logging_obj": _LoggingObj(
+            "embrouter_logging_obj": _LoggingObj(
                 {
                     "start_time": 1699999999.0,
                     "first_api_call_start_time": 1700000000.0,
@@ -2030,7 +2030,7 @@ async def test_a_dispatched_failure_is_counted_off_the_event_loop():
     from unittest.mock import AsyncMock, patch
 
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -2038,7 +2038,7 @@ async def test_a_dispatched_failure_is_counted_off_the_event_loop():
 
     warm_tokenizer("claude-fable-5")
     request_data = {
-        "litellm_logging_obj": _LoggingObj(
+        "embrouter_logging_obj": _LoggingObj(
             {
                 "first_api_call_start_time": 1700000000.0,
                 "call_type": "acompletion",
@@ -2069,11 +2069,11 @@ async def test_proxy_only_error_expected_4xx_skips_traceback_for_both_handlers(m
     either the async or the threaded sync failure handler."""
     import asyncio
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy._types import UserAPIKeyAuth
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
     sync_ran = asyncio.Event()
@@ -2118,14 +2118,14 @@ async def test_proxy_only_error_5xx_keeps_traceback_and_runs_sync_callbacks(monk
     sync-only failure callback still gets its threaded handler."""
     import asyncio
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy._types import UserAPIKeyAuth
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     def _custom_sync_callback(kwargs, completion_response, start_time, end_time):
         pass
 
-    monkeypatch.setattr(litellm, "failure_callback", [_custom_sync_callback])
+    monkeypatch.setattr(embrouter, "failure_callback", [_custom_sync_callback])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     captured = {}
     sync_ran = asyncio.Event()
@@ -2165,15 +2165,15 @@ async def test_proxy_only_error_5xx_keeps_traceback_and_runs_sync_callbacks(monk
 def test_create_model_info_response_resolves_mode_through_deployment_model():
     """`mode` is derived from the same lookup, so an aliased embedding deployment
     currently reports no mode at all; it must report `embedding`."""
-    from litellm import Router
+    from embrouter import Router
 
-    saved_model_cost = dict(litellm.model_cost)
+    saved_model_cost = dict(embrouter.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "my-embeddings",
-                    "litellm_params": {"model": "openai/text-embedding-3-small"},
+                    "embrouter_params": {"model": "openai/text-embedding-3-small"},
                 }
             ]
         )
@@ -2182,8 +2182,8 @@ def test_create_model_info_response_resolves_mode_through_deployment_model():
             model_id="my-embeddings", provider="openai", llm_router=router
         )
     finally:
-        litellm.model_cost.clear()
-        litellm.model_cost.update(saved_model_cost)
+        embrouter.model_cost.clear()
+        embrouter.model_cost.update(saved_model_cost)
 
     assert response["mode"] == "embedding"
 
@@ -2198,13 +2198,13 @@ def test_create_model_info_response_resolves_mode_through_deployment_model():
 def test_create_model_info_response_resolves_model_group_alias_to_target(model_group_alias, local_model_cost_map):
     """A `model_group_alias` row must report the metadata of the group it points at,
     not the cost-map generalization or nothing that the alias name resolves to."""
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "my-embeddings",
-                "litellm_params": {"model": "openai/text-embedding-3-small"},
+                "embrouter_params": {"model": "openai/text-embedding-3-small"},
             }
         ],
         model_group_alias=model_group_alias,
@@ -2233,7 +2233,7 @@ def test_create_model_info_response_resolves_model_group_alias_to_target(model_g
     ],
 )
 def test_convert_mcp_to_llm_format_carries_key_and_team_guardrails(key_metadata, team_metadata, expected_to_run):
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from embrouter.responses.mcp.request_context import MCPRequestContext
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     guardrail = CustomGuardrail(guardrail_name="key-scoped-guardrail", event_hook="pre_mcp_call", default_on=False)
@@ -2247,7 +2247,7 @@ def test_convert_mcp_to_llm_format_carries_key_and_team_guardrails(key_metadata,
     request_obj = proxy_logging._create_mcp_request_object_from_kwargs(kwargs)
 
     with patch(  # test-quality-ok: the key-guardrail premium gate reads this proxy_server module global and has no injection seam
-        "litellm.proxy.proxy_server.premium_user", True
+        "embrouter.proxy.proxy_server.premium_user", True
     ):
         synthetic = proxy_logging._convert_mcp_to_llm_format(request_obj, kwargs)
 
@@ -2292,7 +2292,7 @@ async def test_post_call_failure_hook_redacts_traceback_before_callbacks(monkeyp
     assert provider_key in upstream_traceback
 
     recorder = _TracebackRecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
     proxy_logging_obj.alert_types = []
     with patch.object(proxy_logging_obj, "update_request_status", new=AsyncMock()):
@@ -2314,11 +2314,11 @@ class TestPrismaClientTokenAuthBehindThePool:
     writer wrapper must not run its own refresh loop. The reader is not pooled
     and keeps refreshing its own token."""
 
-    UPSTREAM: Final = "postgresql://litellm:TOKEN@db.internal:5432/litellm"
-    READER: Final = "postgresql://litellm:TOKEN@reader.internal:5432/litellm"
+    UPSTREAM: Final = "postgresql://embrouter:TOKEN@db.internal:5432/embrouter"
+    READER: Final = "postgresql://embrouter:TOKEN@reader.internal:5432/embrouter"
 
     def _client(self, monkeypatch: pytest.MonkeyPatch, pooled: bool) -> PrismaClient:
-        from litellm.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR
+        from embrouter.proxy.db.pgbouncer import PGBOUNCER_POOLED_ENV_VAR
 
         monkeypatch.delenv("AZURE_POSTGRESQL_AUTH", raising=False)
         monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
@@ -2337,7 +2337,7 @@ class TestPrismaClientTokenAuthBehindThePool:
     def test_a_pooled_writer_leaves_token_refresh_to_the_pooler_while_the_reader_keeps_its_own(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+        from embrouter.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
         client = self._client(monkeypatch, pooled=True)
         assert isinstance(client.db, RoutingPrismaWrapper)
@@ -2346,7 +2346,7 @@ class TestPrismaClientTokenAuthBehindThePool:
         assert client.token_auth is not None
 
     def test_an_unpooled_writer_still_refreshes_its_own_token(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+        from embrouter.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
         client = self._client(monkeypatch, pooled=False)
         assert isinstance(client.db, RoutingPrismaWrapper)
@@ -2354,10 +2354,10 @@ class TestPrismaClientTokenAuthBehindThePool:
         assert client.db.reader.iam_token_db_auth is True
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "embrouter_metadata"])
 def test_mcp_conversion_preserves_request_policy_and_isolates_guardrail_data(bucket):
     from copy import deepcopy
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from embrouter.responses.mcp.request_context import MCPRequestContext
 
     parent = {
         "model": "parent-model",
@@ -2391,7 +2391,7 @@ def test_mcp_conversion_preserves_request_policy_and_isolates_guardrail_data(buc
 
 @pytest.mark.parametrize("opt_out", [False, True])
 def test_mcp_conversion_honors_only_authenticated_global_guardrail_opt_outs(opt_out):
-    from litellm.responses.mcp.request_context import MCPRequestContext
+    from embrouter.responses.mcp.request_context import MCPRequestContext
 
     auth = UserAPIKeyAuth(metadata={"opted_out_global_guardrails": ["global-rule"] if opt_out else []})
     context = MCPRequestContext.resolve(kwargs={"metadata": {
@@ -2409,9 +2409,9 @@ def test_mcp_conversion_honors_only_authenticated_global_guardrail_opt_outs(opt_
 
 @pytest.mark.parametrize("model, expected", [("parent-model", True), ("unmatched-model", False)])
 def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expected):
-    from litellm.responses.mcp.request_context import MCPRequestContext
-    from litellm.proxy.policy_engine import policy_registry
-    from litellm.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails
+    from embrouter.responses.mcp.request_context import MCPRequestContext
+    from embrouter.proxy.policy_engine import policy_registry
+    from embrouter.types.proxy.policy_engine import Policy, PolicyCondition, PolicyGuardrails
 
     registry = policy_registry.PolicyRegistry()
     registry._policies = {"model-policy": Policy(
@@ -2419,7 +2419,7 @@ def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expecte
     )}
     registry._initialized = True
     monkeypatch.setattr(policy_registry, "_policy_registry", registry)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     kwargs = {
         "name": "execute", "arguments": {},
@@ -2432,7 +2432,7 @@ def test_mcp_auth_policy_uses_original_request_model(monkeypatch, model, expecte
 
 
 def test_handle_exception_on_proxy_logs_bug_report_only_for_unmapped_500(caplog):
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
         provider_result = handle_exception_on_proxy(
             InternalServerError(message="upstream 500", llm_provider="openai", model="gpt-4")
         )

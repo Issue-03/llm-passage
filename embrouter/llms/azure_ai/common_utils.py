@@ -4,12 +4,12 @@ from types import MappingProxyType
 from typing import Final, Literal
 from urllib.parse import urlparse
 
-import litellm
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
-from litellm.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import GenericLiteLLMParams
+import embrouter
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
+from embrouter.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import GenericEmbRouterParams
 
 AzureAIApiKeyHeader = Literal["Authorization", "api-key", "Api-Key", "Ocp-Apim-Subscription-Key"]
 AZURE_OPENAI_V1_HOST_SUFFIXES: Final = (".services.ai.azure.com", ".openai.azure.com")
@@ -32,7 +32,7 @@ def api_key_header_for_base(api_base: str | None) -> AzureAIApiKeyHeader:
     return "api-key" if is_azure_openai_v1_host(api_base) else "Authorization"
 
 
-def get_azure_ai_entra_token(litellm_params: Mapping[str, object] | None = None) -> str | None:
+def get_azure_ai_entra_token(embrouter_params: Mapping[str, object] | None = None) -> str | None:
     """
     Resolve an Entra ID / OAuth access token for an Azure AI Foundry deployment.
 
@@ -40,28 +40,28 @@ def get_azure_ai_entra_token(litellm_params: Mapping[str, object] | None = None)
     (`tenant_id` / `client_id` / `client_secret`), a pre-fetched `azure_ad_token`, an OIDC
     federated token, username/password, or `DefaultAzureCredential` / managed identity.
     """
-    from litellm.llms.azure.common_utils import get_azure_ad_token
+    from embrouter.llms.azure.common_utils import get_azure_ad_token
 
-    params = GenericLiteLLMParams.model_validate(litellm_params) if litellm_params else GenericLiteLLMParams()
+    params = GenericEmbRouterParams.model_validate(embrouter_params) if embrouter_params else GenericEmbRouterParams()
 
     return get_azure_ad_token(params)
 
 
 AZURE_AI_AGENTS_SCOPE: Final = "https://ai.azure.com/.default"
 AZURE_ENTRA_CREDENTIAL_PARAM_KEYS: Final = frozenset({"azure_ad_token", "client_secret", "azure_password"})
-AZURE_ENTRA_LITELLM_PARAM_KEYS: Final = AZURE_ENTRA_CREDENTIAL_PARAM_KEYS | frozenset(
+AZURE_ENTRA_EMBROUTER_PARAM_KEYS: Final = AZURE_ENTRA_CREDENTIAL_PARAM_KEYS | frozenset(
     {"tenant_id", "client_id", "azure_username", "azure_scope"}
 )
 AZURE_ENTRA_CREDENTIAL_HELP: Final = (
     "Set `tenant_id` + `client_id` + `client_secret`, `azure_ad_token` (an `oidc/` token also needs "
-    "`tenant_id` + `client_id`), or `client_id` + `azure_username` + `azure_password` in the agent's `litellm_params`"
+    "`tenant_id` + `client_id`), or `client_id` + `azure_username` + `azure_password` in the agent's `embrouter_params`"
 )
 
 
-def has_azure_entra_params(litellm_params: Mapping[str, object] | None) -> bool:
-    if not litellm_params:
+def has_azure_entra_params(embrouter_params: Mapping[str, object] | None) -> bool:
+    if not embrouter_params:
         return False
-    return any(litellm_params.get(key) for key in AZURE_ENTRA_CREDENTIAL_PARAM_KEYS)
+    return any(embrouter_params.get(key) for key in AZURE_ENTRA_CREDENTIAL_PARAM_KEYS)
 
 
 def _resolve_config_secret(value: object) -> str | None:
@@ -70,16 +70,16 @@ def _resolve_config_secret(value: object) -> str | None:
     return get_secret_str(value) if value.startswith("os.environ/") else value
 
 
-def get_azure_ai_agent_entra_token(litellm_params: Mapping[str, object]) -> str:
-    """Mints the Entra bearer from the agent's own litellm_params, never from process-wide AZURE_* env vars."""
-    from litellm.llms.azure.common_utils import (
+def get_azure_ai_agent_entra_token(embrouter_params: Mapping[str, object]) -> str:
+    """Mints the Entra bearer from the agent's own embrouter_params, never from process-wide AZURE_* env vars."""
+    from embrouter.llms.azure.common_utils import (
         get_azure_ad_token_from_entra_id,
         get_azure_ad_token_from_oidc,
         get_azure_ad_token_from_username_password,
     )
 
     resolved: Final = MappingProxyType(
-        {key: _resolve_config_secret(litellm_params.get(key)) for key in AZURE_ENTRA_LITELLM_PARAM_KEYS}
+        {key: _resolve_config_secret(embrouter_params.get(key)) for key in AZURE_ENTRA_EMBROUTER_PARAM_KEYS}
     )
     scope: Final = resolved["azure_scope"] or AZURE_AI_AGENTS_SCOPE
     tenant_id: Final = resolved["tenant_id"]
@@ -106,14 +106,14 @@ def get_azure_ai_agent_entra_token(litellm_params: Mapping[str, object]) -> str:
     raise ValueError(f"Azure AI agent Entra ID credentials did not resolve to a token. {AZURE_ENTRA_CREDENTIAL_HELP}")
 
 
-async def resolve_azure_ai_agent_auth_header(litellm_params: Mapping[str, object]) -> Mapping[str, str]:
-    token: Final = await asyncio.to_thread(get_azure_ai_agent_entra_token, litellm_params)
+async def resolve_azure_ai_agent_auth_header(embrouter_params: Mapping[str, object]) -> Mapping[str, str]:
+    token: Final = await asyncio.to_thread(get_azure_ai_agent_entra_token, embrouter_params)
     return MappingProxyType({"Authorization": f"Bearer {token}"})
 
 
 def get_azure_ai_auth_headers(
     api_key: str | None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
     api_key_header: AzureAIApiKeyHeader = "Authorization",
     api_key_env_var: str = "AZURE_AI_API_KEY",
 ) -> Mapping[str, str]:
@@ -126,14 +126,14 @@ def get_azure_ai_auth_headers(
     if api_key:
         return {api_key_header: f"Bearer {api_key}" if api_key_header == "Authorization" else api_key}
 
-    azure_ad_token = get_azure_ai_entra_token(litellm_params=litellm_params)
+    azure_ad_token = get_azure_ai_entra_token(embrouter_params=embrouter_params)
     if azure_ad_token:
         return {"Authorization": f"Bearer {azure_ad_token}"}
 
     raise ValueError(
         f"Missing Azure AI credentials - set an API key (`api_key` or {api_key_env_var}), or Entra ID / OAuth "
         "credentials (`tenant_id` + `client_id` + `client_secret`, `azure_ad_token`, an OIDC token, or a managed "
-        "identity with `litellm.enable_azure_ad_token_refresh = True`)"
+        "identity with `embrouter.enable_azure_ad_token_refresh = True`)"
     )
 
 
@@ -211,14 +211,14 @@ class AzureFoundryModelInfo(BaseLLMModelInfo):
     ) -> bool:
         """Whether a request went down the Azure Model Router route.
 
-        Prefers the response stamp, then the deployment's litellm model path, and only then the
+        Prefers the response stamp, then the deployment's embrouter model path, and only then the
         caller-supplied name. The last two go through ``get_azure_ai_route`` so the model-router
         name heuristic lives in exactly one place.
         """
         if AzureFoundryModelInfo.get_model_router_selected_model(hidden_params) is not None:
             return True
         deployment_model: Final = (
-            hidden_params.get("litellm_model_name") or hidden_params.get("model") if hidden_params is not None else None
+            hidden_params.get("embrouter_model_name") or hidden_params.get("model") if hidden_params is not None else None
         )
         return any(
             isinstance(candidate, str) and AzureFoundryModelInfo.get_azure_ai_route(candidate) == "model_router"
@@ -227,15 +227,15 @@ class AzureFoundryModelInfo(BaseLLMModelInfo):
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str | None:
-        return api_base or litellm.api_base or get_secret_str("AZURE_AI_API_BASE")
+        return api_base or embrouter.api_base or get_secret_str("AZURE_AI_API_BASE")
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        return api_key or litellm.api_key or get_secret_str("AZURE_AI_API_KEY")
+        return api_key or embrouter.api_key or get_secret_str("AZURE_AI_API_KEY")
 
     @staticmethod
     def get_api_version(api_version: str | None = None) -> str | None:
-        return api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+        return api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
     @property
     def api_version(self) -> str | None:
@@ -250,7 +250,7 @@ class AzureFoundryModelInfo(BaseLLMModelInfo):
         """
         # Only return token counter for Claude models
         if self._model and "claude" in self._model.lower():
-            from litellm.llms.azure_ai.anthropic.count_tokens.token_counter import (
+            from embrouter.llms.azure_ai.anthropic.count_tokens.token_counter import (
                 AzureAIAnthropicTokenCounter,
             )
 
@@ -326,19 +326,19 @@ class AzureFoundryModelInfo(BaseLLMModelInfo):
         azure_ai_route: Final = AzureFoundryModelInfo.get_azure_ai_route(model)
 
         if azure_ai_route == "model_router":
-            from litellm.llms.azure_ai.azure_model_router.transformation import (
+            from embrouter.llms.azure_ai.azure_model_router.transformation import (
                 AzureModelRouterConfig,
             )
 
             return AzureModelRouterConfig()
         elif "claude" in model.lower():
-            from litellm.llms.azure_ai.anthropic.transformation import (
+            from embrouter.llms.azure_ai.anthropic.transformation import (
                 AzureAnthropicConfig,
             )
 
             return AzureAnthropicConfig()
         else:
-            from litellm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
+            from embrouter.llms.azure_ai.chat.transformation import AzureAIStudioConfig
 
             return AzureAIStudioConfig()
 
@@ -348,7 +348,7 @@ class AzureFoundryModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

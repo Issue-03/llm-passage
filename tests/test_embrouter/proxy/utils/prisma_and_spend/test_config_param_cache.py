@@ -1,4 +1,4 @@
-"""Pin the LiteLLM_Config cached-read layer.
+"""Pin the EmbRouter_Config cached-read layer.
 
 Symbols pinned here:
   - ``_ConfigRow``
@@ -18,8 +18,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.proxy.utils as utils_mod
-from litellm.proxy.utils import (
+import embrouter.proxy.utils as utils_mod
+from embrouter.proxy.utils import (
     _config_cache_key,
     _ConfigRow,
     _pack_config_row,
@@ -35,7 +35,7 @@ def _swap_config_cache(
     monkeypatch: pytest.MonkeyPatch, mock_dual_cache: Any
 ) -> Any:
     """Replace the module-level cache so tests see a clean store per run."""
-    monkeypatch.setattr(utils_mod, "litellm_config_cache", mock_dual_cache)
+    monkeypatch.setattr(utils_mod, "embrouter_config_cache", mock_dual_cache)
     return mock_dual_cache
 
 
@@ -46,9 +46,9 @@ def test_config_cache_key_uses_documented_prefix() -> None:
         "prefix": _config_cache_key("x").split(":")[0],
     }
     assert actual == {
-        "key": "litellm_config:param:max_budget",
-        "another": "litellm_config:param:disable_spend_updates",
-        "prefix": "litellm_config",
+        "key": "embrouter_config:param:max_budget",
+        "another": "embrouter_config:param:disable_spend_updates",
+        "prefix": "embrouter_config",
     }
 
 
@@ -208,7 +208,7 @@ async def test_invalidate_config_param_evicts_from_cache(
     assert actual == {
         "store_empty": True,
         "delete_calls": 1,
-        "delete_arg": "litellm_config:param:p4",
+        "delete_arg": "embrouter_config:param:p4",
     }
 
 
@@ -232,7 +232,7 @@ async def test_prefetch_config_params_populates_cache_for_each_name(
         SimpleNamespace(param_name="c", param_value=[3]),
     ]
     prisma = MagicMock()
-    prisma.db.litellm_config.find_many = AsyncMock(return_value=rows)
+    prisma.db.embrouter_config.find_many = AsyncMock(return_value=rows)
     await prefetch_config_params(prisma, ["a", "b", "c"])
     actual = {
         "a": _swap_config_cache._store[_config_cache_key("a")],
@@ -251,9 +251,9 @@ async def test_prefetch_config_params_empty_list_is_noop(
     _swap_config_cache: Any,
 ) -> None:
     prisma = MagicMock()
-    prisma.db.litellm_config.find_many = AsyncMock(return_value=[])
+    prisma.db.embrouter_config.find_many = AsyncMock(return_value=[])
     await prefetch_config_params(prisma, [])
-    assert prisma.db.litellm_config.find_many.await_count == 0
+    assert prisma.db.embrouter_config.find_many.await_count == 0
     assert _swap_config_cache._store == {}
 
 
@@ -262,6 +262,6 @@ async def test_prefetch_config_params_swallows_db_error_without_caching(
     _swap_config_cache: Any,
 ) -> None:
     prisma = MagicMock()
-    prisma.db.litellm_config.find_many = AsyncMock(side_effect=RuntimeError("boom"))
+    prisma.db.embrouter_config.find_many = AsyncMock(side_effect=RuntimeError("boom"))
     await prefetch_config_params(prisma, ["a", "b"])
     assert _swap_config_cache._store == {}

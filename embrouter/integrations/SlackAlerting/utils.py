@@ -6,13 +6,13 @@ import asyncio
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import AlertType
-from litellm.secret_managers.main import get_secret
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import AlertType
+from embrouter.secret_managers.main import get_secret
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _Logging
 
     Logging = _Logging
 else:
@@ -66,28 +66,28 @@ async def _add_langfuse_trace_id_to_alert(
     - check:
     -> existing_trace_id
     -> trace_id
-    -> litellm_call_id
+    -> embrouter_call_id
     """
-    from litellm.integrations.langfuse.langfuse import LangFuseLogger, resolve_langfuse_host
+    from embrouter.integrations.langfuse.langfuse import LangFuseLogger, resolve_langfuse_host
 
     callbacks: Final[list[CustomLogger | Callable[..., object] | str]] = (
-        litellm.logging_callback_manager._get_all_callbacks()
+        embrouter.logging_callback_manager._get_all_callbacks()
     )
     if not any(callback == "langfuse" or isinstance(callback, LangFuseLogger) for callback in callbacks):
         return None
 
-    if request_data is None or request_data.get("litellm_logging_obj", None) is None:
+    if request_data is None or request_data.get("embrouter_logging_obj", None) is None:
         return None
 
-    litellm_logging_obj: Final[Logging] = request_data["litellm_logging_obj"]
+    embrouter_logging_obj: Final[Logging] = request_data["embrouter_logging_obj"]
     instance_host: Final = next(
         (callback.langfuse_host for callback in callbacks if isinstance(callback, LangFuseLogger)), None
     )
     host: Final = resolve_langfuse_host(
-        litellm_logging_obj.standard_callback_dynamic_params.get("langfuse_host") or instance_host
+        embrouter_logging_obj.standard_callback_dynamic_params.get("langfuse_host") or instance_host
     )
     for _ in range(3):
-        if (trace_id := litellm_logging_obj._get_trace_id(service_name="langfuse")) is not None:
+        if (trace_id := embrouter_logging_obj._get_trace_id(service_name="langfuse")) is not None:
             return f"{host}/trace/{trace_id}"
         await asyncio.sleep(3)  # wait 3s before retrying for trace id
 

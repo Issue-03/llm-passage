@@ -145,7 +145,7 @@ const resolveDefaultBase = (fallback: string | null): string | null =>
       ? "http://localhost:4000"
       : fallback;
 const defaultProxyBaseUrl = resolveDefaultBase(null);
-const WORKER_URL_KEY = "litellm_worker_url";
+const WORKER_URL_KEY = "embrouter_worker_url";
 // If a worker URL is in localStorage, use it as the initial proxyBaseUrl.
 // This survives page navigation.
 const _rawWorkerUrl = typeof window !== "undefined" ? window.localStorage.getItem(WORKER_URL_KEY) : null;
@@ -238,7 +238,7 @@ const HTTP_REQUEST = {
 
 export interface Model {
   model_name: string;
-  litellm_params: object;
+  embrouter_params: object;
   model_info: object | null;
 }
 
@@ -249,7 +249,7 @@ interface PromptInfo {
 
 export interface PromptSpec {
   prompt_id: string;
-  litellm_params: object;
+  embrouter_params: object;
   prompt_info: PromptInfo;
   created_at?: string;
   updated_at?: string;
@@ -259,7 +259,7 @@ export interface PromptSpec {
 }
 
 export interface PromptTemplateBase {
-  litellm_prompt_id: string;
+  embrouter_prompt_id: string;
   content: string;
   metadata?: Record<string, unknown> | null;
 }
@@ -286,7 +286,7 @@ export interface Organization {
   created_by: string;
   updated_at: string;
   updated_by: string;
-  litellm_budget_table: any; // Simplified to any since we don't need the detailed structure
+  embrouter_budget_table: any; // Simplified to any since we don't need the detailed structure
   teams: any[] | null;
   users: any[] | null;
   members: any[] | null;
@@ -317,7 +317,7 @@ export interface ProviderCredentialFieldMetadata {
 export interface ProviderCreateInfo {
   provider: string;
   provider_display_name: string;
-  litellm_provider: string;
+  embrouter_provider: string;
   default_model_placeholder?: string | null;
   credential_fields: ProviderCredentialFieldMetadata[];
 }
@@ -331,7 +331,7 @@ export interface AgentCredentialFieldMetadata {
   field_type?: "text" | "password" | "select" | "upload" | "textarea";
   options?: string[] | null;
   default_value?: string | null;
-  include_in_litellm_params?: boolean;
+  include_in_embrouter_params?: boolean;
   validation_pattern?: string | null;
   validation_message?: string | null;
 }
@@ -342,7 +342,7 @@ export interface AgentCreateInfo {
   description?: string | null;
   logo_url?: string | null;
   credential_fields: AgentCredentialFieldMetadata[];
-  litellm_params_template?: Record<string, string> | null;
+  embrouter_params_template?: Record<string, string> | null;
   model_template?: string | null;
   use_a2a_form_fields?: boolean;
 }
@@ -350,7 +350,7 @@ export interface AgentCreateInfo {
 interface PublicModelHubInfo {
   docs_title: string;
   custom_docs_description: string | null;
-  litellm_version: string;
+  embrouter_version: string;
   // Supports both old format (Record<string, string>) and new format (Record<string, {url: string, index: number}>)
   useful_links: Record<string, string | { url: string; index: number }>;
 }
@@ -361,7 +361,7 @@ export interface WorkerInfo {
   url: string;
 }
 
-export interface LiteLLMWellKnownUiConfig {
+export interface EmbRouterWellKnownUiConfig {
   server_root_path: string;
   proxy_base_url: string | null;
   auto_redirect_to_sso: boolean;
@@ -462,26 +462,26 @@ export const getAgentCreateMetadata = async (): Promise<AgentCreateInfo[]> => {
 };
 
 // Global variable for the header name
-let globalLitellmHeaderName: string = "Authorization";
+let globalEmbrouterHeaderName: string = "Authorization";
 
 // Function to set the global header name
-export function setGlobalLitellmHeaderName(headerName: string = "Authorization") {
-  globalLitellmHeaderName = headerName;
+export function setGlobalEmbrouterHeaderName(headerName: string = "Authorization") {
+  globalEmbrouterHeaderName = headerName;
 }
 
 // Function to get the global header name
-export function getGlobalLitellmHeaderName(): string {
-  return globalLitellmHeaderName;
+export function getGlobalEmbrouterHeaderName(): string {
+  return globalEmbrouterHeaderName;
 }
 
 export const apiClient = createApiClient({
   getBaseUrl: getProxyBaseUrl,
-  getAuthHeaderName: getGlobalLitellmHeaderName,
+  getAuthHeaderName: getGlobalEmbrouterHeaderName,
   onError: handleError,
 });
 
 registerBaseUrlGetter(getProxyBaseUrl);
-registerAuthHeaderNameGetter(getGlobalLitellmHeaderName);
+registerAuthHeaderNameGetter(getGlobalEmbrouterHeaderName);
 registerAuthTokenGetter(() => decodeToken(getCookie("token"))?.key ?? null);
 registerErrorHandler(handleError);
 
@@ -490,7 +490,7 @@ export const makeModelGroupPublic = async (accessToken: string, modelGroups: str
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -503,10 +503,10 @@ export const makeModelGroupPublic = async (accessToken: string, modelGroups: str
 export const getUiConfig = async () => {
   /**Special route to get the proxy base url and server root path */
   const url = defaultProxyBaseUrl
-    ? `${defaultProxyBaseUrl}/litellm/.well-known/litellm-ui-config`
-    : `/litellm/.well-known/litellm-ui-config`;
+    ? `${defaultProxyBaseUrl}/embrouter/.well-known/embrouter-ui-config`
+    : `/embrouter/.well-known/embrouter-ui-config`;
   const response = await fetch(url);
-  const jsonData: LiteLLMWellKnownUiConfig = await response.json();
+  const jsonData: EmbRouterWellKnownUiConfig = await response.json();
   /**
    * Update the proxy base url and server root path
    */
@@ -531,7 +531,7 @@ export const getOpenAPISchema = async () => {
 
 export const modelCostMap = async () => {
   try {
-    const url = proxyBaseUrl ? `${proxyBaseUrl}/public/litellm_model_cost_map` : `/public/litellm_model_cost_map`;
+    const url = proxyBaseUrl ? `${proxyBaseUrl}/public/embrouter_model_cost_map` : `/public/embrouter_model_cost_map`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -552,7 +552,7 @@ export const reloadModelCostMap = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -572,7 +572,7 @@ export const scheduleModelCostMapReload = async (accessToken: string, hours: num
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -590,7 +590,7 @@ export const cancelModelCostMapReload = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -608,7 +608,7 @@ export const getModelCostMapSource = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -634,7 +634,7 @@ export const getModelCostMapReloadStatus = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -811,7 +811,7 @@ export const keyCreateServiceAccountCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -869,7 +869,7 @@ export const keyCreateCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -917,7 +917,7 @@ export const keyCreateForAgentCall = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -966,7 +966,7 @@ export const userCreateCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1200,7 +1200,7 @@ export const organizationInfoCall = async (accessToken: string, organizationID: 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -1227,7 +1227,7 @@ export const organizationDeleteCall = async (accessToken: string, organizationID
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1260,7 +1260,7 @@ export const transformRequestCall = async (accessToken: string, request: object)
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
@@ -1351,7 +1351,7 @@ const fetchDailyActivity = async ({
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -1437,7 +1437,7 @@ export const teamDailyActivityCall = async (
     page,
     extraQueryParams: {
       team_ids: teamIds,
-      exclude_team_ids: "litellm-dashboard",
+      exclude_team_ids: "embrouter-dashboard",
     },
   });
 };
@@ -1459,7 +1459,7 @@ export const teamDailyActivityAggregatedCall = async (
         end_date: formatDate(endTime),
         timezone: new Date().getTimezoneOffset().toString(),
         team_ids: teamIds && teamIds.length > 0 ? teamIds.join(",") : undefined,
-        exclude_team_ids: "litellm-dashboard",
+        exclude_team_ids: "embrouter-dashboard",
       },
     });
   } catch (error) {
@@ -1631,7 +1631,7 @@ export const regenerateKeyCall = async (accessToken: string, keyToRegenerate: st
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(formData),
@@ -1714,7 +1714,7 @@ export const modelInfoCall = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -1753,12 +1753,12 @@ export const modelInfoV1Call = async (accessToken: string, modelId: string) => {
    */
   try {
     let url = proxyBaseUrl ? `${proxyBaseUrl}/v1/model/info` : `/v1/model/info`;
-    url += `?litellm_model_id=${modelId}`;
+    url += `?embrouter_model_id=${modelId}`;
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -1959,7 +1959,7 @@ export const tagsSpendLogsCall = async (
     const response = await fetch(`${url}`, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -2020,7 +2020,7 @@ interface UiSpendLogsParams {
   span_type?: string;
   /** Filter by model name (e.g. "gpt-4") */
   model?: string;
-  /** Filter by model ID (litellm model deployment id) */
+  /** Filter by model ID (embrouter model deployment id) */
   model_id?: string;
   key_alias?: string;
   error_code?: string;
@@ -2082,7 +2082,7 @@ export const uiSpendLogsCall = async ({
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -2146,7 +2146,7 @@ export const adminTopKeysCall = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -2235,7 +2235,7 @@ export const adminGlobalActivityPerModel = async (
     const requestOptions = {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     };
 
@@ -2263,7 +2263,7 @@ export const adminTopModelsCall = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -2284,7 +2284,7 @@ export const adminTopModelsCall = async (accessToken: string) => {
 
 export const testConnectionRequest = async (
   accessToken: string,
-  litellm_params: Record<string, any>,
+  embrouter_params: Record<string, any>,
   model_info: Record<string, any>,
   mode: string,
 ) => {
@@ -2296,10 +2296,10 @@ export const testConnectionRequest = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
-        litellm_params: litellm_params,
+        embrouter_params: embrouter_params,
         model_info: model_info,
         mode: mode,
       }),
@@ -2343,7 +2343,7 @@ export type ModelGroupConnectionResult = { status: "success" } | { status: "erro
 /**
  * Test an existing model group by routing a minimal request through the proxy
  * exactly as production would (by public model_group name). Unlike
- * /health/test_connection, this needs no litellm_params resolution: the router
+ * /health/test_connection, this needs no embrouter_params resolution: the router
  * resolves the group, credentials, and provider. Used by the auto-router Test
  * Connection to probe each tier's model group and the embedding model.
  */
@@ -2359,10 +2359,10 @@ export const buildModelGroupTestRequest = (
   requestParams: Record<string, unknown> = {},
 ): { path: string; body: Record<string, unknown> } =>
   mode === "embedding"
-    ? { path: "/v1/embeddings", body: { model: modelGroup, input: "test from litellm" } }
+    ? { path: "/v1/embeddings", body: { model: modelGroup, input: "test from embrouter" } }
     : {
         path: "/v1/chat/completions",
-        body: { ...requestParams, model: modelGroup, messages: [{ role: "user", content: "test from litellm" }] },
+        body: { ...requestParams, model: modelGroup, messages: [{ role: "user", content: "test from embrouter" }] },
       };
 
 export const testModelGroupConnection = async (
@@ -2447,7 +2447,7 @@ export const keyInfoV1Call = async (accessToken: string, key: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       // Remove body since this is a GET request
@@ -2777,7 +2777,7 @@ export const keyUpdateCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2809,7 +2809,7 @@ export const teamUpdateCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2852,7 +2852,7 @@ export const modelPatchUpdateCall = async (
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2896,7 +2896,7 @@ export const teamMemberAddCall = async (accessToken: string, teamId: string, for
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2957,7 +2957,7 @@ export const teamBulkMemberAddCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -3031,7 +3031,7 @@ export const teamMemberUpdateCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -3098,7 +3098,7 @@ export const organizationMemberAddCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -3240,7 +3240,7 @@ export const serviceHealthCheck = async (accessToken: string, service: string) =
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3284,7 +3284,7 @@ export const getGeneralSettingsCall = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3422,7 +3422,7 @@ export const getConfigFieldSetting = async (accessToken: string, fieldName: stri
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3504,7 +3504,7 @@ export const deletePassThroughEndpointsCall = async (accessToken: string, endpoi
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3556,7 +3556,7 @@ export const individualModelHealthCheckCall = async (accessToken: string, modelI
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3586,7 +3586,7 @@ export const cachingHealthCheckCall = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3616,7 +3616,7 @@ export const latestHealthChecksCall = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3658,7 +3658,7 @@ export const getUISettings = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3703,7 +3703,7 @@ export const updateMCPSemanticFilterSettings = async (accessToken: string, setti
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(settings),
@@ -3762,7 +3762,7 @@ export const testMCPSemanticFilter = async (accessToken: string, model: string, 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -3777,7 +3777,7 @@ export const testMCPSemanticFilter = async (accessToken: string, model: string, 
         tools: [
           {
             type: "mcp",
-            server_url: "litellm_proxy",
+            server_url: "embrouter_proxy",
             require_approval: "never",
           },
         ],
@@ -3786,8 +3786,8 @@ export const testMCPSemanticFilter = async (accessToken: string, model: string, 
     });
 
     // Extract headers before checking response status
-    const filterHeader = response.headers.get("x-litellm-semantic-filter");
-    const toolsHeader = response.headers.get("x-litellm-semantic-filter-tools");
+    const filterHeader = response.headers.get("x-embrouter-semantic-filter");
+    const toolsHeader = response.headers.get("x-embrouter-semantic-filter-tools");
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -3818,7 +3818,7 @@ export const getGuardrailsList = async (accessToken: string) => {
     const response = await fetch(v2Url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -3835,7 +3835,7 @@ export const getGuardrailsList = async (accessToken: string) => {
       const fallbackResponse = await fetch(v1Url, {
         method: "GET",
         headers: {
-          [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+          [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
       });
@@ -3862,7 +3862,7 @@ export interface GuardrailSubmissionItem {
   status: string; // "pending_review" | "active" | "rejected"
   team_id?: string | null;
   team_guardrail?: boolean; // true when submitted via team (team_id set)
-  litellm_params?: Record<string, unknown> | null;
+  embrouter_params?: Record<string, unknown> | null;
   guardrail_info?: Record<string, unknown> | null;
   submitted_by_user_id?: string | null;
   submitted_by_email?: string | null;
@@ -3946,7 +3946,7 @@ export const getGuardrailsUsageLogs = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4026,7 +4026,7 @@ export const testPoliciesAndGuardrails = async (
       method: "POST",
       signal,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -4097,7 +4097,7 @@ export const enrichPolicyTemplate = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -4177,7 +4177,7 @@ export const enrichPolicyTemplateStream = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -4249,7 +4249,7 @@ export const usageAiChatStream = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ messages, model }),
@@ -4332,7 +4332,7 @@ export const listPolicyVersions = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4364,7 +4364,7 @@ export const createPolicyVersion = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ source_policy_id: sourcePolicyId ?? undefined }),
@@ -4450,7 +4450,7 @@ export const deletePolicyAttachmentCall = async (accessToken: string, attachment
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4495,7 +4495,7 @@ export const getResolvedGuardrails = async (accessToken: string, policyId: strin
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4535,7 +4535,7 @@ export const estimateAttachmentImpactCall = async (accessToken: string, attachme
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(attachmentData),
@@ -4593,7 +4593,7 @@ export const getPromptVersions = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4662,7 +4662,7 @@ export const convertPromptFileToJson = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: formData,
     });
@@ -4688,7 +4688,7 @@ export const createAgentCall = async (accessToken: string, agentData: any) => {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -4768,7 +4768,7 @@ export const discoverAgentCardCall = async (
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -4790,7 +4790,7 @@ export const createGuardrailCall = async (accessToken: string, guardrailData: an
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -4822,7 +4822,7 @@ export const uiSpendLogDetailsCall = async (accessToken: string, logId: string, 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4849,7 +4849,7 @@ export const fetchOpenAPIRegistry = async (accessToken: string) => {
     const response = await fetch(url, {
       method: HTTP_REQUEST.GET,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -4937,7 +4937,7 @@ export const fetchMCPClientIp = async (accessToken: string): Promise<string | nu
     const response = await fetch(url, {
       method: HTTP_REQUEST.GET,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -5049,7 +5049,7 @@ export const fetchMCPSubmissions = async (accessToken: string) => {
     const response = await fetch(url, {
       method: HTTP_REQUEST.GET,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5102,7 +5102,7 @@ export const approveMCPServer = async (accessToken: string, serverId: string) =>
     const response = await fetch(url, {
       method: HTTP_REQUEST.PUT,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
     if (!response.ok) {
@@ -5124,7 +5124,7 @@ export const rejectMCPServer = async (accessToken: string, serverId: string, rev
     const response = await fetch(url, {
       method: HTTP_REQUEST.PUT,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ review_notes: reviewNotes ?? null }),
@@ -5202,7 +5202,7 @@ export const fetchAvailableSearchProviders = async (accessToken: string) => {
     const response = await fetch(url, {
       method: HTTP_REQUEST.GET,
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5222,12 +5222,12 @@ export const fetchAvailableSearchProviders = async (accessToken: string) => {
   }
 };
 
-export const testSearchToolConnection = async (accessToken: string, litellmParams: Record<string, any>) => {
+export const testSearchToolConnection = async (accessToken: string, embrouterParams: Record<string, any>) => {
   try {
     const data = await apiClient.post(`/search_tools/test_connection`, {
       accessToken,
       body: {
-        litellm_params: litellmParams,
+        embrouter_params: embrouterParams,
       },
     });
     return data;
@@ -5249,7 +5249,7 @@ export const listMCPTools = async (
   let url = proxyBaseUrl ? `${proxyBaseUrl}/mcp-rest/tools/list?${query}` : `/mcp-rest/tools/list?${query}`;
 
   const headers: Record<string, string> = {
-    [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+    [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     ...customHeaders, // Merge custom headers for passthrough auth
   };
@@ -5326,7 +5326,7 @@ export const callMCPTool = async (
     let url = proxyBaseUrl ? `${proxyBaseUrl}/mcp-rest/tools/call` : `/mcp-rest/tools/call`;
 
     const headers: Record<string, string> = {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(options?.customHeaders || {}), // Merge custom headers for passthrough auth
     };
@@ -5337,7 +5337,7 @@ export const callMCPTool = async (
       arguments: toolArguments,
     };
     if (options?.guardrails && options.guardrails.length > 0) {
-      body.litellm_metadata = { guardrails: options.guardrails };
+      body.embrouter_metadata = { guardrails: options.guardrails };
     }
 
     const response = await fetch(url, {
@@ -5406,7 +5406,7 @@ export const tagCreateCall = async (accessToken: string, formValues: TagNewReque
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(formValues),
     });
@@ -5432,7 +5432,7 @@ export const tagUpdateCall = async (accessToken: string, formValues: TagUpdateRe
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(formValues),
     });
@@ -5458,7 +5458,7 @@ export const tagInfoCall = async (accessToken: string, tagNames: string[]): Prom
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ names: tagNames }),
     });
@@ -5503,7 +5503,7 @@ export const tagListCall = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -5529,7 +5529,7 @@ export const tagDeleteCall = async (accessToken: string, tagName: string): Promi
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ name: tagName }),
     });
@@ -5577,7 +5577,7 @@ export const getTeamPermissionsCall = async (accessToken: string, teamId: string
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -5638,7 +5638,7 @@ export const sessionSpendLogsCall = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5666,7 +5666,7 @@ export const vectorStoreCreateCall = async (accessToken: string, formValues: Rec
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(formValues),
     });
@@ -5695,7 +5695,7 @@ export const vectorStoreListCall = async (
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -5733,7 +5733,7 @@ export const vectorStoreDeleteCall = async (accessToken: string, vectorStoreId: 
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ vector_store_id: vectorStoreId }),
     });
@@ -5758,7 +5758,7 @@ export const vectorStoreInfoCall = async (accessToken: string, vectorStoreId: st
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ vector_store_id: vectorStoreId }),
     });
@@ -5783,7 +5783,7 @@ export const vectorStoreUpdateCall = async (accessToken: string, formValues: Rec
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(formValues),
     });
@@ -5825,14 +5825,14 @@ export const ragIngestCall = async (
       },
     };
 
-    // Add litellm_vector_store_params if name or description provided
+    // Add embrouter_vector_store_params if name or description provided
     if (vectorStoreName || vectorStoreDescription) {
-      ingestOptions.ingest_options.litellm_vector_store_params = {};
+      ingestOptions.ingest_options.embrouter_vector_store_params = {};
       if (vectorStoreName) {
-        ingestOptions.ingest_options.litellm_vector_store_params.vector_store_name = vectorStoreName;
+        ingestOptions.ingest_options.embrouter_vector_store_params.vector_store_name = vectorStoreName;
       }
       if (vectorStoreDescription) {
-        ingestOptions.ingest_options.litellm_vector_store_params.vector_store_description = vectorStoreDescription;
+        ingestOptions.ingest_options.embrouter_vector_store_params.vector_store_description = vectorStoreDescription;
       }
     }
 
@@ -5841,7 +5841,7 @@ export const ragIngestCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
       body: formData,
     });
@@ -5865,7 +5865,7 @@ export const getEmailEventSettings = async (accessToken: string): Promise<EmailE
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5891,7 +5891,7 @@ export const updateEmailEventSettings = async (accessToken: string, settings: Em
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(settings),
@@ -5918,7 +5918,7 @@ export const resetEmailEventSettings = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5946,7 +5946,7 @@ export const deleteAgentCall = async (accessToken: string, agentId: string) => {
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -5972,7 +5972,7 @@ export const makeAgentsPublicCall = async (accessToken: string, agentIds: string
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -6001,7 +6001,7 @@ export const makeMCPPublicCall = async (accessToken: string, mcpServerIds: strin
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -6030,7 +6030,7 @@ export const deleteGuardrailCall = async (accessToken: string, guardrailId: stri
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6058,7 +6058,7 @@ export const getGuardrailUISettings = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6086,7 +6086,7 @@ export const getGuardrailProviderSpecificParams = async (accessToken: string) =>
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6116,7 +6116,7 @@ export const getCategoryYaml = async (accessToken: string, categoryName: string)
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6143,7 +6143,7 @@ export const getMajorAirlines = async (accessToken: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6171,7 +6171,7 @@ export const getAgentsList = async (accessToken: string, healthCheck: boolean = 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6197,7 +6197,7 @@ export const getAgentInfo = async (accessToken: string, agentId: string) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6233,7 +6233,7 @@ export const getGuardrailInfo = async (accessToken: string, guardrailId: string)
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6257,7 +6257,7 @@ export const patchAgentCall = async (
   agentId: string,
   updateData: {
     agent_name?: string;
-    litellm_params?: Record<string, any>;
+    embrouter_params?: Record<string, any>;
     agent_card_params?: Record<string, any>;
     object_permission?: Record<string, any>;
     tpm_limit?: number | null;
@@ -6274,7 +6274,7 @@ export const patchAgentCall = async (
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(updateData),
@@ -6301,7 +6301,7 @@ export const updateGuardrailCall = async (
     guardrail_name?: string;
     default_on?: boolean;
     guardrail_info?: Record<string, any>;
-    litellm_params?: Record<string, any>;
+    embrouter_params?: Record<string, any>;
   },
 ) => {
   try {
@@ -6310,7 +6310,7 @@ export const updateGuardrailCall = async (
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(updateData),
@@ -6361,7 +6361,7 @@ export const applyGuardrail = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -6441,7 +6441,7 @@ export const testCustomCodeGuardrail = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
@@ -6485,7 +6485,7 @@ export const validateBlockedWordsFile = async (accessToken: string, fileContent:
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ file_content: fileContent }),
@@ -6523,7 +6523,7 @@ export const updateSSOSettings = async (accessToken: string, settings: Record<st
     const response = await fetch(url, {
       method: "PATCH",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(settings),
@@ -6601,7 +6601,7 @@ export const uiAuditLogsCall = async ({
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -6636,7 +6636,7 @@ export const getRemainingUsers = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -6676,7 +6676,7 @@ export const getLicenseInfo = async (accessToken: string): Promise<LicenseInfo |
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       },
     });
 
@@ -6711,7 +6711,7 @@ export const updatePassThroughEndpoint = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(formValues),
@@ -6764,15 +6764,15 @@ export const testMCPToolsListRequest = async (
       "Content-Type": "application/json",
     };
     if (accessToken) {
-      headers["x-litellm-api-key"] = accessToken;
-      if (globalLitellmHeaderName.toLowerCase() !== "authorization") {
-        headers[globalLitellmHeaderName] = `Bearer ${accessToken}`;
+      headers["x-embrouter-api-key"] = accessToken;
+      if (globalEmbrouterHeaderName.toLowerCase() !== "authorization") {
+        headers[globalEmbrouterHeaderName] = `Bearer ${accessToken}`;
       }
     }
     if (oauthAccessToken) {
       headers["Authorization"] = `Bearer ${oauthAccessToken}`;
     } else if (accessToken) {
-      headers[globalLitellmHeaderName] = `Bearer ${accessToken}`;
+      headers[globalEmbrouterHeaderName] = `Bearer ${accessToken}`;
     }
 
     const response = await fetch(url, {
@@ -6828,7 +6828,7 @@ export const cacheTemporaryMcpServer = async (accessToken: string, payload: Reco
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -6862,7 +6862,7 @@ export const registerMcpOAuthClient = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
     },
@@ -6984,7 +6984,7 @@ export const vectorStoreSearchCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -7017,7 +7017,7 @@ export const searchToolQueryCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -7306,7 +7306,7 @@ export const updateUiSettings = async (accessToken: string, settings: Record<str
   const response = await fetch(url, {
     method: "PATCH",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(settings),
@@ -7360,7 +7360,7 @@ export const getClaudeCodePluginsList = async (accessToken: string, enabledOnly:
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -7394,7 +7394,7 @@ export const registerClaudeCodePlugin = async (accessToken: string, pluginData: 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(pluginData),
@@ -7435,7 +7435,7 @@ export const enableClaudeCodePlugin = async (accessToken: string, pluginName: st
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -7470,7 +7470,7 @@ export const disableClaudeCodePlugin = async (accessToken: string, pluginName: s
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -7505,7 +7505,7 @@ export const deleteClaudeCodePlugin = async (accessToken: string, pluginName: st
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
-        [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+        [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -7556,7 +7556,7 @@ export const checkEuAiActCompliance = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -7576,7 +7576,7 @@ export const checkGdprCompliance = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -7623,7 +7623,7 @@ export const fetchToolPolicyOptions = async (accessToken: string): Promise<ToolP
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -7639,7 +7639,7 @@ export const fetchToolsList = async (accessToken: string): Promise<ToolRow[]> =>
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -7730,7 +7730,7 @@ export const getToolUsageLogs = async (
   const response = await fetch(fullUrl, {
     method: "GET",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -7747,7 +7747,7 @@ export const fetchToolDetail = async (accessToken: string, toolName: string): Pr
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -7776,7 +7776,7 @@ export const updateToolPolicy = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -7804,7 +7804,7 @@ export const deleteToolPolicyOverride = async (
   const response = await fetch(url, {
     method: "DELETE",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
@@ -7845,7 +7845,7 @@ export const storeMCPOAuthUserCredential = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(tokenResponse),
@@ -7879,7 +7879,7 @@ export const deleteMCPOAuthUserCredential = async (
     : `/v1/mcp/server/${serverId}/oauth-user-credential`;
   const response = await fetch(url, {
     method: "DELETE",
-    headers: { [globalLitellmHeaderName]: `Bearer ${accessToken}` },
+    headers: { [globalEmbrouterHeaderName]: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -7910,7 +7910,7 @@ export const getMCPOAuthUserCredentialStatus = async (
     : `/v1/mcp/server/${serverId}/oauth-user-credential/status`;
   const response = await fetch(url, {
     method: "GET",
-    headers: { [globalLitellmHeaderName]: `Bearer ${accessToken}` },
+    headers: { [globalEmbrouterHeaderName]: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
     return { server_id: serverId, has_credential: false, is_expired: false };
@@ -7922,7 +7922,7 @@ export const listMCPUserCredentials = async (accessToken: string): Promise<MCPUs
   const url = proxyBaseUrl ? `${proxyBaseUrl}/v1/mcp/user-credentials` : `/v1/mcp/user-credentials`;
   const response = await fetch(url, {
     method: "GET",
-    headers: { [globalLitellmHeaderName]: `Bearer ${accessToken}` },
+    headers: { [globalEmbrouterHeaderName]: `Bearer ${accessToken}` },
   });
   if (!response.ok) return [];
   return response.json();
@@ -8025,7 +8025,7 @@ export const fetchMemoryList = async (
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -8049,7 +8049,7 @@ export const createMemory = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -8071,7 +8071,7 @@ export const updateMemory = async (
   const response = await fetch(url, {
     method: "PUT",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -8089,7 +8089,7 @@ export const deleteMemory = async (accessToken: string, key: string): Promise<vo
   const response = await fetch(url, {
     method: "DELETE",
     headers: {
-      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      [globalEmbrouterHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });

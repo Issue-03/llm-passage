@@ -6,15 +6,15 @@ from typing import Final
 
 from httpx import Headers, Response
 
-import litellm
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 from ...base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
@@ -26,7 +26,7 @@ from ..common_utils import ElevenLabsException
 class ElevenLabsAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
     @property
     def custom_llm_provider(self) -> str:
-        return litellm.LlmProviders.ELEVENLABS.value
+        return embrouter.LlmProviders.ELEVENLABS.value
 
     def get_supported_openai_params(self, model: str) -> list[OpenAIAudioTranscriptionOptionalParams]:
         return ["language", "temperature"]
@@ -56,7 +56,7 @@ class ElevenLabsAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         """
         Transforms the audio transcription request for ElevenLabs API.
@@ -154,7 +154,7 @@ class ElevenLabsAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if api_base is None:
@@ -172,7 +172,7 @@ class ElevenLabsAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

@@ -1,5 +1,5 @@
-"""RAG Endpoints for LiteLLM Proxy."""
+"""RAG Endpoints for EmbRouter Proxy."""
 
-from litellm.proxy.rag_endpoints.endpoints import router
+from embrouter.proxy.rag_endpoints.endpoints import router
 
 __all__ = ["router"]

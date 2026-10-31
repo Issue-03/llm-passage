@@ -1,5 +1,5 @@
 """
-Vantage endpoint types for LiteLLM Proxy
+Vantage endpoint types for EmbRouter Proxy
 """
 
 from datetime import datetime

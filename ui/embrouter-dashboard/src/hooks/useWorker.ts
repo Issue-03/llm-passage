@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { switchToWorkerUrl, WorkerInfo } from "@/components/networking";
 import { useUIConfig } from "@/app/(dashboard)/hooks/uiConfig/useUIConfig";
 
-const SELECTED_WORKER_KEY = "litellm_selected_worker_id";
+const SELECTED_WORKER_KEY = "embrouter_selected_worker_id";
 
 interface UseWorkerReturn {
   isControlPlane: boolean;

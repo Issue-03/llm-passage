@@ -15,12 +15,12 @@ So an evicted client is closed once two conditions hold. A grace window must
 have passed since its eviction, which covers a request that holds the client
 but is momentarily not on the wire, and the client must report no connection in
 flight. The second condition is what keeps the first honest: a request may run
-for ``litellm.request_timeout`` seconds, 6000 by default, and a streaming
+for ``embrouter.request_timeout`` seconds, 6000 by default, and a streaming
 response is bounded only by how long the upstream keeps sending, so no deadline
 on its own can promise that a request has finished.
 
-Only clients litellm itself created are closed; a client the caller supplied is
-left alone because litellm does not own its lifecycle.
+Only clients embrouter itself created are closed; a client the caller supplied is
+left alone because embrouter does not own its lifecycle.
 
 A client that closes synchronously is closed from wherever the cache is next
 used. One whose close is a coroutine needs the event loop it was evicted on, so
@@ -44,7 +44,7 @@ from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, replace
 from typing import Final
 
-from litellm.constants import (
+from embrouter.constants import (
     EVICTED_LLM_CLIENT_CLOSE_GRACE_SECONDS,
     EVICTED_LLM_CLIENT_CLOSE_MAX_PENDING,
 )
@@ -95,7 +95,7 @@ def _close_function(client: object) -> Callable[[], object] | None:
 
 
 def _transport_of(client: object) -> object:
-    """The httpx transport behind an SDK wrapper, a litellm handler, or a bare client."""
+    """The httpx transport behind an SDK wrapper, a embrouter handler, or a bare client."""
     for holder in (getattr(client, "_client", None), getattr(client, "client", None), client):
         transport: object = getattr(holder, "_transport", None)
         if transport is not None:
@@ -126,7 +126,7 @@ def _pool_has_busy_connection(transport: object) -> bool | None:
 def _has_connection_in_flight(client: object) -> bool:
     """Whether the client is servicing a request right now.
 
-    Both connection backends litellm uses already account for the connections
+    Both connection backends embrouter uses already account for the connections
     they have handed out, so this reads the client's own lease accounting rather
     than inferring it from elapsed time: httpcore reports a non-idle connection
     for the whole of a response including a stream, and aiohttp holds the
@@ -154,7 +154,7 @@ async def _close_quietly(closing: Awaitable[object]) -> None:
 
 
 class EvictedClientCloser:
-    """Closes evicted, litellm-owned clients once they are idle and out of grace."""
+    """Closes evicted, embrouter-owned clients once they are idle and out of grace."""
 
     def __init__(
         self,
@@ -172,17 +172,17 @@ class EvictedClientCloser:
         self._close_tasks: set[asyncio.Task[None]] = set()  # mutable-ok: strong refs to running closes
 
     def mark_owned(self, client: object) -> None:
-        """Record that litellm created this client, so it may be closed on eviction."""
+        """Record that embrouter created this client, so it may be closed on eviction."""
         try:
             self._owned.add(client)
         except TypeError:
-            pass  # values that cannot be weak-referenced are never litellm clients
+            pass  # values that cannot be weak-referenced are never embrouter clients
 
     def _is_owned(self, client: object) -> bool:
         try:
             return client in self._owned
         except TypeError:
-            return False  # unhashable values are never litellm clients
+            return False  # unhashable values are never embrouter clients
 
     def schedule(self, client: object) -> None:
         """Queue an evicted client for closing once it is idle and out of grace.

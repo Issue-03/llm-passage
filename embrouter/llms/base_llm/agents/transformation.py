@@ -14,7 +14,7 @@ from collections.abc import Mapping
 
 import httpx
 
-from litellm.types.agents import (
+from embrouter.types.agents import (
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
@@ -35,7 +35,7 @@ class BaseAgentsAPIConfig(ABC):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         """Return the full URL for POST /agents (create)."""
 
@@ -43,7 +43,7 @@ class BaseAgentsAPIConfig(ABC):
     def validate_environment(
         self,
         headers: dict[str, str],
-        litellm_params: dict[str, object],
+        embrouter_params: dict[str, object],
     ) -> dict[str, str]:
         """Validate credentials and return auth headers."""
 
@@ -51,9 +51,9 @@ class BaseAgentsAPIConfig(ABC):
     def transform_create_request(
         self,
         name: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> dict[str, object]:
-        """Map name + litellm_params to the provider's create-agent body."""
+        """Map name + embrouter_params to the provider's create-agent body."""
 
     @abstractmethod
     def transform_create_response(
@@ -71,7 +71,7 @@ class BaseAgentsAPIConfig(ABC):
     def transform_list_request(
         self,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         """Return (url, query_params) for GET /agents."""
 
@@ -91,7 +91,7 @@ class BaseAgentsAPIConfig(ABC):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         """Return (url, query_params) for GET /agents/{name}."""
 
@@ -112,7 +112,7 @@ class BaseAgentsAPIConfig(ABC):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         """Return the URL for DELETE /agents/{name}."""
 
@@ -133,7 +133,7 @@ class BaseAgentsAPIConfig(ABC):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         """Return (url, query_params) for GET /agents/{name}/versions."""
 
@@ -156,7 +156,7 @@ class BaseAgentsAPIConfig(ABC):
         headers: dict | httpx.Headers,
     ) -> Exception:
         """Map HTTP error status codes to provider-specific exceptions."""
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
         return BaseLLMException(
             status_code=status_code,

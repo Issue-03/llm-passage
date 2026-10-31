@@ -8,9 +8,9 @@ import pytest
 
 
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
-from litellm.types.guardrails import ApplyGuardrailRequest, ApplyGuardrailResponse
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+from embrouter.types.guardrails import ApplyGuardrailRequest, ApplyGuardrailResponse
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_bedrock_apply_guardrail_api_failure():
 @pytest.mark.asyncio
 async def test_bedrock_apply_guardrail_endpoint_integration(mock_proxy_logging_ctx):
     """Test the full endpoint integration with Bedrock guardrail"""
-    from litellm.proxy.guardrails.guardrail_endpoints import apply_guardrail
+    from embrouter.proxy.guardrails.guardrail_endpoints import apply_guardrail
 
     # Create a real BedrockGuardrail instance
     guardrail = BedrockGuardrail(
@@ -164,7 +164,7 @@ async def test_bedrock_apply_guardrail_endpoint_integration(mock_proxy_logging_c
     # Mock the guardrail registry
     with (
         patch(
-            "litellm.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
+            "embrouter.proxy.guardrails.guardrail_endpoints.GUARDRAIL_REGISTRY"
         ) as mock_registry,
         mock_proxy_logging_ctx(),
     ):
@@ -332,7 +332,7 @@ async def test_bedrock_apply_guardrail_blocked_with_disable_exception_on_block()
     a 200 response with the block message as content, instead of the exception
     surfacing as a bare 500.
     """
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -550,7 +550,7 @@ async def test_bedrock_masking_writes_back_to_user_message_through_handler():
     returned mask must overwrite that user message and leave system / assistant
     / tool content untouched.
     """
-    from litellm.llms.openai.chat.guardrail_translation.handler import (
+    from embrouter.llms.openai.chat.guardrail_translation.handler import (
         OpenAIChatCompletionsHandler,
     )
 
@@ -606,7 +606,7 @@ async def test_bedrock_masking_writes_back_to_user_message_through_handler():
 async def test_bedrock_handler_leaves_messages_untouched_when_no_user_message():
     """Through the real handler: no user-role message → INPUT scan skipped and
     every message is forwarded unchanged (no masking, no leak)."""
-    from litellm.llms.openai.chat.guardrail_translation.handler import (
+    from embrouter.llms.openai.chat.guardrail_translation.handler import (
         OpenAIChatCompletionsHandler,
     )
 

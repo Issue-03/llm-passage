@@ -1,5 +1,5 @@
 """
-XecGuard guardrail integration for LiteLLM.
+XecGuard guardrail integration for EmbRouter.
 
 Calls the CyCraft XecGuard API (https://api-xecguard.cycraft.ai)
 to scan the full conversation history against configured policies
@@ -29,29 +29,29 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional
 
 from fastapi.exceptions import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.core_helpers import redact_nested_match_and_regex_keys
-from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.core_helpers import redact_nested_match_and_regex_keys
+from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     GenericGuardrailAPIInputs,
     GuardrailStatus,
     StandardLoggingGuardrailInformation,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
 
@@ -128,7 +128,7 @@ class XecGuardGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.xecguard import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.xecguard import (
             XecGuardConfigModel,
         )
 
@@ -149,7 +149,7 @@ class XecGuardGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         messages: Final = self._build_full_history(
             request_data=request_data,
@@ -207,10 +207,10 @@ class XecGuardGuardrail(CustomGuardrail):
         """
         if (
             isinstance(kwargs, dict)
-            and "litellm_params" in kwargs
-            and "metadata" in kwargs["litellm_params"]
-            and "standard_logging_guardrail_information" in kwargs["litellm_params"]["metadata"]
-            and kwargs["litellm_params"]["metadata"]["standard_logging_guardrail_information"]
+            and "embrouter_params" in kwargs
+            and "metadata" in kwargs["embrouter_params"]
+            and "standard_logging_guardrail_information" in kwargs["embrouter_params"]["metadata"]
+            and kwargs["embrouter_params"]["metadata"]["standard_logging_guardrail_information"]
         ):
             return kwargs, result
 
@@ -509,7 +509,7 @@ class XecGuardGuardrail(CustomGuardrail):
 
     @staticmethod
     def _extract_grounding_documents(request_data: dict) -> list[dict]:
-        metadata: Final = request_data.get("metadata") or request_data.get("litellm_metadata")
+        metadata: Final = request_data.get("metadata") or request_data.get("embrouter_metadata")
         if not isinstance(metadata, dict):
             return []
         raw_docs: Final = metadata.get(_METADATA_GROUNDING_KEY)

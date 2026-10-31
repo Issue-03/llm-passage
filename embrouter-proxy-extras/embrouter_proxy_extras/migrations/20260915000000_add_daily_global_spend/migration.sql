@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGlobalSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGlobalSpend" (
     "id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "model" TEXT,
@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGlobalSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyGlobalSpend_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DailyGlobalSpend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyGlobalSpend_date_idx" ON "LiteLLM_DailyGlobalSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGlobalSpend_date_idx" ON "EmbRouter_DailyGlobalSpend"("date");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyGlobalSpend_date_model_model_group_custom_llm__key" ON "LiteLLM_DailyGlobalSpend"("date", "model", "model_group", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyGlobalSpend_date_model_model_group_custom_llm__key" ON "EmbRouter_DailyGlobalSpend"("date", "model", "model_group", "custom_llm_provider", "mcp_namespaced_tool_name", "endpoint");

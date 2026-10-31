@@ -6,8 +6,8 @@ Why separate file? Make it easy to see how transformation works
 
 from typing import Final
 
-from litellm._uuid import uuid
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseDocument,

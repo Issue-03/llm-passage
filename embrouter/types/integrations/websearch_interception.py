@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing_extensions import ReadOnly
 
 if TYPE_CHECKING:
-    from litellm.llms.base_llm.search.transformation import SearchResponse
+    from embrouter.llms.base_llm.search.transformation import SearchResponse
 
 
 class AnthropicSearchQuery(BaseModel):
@@ -43,7 +43,7 @@ class RichWebSearchInput(TypedDict, total=False):
     objective: ReadOnly[str]
     """Natural-language description of the goal behind the search."""
 
-    search_queries: ReadOnly[list[str]]  # mutable-ok: forwarded verbatim as litellm.asearch's list[str] query argument
+    search_queries: ReadOnly[list[str]]  # mutable-ok: forwarded verbatim as embrouter.asearch's list[str] query argument
     """Two to five short keyword queries covering different angles."""
 
 
@@ -76,8 +76,8 @@ class WebSearchInterceptionConfig(TypedDict, total=False):
     """
     Configuration parameters for WebSearchInterceptionLogger.
 
-    Used in proxy_config.yaml under litellm_settings:
-        litellm_settings:
+    Used in proxy_config.yaml under embrouter_settings:
+        embrouter_settings:
           websearch_interception_params:
             enabled_providers: ["bedrock"]
             search_tool_name: "my-perplexity-search"
@@ -91,4 +91,4 @@ class WebSearchInterceptionConfig(TypedDict, total=False):
     """Name of search tool configured in router's search_tools. If None, uses first available."""
 
     max_agentic_loops: ReadOnly[int | None]
-    """How many follow-up model calls one intercepted request may chain. If None, LiteLLM's default of 3 applies."""
+    """How many follow-up model calls one intercepted request may chain. If None, EmbRouter's default of 3 applies."""

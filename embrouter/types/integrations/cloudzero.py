@@ -4,7 +4,7 @@ from typing import Any
 class CBFRecord(dict[str, Any]):
     """CloudZero Billing Format (CBF) record structure.
 
-    This class represents a CBF record that is created from LiteLLM usage data
+    This class represents a CBF record that is created from EmbRouter usage data
     for CloudZero integration. Since CBF field names contain forward slashes
     (e.g., 'time/usage_start', 'cost/cost'), we use a Dict base class rather
     than TypedDict to accommodate the special characters in field names.

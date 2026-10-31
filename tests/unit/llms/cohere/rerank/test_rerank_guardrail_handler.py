@@ -6,11 +6,11 @@ Unit tests for Cohere Rerank Guardrail Translation Handler
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.cohere.rerank.guardrail_translation.handler import CohereRerankHandler
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import CallTypes
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms import get_guardrail_translation_mapping
+from embrouter.llms.cohere.rerank.guardrail_translation.handler import CohereRerankHandler
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import CallTypes
 
 
 class MockGuardrail(CustomGuardrail):

@@ -1,9 +1,9 @@
 """
 Team table models.
 
-Canonical definitions for ``litellm_teamtable`` (plus the shared Member and
+Canonical definitions for ``embrouter_teamtable`` (plus the shared Member and
 budget-window value types and the team-model alias table). Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 import json
@@ -12,11 +12,11 @@ from typing import Final, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class MemberBase(LiteLLMPydanticObjectBase):
+class MemberBase(EmbRouterPydanticObjectBase):
     user_id: str | None = Field(
         default=None,
         description="The unique ID of the user to add. Either user_id or user_email must be provided",
@@ -42,7 +42,7 @@ class Member(MemberBase):
     )
 
 
-class BudgetLimitEntry(LiteLLMPydanticObjectBase):
+class BudgetLimitEntry(EmbRouterPydanticObjectBase):
     """A single budget window with its own limit and independent reset schedule."""
 
     budget_duration: str
@@ -50,17 +50,17 @@ class BudgetLimitEntry(LiteLLMPydanticObjectBase):
     reset_at: datetime | None = None
 
 
-class LiteLLM_ModelTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ModelTable(EmbRouterPydanticObjectBase):
     id: int | None = None
     model_aliases: str | dict | None = None
     created_by: str
     updated_by: str
-    team: Optional["LiteLLM_TeamTable"] = None
+    team: Optional["EmbRouter_TeamTable"] = None
 
     model_config = ConfigDict(protected_namespaces=())
 
 
-class TeamBase(LiteLLMPydanticObjectBase):
+class TeamBase(EmbRouterPydanticObjectBase):
     team_alias: str | None = None
     team_id: str | None = None
     organization_id: str | None = None
@@ -83,7 +83,7 @@ class TeamBase(LiteLLMPydanticObjectBase):
     default_team_member_models: list[str] | None = None
 
 
-class LiteLLM_TeamTable(TeamBase):
+class EmbRouter_TeamTable(TeamBase):
     team_id: str
     spend: float | None = None
     max_parallel_requests: int | None = None
@@ -94,8 +94,8 @@ class LiteLLM_TeamTable(TeamBase):
     model_max_budget: dict | None = {}
     policies: list[str] | None = None
     allow_team_guardrail_config: bool | None = False
-    litellm_model_table: LiteLLM_ModelTable | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    embrouter_model_table: EmbRouter_ModelTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
     object_permission_id: str | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
@@ -133,20 +133,20 @@ class LiteLLM_TeamTable(TeamBase):
         return values
 
 
-class LiteLLM_TeamTableCachedObj(LiteLLM_TeamTable):
+class EmbRouter_TeamTableCachedObj(EmbRouter_TeamTable):
     last_refreshed_at: float | None = None
 
 
-class LiteLLM_DeletedTeamTable(LiteLLM_TeamTable):
+class EmbRouter_DeletedTeamTable(EmbRouter_TeamTable):
     """Audit record for deleted teams; mirrors the team plus deletion metadata."""
 
     id: str | None = None
     deleted_at: datetime | None = None
     deleted_by: str | None = None
     deleted_by_api_key: str | None = None
-    litellm_changed_by: str | None = None
+    embrouter_changed_by: str | None = None
 
     model_config = ConfigDict(protected_namespaces=())
 
 
-LiteLLM_ModelTable.model_rebuild()
+EmbRouter_ModelTable.model_rebuild()

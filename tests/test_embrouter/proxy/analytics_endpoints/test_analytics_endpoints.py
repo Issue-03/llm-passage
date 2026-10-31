@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LiteLLMRoutes
-from litellm.proxy.analytics_endpoints.analytics_endpoints import get_global_activity
-from litellm.proxy.analytics_endpoints.cache_activity import (
+from embrouter.proxy._types import EmbRouterRoutes
+from embrouter.proxy.analytics_endpoints.analytics_endpoints import get_global_activity
+from embrouter.proxy.analytics_endpoints.cache_activity import (
     ERROR_BREAKDOWN_SQL,
     GROUPS_SQL,
     KEY_ALIAS_OPTIONS_SQL,
@@ -72,7 +72,7 @@ def dispatching_query_raw() -> AsyncMock:
 @pytest.fixture
 def mock_prisma(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     prisma = build_prisma(dispatching_query_raw())
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma)
     return prisma
 
 
@@ -125,7 +125,7 @@ async def test_every_query_excludes_the_same_info_routes(mock_prisma: MagicMock)
     exclusions_by_query = {call.args[0]: json.loads(call.args[-1]) for call in mock_prisma.db.query_raw.call_args_list}
     assert set(exclusions_by_query) == {GROUPS_SQL, ERROR_BREAKDOWN_SQL, KEY_ALIAS_OPTIONS_SQL, MODEL_OPTIONS_SQL}
     for excluded_call_types in exclusions_by_query.values():
-        assert excluded_call_types == LiteLLMRoutes.info_routes.value
+        assert excluded_call_types == EmbRouterRoutes.info_routes.value
         assert {"/model/info", "/v1/models", "/key/info"} <= set(excluded_call_types)
         assert "" not in excluded_call_types
 

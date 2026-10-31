@@ -8,14 +8,14 @@ import uuid
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.edenai.common_utils import EdenAIException
-from litellm.llms.edenai.text_to_speech.transformation import EdenAITextToSpeechConfig
-from litellm.types.llms.openai import HttpxBinaryResponseContent
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.edenai.common_utils import EdenAIException
+from embrouter.llms.edenai.text_to_speech.transformation import EdenAITextToSpeechConfig
+from embrouter.types.llms.openai import HttpxBinaryResponseContent
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 EDEN_BASE = "https://api.edenai.run/v3"
 EDEN_SPEECH_URL = f"{EDEN_BASE}/audio/speech"
@@ -53,7 +53,7 @@ class TestRequestTransformation:
             input="hello there",
             voice="alloy",
             optional_params={"response_format": "wav", "speed": None},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -66,14 +66,14 @@ class TestRequestTransformation:
 
     def test_a_missing_voice_is_left_for_eden_to_reject(self):
         request = EdenAITextToSpeechConfig().transform_text_to_speech_request(
-            model=SELLER_MODEL, input="hello", voice=None, optional_params={}, litellm_params={}, headers={}
+            model=SELLER_MODEL, input="hello", voice=None, optional_params={}, embrouter_params={}, headers={}
         )
 
         assert "voice" not in request["dict_body"]
 
     def test_missing_key_is_an_authentication_error_before_any_request(self, no_eden_key, respx_mock):
-        with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
-            litellm.speech(model=MODEL, input="hello", voice="alloy")
+        with pytest.raises(embrouter.AuthenticationError, match="EDENAI_API_KEY"):
+            embrouter.speech(model=MODEL, input="hello", voice="alloy")
         assert not respx_mock.calls
 
 
@@ -81,7 +81,7 @@ class TestSpeech:
     def test_posts_to_eden_with_the_bearer_key_and_returns_the_audio(self, eden_key, respx_mock):
         respx_mock.post(EDEN_SPEECH_URL).mock(return_value=_eden_audio())
 
-        response = litellm.speech(model=MODEL, input="hello there", voice="alloy", response_format="mp3", speed=1.2)
+        response = embrouter.speech(model=MODEL, input="hello there", voice="alloy", response_format="mp3", speed=1.2)
 
         assert isinstance(response, HttpxBinaryResponseContent)
         assert response.content == AUDIO
@@ -97,7 +97,7 @@ class TestSpeech:
     def test_the_cost_header_becomes_the_response_cost(self, eden_key, respx_mock):
         respx_mock.post(EDEN_SPEECH_URL).mock(return_value=_eden_audio())
 
-        response = litellm.speech(model=MODEL, input="hello there", voice="alloy")
+        response = embrouter.speech(model=MODEL, input="hello there", voice="alloy")
 
         assert response._hidden_params["response_cost"] == EDEN_REPORTED_COST
 
@@ -112,8 +112,8 @@ class TestSpeech:
     async def test_async_call_logs_the_header_cost_as_spend(self, eden_key, httpx_transport, spend_capture, respx_mock):
         respx_mock.post(EDEN_SPEECH_URL).mock(return_value=_eden_audio())
 
-        response = await litellm.aspeech(
-            model=MODEL, input="hello there", voice="alloy", litellm_call_id=spend_capture.call_id
+        response = await embrouter.aspeech(
+            model=MODEL, input="hello there", voice="alloy", embrouter_call_id=spend_capture.call_id
         )
         await spend_capture.settle()
 
@@ -123,17 +123,17 @@ class TestSpeech:
 
 class TestErrors:
     def test_middleware_401_surfaces_as_an_eden_error_with_the_status_code(self, eden_key, respx_mock):
-        """`litellm.speech` does not map provider errors onto the OpenAI exception classes the way
+        """`embrouter.speech` does not map provider errors onto the OpenAI exception classes the way
         chat does, so the proxy relies on the status code the provider exception carries."""
         respx_mock.post(EDEN_SPEECH_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token."}))
 
         with pytest.raises(EdenAIException, match="Invalid token") as excinfo:
-            litellm.speech(model=MODEL, input="hello", voice="alloy")
+            embrouter.speech(model=MODEL, input="hello", voice="alloy")
         assert excinfo.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_async_401_maps_to_authentication_error(self, eden_key, httpx_transport, respx_mock):
         respx_mock.post(EDEN_SPEECH_URL).mock(return_value=httpx.Response(401, json={"detail": "Invalid token."}))
 
-        with pytest.raises(litellm.AuthenticationError, match="Invalid token"):
-            await litellm.aspeech(model=MODEL, input="hello", voice="alloy")
+        with pytest.raises(embrouter.AuthenticationError, match="Invalid token"):
+            await embrouter.aspeech(model=MODEL, input="hello", voice="alloy")

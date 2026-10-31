@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
     AmazonMoonshotConfig,
 )
 
@@ -26,8 +26,8 @@ def test_transform_request_never_resolves_aws_credentials():
     transformed = config.transform_request(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
-        optional_params={"aws_profile_name": "litellm-profile-that-does-not-exist", "max_tokens": 16},
-        litellm_params={},
+        optional_params={"aws_profile_name": "embrouter-profile-that-does-not-exist", "max_tokens": 16},
+        embrouter_params={},
         headers={},
     )
 
@@ -44,7 +44,7 @@ def test_transform_request_keeps_aws_params_out_of_the_body(aws_param: str):
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={aws_param: AWS_AUTH_PARAMS[aws_param]},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -60,7 +60,7 @@ def test_transform_request_leaves_the_caller_aws_params_in_place_for_signing():
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

@@ -8,7 +8,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.integrations.otel.model.utils import as_str, as_str_mapping
+from embrouter.integrations.otel.model.utils import as_str, as_str_mapping
 
 LANGFUSE_HEADER_PREFIX: Final = "langfuse_"
 _ITEMS: Final = TypeAdapter(tuple[object, ...])
@@ -28,14 +28,14 @@ class TraceControls:
 
 
 def caller_trace_controls(kwargs: Mapping[str, object]) -> TraceControls:
-    request: Final = as_str_mapping(kwargs.get("litellm_params"))
+    request: Final = as_str_mapping(kwargs.get("embrouter_params"))
     if request is None:
         return TraceControls()
     proxy_request: Final = as_str_mapping(request.get("proxy_server_request"))
     headers: Final = as_str_mapping(proxy_request.get("headers")) if proxy_request is not None else None
     bodies: Final = tuple(
         metadata
-        for key in ("metadata", "litellm_metadata")
+        for key in ("metadata", "embrouter_metadata")
         if (metadata := as_str_mapping(request.get(key))) is not None
     )
 

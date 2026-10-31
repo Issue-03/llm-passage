@@ -1,10 +1,10 @@
 """
 MCP Sampling Handler
 Handles `sampling/createMessage` requests from upstream MCP servers by
-routing them through LiteLLM's internal completion infrastructure.
+routing them through EmbRouter's internal completion infrastructure.
 This allows MCP servers to perform agentic reasoning (e.g., multi-step
 tool calling, chain-of-thought) without needing their own LLM API keys —
-LiteLLM acts as the LLM provider using its existing 100+ provider support,
+EmbRouter acts as the LLM provider using its existing 100+ provider support,
 cost tracking, rate limiting, and model routing.
 MCP Spec Reference:
     https://modelcontextprotocol.io/specification/2025-11-25/client/sampling
@@ -29,14 +29,14 @@ if typing.TYPE_CHECKING:
         ToolUseContent,
     )
 
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.utils import ModelResponse
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.utils import ModelResponse
 
 from fastapi import HTTPException
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 # Guard imports that require the mcp package
 try:
@@ -78,21 +78,21 @@ def _resolve_model_from_preferences(
         model_preferences: MCP ModelPreferences with hints and priorities.
         default_model: Fallback model if no hint matches.
     Returns:
-        A model string suitable for litellm.acompletion().
+        A model string suitable for embrouter.acompletion().
     """
-    import litellm
+    import embrouter
 
-    # Build list of available model names from proxy Router or litellm.model_list
+    # Build list of available model names from proxy Router or embrouter.model_list
     available_model_names: list[str] = []
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is not None:
             available_model_names = llm_router.get_model_names()
     except Exception:
         pass
-    if not available_model_names and litellm.model_list:
-        for entry in litellm.model_list:
+    if not available_model_names and embrouter.model_list:
+        for entry in embrouter.model_list:
             if isinstance(entry, dict):
                 name = entry.get("model_name")
                 if name:
@@ -150,16 +150,16 @@ def _resolve_model_from_preferences(
             available_model_names[0],
         )
         return available_model_names[0]
-    # Last resort - use LiteLLM default or raise error
-    default_sampling_model: Final[str | None] = getattr(litellm, "default_mcp_sampling_model", None)
+    # Last resort - use EmbRouter default or raise error
+    default_sampling_model: Final[str | None] = getattr(embrouter, "default_mcp_sampling_model", None)
     if default_sampling_model:
         verbose_logger.debug(
-            "MCP sampling model resolution: using litellm.default_mcp_sampling_model='%s'",
+            "MCP sampling model resolution: using embrouter.default_mcp_sampling_model='%s'",
             default_sampling_model,
         )
         return default_sampling_model
     raise ValueError(
-        "No model could be resolved for MCP sampling. Please configure 'default_mcp_sampling_model' in your LiteLLM configuration."
+        "No model could be resolved for MCP sampling. Please configure 'default_mcp_sampling_model' in your EmbRouter configuration."
     )
 
 
@@ -206,7 +206,7 @@ def _select_model_by_priority(
     Returns the highest-scoring model name, or None if scoring fails for
     all candidates (e.g. no model_info available).
     """
-    import litellm as _litellm
+    import embrouter as _embrouter
 
     cost_weight: Final[float] = getattr(model_preferences, "costPriority", None) or 0.0
     speed_weight: Final[float] = getattr(model_preferences, "speedPriority", None) or 0.0
@@ -216,7 +216,7 @@ def _select_model_by_priority(
     scored: Final[list[_ScoredModel]] = []
     for name in model_names:
         try:
-            info = _litellm.get_model_info(name)
+            info = _embrouter.get_model_info(name)
         except Exception:
             continue
         input_cost = info.get("input_cost_per_token") or 0.0
@@ -663,9 +663,9 @@ def _convert_openai_response_to_mcp_result(
     model_name: str,
 ) -> Union["CreateMessageResult", "CreateMessageResultWithTools", "ErrorData"]:
     """
-    Convert a litellm completion response to MCP CreateMessageResult.
+    Convert a embrouter completion response to MCP CreateMessageResult.
     Args:
-        response: The litellm ModelResponse.
+        response: The embrouter ModelResponse.
         model_name: The model that was used.
     Returns:
         MCP CreateMessageResult or CreateMessageResultWithTools.
@@ -752,7 +752,7 @@ async def _check_model_access(model: str, user_api_key_auth: "UserAPIKeyAuth | N
     if not _has_real_credential and not _is_admin:
         verbose_logger.warning(
             "MCP sampling: denying model access for model=%s — "
-            "auth context has no real LiteLLM credential (possible "
+            "auth context has no real EmbRouter credential (possible "
             "OAuth passthrough placeholder). api_key=%s, token=%s, role=%s",
             model,
             bool(_api_key),
@@ -762,16 +762,16 @@ async def _check_model_access(model: str, user_api_key_auth: "UserAPIKeyAuth | N
         return ErrorData(
             code=-1,
             message=(
-                "Model access denied: sampling requires a valid LiteLLM "
+                "Model access denied: sampling requires a valid EmbRouter "
                 "API key or admin credential. OAuth-only sessions cannot "
                 "trigger proxy model calls without explicit authorization."
             ),
         )
 
     try:
-        import litellm
-        from litellm.proxy._types import ModelAccessDeniedProxyException
-        from litellm.proxy.auth.auth_checks import (
+        import embrouter
+        from embrouter.proxy._types import ModelAccessDeniedProxyException
+        from embrouter.proxy.auth.auth_checks import (
             _check_team_member_model_access,
             can_key_call_model,
             can_project_access_model,
@@ -783,13 +783,13 @@ async def _check_model_access(model: str, user_api_key_auth: "UserAPIKeyAuth | N
         )
 
         try:
-            from litellm.proxy.proxy_server import llm_router as _llm_router
+            from embrouter.proxy.proxy_server import llm_router as _llm_router
         except ImportError:
             _llm_router = None
 
         await can_key_call_model(
             model=model,
-            llm_model_list=getattr(litellm, "model_list", None),
+            llm_model_list=getattr(embrouter, "model_list", None),
             valid_token=user_api_key_auth,
             llm_router=_llm_router,
         )
@@ -799,13 +799,13 @@ async def _check_model_access(model: str, user_api_key_auth: "UserAPIKeyAuth | N
         _project_id: Final[str | None] = getattr(user_api_key_auth, "project_id", None)
 
         try:
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 prisma_client as _prisma_client,
             )
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 proxy_logging_obj as _proxy_logging_obj,
             )
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 user_api_key_cache as _user_api_key_cache,
             )
         except ImportError:
@@ -912,25 +912,25 @@ async def _run_budget_checks(
     Returns None if all checks pass, or an ErrorData describing the denial.
     """
     try:
-        import litellm
-        from litellm.proxy.auth.auth_checks import (
+        import embrouter
+        from embrouter.proxy.auth.auth_checks import (
             common_checks,
             get_team_object,
             get_user_object,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             llm_router as _llm_router,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client as _prisma_client,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             proxy_logging_obj as _proxy_logging_obj,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             user_api_key_cache as _user_api_key_cache,
         )
     except ImportError as import_err:
@@ -975,7 +975,7 @@ async def _run_budget_checks(
     # This mirrors the RouteChecks.should_call_route gate that runs in
     # user_api_key_auth before common_checks for regular requests.
     try:
-        from litellm.proxy.auth.route_checks import RouteChecks
+        from embrouter.proxy.auth.route_checks import RouteChecks
 
         RouteChecks.should_call_route(
             route="/chat/completions",
@@ -992,17 +992,17 @@ async def _run_budget_checks(
             message=f"Sampling denied: virtual key is not allowed to call /chat/completions. {route_err.detail}",
         )
 
-    global_proxy_spend: Final = getattr(litellm, "_global_proxy_spend", None)
+    global_proxy_spend: Final = getattr(embrouter, "_global_proxy_spend", None)
 
-    # Build request body and merge x-litellm-tags from MCP headers BEFORE
+    # Build request body and merge x-embrouter-tags from MCP headers BEFORE
     # common_checks runs. _tag_max_budget_check inside common_checks only
     # inspects request_body; without this pre-merge, header-supplied tags
     # bypass per-tag budget enforcement (mirroring the regular auth path).
     request_body: Final[dict[str, object]] = {"model": model}
     try:
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=dummy_request,
             request_data=request_body,
             user_api_key_dict=user_api_key_auth,
@@ -1047,7 +1047,7 @@ def _build_sampling_request(
 ) -> "Request":
     """The synthetic FastAPI Request for sampling sub-calls, carrying the original
     MCP connection's headers and client IP."""
-    from litellm.proxy._experimental.mcp_server.utils import build_synthetic_mcp_request
+    from embrouter.proxy._experimental.mcp_server.utils import build_synthetic_mcp_request
 
     return build_synthetic_mcp_request(
         path="/mcp/sampling/createMessage",
@@ -1084,12 +1084,12 @@ async def _build_completion_kwargs(
         completion_kwargs["tool_choice"] = openai_tool_choice
     completion_kwargs["metadata"] = {"mcp_metadata": params.metadata} if params.metadata else {}
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
+    from embrouter.proxy.proxy_server import proxy_config
 
     completion_kwargs["user"] = getattr(user_api_key_auth, "user_id", None)
     _dummy_request: Final = _build_sampling_request(raw_headers=raw_headers, client_ip=client_ip)
-    return await add_litellm_data_to_request(
+    return await add_embrouter_data_to_request(
         data=completion_kwargs,
         request=_dummy_request,
         user_api_key_dict=user_api_key_auth,
@@ -1106,7 +1106,7 @@ async def _run_guardrails_and_call_llm(
     user_api_key_auth: "UserAPIKeyAuth",
 ) -> Any:
     try:
-        from litellm.proxy.proxy_server import proxy_logging_obj as _plo
+        from embrouter.proxy.proxy_server import proxy_logging_obj as _plo
 
         if _plo is not None:
             completion_kwargs = await _plo.pre_call_hook(
@@ -1123,16 +1123,16 @@ async def _run_guardrails_and_call_llm(
         )
         raise
 
-    import litellm
+    import embrouter
 
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is not None:
             return await _AcompletionCall(fn=llm_router.acompletion).fn(**completion_kwargs)
-        return await _AcompletionCall(fn=litellm.acompletion).fn(**completion_kwargs)
+        return await _AcompletionCall(fn=embrouter.acompletion).fn(**completion_kwargs)
     except ImportError:
-        return await _AcompletionCall(fn=litellm.acompletion).fn(**completion_kwargs)
+        return await _AcompletionCall(fn=embrouter.acompletion).fn(**completion_kwargs)
 
 
 async def handle_sampling_create_message(
@@ -1144,7 +1144,7 @@ async def handle_sampling_create_message(
     client_ip: str | None = None,
 ) -> Union["CreateMessageResult", "CreateMessageResultWithTools", "ErrorData"]:
     """
-    Handle an MCP sampling/createMessage request by routing through LiteLLM.
+    Handle an MCP sampling/createMessage request by routing through EmbRouter.
     This is the main entry point called by the MCP client session when an
     upstream MCP server requests LLM inference.
     Args:
@@ -1212,7 +1212,7 @@ async def handle_sampling_create_message(
         openai_messages: Final[Sequence[Mapping[str, object]]] = completion_kwargs["messages"]
         openai_tools: Final = completion_kwargs.get("tools")
         verbose_logger.debug(
-            "MCP sampling: calling litellm.acompletion with model=%s, num_messages=%d, has_tools=%s",
+            "MCP sampling: calling embrouter.acompletion with model=%s, num_messages=%d, has_tools=%s",
             model,
             len(openai_messages),
             bool(openai_tools),
@@ -1231,7 +1231,7 @@ async def handle_sampling_create_message(
         )
         return result
     except Exception as e:
-        from litellm.exceptions import (
+        from embrouter.exceptions import (
             AuthenticationError,
             BudgetExceededError,
             ContextWindowExceededError,
@@ -1239,7 +1239,7 @@ async def handle_sampling_create_message(
             RateLimitError,
             ServiceUnavailableError,
         )
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         if isinstance(
             e,

@@ -9,20 +9,20 @@ from jinja2 import DictLoader, select_autoescape
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
-from litellm.integrations.gitlab.gitlab_client import GitLabClient
-from litellm.integrations.prompt_management_base import (
+    EmbRouterLoggingObj = Any
+from embrouter.integrations.gitlab.gitlab_client import GitLabClient
+from embrouter.integrations.prompt_management_base import (
     PromptManagementBase,
     PromptManagementClient,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 GITLAB_PREFIX: Final = "gitlab::"
 
@@ -354,14 +354,14 @@ class GitLabPromptManager(CustomPromptManagement):
         user_id: str | None,
         messages: list[AllMessageValues],
         function_call: Mapping[str, object] | str | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
         prompt_id: str | None = None,
         prompt_variables: Mapping[str, object] | None = None,
         prompt_version: str | None = None,
         **kwargs,
     ) -> tuple[list[AllMessageValues], dict[str, object] | None]:
         if not prompt_id:
-            return messages, litellm_params
+            return messages, embrouter_params
         try:
             # Precedence: explicit prompt_version → per-call git_ref kwarg → manager override → config default
             git_ref: Final = prompt_version or kwargs.get("git_ref") or self._ref_override
@@ -374,11 +374,11 @@ class GitLabPromptManager(CustomPromptManagement):
             else:
                 final_messages = [{"role": "user", "content": rendered_prompt}] + messages
 
-            if litellm_params is None:
-                litellm_params = {}
+            if embrouter_params is None:
+                embrouter_params = {}
 
             if prompt_metadata.get("model"):
-                litellm_params["model"] = prompt_metadata["model"]
+                embrouter_params["model"] = prompt_metadata["model"]
 
             for param in [
                 "temperature",
@@ -388,14 +388,14 @@ class GitLabPromptManager(CustomPromptManagement):
                 "presence_penalty",
             ]:
                 if param in prompt_metadata:
-                    litellm_params[param] = prompt_metadata[param]
+                    embrouter_params[param] = prompt_metadata[param]
 
-            return final_messages, litellm_params
+            return final_messages, embrouter_params
         except Exception as e:
-            from litellm._logging import verbose_proxy_logger
+            from embrouter._logging import verbose_proxy_logger
 
             verbose_proxy_logger.error("Error in GitLab prompt pre_call_hook: %s", e)
-            return messages, litellm_params
+            return messages, embrouter_params
 
     def _parse_prompt_to_messages(self, prompt_content: str) -> list[AllMessageValues]:
         messages: list[AllMessageValues] = []
@@ -453,7 +453,7 @@ class GitLabPromptManager(CustomPromptManagement):
         response: _ResponseT,
         input_messages: list[AllMessageValues],
         function_call: Mapping[str, object] | str | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
         prompt_id: str | None = None,
         prompt_variables: Mapping[str, object] | None = None,
         **kwargs,
@@ -594,7 +594,7 @@ class GitLabPromptManager(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -612,7 +612,7 @@ class GitLabPromptManager(CustomPromptManagement):
             non_default_params,
             prompt_id=prompt_id,
             prompt_variables=prompt_variables,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             dynamic_callback_params=dynamic_callback_params,
             prompt_spec=prompt_spec,
             tools=tools,

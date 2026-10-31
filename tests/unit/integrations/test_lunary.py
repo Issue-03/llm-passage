@@ -1,7 +1,7 @@
 
 
-from litellm.integrations.lunary import parse_tool_calls
-from litellm.types.utils import (
+from embrouter.integrations.lunary import parse_tool_calls
+from embrouter.types.utils import (
     ChatCompletionMessageCustomToolCall,
     ChatCompletionMessageToolCall,
     Function,

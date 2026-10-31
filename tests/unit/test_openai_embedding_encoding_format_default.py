@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-import litellm
+import embrouter
 
 
 def _mock_openai_embedding_route(respx_mock: respx.MockRouter) -> respx.Route:
@@ -24,13 +24,13 @@ def _mock_openai_embedding_route(respx_mock: respx.MockRouter) -> respx.Route:
 
 @pytest.fixture(autouse=True)
 def clear_default_encoding_format_env(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv("LITELLM_DEFAULT_EMBEDDING_ENCODING_FORMAT", raising=False)
+    monkeypatch.delenv("EMBROUTER_DEFAULT_EMBEDDING_ENCODING_FORMAT", raising=False)
 
 
 def test_embedding_openai_omits_encoding_format_when_client_omits_it(respx_mock: respx.MockRouter) -> None:
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    response: Final = litellm.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
+    response: Final = embrouter.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
 
     request_body: Final = json.loads(mock_route.calls.last.request.read())
     assert "encoding_format" not in request_body
@@ -40,7 +40,7 @@ def test_embedding_openai_omits_encoding_format_when_client_omits_it(respx_mock:
 def test_embedding_openai_forwards_explicit_encoding_format(respx_mock: respx.MockRouter) -> None:
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    litellm.embedding(
+    embrouter.embedding(
         model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test", encoding_format="base64"
     )
 
@@ -51,10 +51,10 @@ def test_embedding_openai_forwards_explicit_encoding_format(respx_mock: respx.Mo
 def test_embedding_openai_explicit_encoding_format_wins_over_env_var(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LITELLM_DEFAULT_EMBEDDING_ENCODING_FORMAT", "float")
+    monkeypatch.setenv("EMBROUTER_DEFAULT_EMBEDDING_ENCODING_FORMAT", "float")
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    litellm.embedding(
+    embrouter.embedding(
         model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test", encoding_format="base64"
     )
 
@@ -66,10 +66,10 @@ def test_embedding_openai_explicit_encoding_format_wins_over_env_var(
 def test_embedding_openai_env_var_sets_default_encoding_format(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, env_value: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_DEFAULT_EMBEDDING_ENCODING_FORMAT", env_value)
+    monkeypatch.setenv("EMBROUTER_DEFAULT_EMBEDDING_ENCODING_FORMAT", env_value)
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    litellm.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
+    embrouter.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
 
     request_body: Final = json.loads(mock_route.calls.last.request.read())
     assert request_body["encoding_format"] == env_value
@@ -79,10 +79,10 @@ def test_embedding_openai_env_var_sets_default_encoding_format(
 def test_embedding_openai_env_none_omits_encoding_format(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, env_none: str
 ) -> None:
-    monkeypatch.setenv("LITELLM_DEFAULT_EMBEDDING_ENCODING_FORMAT", env_none)
+    monkeypatch.setenv("EMBROUTER_DEFAULT_EMBEDDING_ENCODING_FORMAT", env_none)
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    litellm.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
+    embrouter.embedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
 
     request_body: Final = json.loads(mock_route.calls.last.request.read())
     assert "encoding_format" not in request_body
@@ -92,10 +92,10 @@ def test_embedding_openai_env_none_omits_encoding_format(
 async def test_aembedding_openai_omits_encoding_format_when_client_omits_it(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     mock_route: Final = _mock_openai_embedding_route(respx_mock)
 
-    response: Final = await litellm.aembedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
+    response: Final = await embrouter.aembedding(model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test")
 
     request_body: Final = json.loads(mock_route.calls.last.request.read())
     assert "encoding_format" not in request_body
@@ -113,9 +113,9 @@ def test_embedding_openai_omitted_encoding_format_maps_provider_errors(
         )
     )
 
-    with pytest.raises(litellm.RateLimitError) as exc_info:
-        litellm.embedding(
+    with pytest.raises(embrouter.RateLimitError) as exc_info:
+        embrouter.embedding(
             model="openai/text-embedding-3-small", input=["hello"], api_key="sk-test", max_retries=0
         )
 
-    assert int(exc_info.value.litellm_response_headers["retry-after"]) == 42
+    assert int(exc_info.value.embrouter_response_headers["retry-after"]) == 42

@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import Request
 
-from litellm.proxy.response_polling.polling_handler import ResponsePollingHandler
+from embrouter.proxy.response_polling.polling_handler import ResponsePollingHandler
 
 
 class TestResponsePollingHandler:
@@ -35,8 +35,8 @@ class TestResponsePollingHandler:
         """Test that generated polling IDs have the correct prefix"""
         polling_id = ResponsePollingHandler.generate_polling_id()
 
-        assert polling_id.startswith("litellm_poll_")
-        assert len(polling_id) > len("litellm_poll_")  # Has UUID after prefix
+        assert polling_id.startswith("embrouter_poll_")
+        assert len(polling_id) > len("embrouter_poll_")  # Has UUID after prefix
 
     def test_generate_polling_id_is_unique(self):
         """Test that each generated polling ID is unique"""
@@ -67,10 +67,10 @@ class TestResponsePollingHandler:
 
     def test_get_cache_key_format(self):
         """Test that cache keys have the correct format"""
-        polling_id = "litellm_poll_abc123"
+        polling_id = "embrouter_poll_abc123"
         cache_key = ResponsePollingHandler.get_cache_key(polling_id)
 
-        assert cache_key == "litellm:polling:response:litellm_poll_abc123"
+        assert cache_key == "embrouter:polling:response:embrouter_poll_abc123"
 
     # ==================== Initial State Tests ====================
 
@@ -80,7 +80,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         handler = ResponsePollingHandler(redis_cache=mock_redis, ttl=3600)
 
-        polling_id = "litellm_poll_test123"
+        polling_id = "embrouter_poll_test123"
         request_data = {
             "model": "gpt-4o",
             "input": "Hello",
@@ -105,7 +105,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         handler = ResponsePollingHandler(redis_cache=mock_redis, ttl=7200)
 
-        polling_id = "litellm_poll_test123"
+        polling_id = "embrouter_poll_test123"
         request_data = {"model": "gpt-4o", "input": "Hello"}
 
         await handler.create_initial_state(
@@ -118,7 +118,7 @@ class TestResponsePollingHandler:
         call_args = mock_redis.async_set_cache.call_args
 
         assert (
-            call_args.kwargs["key"] == "litellm:polling:response:litellm_poll_test123"
+            call_args.kwargs["key"] == "embrouter:polling:response:embrouter_poll_test123"
         )
         assert call_args.kwargs["ttl"] == 7200
 
@@ -137,7 +137,7 @@ class TestResponsePollingHandler:
         before_time = int(datetime.now(timezone.utc).timestamp())
 
         response = await handler.create_initial_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             request_data={},
         )
 
@@ -153,7 +153,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "queued",
                 "output": [],
@@ -164,7 +164,7 @@ class TestResponsePollingHandler:
         handler = ResponsePollingHandler(redis_cache=mock_redis, ttl=3600)
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="in_progress",
         )
 
@@ -181,7 +181,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [{"id": "old_item", "type": "message"}],
@@ -205,7 +205,7 @@ class TestResponsePollingHandler:
         ]
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             output=new_output,
         )
 
@@ -222,7 +222,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -235,7 +235,7 @@ class TestResponsePollingHandler:
         usage_data = {"input_tokens": 10, "output_tokens": 50, "total_tokens": 60}
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="completed",
             usage=usage_data,
         )
@@ -252,7 +252,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -269,7 +269,7 @@ class TestResponsePollingHandler:
         ]
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="completed",
             reasoning=reasoning_data,
             tool_choice=tool_choice_data,
@@ -289,7 +289,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -301,7 +301,7 @@ class TestResponsePollingHandler:
 
         # All ResponsesAPIResponse fields that can be updated
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="completed",
             usage={"input_tokens": 10, "output_tokens": 50, "total_tokens": 60},
             reasoning={"effort": "medium"},
@@ -353,7 +353,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [{"id": "item_1", "type": "message"}],
@@ -367,7 +367,7 @@ class TestResponsePollingHandler:
 
         # Only update status
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="completed",
         )
 
@@ -386,7 +386,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -403,7 +403,7 @@ class TestResponsePollingHandler:
         }
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             error=error_data,
         )
 
@@ -419,7 +419,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -432,7 +432,7 @@ class TestResponsePollingHandler:
         incomplete_details = {"reason": "max_output_tokens"}
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="incomplete",
             incomplete_details=incomplete_details,
         )
@@ -450,7 +450,7 @@ class TestResponsePollingHandler:
 
         # Should not raise an exception
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="in_progress",
         )
 
@@ -464,7 +464,7 @@ class TestResponsePollingHandler:
 
         # Should not raise an exception
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="in_progress",
         )
 
@@ -478,7 +478,7 @@ class TestResponsePollingHandler:
         """Test that get_state returns the cached state"""
         mock_redis = AsyncMock()
         cached_state = {
-            "id": "litellm_poll_test",
+            "id": "embrouter_poll_test",
             "object": "response",
             "status": "in_progress",
             "output": [{"id": "item_1", "type": "message"}],
@@ -489,7 +489,7 @@ class TestResponsePollingHandler:
 
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
-        result = await handler.get_state("litellm_poll_test")
+        result = await handler.get_state("embrouter_poll_test")
 
         assert result == cached_state
 
@@ -501,7 +501,7 @@ class TestResponsePollingHandler:
 
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
-        result = await handler.get_state("litellm_poll_nonexistent")
+        result = await handler.get_state("embrouter_poll_nonexistent")
 
         assert result is None
 
@@ -510,7 +510,7 @@ class TestResponsePollingHandler:
         """Test that get_state returns None when Redis is not configured"""
         handler = ResponsePollingHandler(redis_cache=None)
 
-        result = await handler.get_state("litellm_poll_test")
+        result = await handler.get_state("embrouter_poll_test")
 
         assert result is None
 
@@ -522,7 +522,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [],
@@ -532,7 +532,7 @@ class TestResponsePollingHandler:
 
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
-        result = await handler.cancel_polling("litellm_poll_test")
+        result = await handler.cancel_polling("embrouter_poll_test")
 
         assert result is True
 
@@ -560,11 +560,11 @@ class TestResponsePollingHandler:
 
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
-        result = await handler.delete_polling("litellm_poll_test")
+        result = await handler.delete_polling("embrouter_poll_test")
 
         assert result is True
         mock_async_client.delete.assert_called_once_with(
-            "litellm:polling:response:litellm_poll_test"
+            "embrouter:polling:response:embrouter_poll_test"
         )
 
     @pytest.mark.asyncio
@@ -572,7 +572,7 @@ class TestResponsePollingHandler:
         """Test that delete_polling returns False when Redis is not configured"""
         handler = ResponsePollingHandler(redis_cache=None)
 
-        result = await handler.delete_polling("litellm_poll_test")
+        result = await handler.delete_polling("embrouter_poll_test")
 
         assert result is False
 
@@ -596,7 +596,7 @@ class TestResponsePollingHandler:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "queued",
                 "output": [],
@@ -607,7 +607,7 @@ class TestResponsePollingHandler:
         handler = ResponsePollingHandler(redis_cache=mock_redis, ttl=1800)
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             status="in_progress",
         )
 
@@ -666,7 +666,7 @@ class TestBackgroundStreamingModule:
 
     def test_background_streaming_task_can_be_imported(self):
         """Test that background_streaming_task can be imported from the module"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -675,7 +675,7 @@ class TestBackgroundStreamingModule:
 
     def test_module_exports_from_init(self):
         """Test that the module exports are available from __init__"""
-        from litellm.proxy.response_polling import (
+        from embrouter.proxy.response_polling import (
             ResponsePollingHandler,
             background_streaming_task,
         )
@@ -686,7 +686,7 @@ class TestBackgroundStreamingModule:
     def test_background_streaming_task_is_async(self):
         """Test that background_streaming_task is an async function"""
         import inspect
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -735,7 +735,7 @@ class TestProviderResolutionForPolling:
         model_list = [
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5",
                     "api_key": "sk-test",
                 },
@@ -750,11 +750,11 @@ class TestProviderResolutionForPolling:
         indices = model_name_to_deployment_indices.get(model, [])
         for idx in indices:
             deployment_dict = model_list[idx]
-            litellm_params = deployment_dict.get("litellm_params", {})
+            embrouter_params = deployment_dict.get("embrouter_params", {})
 
-            dep_provider = litellm_params.get("custom_llm_provider")
+            dep_provider = embrouter_params.get("custom_llm_provider")
             if not dep_provider:
-                dep_model = litellm_params.get("model", "")
+                dep_model = embrouter_params.get("model", "")
                 if "/" in dep_model:
                     dep_provider = dep_model.split("/")[0]
 
@@ -772,13 +772,13 @@ class TestProviderResolutionForPolling:
         model_list = [
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                 },
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o-deployment",
                 },
             },
@@ -791,11 +791,11 @@ class TestProviderResolutionForPolling:
         indices = model_name_to_deployment_indices.get(model, [])
         for idx in indices:
             deployment_dict = model_list[idx]
-            litellm_params = deployment_dict.get("litellm_params", {})
+            embrouter_params = deployment_dict.get("embrouter_params", {})
 
-            dep_provider = litellm_params.get("custom_llm_provider")
+            dep_provider = embrouter_params.get("custom_llm_provider")
             if not dep_provider:
-                dep_model = litellm_params.get("model", "")
+                dep_model = embrouter_params.get("model", "")
                 if "/" in dep_model:
                     dep_provider = dep_model.split("/")[0]
 
@@ -814,7 +814,7 @@ class TestProviderResolutionForPolling:
         model_list = [
             {
                 "model_name": "claude-3",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-3-sonnet",
                 },
             }
@@ -827,11 +827,11 @@ class TestProviderResolutionForPolling:
         indices = model_name_to_deployment_indices.get(model, [])
         for idx in indices:
             deployment_dict = model_list[idx]
-            litellm_params = deployment_dict.get("litellm_params", {})
+            embrouter_params = deployment_dict.get("embrouter_params", {})
 
-            dep_provider = litellm_params.get("custom_llm_provider")
+            dep_provider = embrouter_params.get("custom_llm_provider")
             if not dep_provider:
-                dep_model = litellm_params.get("model", "")
+                dep_model = embrouter_params.get("model", "")
                 if "/" in dep_model:
                     dep_provider = dep_model.split("/")[0]
 
@@ -849,7 +849,7 @@ class TestProviderResolutionForPolling:
         model_list = [
             {
                 "model_name": "my-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "some-custom-model",
                     "custom_llm_provider": "openai",  # Explicit provider
                 },
@@ -863,12 +863,12 @@ class TestProviderResolutionForPolling:
         indices = model_name_to_deployment_indices.get(model, [])
         for idx in indices:
             deployment_dict = model_list[idx]
-            litellm_params = deployment_dict.get("litellm_params", {})
+            embrouter_params = deployment_dict.get("embrouter_params", {})
 
             # custom_llm_provider should be checked first
-            dep_provider = litellm_params.get("custom_llm_provider")
+            dep_provider = embrouter_params.get("custom_llm_provider")
             if not dep_provider:
-                dep_model = litellm_params.get("model", "")
+                dep_model = embrouter_params.get("model", "")
                 if "/" in dep_model:
                     dep_provider = dep_model.split("/")[0]
 
@@ -884,7 +884,7 @@ class TestProviderResolutionForPolling:
             "gpt-5": [0],
         }
         model_list = [
-            {"model_name": "gpt-5", "litellm_params": {"model": "openai/gpt-5"}}
+            {"model_name": "gpt-5", "embrouter_params": {"model": "openai/gpt-5"}}
         ]
 
         model = "unknown-model"  # Not in router
@@ -908,7 +908,7 @@ class TestPollingConditionChecks:
 
     def test_polling_enabled_when_all_conditions_met(self):
         """Test polling is enabled when background=true, polling_via_cache="all", and redis is available"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -924,7 +924,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_when_background_false(self):
         """Test polling is disabled when background=false"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -940,7 +940,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_when_config_false(self):
         """Test polling is disabled when polling_via_cache is False"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -956,7 +956,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_when_redis_not_configured(self):
         """Test polling is disabled when Redis is not configured"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -972,7 +972,7 @@ class TestPollingConditionChecks:
 
     def test_polling_enabled_with_provider_list_match(self):
         """Test polling is enabled when provider list matches"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -988,7 +988,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_with_provider_list_no_match(self):
         """Test polling is disabled when provider not in list"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1004,7 +1004,7 @@ class TestPollingConditionChecks:
 
     def test_polling_with_router_lookup(self):
         """Test polling uses router to resolve model name to provider"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1012,7 +1012,7 @@ class TestPollingConditionChecks:
         mock_router = Mock()
         mock_router.model_name_to_deployment_indices = {"gpt-5": [0]}
         mock_router.model_list = [
-            {"model_name": "gpt-5", "litellm_params": {"model": "openai/gpt-5"}}
+            {"model_name": "gpt-5", "embrouter_params": {"model": "openai/gpt-5"}}
         ]
 
         result = should_use_polling_for_request(
@@ -1027,7 +1027,7 @@ class TestPollingConditionChecks:
 
     def test_polling_with_router_lookup_no_match(self):
         """Test polling returns False when router lookup finds non-matching provider"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1036,7 +1036,7 @@ class TestPollingConditionChecks:
         mock_router.model_list = [
             {
                 "model_name": "claude-3",
-                "litellm_params": {"model": "anthropic/claude-3-sonnet"},
+                "embrouter_params": {"model": "anthropic/claude-3-sonnet"},
             }
         ]
 
@@ -1054,7 +1054,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_when_model_in_native_background_mode(self):
         """Test that polling is disabled when model is in native_background_mode list"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1071,7 +1071,7 @@ class TestPollingConditionChecks:
 
     def test_polling_disabled_for_native_background_mode_with_provider_list(self):
         """Test that native_background_mode takes precedence even when provider matches"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1088,7 +1088,7 @@ class TestPollingConditionChecks:
 
     def test_polling_enabled_when_model_not_in_native_background_mode(self):
         """Test that polling is enabled when model is not in native_background_mode list"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1105,7 +1105,7 @@ class TestPollingConditionChecks:
 
     def test_polling_enabled_when_native_background_mode_is_none(self):
         """Test that polling works normally when native_background_mode is None"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1122,7 +1122,7 @@ class TestPollingConditionChecks:
 
     def test_polling_enabled_when_native_background_mode_is_empty_list(self):
         """Test that polling works normally when native_background_mode is empty list"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1139,7 +1139,7 @@ class TestPollingConditionChecks:
 
     def test_native_background_mode_exact_match_required(self):
         """Test that native_background_mode uses exact model name matching"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1157,7 +1157,7 @@ class TestPollingConditionChecks:
 
     def test_native_background_mode_with_provider_prefix_in_request(self):
         """Test native_background_mode matching when request model has provider prefix"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1177,7 +1177,7 @@ class TestPollingConditionChecks:
 
     def test_native_background_mode_with_router_lookup(self):
         """Test that native_background_mode works with router-resolved models"""
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             should_use_polling_for_request,
         )
 
@@ -1186,7 +1186,7 @@ class TestPollingConditionChecks:
         mock_router.model_list = [
             {
                 "model_name": "deep-research",
-                "litellm_params": {"model": "openai/o4-mini-deep-research"},
+                "embrouter_params": {"model": "openai/o4-mini-deep-research"},
             }
         ]
 
@@ -1443,7 +1443,7 @@ class TestBackgroundStreamingTerminalEvents:
     @pytest.mark.asyncio
     async def test_response_failed_sets_failed_status_and_error(self):
         """Test that a response.failed stream event results in failed status with error"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1470,7 +1470,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_1", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1484,7 +1484,7 @@ class TestBackgroundStreamingTerminalEvents:
 
     @pytest.mark.asyncio
     async def test_named_event_failed_frame_sets_failed_status_and_error(self):
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1509,7 +1509,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_named_event", handler)
 
         with patch(  # test-quality-ok: the processor is built inside the task, same idiom as the sibling tests
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1523,7 +1523,7 @@ class TestBackgroundStreamingTerminalEvents:
     @pytest.mark.asyncio
     async def test_response_incomplete_sets_incomplete_status_and_details(self):
         """Test that a response.incomplete stream event results in incomplete status"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1552,7 +1552,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_2", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1570,7 +1570,7 @@ class TestBackgroundStreamingTerminalEvents:
     @pytest.mark.asyncio
     async def test_response_cancelled_sets_cancelled_status(self):
         """Test that a response.cancelled stream event results in cancelled status"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1591,7 +1591,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_3", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1604,7 +1604,7 @@ class TestBackgroundStreamingTerminalEvents:
     @pytest.mark.asyncio
     async def test_response_completed_sets_completed_status(self):
         """Test that a response.completed stream event results in completed status"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1626,7 +1626,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_4", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1643,7 +1643,7 @@ class TestBackgroundStreamingTerminalEvents:
     ):
         """Test that when the response body lacks a status field, the fallback
         is derived from the event type, not hardcoded to 'completed'."""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1666,7 +1666,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_5", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1679,7 +1679,7 @@ class TestBackgroundStreamingTerminalEvents:
     @pytest.mark.asyncio
     async def test_no_terminal_event_defaults_to_completed(self):
         """Test that when no terminal event is received, status defaults to completed"""
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1692,7 +1692,7 @@ class TestBackgroundStreamingTerminalEvents:
         kwargs = _make_background_streaming_kwargs("poll_6", handler)
 
         with patch(
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = AsyncMock(
                 return_value=mock_response
@@ -1706,8 +1706,8 @@ class TestBackgroundStreamingTerminalEvents:
     async def test_polling_client_disconnect_does_not_cancel_upstream_call(self):
         """The polling client hangs up right after getting its polling id. The detached task
         must still stream the upstream response through the client-disconnect guards."""
-        from litellm.proxy.common_request_processing import create_response
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.common_request_processing import create_response
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
 
@@ -1743,14 +1743,14 @@ class TestBackgroundStreamingTerminalEvents:
                 "type": "http",
                 "method": "POST",
                 "path": "/v1/responses",
-                "headers": [(b"x-litellm-call-id", b"call-123")],
+                "headers": [(b"x-embrouter-call-id", b"call-123")],
                 "query_string": b"",
             },
             client_already_left,
         )
 
         with patch(  # test-quality-ok: the processor is built inside the task, same idiom as the sibling tests
-            "litellm.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.response_polling.background_streaming.ProxyBaseLLMRequestProcessing"
         ) as MockProcessor:
             MockProcessor.return_value.base_process_llm_request = upstream_call_behind_disconnect_guard
             await background_streaming_task(**kwargs)
@@ -1796,13 +1796,13 @@ class TestEdgeCases:
         assert ResponsePollingHandler.is_polling_id("") is False
 
         # Just prefix without UUID
-        assert ResponsePollingHandler.is_polling_id("litellm_poll_") is True
+        assert ResponsePollingHandler.is_polling_id("embrouter_poll_") is True
 
         # Similar but different prefix
-        assert ResponsePollingHandler.is_polling_id("litellm_polling_abc") is False
+        assert ResponsePollingHandler.is_polling_id("embrouter_polling_abc") is False
 
         # Case sensitivity
-        assert ResponsePollingHandler.is_polling_id("LITELLM_POLL_abc") is False
+        assert ResponsePollingHandler.is_polling_id("EMBROUTER_POLL_abc") is False
 
     @pytest.mark.asyncio
     async def test_create_initial_state_with_empty_metadata(self):
@@ -1811,7 +1811,7 @@ class TestEdgeCases:
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
         response = await handler.create_initial_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             request_data={"model": "gpt-4o"},  # No metadata field
         )
 
@@ -1823,7 +1823,7 @@ class TestEdgeCases:
         mock_redis = AsyncMock()
         mock_redis.async_get_cache.return_value = json.dumps(
             {
-                "id": "litellm_poll_test",
+                "id": "embrouter_poll_test",
                 "object": "response",
                 "status": "in_progress",
                 "output": [{"id": "item_1"}],  # Has existing output
@@ -1834,7 +1834,7 @@ class TestEdgeCases:
         handler = ResponsePollingHandler(redis_cache=mock_redis)
 
         await handler.update_state(
-            polling_id="litellm_poll_test",
+            polling_id="embrouter_poll_test",
             output=[],  # Explicitly set empty
         )
 

@@ -11,25 +11,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import (
+    EmbRouter_BudgetTable,
+    EmbRouter_EndUserTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     _check_team_member_budget,
     _is_model_cost_zero,
     _team_max_budget_check,
     common_checks,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.router import Router
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def mock_router_with_zero_cost_model():
         model_list=[
             {
                 "model_name": "on-prem-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "ollama/llama2",
                     "api_base": "http://localhost:11434",
                     "input_cost_per_token": 0.0,
@@ -53,7 +53,7 @@ def mock_router_with_zero_cost_model():
             },
             {
                 "model_name": "cloud-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "sk-test",
                 },
@@ -73,7 +73,7 @@ def mock_router_with_paid_model():
         model_list=[
             {
                 "model_name": "cloud-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "sk-test",
                 },
@@ -110,7 +110,7 @@ class TestIsModelCostZero:
 
     def test_paid_model_in_router(self, mock_router_with_zero_cost_model):
         """Test that a paid model is correctly identified as non-zero cost."""
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             # Mock the return value for gpt-3.5-turbo
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
@@ -142,7 +142,7 @@ class TestIsModelCostZero:
 
     def test_mixed_cost_models(self, mock_router_with_zero_cost_model):
         """Test that a list with mixed cost models returns False."""
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
                 "output_cost_per_token": 0.000002,
@@ -162,7 +162,7 @@ class TestUserBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that user over budget can still use zero-cost models."""
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
             spend=100.0,
             max_budget=50.0,
@@ -195,7 +195,7 @@ class TestUserBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that user over budget cannot use paid models."""
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
             spend=100.0,
             max_budget=50.0,
@@ -203,12 +203,12 @@ class TestUserBudgetBypass:
 
         request_body = {"model": "cloud-model"}
 
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
                 "output_cost_per_token": 0.000002,
             }
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await common_checks(
                     request_body=request_body,
                     team_object=None,
@@ -239,11 +239,11 @@ class TestEndUserBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that end user over budget can still use zero-cost models."""
-        end_user_budget = LiteLLM_BudgetTable(max_budget=20.0)
-        end_user_object = LiteLLM_EndUserTable(
+        end_user_budget = EmbRouter_BudgetTable(max_budget=20.0)
+        end_user_object = EmbRouter_EndUserTable(
             user_id="end-user-123",
             spend=50.0,
-            litellm_budget_table=end_user_budget,
+            embrouter_budget_table=end_user_budget,
             blocked=False,
         )
 
@@ -273,22 +273,22 @@ class TestEndUserBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that end user over budget cannot use paid models."""
-        end_user_budget = LiteLLM_BudgetTable(max_budget=20.0)
-        end_user_object = LiteLLM_EndUserTable(
+        end_user_budget = EmbRouter_BudgetTable(max_budget=20.0)
+        end_user_object = EmbRouter_EndUserTable(
             user_id="end-user-123",
             spend=50.0,
-            litellm_budget_table=end_user_budget,
+            embrouter_budget_table=end_user_budget,
             blocked=False,
         )
 
         request_body = {"model": "cloud-model", "user": "end-user-123"}
 
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
                 "output_cost_per_token": 0.000002,
             }
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await common_checks(
                     request_body=request_body,
                     team_object=None,
@@ -318,7 +318,7 @@ class TestTeamBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that team over budget can still use zero-cost models."""
-        team_object = LiteLLM_TeamTable(
+        team_object = EmbRouter_TeamTable(
             team_id="test-team",
             spend=150.0,
             max_budget=100.0,
@@ -353,7 +353,7 @@ class TestTeamBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that team over budget cannot use paid models."""
-        team_object = LiteLLM_TeamTable(
+        team_object = EmbRouter_TeamTable(
             team_id="test-team",
             spend=150.0,
             max_budget=100.0,
@@ -366,12 +366,12 @@ class TestTeamBudgetBypass:
 
         request_body = {"model": "cloud-model"}
 
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
                 "output_cost_per_token": 0.000002,
             }
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await common_checks(
                     request_body=request_body,
                     team_object=team_object,
@@ -399,11 +399,11 @@ class TestTeamMemberBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that team member over budget can still use zero-cost models."""
-        team_object = LiteLLM_TeamTable(
+        team_object = EmbRouter_TeamTable(
             team_id="test-team",
         )
 
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
         )
 
@@ -413,19 +413,19 @@ class TestTeamMemberBudgetBypass:
             team_id="test-team",
         )
 
-        member_budget = LiteLLM_BudgetTable(max_budget=30.0)
-        team_membership = LiteLLM_TeamMembership(
+        member_budget = EmbRouter_BudgetTable(max_budget=30.0)
+        team_membership = EmbRouter_TeamMembership(
             user_id="test-user",
             team_id="test-team",
             spend=60.0,
-            litellm_budget_table=member_budget,
+            embrouter_budget_table=member_budget,
         )
 
         request_body = {"model": "on-prem-model"}
 
         # Mock get_team_membership
         with patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership"
+            "embrouter.proxy.auth.auth_checks.get_team_membership"
         ) as mock_get_membership:
             mock_get_membership.return_value = team_membership
 
@@ -451,11 +451,11 @@ class TestTeamMemberBudgetBypass:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that team member over budget cannot use paid models."""
-        team_object = LiteLLM_TeamTable(
+        team_object = EmbRouter_TeamTable(
             team_id="test-team",
         )
 
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
         )
 
@@ -465,27 +465,27 @@ class TestTeamMemberBudgetBypass:
             team_id="test-team",
         )
 
-        member_budget = LiteLLM_BudgetTable(max_budget=30.0)
-        team_membership = LiteLLM_TeamMembership(
+        member_budget = EmbRouter_BudgetTable(max_budget=30.0)
+        team_membership = EmbRouter_TeamMembership(
             user_id="test-user",
             team_id="test-team",
             spend=60.0,
-            litellm_budget_table=member_budget,
+            embrouter_budget_table=member_budget,
         )
 
         request_body = {"model": "cloud-model"}
 
         with patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership"
+            "embrouter.proxy.auth.auth_checks.get_team_membership"
         ) as mock_get_membership:
             mock_get_membership.return_value = team_membership
 
-            with patch("litellm.get_model_info") as mock_get_model_info:
+            with patch("embrouter.get_model_info") as mock_get_model_info:
                 mock_get_model_info.return_value = {
                     "input_cost_per_token": 0.0000015,
                     "output_cost_per_token": 0.000002,
                 }
-                with pytest.raises(litellm.BudgetExceededError) as exc_info:
+                with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                     await common_checks(
                         request_body=request_body,
                         team_object=team_object,
@@ -511,7 +511,7 @@ class TestEdgeCases:
 
     def test_model_not_in_router(self, mock_router_with_zero_cost_model):
         """Test behavior when model is not found in router."""
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             # Simulate model not found
             mock_get_model_info.side_effect = Exception("Model not found")
             result = _is_model_cost_zero(
@@ -525,7 +525,7 @@ class TestEdgeCases:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that user under budget can use paid models normally."""
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
             spend=30.0,
             max_budget=100.0,
@@ -533,7 +533,7 @@ class TestEdgeCases:
 
         request_body = {"model": "cloud-model"}
 
-        with patch("litellm.get_model_info") as mock_get_model_info:
+        with patch("embrouter.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 0.0000015,
                 "output_cost_per_token": 0.000002,
@@ -562,7 +562,7 @@ class TestEdgeCases:
         self, mock_router_with_zero_cost_model, mock_proxy_logging
     ):
         """Test that user under budget can use zero-cost models normally."""
-        user_object = LiteLLM_UserTable(
+        user_object = EmbRouter_UserTable(
             user_id="test-user",
             spend=30.0,
             max_budget=100.0,
@@ -607,7 +607,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -617,7 +617,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
                     "model_info": {"id": "paid-model-id"},
                 },
             ],
@@ -626,7 +626,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
 
     async def _request(self, model: str, proxy_logging) -> bool:
         """Run one over-budget request for `model`, deriving the exemption the way auth does."""
-        from litellm.proxy.auth.user_api_key_auth import _should_skip_budget_checks
+        from embrouter.proxy.auth.user_api_key_auth import _should_skip_budget_checks
 
         router = self._router()
         request_data = {"model": model}
@@ -636,7 +636,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
         return await common_checks(
             request_body=request_data,
             team_object=None,
-            user_object=LiteLLM_UserTable(user_id="test-user", spend=100.0, max_budget=50.0),
+            user_object=EmbRouter_UserTable(user_id="test-user", spend=100.0, max_budget=50.0),
             end_user_object=None,
             global_proxy_spend=None,
             general_settings={},
@@ -659,7 +659,7 @@ class TestOverBudgetRequestThroughModelGroupAlias:
 
     @pytest.mark.asyncio
     async def test_over_budget_request_for_aliased_paid_model_is_blocked(self, mock_proxy_logging):
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await self._request("paid-model-alias", mock_proxy_logging)
 
         assert exc_info.value.current_cost == 100.0
@@ -667,5 +667,5 @@ class TestOverBudgetRequestThroughModelGroupAlias:
 
     @pytest.mark.asyncio
     async def test_over_budget_request_for_paid_model_is_blocked(self, mock_proxy_logging):
-        with pytest.raises(litellm.BudgetExceededError):
+        with pytest.raises(embrouter.BudgetExceededError):
             await self._request("paid-model", mock_proxy_logging)

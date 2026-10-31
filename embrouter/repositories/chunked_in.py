@@ -15,7 +15,7 @@ from collections.abc import Awaitable, Callable, Hashable, Iterable, Mapping
 from itertools import accumulate, chain, repeat, takewhile
 from typing import Final, Literal, TypeAlias, TypeVar
 
-from litellm.repositories.prisma_protocols import CountTable, DeleteManyTable, FindManyTable, UpdateManyTable
+from embrouter.repositories.prisma_protocols import CountTable, DeleteManyTable, FindManyTable, UpdateManyTable
 
 IN_LIST_CHUNK_SIZE: Final = 5_000
 MAX_IN_LIST_CHUNK_SIZE: Final = 30_000

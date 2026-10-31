@@ -1,6 +1,6 @@
-# LiteLLM Dotprompt Manager
+# EmbRouter Dotprompt Manager
 
-A powerful prompt management system for LiteLLM that supports [Google's Dotprompt specification](https://google.github.io/dotprompt/getting-started/). This allows you to manage your AI prompts in organized `.prompt` files with YAML frontmatter, Handlebars templating, and full integration with LiteLLM's completion API.
+A powerful prompt management system for EmbRouter that supports [Google's Dotprompt specification](https://google.github.io/dotprompt/getting-started/). This allows you to manage your AI prompts in organized `.prompt` files with YAML frontmatter, Handlebars templating, and full integration with EmbRouter's completion API.
 
 ## Features
 
@@ -8,7 +8,7 @@ A powerful prompt management system for LiteLLM that supports [Google's Dotpromp
 - **🎯 YAML frontmatter**: Define model, parameters, and schemas in file headers
 - **🔧 Handlebars templating**: Use `{{variable}}` syntax with Jinja2 backend
 - **✅ Input validation**: Automatic validation against defined schemas
-- **🔗 LiteLLM integration**: Works seamlessly with `litellm.completion()`
+- **🔗 EmbRouter integration**: Works seamlessly with `embrouter.completion()`
 - **💬 Smart message parsing**: Converts prompts to proper chat messages
 - **⚙️ Parameter extraction**: Automatically applies model settings from prompts
 
@@ -34,15 +34,15 @@ input:
 {% endif %}User: {{user_message}}
 ```
 
-### 2. Use with LiteLLM
+### 2. Use with EmbRouter
 
 ```python
-import litellm
+import embrouter
 
-litellm.set_global_prompt_directory("path/to/your/prompts")
+embrouter.set_global_prompt_directory("path/to/your/prompts")
 
-# Use with completion - the model prefix 'dotprompt/' tells LiteLLM to use prompt management
-response = litellm.completion(
+# Use with completion - the model prefix 'dotprompt/' tells EmbRouter to use prompt management
+response = embrouter.completion(
     model="dotprompt/gpt-4",  # The actual model comes from the .prompt file
     prompt_id="chat_assistant",
     prompt_variables={
@@ -234,7 +234,7 @@ The core class for managing `.prompt` files.
 
 ### DotpromptManager
 
-LiteLLM integration class extending `PromptManagementBase`.
+EmbRouter integration class extending `PromptManagementBase`.
 
 #### Methods
 
@@ -275,7 +275,7 @@ Represents a single prompt with metadata.
 **Prompt not found**: Ensure the `.prompt` file exists and has correct extension
 ```python
 # Check available prompts
-from litellm.integrations.dotprompt import get_dotprompt_manager
+from embrouter.integrations.dotprompt import get_dotprompt_manager
 manager = get_dotprompt_manager()
 print(manager.prompt_manager.list_prompts())
 ```
@@ -304,7 +304,7 @@ Make sure your variables match the defined schema types.
 
 ## Contributing
 
-The LiteLLM Dotprompt manager follows the [Dotprompt specification](https://google.github.io/dotprompt/) for maximum compatibility. When contributing:
+The EmbRouter Dotprompt manager follows the [Dotprompt specification](https://google.github.io/dotprompt/) for maximum compatibility. When contributing:
 
 1. Ensure compatibility with existing `.prompt` files
 2. Add tests for new features
@@ -313,4 +313,4 @@ The LiteLLM Dotprompt manager follows the [Dotprompt specification](https://goog
 
 ## License
 
-This prompt management system is part of LiteLLM and follows the same license terms.
+This prompt management system is part of EmbRouter and follows the same license terms.

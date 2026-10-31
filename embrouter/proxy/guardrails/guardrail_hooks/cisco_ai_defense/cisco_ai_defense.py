@@ -1,5 +1,5 @@
 """
-Cisco AI Defense guardrail integration for LiteLLM.
+Cisco AI Defense guardrail integration for EmbRouter.
 
 Cisco AI Defense exposes two distinct inspection surfaces, each with its own
 endpoint:
@@ -28,23 +28,23 @@ import httpx
 from fastapi import HTTPException
 from typing_extensions import TypedDict, Unpack
 
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.integrations.custom_guardrail import (
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     Choices,
     LLMResponseTypes,
     ModelResponse,
@@ -55,7 +55,7 @@ from litellm.types.utils import (
 from .cisco_ai_defense_mcp import _CiscoAIDefenseMcpMixin
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
 
@@ -69,7 +69,7 @@ DEFAULT_TIMEOUT_SECONDS: Final = 10.0
 SUPPORTED_INSPECTION_TYPES: Final[tuple[str, ...]] = ("chat", "mcp")
 DEFAULT_INSPECTION_TYPE: Final = "chat"
 
-# LiteLLM marks MCP guardrail calls with these call_type values; the proxy
+# EmbRouter marks MCP guardrail calls with these call_type values; the proxy
 # routes pre_mcp_call / during_mcp_call events through async_pre_call_hook /
 # async_moderation_hook with the call_type set accordingly.
 _MCP_CALL_TYPES: Final[tuple[str, ...]] = ("mcp_call", "call_mcp_tool")
@@ -424,8 +424,8 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
         request_data: dict,
     ):
         """Buffer and inspect streaming chat output before delivery."""
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.main import stream_chunk_builder
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.main import stream_chunk_builder
 
         if self.inspection_type != "chat":
             async for chunk in response:
@@ -702,7 +702,7 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
         # / MCP-tool calls. None values are dropped for log-line brevity.
         for source_key, target_key in (
             ("model", "model"),
-            ("litellm_call_id", "call_id"),
+            ("embrouter_call_id", "call_id"),
             ("mcp_tool_name", "mcp_tool"),
             ("mcp_server_name", "mcp_server"),
         ):
@@ -854,7 +854,7 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
             CISCO_API_KEY_HEADER: self.api_key,
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": f"litellm/{litellm_version}",
+            "User-Agent": f"embrouter/{embrouter_version}",
         }
 
     def _build_metadata(
@@ -868,9 +868,9 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
         if user:
             metadata["user"] = str(user)
 
-        litellm_call_id: Final = request_data.get("litellm_call_id")
-        if litellm_call_id:
-            metadata["client_transaction_id"] = str(litellm_call_id)
+        embrouter_call_id: Final = request_data.get("embrouter_call_id")
+        if embrouter_call_id:
+            metadata["client_transaction_id"] = str(embrouter_call_id)
 
         request_metadata: Final = request_data.get("metadata") or {}
         if isinstance(request_metadata, dict):
@@ -960,7 +960,7 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
 
         ``context.direction`` is ``"input"`` for request scans and ``"output"``
         for response scans (used for metadata namespacing and response headers).
-        ``response_obj`` is the LiteLLM response object (or MCP tool-call
+        ``response_obj`` is the EmbRouter response object (or MCP tool-call
         response) used when applying a ``redact`` action to outputs.
 
         Cisco AI Defense returns two different envelope shapes depending on
@@ -2114,7 +2114,7 @@ class CiscoAIDefenseGuardrail(_CiscoAIDefenseMcpMixin, CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
             CiscoAIDefenseGuardrailConfigModel,
         )
 

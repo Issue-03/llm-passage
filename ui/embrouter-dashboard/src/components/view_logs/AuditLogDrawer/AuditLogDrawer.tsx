@@ -75,7 +75,7 @@ function MetadataRow({ label, value }: { label: string; value: React.ReactNode }
 
 function DiffSection({ log }: { log: AuditLogEntry }) {
   const { action, table_name, before_value, updated_values } = log;
-  const isKeyTable = table_name === "LiteLLM_VerificationToken";
+  const isKeyTable = table_name === "EmbRouter_VerificationToken";
   const isUpdateAction = action === "updated" || action === "rotated";
 
   let displayBefore = before_value;
@@ -177,7 +177,7 @@ export function AuditLogDrawer({ open, onClose, log }: AuditLogDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <ResizableSheetContent storageKey="litellm:auditLogDrawerWidth" className="gap-0 p-0">
+      <ResizableSheetContent storageKey="embrouter:auditLogDrawerWidth" className="gap-0 p-0">
         <SheetTitle className="sr-only">Audit log details</SheetTitle>
 
         <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-6 py-4">

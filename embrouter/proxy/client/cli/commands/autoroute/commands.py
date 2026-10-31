@@ -50,7 +50,7 @@ def _ensure_master_key() -> str:
     """Reuse the master key already persisted in the generated config.yaml, minting one only when absent.
 
     The generated config is the single home of the key: the proxy server authenticates against
-    general_settings.master_key only (a key under litellm_settings is silently ignored, which
+    general_settings.master_key only (a key under embrouter_settings is silently ignored, which
     would leave the ephemeral proxy with no real auth), and the file is written 0600 via
     secure_create. Reusing that persisted value keeps the key stable across `start` runs, so a
     client configured against one session keeps working in the next.
@@ -108,11 +108,11 @@ def start(port: int) -> None:
     missing: Final = missing_proxy_runtime_modules()
     if missing:
         raise click.ClickException(
-            "lite autoroute start launches a local litellm proxy, which needs the proxy runtime that the "
-            f"thin `litellm[cli]` install does not include (missing: {', '.join(missing)}). Install the "
-            "proxy runtime with `uv tool install --force 'litellm[proxy]'`, or to QA a branch, "
+            "lite autoroute start launches a local embrouter proxy, which needs the proxy runtime that the "
+            f"thin `embrouter[cli]` install does not include (missing: {', '.join(missing)}). Install the "
+            "proxy runtime with `uv tool install --force 'embrouter[proxy]'`, or to QA a branch, "
             "`curl -fsSL<branch>/scripts/install.sh | "
-            "LITELLM_CLI_REF=<branch> sh`."
+            "EMBROUTER_CLI_REF=<branch> sh`."
         )
 
     try:
@@ -133,7 +133,7 @@ def start(port: int) -> None:
 
     if port == 4000:
         raise click.ClickException(
-            "Port 4000 is the litellm proxy's own default and its launcher silently rebinds it to a random "
+            "Port 4000 is the embrouter proxy's own default and its launcher silently rebinds it to a random "
             "port when busy; pick a different --port."
         )
 
@@ -178,7 +178,7 @@ def start(port: int) -> None:
         clear_pid_record()
         raise click.ClickException(str(e))
 
-    click.echo(f"litellm: ephemeral auto-router proxy up at {base_url} (pid {process.pid})")
+    click.echo(f"embrouter: ephemeral auto-router proxy up at {base_url} (pid {process.pid})")
     click.echo("Claude Code sessions started now will route through it. Press Ctrl-C to stop and restore.")
 
     stop_event: Final = threading.Event()

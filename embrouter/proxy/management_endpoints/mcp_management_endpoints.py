@@ -52,34 +52,34 @@ except ImportError:
     RecordNotFoundError = Exception
     UniqueViolationError = Exception
 
-import litellm
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.constants import LITELLM_PROXY_ADMIN_NAME, MCP_GATEWAY_SESSION_ID_PREFIX_LENGTH
-from litellm.proxy._experimental.mcp_server.utils import (
-    LITELLM_MCP_SERVER_DESCRIPTION,
-    LITELLM_MCP_SERVER_NAME,
+import embrouter
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.constants import EMBROUTER_PROXY_ADMIN_NAME, MCP_GATEWAY_SESSION_ID_PREFIX_LENGTH
+from embrouter.proxy._experimental.mcp_server.utils import (
+    EMBROUTER_MCP_SERVER_DESCRIPTION,
+    EMBROUTER_MCP_SERVER_NAME,
     McpServerPayloadLike,
     build_env_var_setup_url,
     collect_env_var_references,
     get_server_prefix,
     parse_admin_env_vars,
 )
-from litellm.proxy._experimental.mcp_server.utils import (
+from embrouter.proxy._experimental.mcp_server.utils import (
     validate_and_normalize_mcp_server_payload as _base_validate_and_normalize_mcp_server_payload,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
+from embrouter.proxy.management_endpoints.sso.id_jag_assertion_capture import (
     id_jag_assertion_capture_gap,
 )
-from litellm.proxy.management_helpers.audit_logs import (
+from embrouter.proxy.management_helpers.audit_logs import (
     get_audit_log_changed_by,
     is_audit_logging_enabled,
 )
-from litellm.repositories.table_repositories import (
+from embrouter.repositories.table_repositories import (
     MCPServerRepository,
     MCPUserCredentialsRepository,
 )
@@ -89,7 +89,7 @@ router: Final = APIRouter(prefix="/v1/mcp", tags=["mcp"])
 MCP_AVAILABLE: bool = True
 
 TEMPORARY_MCP_SERVER_TTL_SECONDS: Final = 300
-TEMPORARY_MCP_SERVER_REDIS_KEY_PREFIX: Final = "litellm:mcp:temporary_server"
+TEMPORARY_MCP_SERVER_REDIS_KEY_PREFIX: Final = "embrouter:mcp:temporary_server"
 
 
 class _HasServerId(Protocol):
@@ -114,7 +114,7 @@ DEFAULT_MCP_REGISTRY_VERSION: Final = "1.0.0"
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 try:
     importlib.import_module("mcp")
@@ -137,7 +137,7 @@ if MCP_AVAILABLE:
         def validate_tool_name(name: str) -> _ToolNameValidationResult:
             return _ToolNameValidationResult()
 
-    from litellm.proxy._experimental.mcp_server.db import (
+    from embrouter.proxy._experimental.mcp_server.db import (
         McpIdentifierConflict,
         approve_mcp_server,
         create_draft_mcp_server,
@@ -164,7 +164,7 @@ if MCP_AVAILABLE:
         store_user_oauth_credential,
         update_mcp_server,
     )
-    from litellm.proxy._experimental.mcp_server.discoverable_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.discoverable_endpoints import (
         _raise_if_not_oauth2,
         authorize_with_server,
         client_supplied_redirect_uris,
@@ -174,21 +174,21 @@ if MCP_AVAILABLE:
         register_client_with_server,
         resolve_ephemeral_dcr_client,
     )
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
-    from litellm.proxy._experimental.mcp_server.server_resolution import (
+    from embrouter.proxy._experimental.mcp_server.server_resolution import (
         authorize_mcp_server,
         resolve_mcp_server,
     )
-    from litellm.proxy._experimental.mcp_server.ui_session_utils import (
+    from embrouter.proxy._experimental.mcp_server.ui_session_utils import (
         admitted_user_context,
         build_effective_auth_contexts,
         is_ui_session_credential,
     )
-    from litellm.proxy._types import (
-        LiteLLM_MCPServerTable,
-        LitellmUserRoles,
+    from embrouter.proxy._types import (
+        EmbRouter_MCPServerTable,
+        EmbrouterUserRoles,
         MakeMCPServersPublicRequest,
         MCPApprovalStatus,
         MCPOAuthUserCredentialRequest,
@@ -210,16 +210,16 @@ if MCP_AVAILABLE:
         UserMCPManagementMode,
         is_per_server_oauth_discovery_eligible,
     )
-    from litellm.proxy.auth.user_api_key_auth import (
+    from embrouter.proxy.auth.user_api_key_auth import (
         _user_api_key_auth_builder,
         user_api_key_auth,
     )
-    from litellm.proxy.common_utils.http_parsing_utils import (
+    from embrouter.proxy.common_utils.http_parsing_utils import (
         _read_request_body,
         populate_request_with_path_params,
     )
-    from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-    from litellm.proxy.management_endpoints.mcp_connector_import import (
+    from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+    from embrouter.proxy.management_endpoints.mcp_connector_import import (
         ConnectorConversionError,
         ConvertedConnector,
         MCPConnectorImportFailure,
@@ -229,8 +229,8 @@ if MCP_AVAILABLE:
         MCPConnectorImportSkipped,
         convert_connector_entries,
     )
-    from litellm.proxy.management_helpers.utils import management_endpoint_wrapper
-    from litellm.types.mcp import (
+    from embrouter.proxy.management_helpers.utils import management_endpoint_wrapper
+    from embrouter.types.mcp import (
         MCP_ADMIN_CONFIG_CREDENTIAL_KEYS,
         MCPAuth,
         MCPCredentials,
@@ -238,7 +238,7 @@ if MCP_AVAILABLE:
         MCPGatewaySessionsTerminateResponse,
         normalize_upstream_header_name,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer, PinnedMCPTool
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer, PinnedMCPTool
 
     @dataclass
     class _TemporaryMCPServerEntry:
@@ -356,7 +356,7 @@ if MCP_AVAILABLE:
 
     def _validate_mcp_required_fields(payload: NewMCPServerRequest) -> None:
         """Validate submission payload against admin-configured mcp_required_fields."""
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings as proxy_general_settings,
         )
 
@@ -402,7 +402,7 @@ if MCP_AVAILABLE:
             )
 
     def _is_public_registry_enabled() -> bool:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings as proxy_general_settings,
         )
 
@@ -458,9 +458,9 @@ if MCP_AVAILABLE:
     def _build_builtin_registry_entry(base_url: str) -> _McpRegistryEntry:
         remote_url: Final = _build_registry_remote_url(base_url, "/mcp")
         return {
-            "name": LITELLM_MCP_SERVER_NAME,
-            "title": LITELLM_MCP_SERVER_NAME,
-            "description": LITELLM_MCP_SERVER_DESCRIPTION,
+            "name": EMBROUTER_MCP_SERVER_NAME,
+            "title": EMBROUTER_MCP_SERVER_NAME,
+            "description": EMBROUTER_MCP_SERVER_DESCRIPTION,
             "version": DEFAULT_MCP_REGISTRY_VERSION,
             "remotes": [
                 {
@@ -496,9 +496,9 @@ if MCP_AVAILABLE:
         Best-effort write-through to Redis so temporary MCP OAuth sessions are
         shared across proxy instances. Keep local in-memory cache as fallback.
         """
-        if litellm.cache is None or not hasattr(litellm.cache, "cache"):
+        if embrouter.cache is None or not hasattr(embrouter.cache, "cache"):
             return
-        cache_backend: Final = getattr(litellm.cache, "cache", None)
+        cache_backend: Final = getattr(embrouter.cache, "cache", None)
         if cache_backend is None or not hasattr(cache_backend, "async_set_cache"):
             return
 
@@ -532,9 +532,9 @@ if MCP_AVAILABLE:
         Values must be encrypted strings (same contract as _cache_temporary_mcp_server_in_redis);
         legacy plaintext dict payloads are rejected.
         """
-        if litellm.cache is None or not hasattr(litellm.cache, "cache"):
+        if embrouter.cache is None or not hasattr(embrouter.cache, "cache"):
             return None
-        cache_backend: Final = getattr(litellm.cache, "cache", None)
+        cache_backend: Final = getattr(embrouter.cache, "cache", None)
         if cache_backend is None or not hasattr(cache_backend, "async_get_cache"):
             return None
 
@@ -577,7 +577,7 @@ if MCP_AVAILABLE:
     def _get_prisma_client_or_none() -> "PrismaClient | None":
         """Non-throwing counterpart to ``get_prisma_client_or_throw`` for paths that degrade
         gracefully: a proxy configured without a database keeps the in-memory OAuth session."""
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         return prisma_client
 
@@ -638,8 +638,8 @@ if MCP_AVAILABLE:
         return redis_server
 
     def _redact_mcp_credentials(
-        mcp_server: LiteLLM_MCPServerTable,
-    ) -> LiteLLM_MCPServerTable:
+        mcp_server: EmbRouter_MCPServerTable,
+    ) -> EmbRouter_MCPServerTable:
         """Return a copy with secret credentials removed, keeping only non-secret admin config so the
         admin form can show and clear it. Non-admin and virtual-key views strip the whole blob."""
 
@@ -657,7 +657,7 @@ if MCP_AVAILABLE:
                 "mcp_info": {
                     **(redacted_server.mcp_info or {}),
                     "is_public": is_public,
-                    "is_public_explicit": is_public and redacted_server.server_id in (litellm.public_mcp_servers or ()),
+                    "is_public_explicit": is_public and redacted_server.server_id in (embrouter.public_mcp_servers or ()),
                 }
             }
         )
@@ -703,8 +703,8 @@ if MCP_AVAILABLE:
         return preserved or None
 
     def _redact_mcp_credentials_list(
-        mcp_servers: Iterable[LiteLLM_MCPServerTable],
-    ) -> list[LiteLLM_MCPServerTable]:
+        mcp_servers: Iterable[EmbRouter_MCPServerTable],
+    ) -> list[EmbRouter_MCPServerTable]:
         return [_redact_mcp_credentials(server) for server in mcp_servers]
 
     def _user_is_full_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
@@ -714,7 +714,7 @@ if MCP_AVAILABLE:
         must see them, but a read-only admin gets the same redacted view as
         any other non-managing caller.
         """
-        return user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+        return user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
     def _resolve_credential_target_user_id(user_api_key_dict: UserAPIKeyAuth, requested_user_id: str | None) -> str:
         """The user whose stored MCP credential a request acts on.
@@ -751,8 +751,8 @@ if MCP_AVAILABLE:
         return isinstance(allowed_routes, list) and len(allowed_routes) > 0
 
     def _sanitize_mcp_server_for_non_admin(
-        mcp_server: LiteLLM_MCPServerTable,
-    ) -> LiteLLM_MCPServerTable:
+        mcp_server: EmbRouter_MCPServerTable,
+    ) -> EmbRouter_MCPServerTable:
         """Strip credential-bearing fields for non-admin viewers.
 
         Non-admin users may legitimately need to discover MCP servers
@@ -762,7 +762,7 @@ if MCP_AVAILABLE:
         the explicit ``credentials`` field; this layers on top to catch
         the URL+headers+env vectors that the virtual-key sanitizer also
         strips. Reset values match each field's declared default on
-        ``LiteLLM_MCPServerTable`` (``None`` for Optional fields,
+        ``EmbRouter_MCPServerTable`` (``None`` for Optional fields,
         ``[]``/``{}`` for required list/dict fields).
         """
         sanitized: Final = _redact_mcp_credentials(mcp_server)
@@ -794,13 +794,13 @@ if MCP_AVAILABLE:
         return sanitized
 
     def _sanitize_mcp_server_list_for_non_admin(
-        mcp_servers: Iterable[LiteLLM_MCPServerTable],
-    ) -> list[LiteLLM_MCPServerTable]:
+        mcp_servers: Iterable[EmbRouter_MCPServerTable],
+    ) -> list[EmbRouter_MCPServerTable]:
         return [_sanitize_mcp_server_for_non_admin(s) for s in mcp_servers]
 
     def _sanitize_mcp_server_for_virtual_key(
-        mcp_server: LiteLLM_MCPServerTable,
-    ) -> LiteLLM_MCPServerTable:
+        mcp_server: EmbRouter_MCPServerTable,
+    ) -> EmbRouter_MCPServerTable:
         """Return a minimally sufficient MCP server view for virtual keys.
 
         Security model:
@@ -852,8 +852,8 @@ if MCP_AVAILABLE:
         return sanitized
 
     def _sanitize_mcp_server_list_for_virtual_key(
-        mcp_servers: Iterable[LiteLLM_MCPServerTable],
-    ) -> list[LiteLLM_MCPServerTable]:
+        mcp_servers: Iterable[EmbRouter_MCPServerTable],
+    ) -> list[EmbRouter_MCPServerTable]:
         return [_sanitize_mcp_server_for_virtual_key(server) for server in mcp_servers]
 
     # (server attribute, credentials key) a session server inherits from the server it derives from.
@@ -945,10 +945,10 @@ if MCP_AVAILABLE:
         payload: NewMCPServerRequest,
         created_by: str | None,
         server_id: str,
-    ) -> LiteLLM_MCPServerTable:
+    ) -> EmbRouter_MCPServerTable:
         now: Final = datetime.utcnow()
         server_name: Final = payload.server_name or payload.alias or server_id
-        return LiteLLM_MCPServerTable(
+        return EmbRouter_MCPServerTable(
             server_id=server_id,
             server_name=server_name,
             alias=payload.alias,
@@ -981,7 +981,7 @@ if MCP_AVAILABLE:
         )
 
     def get_prisma_client_or_throw(message: str):
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(
@@ -1003,7 +1003,7 @@ if MCP_AVAILABLE:
         """
         Get all MCP tools available for the current key, including those from access groups
         """
-        from litellm.proxy._experimental.mcp_server.server import _list_mcp_tools
+        from embrouter.proxy._experimental.mcp_server.server import _list_mcp_tools
 
         listing: Final = await _list_mcp_tools(
             user_api_key_auth=user_api_key_dict,
@@ -1027,10 +1027,10 @@ if MCP_AVAILABLE:
         """
         Get all available MCP access groups from the database AND config
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         access_groups: Final = set()
 
@@ -1042,7 +1042,7 @@ if MCP_AVAILABLE:
         # Get from DB
         if prisma_client is not None:
             try:
-                mcp_servers: Final[Sequence[prisma_models.LiteLLM_MCPServerTable]] = await MCPServerRepository(
+                mcp_servers: Final[Sequence[prisma_models.EmbRouter_MCPServerTable]] = await MCPServerRepository(
                     prisma_client
                 ).table.find_many()
                 for server in mcp_servers:
@@ -1062,7 +1062,7 @@ if MCP_AVAILABLE:
         description="Returns the caller's IP address as seen by the proxy.",
     )
     async def get_client_ip(request: Request):
-        from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+        from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
 
         client_ip: Final = IPAddressUtils.get_mcp_client_ip(request)
         return {"ip": client_ip}
@@ -1079,7 +1079,7 @@ if MCP_AVAILABLE:
                 detail="MCP registry is not enabled",
             )
 
-        from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+        from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
 
         client_ip: Final = IPAddressUtils.get_mcp_client_ip(request)
 
@@ -1107,11 +1107,11 @@ if MCP_AVAILABLE:
         return {"servers": registry_servers}
 
     ## FastAPI Routes
-    def _mcp_server_display_order(server: LiteLLM_MCPServerTable) -> tuple[str, str]:
+    def _mcp_server_display_order(server: EmbRouter_MCPServerTable) -> tuple[str, str]:
         return ((server.server_name or server.alias or server.server_id).lower(), server.server_id)
 
     def _get_user_mcp_management_mode() -> UserMCPManagementMode:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings as proxy_general_settings,
         )
 
@@ -1122,17 +1122,17 @@ if MCP_AVAILABLE:
 
     async def _get_team_scoped_mcp_server_list(
         team_id: str,
-    ) -> list[LiteLLM_MCPServerTable]:
+    ) -> list[EmbRouter_MCPServerTable]:
         """
         Return MCP servers scoped to a team: team's allowed servers + allow_all_keys servers.
         Used by the Create Key UI to populate the MCP server dropdown.
         """
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.management_helpers.object_permission_utils import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.management_helpers.object_permission_utils import (
             _get_allow_all_keys_server_ids,
             _get_team_allowed_mcp_servers,
         )
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         team_obj: Final = await get_team_object(
             team_id=team_id,
@@ -1149,7 +1149,7 @@ if MCP_AVAILABLE:
             return []
 
         # Collect servers from registry
-        servers: Final[list[LiteLLM_MCPServerTable]] = []
+        servers: Final[list[EmbRouter_MCPServerTable]] = []
         for server_id in all_allowed_ids:
             server = global_mcp_server_manager.get_mcp_server_by_id(server_id)
             if server is not None:
@@ -1160,7 +1160,7 @@ if MCP_AVAILABLE:
 
     async def _resolve_accessible_mcp_servers(
         user_api_key_dict: UserAPIKeyAuth,
-    ) -> list[LiteLLM_MCPServerTable]:
+    ) -> list[EmbRouter_MCPServerTable]:
         """The server set the dashboard grid shows (GET /v1/mcp/server, no team
         filter), returned unredacted. Callers that surface this to a client must
         apply their own redaction; the per-user env-var status endpoint relies on
@@ -1173,7 +1173,7 @@ if MCP_AVAILABLE:
         if _get_user_mcp_management_mode() == "view_all" and not _is_restricted_virtual_key_request(user_api_key_dict):
             return await global_mcp_server_manager.get_all_mcp_servers_unfiltered()
 
-        aggregated: Final[dict[str, LiteLLM_MCPServerTable]] = {}
+        aggregated: Final[dict[str, EmbRouter_MCPServerTable]] = {}
         for auth_context in await build_effective_auth_contexts(user_api_key_dict):
             for server in await global_mcp_server_manager.get_all_allowed_mcp_servers(user_api_key_auth=auth_context):
                 aggregated.setdefault(server.server_id, server)
@@ -1193,7 +1193,7 @@ if MCP_AVAILABLE:
         "/server",
         description="Returns the mcp server list with associated teams",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=list[LiteLLM_MCPServerTable],
+        response_model=list[EmbRouter_MCPServerTable],
     )
     async def fetch_all_mcp_servers(
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
@@ -1238,8 +1238,8 @@ if MCP_AVAILABLE:
             sanitized_team_id: Final = team_id.strip()
             is_admin: Final = _user_has_admin_view(user_api_key_dict)
             if not is_admin:
-                from litellm.proxy.auth.auth_checks import get_team_object
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.auth.auth_checks import get_team_object
+                from embrouter.proxy.proxy_server import (
                     prisma_client,
                     user_api_key_cache,
                 )
@@ -1273,14 +1273,14 @@ if MCP_AVAILABLE:
                 server.connected_app_reachable = server.server_id in reachable_ids
 
         # Annotate has_user_credential for BYOK servers (single batched query)
-        from litellm.proxy.proxy_server import prisma_client as _byok_prisma_client
+        from embrouter.proxy.proxy_server import prisma_client as _byok_prisma_client
 
         user_id: Final = user_api_key_dict.user_id or ""
         if user_id and _byok_prisma_client is not None:
             byok_server_ids: Final = [s.server_id for s in redacted_mcp_servers if getattr(s, "is_byok", False)]
             if byok_server_ids:
                 cred_rows: Final[
-                    Sequence[prisma_models.LiteLLM_MCPUserCredentials]
+                    Sequence[prisma_models.EmbRouter_MCPUserCredentials]
                 ] = await MCPUserCredentialsRepository(_byok_prisma_client).table.find_many(
                     where={"user_id": user_id, "server_id": {"in": byok_server_ids}}
                 )
@@ -1375,7 +1375,7 @@ if MCP_AVAILABLE:
         "/server/register",
         description="Submit a new MCP server for admin review (non-admin users). Mirrors POST /guardrails/register.",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
         status_code=status.HTTP_201_CREATED,
     )
     @management_endpoint_wrapper
@@ -1388,7 +1388,7 @@ if MCP_AVAILABLE:
         Creates the server with approval_status=pending_review.
         Requires a team-scoped API key.
         """
-        if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -1458,8 +1458,8 @@ if MCP_AVAILABLE:
         user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
     ) -> MCPGatewaySessionsResponse:
         if user_api_key_dict.user_role not in (
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -1467,7 +1467,7 @@ if MCP_AVAILABLE:
                     "error": "Admin access required to view MCP gateway sessions."
                 },
             )
-        from litellm.proxy._experimental.mcp_server.server import (
+        from embrouter.proxy._experimental.mcp_server.server import (
             get_mcp_gateway_sessions_report,
         )
 
@@ -1477,7 +1477,7 @@ if MCP_AVAILABLE:
         "/sessions",
         description=(
             "Force-close live stateful MCP gateway sessions on this proxy worker, selected by session id prefix "
-            "and/or by the LiteLLM user that opened them (proxy admin only)."
+            "and/or by the EmbRouter user that opened them (proxy admin only)."
         ),
         dependencies=(Depends(user_api_key_auth),),
         response_model=MCPGatewaySessionsTerminateResponse,
@@ -1502,7 +1502,7 @@ if MCP_AVAILABLE:
                     "error": "Provide session_id_prefix and/or user_id to select the sessions to terminate.",
                 },
             )
-        from litellm.proxy._experimental.mcp_server.server import (
+        from embrouter.proxy._experimental.mcp_server.server import (
             terminate_mcp_gateway_sessions,
         )
 
@@ -1522,8 +1522,8 @@ if MCP_AVAILABLE:
         Admin-only endpoint to view all user-submitted MCP servers pending review.
         """
         if user_api_key_dict.user_role not in (
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -1553,7 +1553,7 @@ if MCP_AVAILABLE:
         request: Request,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),  # noqa: B008  # FastAPI dependency injection
     ) -> dict[str, PinnedMCPTool]:
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Admin access required to pin MCP server tools."},
@@ -1566,7 +1566,7 @@ if MCP_AVAILABLE:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": f"MCP server '{server_id}' not found in the database."},
             )
-        from litellm.proxy._experimental.mcp_server.rest_endpoints import fetch_pinnable_tool_catalog
+        from embrouter.proxy._experimental.mcp_server.rest_endpoints import fetch_pinnable_tool_catalog
 
         snapshot: Final = await fetch_pinnable_tool_catalog(server, request, user_api_key_dict)
         if not snapshot:
@@ -1589,7 +1589,7 @@ if MCP_AVAILABLE:
         server_id: str,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),  # noqa: B008  # FastAPI dependency injection
     ) -> dict[str, str]:
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Admin access required to unpin MCP server tools."},
@@ -1612,7 +1612,7 @@ if MCP_AVAILABLE:
             prisma_client,
             server_id,
             pinned_tools,
-            touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+            touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
         )
         if record is None:
             raise HTTPException(
@@ -1626,7 +1626,7 @@ if MCP_AVAILABLE:
         "/server/{server_id}/approve",
         description="Approve a pending MCP server submission (admin only). Mirrors PUT /guardrails/{id}/approve.",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
     )
     @management_endpoint_wrapper
     async def approve_mcp_server_submission(
@@ -1636,7 +1636,7 @@ if MCP_AVAILABLE:
         """
         Admin approves a pending or previously-rejected MCP server — sets approval_status=active and loads it into the runtime registry.
         """
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Admin access required to approve MCP server submissions."},
@@ -1659,7 +1659,7 @@ if MCP_AVAILABLE:
         approved: Final = await approve_mcp_server(
             prisma_client,
             server_id,
-            touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+            touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
         )
         await global_mcp_server_manager.invalidate_byom_submitted_servers_cache(approved.submitted_by)
         await global_mcp_server_manager.reload_servers_from_database()
@@ -1670,7 +1670,7 @@ if MCP_AVAILABLE:
         "/server/{server_id}/reject",
         description="Reject a pending MCP server submission (admin only). Mirrors PUT /guardrails/{id}/reject.",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
     )
     @management_endpoint_wrapper
     async def reject_mcp_server_submission(
@@ -1681,7 +1681,7 @@ if MCP_AVAILABLE:
         """
         Admin rejects a pending MCP server — sets approval_status=rejected with optional review_notes.
         """
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Admin access required to reject MCP server submissions."},
@@ -1705,7 +1705,7 @@ if MCP_AVAILABLE:
         rejected: Final = await reject_mcp_server(
             prisma_client,
             server_id,
-            touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+            touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
             review_notes=payload.review_notes,
         )
         # Only evict from the runtime registry if the server was previously active
@@ -1717,7 +1717,7 @@ if MCP_AVAILABLE:
         "/server/{server_id}",
         description="Returns the mcp server info",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
     )
     async def fetch_mcp_server(
         request: Request,
@@ -1739,7 +1739,7 @@ if MCP_AVAILABLE:
         """
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
 
-        from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+        from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
 
         client_ip: Final = IPAddressUtils.get_mcp_client_ip(request)
         is_admin_view: Final = _user_has_admin_view(user_api_key_dict)
@@ -1806,16 +1806,16 @@ if MCP_AVAILABLE:
         "/server",
         description="Allows creation of mcp servers",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
         status_code=status.HTTP_201_CREATED,
     )
     @management_endpoint_wrapper
     async def add_mcp_server(
         payload: NewMCPServerRequest,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(
+        embrouter_changed_by: str | None = Header(
             None,
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ):
         """
@@ -1828,7 +1828,7 @@ if MCP_AVAILABLE:
         stamp_omitted_oauth2_flow(payload)
 
         # AuthZ - restrict only proxy admins to create mcp servers
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -1873,7 +1873,7 @@ if MCP_AVAILABLE:
             new_mcp_server: Final = await create_mcp_server_if_identifier_free(
                 prisma_client,
                 payload,
-                touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+                touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
             )
         except Exception as e:
             verbose_proxy_logger.exception("Error creating mcp server: %s", e)
@@ -1915,12 +1915,12 @@ if MCP_AVAILABLE:
         """
         Bulk-import MCP connectors. Accepts the Claude Desktop / Claude Code
         ``mcpServers`` mapping or the Anthropic Messages API ``mcp_servers``
-        array, creates each entry as a LiteLLM MCP server, and returns
+        array, creates each entry as a EmbRouter MCP server, and returns
         per-entry results so partial imports are visible to the caller.
         """
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
 
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={  # mutable-ok: FastAPI HTTPException detail requires a plain dict
@@ -1969,7 +1969,7 @@ if MCP_AVAILABLE:
                 created: Final = await create_mcp_server_if_identifier_free(
                     prisma_client,
                     conversion.request,
-                    touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+                    touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
                 )
             except Exception as e:  # noqa: BLE001  # any create failure must become a per-entry error, not a 500
                 verbose_proxy_logger.exception("Error importing mcp server %s: %s", conversion.name, e)
@@ -2020,9 +2020,9 @@ if MCP_AVAILABLE:
     async def add_session_mcp_server(
         payload: NewMCPServerRequest,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(
+        embrouter_changed_by: str | None = Header(
             None,
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ):
         """
@@ -2037,7 +2037,7 @@ if MCP_AVAILABLE:
         stamp_omitted_oauth2_flow(payload)
 
         # Restrict to proxy admins similar to the persistent create endpoint
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -2045,7 +2045,7 @@ if MCP_AVAILABLE:
                 },
             )
 
-        created_by: Final = user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME
+        created_by: Final = user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME
         payload_with_credentials: Final = _inherit_credentials_from_existing_server(payload)
         temp_record: Final = _build_temporary_mcp_server_record(
             payload_with_credentials,
@@ -2091,7 +2091,7 @@ if MCP_AVAILABLE:
         """
         import jwt as _jwt
 
-        from litellm.proxy.proxy_server import master_key
+        from embrouter.proxy.proxy_server import master_key
 
         auth_header: Final = request.headers.get("Authorization", "")
         api_key = auth_header  # _get_bearer_token will strip "Bearer " prefix
@@ -2116,22 +2116,22 @@ if MCP_AVAILABLE:
 
         # For delegate_auth_to_upstream servers the entire PKCE handshake
         # (both /authorize browser redirect and /token authorization_code
-        # exchange) must work without a LiteLLM session.  /authorize is opened
+        # exchange) must work without a EmbRouter session.  /authorize is opened
         # in a VS Code webview that may have no cookie; /token is a programmatic
         # POST from VS Code. PKCE security (code_verifier) guarantees the
         # authorization_code exchange cannot be replayed, so anonymous access
         # is safe for that grant only.
         #
         # Importantly, NOT safe for refresh_token grants: ``mcp_token`` will
-        # forward the request to the upstream issuer with LiteLLM's stored
+        # forward the request to the upstream issuer with EmbRouter's stored
         # ``client_secret`` attached, so any caller holding a refresh token
         # issued to this client could mint fresh upstream access tokens through
-        # us. Require normal LiteLLM auth for those.
+        # us. Require normal EmbRouter auth for those.
         if not api_key:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
                 global_mcp_server_manager,
             )
-            from litellm.proxy.auth.auth_utils import (  # noqa: PLC0415
+            from embrouter.proxy.auth.auth_utils import (  # noqa: PLC0415
                 get_request_route,
             )
 
@@ -2155,7 +2155,7 @@ if MCP_AVAILABLE:
                         body_data: Final = await _read_request_body(request=request)
                         grant_type: Final = (body_data or {}).get("grant_type", "")
                         if grant_type != "authorization_code":
-                            # Fall through to normal LiteLLM auth (will 401 if
+                            # Fall through to normal EmbRouter auth (will 401 if
                             # no key supplied).
                             pass
                         else:
@@ -2185,7 +2185,7 @@ if MCP_AVAILABLE:
         user_api_key_dict: UserAPIKeyAuth,
         request: Request | None = None,
     ) -> MCPServer:
-        from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+        from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
 
         client_ip: Final = IPAddressUtils.get_mcp_client_ip(request) if request is not None else None
         resolved: Final = await resolve_mcp_server(
@@ -2365,9 +2365,9 @@ if MCP_AVAILABLE:
     async def remove_mcp_server(
         server_id: str,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(
+        embrouter_changed_by: str | None = Header(
             None,
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ):
         """
@@ -2385,7 +2385,7 @@ if MCP_AVAILABLE:
         )
 
         # Authz - restrict only admins to delete mcp servers
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -2448,7 +2448,7 @@ if MCP_AVAILABLE:
             )
         if payload.save:
             await store_user_credential(prisma_client, user_id, server_id, payload.credential)
-            from litellm.proxy._experimental.mcp_server.server import (
+            from embrouter.proxy._experimental.mcp_server.server import (
                 _invalidate_byok_cred_cache,
             )
 
@@ -2479,7 +2479,7 @@ if MCP_AVAILABLE:
             await delete_user_credential(prisma_client, target_user_id, server_id)
         except RecordNotFoundError:
             pass  # Already deleted or didn't exist
-        from litellm.proxy._experimental.mcp_server.server import (
+        from embrouter.proxy._experimental.mcp_server.server import (
             _invalidate_byok_cred_cache,
         )
 
@@ -2503,7 +2503,7 @@ if MCP_AVAILABLE:
         """Persist the OAuth2 access token obtained by the calling user."""
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
         await _authorize_and_fetch_mcp_server(prisma_client, user_api_key_dict, server_id)
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # keep manager import lazy
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # keep manager import lazy
             global_mcp_server_manager as _manager,
         )
 
@@ -2540,7 +2540,7 @@ if MCP_AVAILABLE:
             expires_in=payload.expires_in,
             scopes=payload.scopes,
         )
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
             global_mcp_server_manager,
         )
 
@@ -2584,7 +2584,7 @@ if MCP_AVAILABLE:
                 await delete_user_credential(prisma_client, target_user_id, server_id)
             except RecordNotFoundError:
                 pass  # Already gone — treat as a successful delete
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
                 global_mcp_server_manager,
             )
 
@@ -2668,10 +2668,10 @@ if MCP_AVAILABLE:
             )
         )
 
-        async def lookup_metadata(server_id: str) -> LiteLLM_MCPServerTable | None:
+        async def lookup_metadata(server_id: str) -> EmbRouter_MCPServerTable | None:
             return servers.get(server_id)
 
-        async def visible_metadata(server_id: str) -> LiteLLM_MCPServerTable | None:
+        async def visible_metadata(server_id: str) -> EmbRouter_MCPServerTable | None:
             resolved: Final = await resolve_mcp_server(
                 server_id,
                 manager=global_mcp_server_manager,
@@ -2714,8 +2714,8 @@ if MCP_AVAILABLE:
         user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
     ) -> tuple[MCPServerUserCredentialListItem, ...]:
         if user_api_key_dict.user_role not in (
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -2732,7 +2732,7 @@ if MCP_AVAILABLE:
         prisma_client,
         user_api_key_dict: UserAPIKeyAuth,
         server_id: str,
-    ) -> LiteLLM_MCPServerTable:
+    ) -> EmbRouter_MCPServerTable:
         """Resolve the MCP server a caller may manage their own per-user state for.
 
         Looks the server up in the DB, then the in-memory registry, so a
@@ -2765,7 +2765,7 @@ if MCP_AVAILABLE:
 
     def _compute_user_env_var_status(
         *,
-        server: LiteLLM_MCPServerTable,
+        server: EmbRouter_MCPServerTable,
         stored_values: dict[str, str],
     ) -> MCPUserEnvVarsStatus:
         """Build a status object for one server given the user's stored values.
@@ -2879,7 +2879,7 @@ if MCP_AVAILABLE:
         allowed_names: Final = {spec["name"] for spec in user_specs}
         updates: Final = {k: v for k, v in payload.values.items() if k in allowed_names and v != ""}
         merged: Final = await merge_user_env_vars(prisma_client, user_id, server_id, updates, allowed_names)
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             invalidate_user_env_vars_cache,
         )
 
@@ -2906,7 +2906,7 @@ if MCP_AVAILABLE:
             )
         server: Final = await _authorize_and_fetch_mcp_server(prisma_client, user_api_key_dict, server_id)
         await delete_user_env_vars(prisma_client, user_id, server_id)
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             invalidate_user_env_vars_cache,
         )
 
@@ -2945,16 +2945,16 @@ if MCP_AVAILABLE:
         "/server",
         description="Allows deleting mcp serves in the db",
         dependencies=[Depends(user_api_key_auth)],
-        response_model=LiteLLM_MCPServerTable,
+        response_model=EmbRouter_MCPServerTable,
         status_code=status.HTTP_202_ACCEPTED,
     )
     @management_endpoint_wrapper
     async def edit_mcp_server(
         payload: UpdateMCPServerRequest,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(
+        embrouter_changed_by: str | None = Header(
             None,
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ):
         """
@@ -2979,7 +2979,7 @@ if MCP_AVAILABLE:
         validate_and_normalize_mcp_server_payload(payload)
 
         # Authz - restrict only admins to delete mcp servers
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -3049,7 +3049,7 @@ if MCP_AVAILABLE:
         mcp_server_record_updated: Final = await update_mcp_server(
             prisma_client,
             payload,
-            touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+            touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
             fields_set=payload_fields_set,
         )
 
@@ -3112,16 +3112,16 @@ if MCP_AVAILABLE:
         """
         try:
             # Update the public model groups
-            import litellm
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            import embrouter
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
-            from litellm.proxy.proxy_server import proxy_config
+            from embrouter.proxy.proxy_server import proxy_config
 
             # Load existing config
             config: Final = await proxy_config.get_config()
             # Check if user has admin permissions
-            if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+            if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
                 raise HTTPException(
                     status_code=403,
                     detail={
@@ -3138,22 +3138,22 @@ if MCP_AVAILABLE:
                     )
 
             # Update config with new settings
-            if "litellm_settings" not in config or config["litellm_settings"] is None:
-                config["litellm_settings"] = {}
+            if "embrouter_settings" not in config or config["embrouter_settings"] is None:
+                config["embrouter_settings"] = {}
 
-            config["litellm_settings"]["public_mcp_servers"] = request.mcp_server_ids
+            config["embrouter_settings"]["public_mcp_servers"] = request.mcp_server_ids
 
             # Save the updated config
             await proxy_config.save_config(new_config=config)
-            litellm.public_mcp_servers = request.mcp_server_ids
+            embrouter.public_mcp_servers = request.mcp_server_ids
 
             verbose_proxy_logger.debug(
-                "Updated public mcp servers to: %s by user: %s", litellm.public_mcp_servers, user_api_key_dict.user_id
+                "Updated public mcp servers to: %s by user: %s", embrouter.public_mcp_servers, user_api_key_dict.user_id
             )
 
             return {
                 "message": "Successfully updated public mcp servers",
-                "public_mcp_servers": litellm.public_mcp_servers,
+                "public_mcp_servers": embrouter.public_mcp_servers,
                 "updated_by": user_api_key_dict.user_id,
             }
         except HTTPException:
@@ -3274,14 +3274,14 @@ if MCP_AVAILABLE:
     # MCP Toolset endpoints
     # ---------------------------------------------------------------------------
 
-    from litellm.proxy._experimental.mcp_server.toolset_db import (
+    from embrouter.proxy._experimental.mcp_server.toolset_db import (
         create_mcp_toolset,
         delete_mcp_toolset,
         get_mcp_toolset,
         list_mcp_toolsets,
         update_mcp_toolset,
     )
-    from litellm.types.mcp_server.mcp_toolset import (
+    from embrouter.types.mcp_server.mcp_toolset import (
         NewMCPToolsetRequest,
         UpdateMCPToolsetRequest,
     )
@@ -3295,22 +3295,22 @@ if MCP_AVAILABLE:
     async def add_mcp_toolset(
         payload: NewMCPToolsetRequest,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(None),
+        embrouter_changed_by: str | None = Header(None),
     ):
         """Create a named toolset — a curated selection of {server_id, tool_name} pairs."""
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Only proxy admins can create MCP toolsets."},
             )
         touched_by: Final = (
             get_audit_log_changed_by(
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
             )
-            or LITELLM_PROXY_ADMIN_NAME
+            or EMBROUTER_PROXY_ADMIN_NAME
         )
         try:
             result: Final = await create_mcp_toolset(prisma_client, payload, touched_by)
@@ -3319,7 +3319,7 @@ if MCP_AVAILABLE:
                 status_code=status.HTTP_409_CONFLICT,
                 detail={"error": f"A toolset named '{payload.toolset_name}' already exists."},
             )
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3384,23 +3384,23 @@ if MCP_AVAILABLE:
     async def edit_mcp_toolset(
         payload: UpdateMCPToolsetRequest,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(None),
+        embrouter_changed_by: str | None = Header(None),
     ):
         """Partial update: a field left out keeps its stored value, and a field sent as null is cleared, except
         ``toolset_name`` and ``tools``, which a toolset always has; empty the tool selection with an explicit []."""
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Only proxy admins can update MCP toolsets."},
             )
         touched_by: Final = (
             get_audit_log_changed_by(
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
             )
-            or LITELLM_PROXY_ADMIN_NAME
+            or EMBROUTER_PROXY_ADMIN_NAME
         )
         try:
             result: Final = await update_mcp_toolset(prisma_client, payload, touched_by)
@@ -3420,7 +3420,7 @@ if MCP_AVAILABLE:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": f"Toolset '{payload.toolset_id}' not found."},
             )
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3436,10 +3436,10 @@ if MCP_AVAILABLE:
     async def remove_mcp_toolset(
         toolset_id: str,
         user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-        litellm_changed_by: str | None = Header(None),
+        embrouter_changed_by: str | None = Header(None),
     ):
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
-        if LitellmUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
+        if EmbrouterUserRoles.PROXY_ADMIN != user_api_key_dict.user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "Only proxy admins can delete MCP toolsets."},
@@ -3450,7 +3450,7 @@ if MCP_AVAILABLE:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": f"Toolset '{toolset_id}' not found."},
             )
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 

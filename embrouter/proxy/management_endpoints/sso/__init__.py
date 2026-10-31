@@ -1,10 +1,10 @@
 """
-SSO (Single Sign-On) related modules for LiteLLM Proxy.
+SSO (Single Sign-On) related modules for EmbRouter Proxy.
 
 This package contains custom SSO implementations and utilities.
 """
 
-from litellm.proxy.management_endpoints.sso.custom_microsoft_sso import (
+from embrouter.proxy.management_endpoints.sso.custom_microsoft_sso import (
     CustomMicrosoftSSO,
 )
 

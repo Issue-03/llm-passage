@@ -2,7 +2,7 @@ import sys
 import types
 from types import SimpleNamespace
 
-from litellm.llms.litellm_proxy.skills.sandbox_executor import SkillsSandboxExecutor
+from embrouter.llms.embrouter_proxy.skills.sandbox_executor import SkillsSandboxExecutor
 
 
 class _FakeSandboxSession:
@@ -67,8 +67,8 @@ def test_execute_installs_inline_requirements_file(monkeypatch):
     assert result["success"] is True
 
     created_session = _FakeSandboxSession.last_instance
-    assert created_session.copied_contents["/sandbox/.litellm_requirements.txt"] == requirements.encode("utf-8")
-    assert "pip', 'install', '-r', '.litellm_requirements.txt'" in created_session.run_calls[0]
+    assert created_session.copied_contents["/sandbox/.embrouter_requirements.txt"] == requirements.encode("utf-8")
+    assert "pip', 'install', '-r', '.embrouter_requirements.txt'" in created_session.run_calls[0]
     assert "os.chdir('/sandbox')" in created_session.run_calls[1]
 
 
@@ -90,7 +90,7 @@ def test_execute_uses_skill_requirements_txt(monkeypatch):
     created_session = _FakeSandboxSession.last_instance
     copied_paths = {sandbox_path for _, sandbox_path in created_session.copy_to_runtime_calls}
     assert "/sandbox/requirements.txt" in copied_paths
-    assert "/sandbox/.litellm_requirements.txt" not in copied_paths
+    assert "/sandbox/.embrouter_requirements.txt" not in copied_paths
     assert "pip', 'install', '-r', 'requirements.txt'" in created_session.run_calls[0]
 
 

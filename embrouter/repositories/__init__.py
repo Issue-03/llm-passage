@@ -2,24 +2,24 @@
 Repository classes for database operations.
 """
 
-from litellm.repositories.autorouter_session_repository import AutoRouterSessionRepository
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.credentials_repository import CredentialsRepository
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.object_permission_repository import (
+from embrouter.repositories.autorouter_session_repository import AutoRouterSessionRepository
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.credentials_repository import CredentialsRepository
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.object_permission_repository import (
     ObjectPermissionRepository,
 )
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.prisma_protocols import (
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.prisma_protocols import (
     BatchTable,
     PrismaBatch,
     PrismaRecord,
     ReadOnlyTable,
     SpendLinkedTable,
 )
-from litellm.repositories.project_repository import ProjectRepository
-from litellm.repositories.table_repositories import (
+from embrouter.repositories.project_repository import ProjectRepository
+from embrouter.repositories.table_repositories import (
     AccessGroupRepository,
     AdaptiveRouterSessionRepository,
     AdaptiveRouterStateRepository,
@@ -71,8 +71,8 @@ from litellm.repositories.table_repositories import (
     WorkflowMessageRepository,
     WorkflowRunRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.unit_of_work import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.unit_of_work import (
     BudgetCascadeUnitOfWork,
     BudgetWindowWrites,
     KeySpendResetWrites,
@@ -83,8 +83,8 @@ from litellm.repositories.unit_of_work import (
     budget_cascade_unit_of_work,
     spend_reset_unit_of_work,
 )
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 

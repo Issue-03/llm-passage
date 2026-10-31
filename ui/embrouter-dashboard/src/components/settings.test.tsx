@@ -119,8 +119,8 @@ describe("Settings", () => {
       ],
       available_callbacks: {
         langfuse: {
-          litellm_callback_name: "langfuse",
-          litellm_callback_params: ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+          embrouter_callback_name: "langfuse",
+          embrouter_callback_params: ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
           ui_callback_name: "Langfuse",
         },
       },
@@ -200,7 +200,7 @@ describe("Settings", () => {
           LANGFUSE_SECRET_KEY: "test-secret-key",
           LANGFUSE_HOST: "https://edited.langfuse.com",
         },
-        litellm_settings: { success_callback: ["langfuse"] },
+        embrouter_settings: { success_callback: ["langfuse"] },
       });
     });
   });
@@ -224,8 +224,8 @@ describe("Settings", () => {
       callbacks: [{ name: "otel", variables }],
       available_callbacks: {
         otel: {
-          litellm_callback_name: "otel",
-          litellm_callback_params: ["OTEL_EXPORTER", "OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_ENDPOINT", "OTEL_HEADERS"],
+          embrouter_callback_name: "otel",
+          embrouter_callback_params: ["OTEL_EXPORTER", "OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_ENDPOINT", "OTEL_HEADERS"],
           ui_callback_name: "OpenTelemetry",
         },
       },
@@ -297,7 +297,7 @@ describe("Settings", () => {
           otel_endpoint: "http://collector:4318",
           otel_exporter_otlp_protocol: "http/json",
         },
-        litellm_settings: { success_callback: ["otel"] },
+        embrouter_settings: { success_callback: ["otel"] },
       });
     });
   });
@@ -307,8 +307,8 @@ describe("Settings", () => {
       callbacks: [{ name: callbackName, variables }],
       available_callbacks: {
         s3: {
-          litellm_callback_name: "s3",
-          litellm_callback_params: [
+          embrouter_callback_name: "s3",
+          embrouter_callback_params: [
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_REGION_NAME",
@@ -403,7 +403,7 @@ describe("Settings", () => {
         "token",
         expect.objectContaining({
           environment_variables: expect.objectContaining({ callback: "s3_v2", s3_log_prompts_only: "true" }),
-          litellm_settings: { success_callback: ["s3_v2"] },
+          embrouter_settings: { success_callback: ["s3_v2"] },
         }),
       );
     });

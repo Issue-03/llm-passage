@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm.files.main as files_main
-from litellm.llms.bedrock.files.handler import BedrockFilesHandler
-from litellm.types.utils import SpecialEnums
+import embrouter.files.main as files_main
+from embrouter.llms.bedrock.files.handler import BedrockFilesHandler
+from embrouter.types.utils import SpecialEnums
 
 
 def _encode_unified_file_id(s3_uri: str) -> str:
-    unified_file_id = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    unified_file_id = SpecialEnums.EMBROUTER_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/json",
         "unified-id",
         "",
@@ -27,31 +27,31 @@ class TestBedrockFilesHandler:
 
     def test_should_parse_direct_managed_s3_uri(self):
         bucket, key = self.handler._parse_s3_uri(
-            s3_uri="s3://safe-bucket/litellm-bedrock-files-model-id-abc.jsonl",
+            s3_uri="s3://safe-bucket/embrouter-bedrock-files-model-id-abc.jsonl",
             configured_bucket_name="safe-bucket",
         )
 
         assert bucket == "safe-bucket"
-        assert key == "litellm-bedrock-files-model-id-abc.jsonl"
+        assert key == "embrouter-bedrock-files-model-id-abc.jsonl"
 
     def test_should_parse_managed_batch_output_uri(self):
         bucket, key = self.handler._parse_s3_uri(
-            s3_uri="s3://safe-bucket/litellm-batch-outputs/job/",
+            s3_uri="s3://safe-bucket/embrouter-batch-outputs/job/",
             configured_bucket_name="safe-bucket",
         )
 
         assert bucket == "safe-bucket"
-        assert key == "litellm-batch-outputs/job/"
+        assert key == "embrouter-batch-outputs/job/"
 
     def test_should_reject_arbitrary_bucket(self):
         with pytest.raises(ValueError, match="configured storage bucket"):
             self.handler._parse_s3_uri(
-                s3_uri="s3://other-bucket/litellm-bedrock-files-model-id-abc.jsonl",
+                s3_uri="s3://other-bucket/embrouter-bedrock-files-model-id-abc.jsonl",
                 configured_bucket_name="safe-bucket",
             )
 
     def test_should_reject_unmanaged_same_bucket_key(self):
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="EmbRouter-managed"):
             self.handler._parse_s3_uri(
                 s3_uri="s3://safe-bucket/private/output.jsonl",
                 configured_bucket_name="safe-bucket",
@@ -88,36 +88,36 @@ class TestBedrockFilesHandler:
     def test_should_reject_dot_segment_key(self):
         with pytest.raises(ValueError, match="invalid path segment"):
             self.handler._parse_s3_uri(
-                s3_uri="s3://safe-bucket/litellm-bedrock-files/../secret.jsonl",
+                s3_uri="s3://safe-bucket/embrouter-bedrock-files/../secret.jsonl",
                 configured_bucket_name="safe-bucket",
             )
 
     def test_should_reject_empty_middle_path_segment(self):
         with pytest.raises(ValueError, match="invalid path segment"):
             self.handler._parse_s3_uri(
-                s3_uri="s3://safe-bucket/litellm-bedrock-files//secret.jsonl",
+                s3_uri="s3://safe-bucket/embrouter-bedrock-files//secret.jsonl",
                 configured_bucket_name="safe-bucket",
             )
 
     def test_should_extract_unified_managed_s3_uri(self):
         file_id = _encode_unified_file_id(
-            "s3://safe-bucket/litellm-batch-outputs/job/output.jsonl"
+            "s3://safe-bucket/embrouter-batch-outputs/job/output.jsonl"
         )
 
         assert (
             self.handler._extract_s3_uri_from_file_id(file_id)
-            == "s3://safe-bucket/litellm-batch-outputs/job/output.jsonl"
+            == "s3://safe-bucket/embrouter-batch-outputs/job/output.jsonl"
         )
 
     def test_should_reject_file_id_without_s3_scheme(self):
-        with pytest.raises(ValueError, match="managed LiteLLM S3 file id"):
+        with pytest.raises(ValueError, match="managed EmbRouter S3 file id"):
             self.handler._extract_s3_uri_from_file_id("safe-bucket/private.jsonl")
 
     def test_should_reject_unified_unmanaged_s3_uri(self):
         file_id = _encode_unified_file_id("s3://safe-bucket/private/output.jsonl")
         s3_uri = self.handler._extract_s3_uri_from_file_id(file_id)
 
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="EmbRouter-managed"):
             self.handler._parse_s3_uri(
                 s3_uri=s3_uri,
                 configured_bucket_name="safe-bucket",
@@ -140,7 +140,7 @@ class TestBedrockFilesHandler:
                 self.handler._get_configured_s3_bucket_name(
                     {
                         "s3_bucket_name": "attacker-bucket",
-                        "_litellm_internal_model_credentials": trusted_credentials,
+                        "_embrouter_internal_model_credentials": trusted_credentials,
                     }
                 )
                 == "safe-bucket"
@@ -151,7 +151,7 @@ class TestBedrockFilesHandler:
             with pytest.raises(ValueError, match="S3 bucket_name is required"):
                 self.handler._get_configured_s3_bucket_name(
                     {
-                        "_litellm_internal_model_credentials": {
+                        "_embrouter_internal_model_credentials": {
                             "s3_bucket_name": "attacker-bucket"
                         }
                     }
@@ -175,15 +175,15 @@ def test_should_forward_trusted_model_credentials_to_bedrock_provider_config():
         return_value=mock_response,
     ) as mock_retrieve_file_content:
         response = files_main.file_content(
-            file_id="s3://safe-bucket/litellm-bedrock-files/file.jsonl",
+            file_id="s3://safe-bucket/embrouter-bedrock-files/file.jsonl",
             custom_llm_provider="bedrock",
-            _litellm_internal_model_credentials=trusted_credentials,
+            _embrouter_internal_model_credentials=trusted_credentials,
         )
 
     assert response is mock_response
-    litellm_params = mock_retrieve_file_content.call_args.kwargs["litellm_params"]
-    assert litellm_params["_litellm_internal_model_credentials"] is trusted_credentials
-    assert "s3_bucket_name" not in litellm_params
+    embrouter_params = mock_retrieve_file_content.call_args.kwargs["embrouter_params"]
+    assert embrouter_params["_embrouter_internal_model_credentials"] is trusted_credentials
+    assert "s3_bucket_name" not in embrouter_params
 
 
 def test_should_forward_trusted_model_credentials_to_retrieve_provider_config():
@@ -198,12 +198,12 @@ def test_should_forward_trusted_model_credentials_to_retrieve_provider_config():
         response = files_main.file_retrieve(
             file_id="gs://safe-bucket/private/file.jsonl",
             custom_llm_provider="vertex_ai",
-            _litellm_internal_model_credentials=trusted_credentials,
+            _embrouter_internal_model_credentials=trusted_credentials,
         )
 
     assert response is mock_response
-    litellm_params = mock_retrieve_file.call_args.kwargs["litellm_params"]
-    assert litellm_params["_litellm_internal_model_credentials"] is trusted_credentials
+    embrouter_params = mock_retrieve_file.call_args.kwargs["embrouter_params"]
+    assert embrouter_params["_embrouter_internal_model_credentials"] is trusted_credentials
 
 
 @pytest.mark.asyncio
@@ -218,7 +218,7 @@ async def test_afile_content_assumes_role_with_external_id(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-files-download":
@@ -249,18 +249,18 @@ async def test_afile_content_assumes_role_with_external_id(monkeypatch):
         return FakeS3Client()
 
     optional_params = {
-        "_litellm_internal_model_credentials": MappingProxyType({"s3_bucket_name": "safe-bucket"}),
+        "_embrouter_internal_model_credentials": MappingProxyType({"s3_bucket_name": "safe-bucket"}),
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIAFILESDOWNLOADCALLER",
         "aws_secret_access_key": "pod-caller-secret",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-files-download-role",
-        "aws_session_name": "litellm-files-download-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-files-download-role",
+        "aws_session_name": "embrouter-files-download-session",
         "aws_external_id": "external-id-files-download",
     }
 
     with patch.object(boto3, "client", side_effect=fake_boto3_client) as mock_boto3_client:
         response = await BedrockFilesHandler().afile_content(
-            file_content_request={"file_id": "s3://safe-bucket/litellm-bedrock-files-model-id-abc.jsonl"},
+            file_content_request={"file_id": "s3://safe-bucket/embrouter-bedrock-files-model-id-abc.jsonl"},
             optional_params=optional_params,
             timeout=10.0,
             max_retries=None,
@@ -285,7 +285,7 @@ async def test_afile_content_builds_the_s3_client_with_the_s3_pair_when_it_diffe
             return {"Body": FakeS3Body()}
 
     optional_params = {
-        "_litellm_internal_model_credentials": MappingProxyType({"s3_bucket_name": "safe-bucket"}),
+        "_embrouter_internal_model_credentials": MappingProxyType({"s3_bucket_name": "safe-bucket"}),
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIABEDROCKONLY",
         "aws_secret_access_key": "bedrock-only-secret",
@@ -296,7 +296,7 @@ async def test_afile_content_builds_the_s3_client_with_the_s3_pair_when_it_diffe
 
     with patch.object(boto3, "client", return_value=FakeS3Client()) as mock_boto3_client:
         response = await BedrockFilesHandler().afile_content(
-            file_content_request={"file_id": "s3://safe-bucket/litellm-bedrock-files-model-id-abc.jsonl"},
+            file_content_request={"file_id": "s3://safe-bucket/embrouter-bedrock-files-model-id-abc.jsonl"},
             optional_params=optional_params,
             timeout=10.0,
             max_retries=None,

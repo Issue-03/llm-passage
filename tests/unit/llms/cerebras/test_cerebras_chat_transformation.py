@@ -1,7 +1,7 @@
 import pytest
 
-import litellm
-from litellm.llms.cerebras.chat import CerebrasConfig
+import embrouter
+from embrouter.llms.cerebras.chat import CerebrasConfig
 
 
 def test_max_retries_in_supported_params() -> None:

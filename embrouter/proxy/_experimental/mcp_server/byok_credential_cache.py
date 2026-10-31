@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import MCP_BYOK_CREDENTIAL_CACHE_MAX_SIZE, MCP_BYOK_CREDENTIAL_CACHE_TTL_SECONDS
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import MCP_BYOK_CREDENTIAL_CACHE_MAX_SIZE, MCP_BYOK_CREDENTIAL_CACHE_TTL_SECONDS
 
 _CACHE_KEY_PREFIX: Final = "mcp_byok_credential"
 

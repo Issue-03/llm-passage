@@ -1,5 +1,5 @@
 """
-Dotprompt manager that integrates with LiteLLM's prompt management system.
+Dotprompt manager that integrates with EmbRouter's prompt management system.
 Builds on top of PromptManagementBase to provide .prompt file support.
 """
 
@@ -7,33 +7,33 @@ import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.integrations.prompt_management_base import PromptManagementClient
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.integrations.prompt_management_base import PromptManagementClient
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 from .prompt_manager import PromptManager, PromptTemplate
 
 
 class DotpromptManager(CustomPromptManagement):
     """
-    Dotprompt manager that integrates with LiteLLM's prompt management system.
+    Dotprompt manager that integrates with EmbRouter's prompt management system.
 
-    This class enables using .prompt files with the litellm completion() function
+    This class enables using .prompt files with the embrouter completion() function
     by implementing the PromptManagementBase interface.
 
     Usage:
         # Set global prompt directory
-        litellm.prompt_directory = "path/to/prompts"
+        embrouter.prompt_directory = "path/to/prompts"
 
         # Use with completion
-        response = litellm.completion(
+        response = embrouter.completion(
             model="dotprompt/gpt-4",
             prompt_id="my_prompt",
             prompt_variables={"variable": "value"},
@@ -48,9 +48,9 @@ class DotpromptManager(CustomPromptManagement):
         prompt_data: dict | str | None = None,
         prompt_id: str | None = None,
     ):
-        import litellm
+        import embrouter
 
-        self.prompt_directory = prompt_directory or litellm.global_prompt_directory
+        self.prompt_directory = prompt_directory or embrouter.global_prompt_directory
         # Support for JSON-based prompts stored in memory/database
         if isinstance(prompt_data, str):
             self.prompt_data = json.loads(prompt_data)
@@ -73,7 +73,7 @@ class DotpromptManager(CustomPromptManagement):
             if self.prompt_directory is None and not self.prompt_data and not self.prompt_file:
                 raise ValueError(
                     "Either prompt_directory or prompt_data must be set before using dotprompt manager. "
-                    "Set litellm.global_prompt_directory, initialize with prompt_directory parameter, or provide prompt_data."
+                    "Set embrouter.global_prompt_directory, initialize with prompt_directory parameter, or provide prompt_data."
                 )
             self._prompt_manager = PromptManager(
                 prompt_directory=self.prompt_directory,
@@ -197,7 +197,7 @@ class DotpromptManager(CustomPromptManagement):
         ignore_prompt_manager_model: bool | None = False,
         ignore_prompt_manager_optional_params: bool | None = False,
     ) -> tuple[str, list[AllMessageValues], dict]:
-        from litellm.integrations.prompt_management_base import PromptManagementBase
+        from embrouter.integrations.prompt_management_base import PromptManagementBase
 
         return PromptManagementBase.get_chat_completion_prompt(
             self,
@@ -222,7 +222,7 @@ class DotpromptManager(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -233,7 +233,7 @@ class DotpromptManager(CustomPromptManagement):
         """
         Async version - delegates to PromptManagementBase async implementation.
         """
-        from litellm.integrations.prompt_management_base import PromptManagementBase
+        from embrouter.integrations.prompt_management_base import PromptManagementBase
 
         return await PromptManagementBase.async_get_chat_completion_prompt(
             self,
@@ -242,7 +242,7 @@ class DotpromptManager(CustomPromptManagement):
             non_default_params,
             prompt_id=prompt_id,
             prompt_variables=prompt_variables,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             dynamic_callback_params=dynamic_callback_params,
             prompt_spec=prompt_spec,
             tools=tools,

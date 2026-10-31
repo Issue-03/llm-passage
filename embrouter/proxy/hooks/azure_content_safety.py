@@ -3,12 +3,12 @@ from typing import Final
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails._content_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails._content_utils import (
     is_text_content_call_type,
     iter_message_text,
 )
@@ -126,7 +126,7 @@ class _PROXY_AzureContentSafety(
             raise e
         except Exception as e:
             verbose_proxy_logger.error(
-                "litellm.proxy.hooks.azure_content_safety.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.azure_content_safety.py::async_pre_call_hook(): Exception occured - %s", e
             )
             verbose_proxy_logger.debug(traceback.format_exc())
 
@@ -137,11 +137,11 @@ class _PROXY_AzureContentSafety(
         response,
     ):
         verbose_proxy_logger.debug("Inside Azure Content-Safety Post-Call Hook")
-        if not isinstance(response, litellm.ModelResponse):
+        if not isinstance(response, embrouter.ModelResponse):
             return
 
         for choice in response.choices:
-            if not isinstance(choice, litellm.utils.Choices):
+            if not isinstance(choice, embrouter.utils.Choices):
                 continue
             message = getattr(choice, "message", None)
             content = getattr(message, "content", None)

@@ -10,16 +10,16 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.llms.bedrock_invoke_agents import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.llms.bedrock_invoke_agents import (
     InvokeAgentChunkPayload,
     InvokeAgentEvent,
     InvokeAgentEventHeaders,
@@ -33,16 +33,16 @@ from litellm.types.llms.bedrock_invoke_agents import (
     InvokeAgentTracePayload,
     InvokeAgentUsage,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
@@ -78,7 +78,7 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -150,7 +150,7 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         # use the last message content as the query
@@ -280,7 +280,7 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
             return InvokeAgentEventHeaders(event_type="", content_type="", message_type="")
 
     def _get_response_stream_shape(self):
-        from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+        from embrouter.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
         return get_bedrock_response_stream_shape()
 
@@ -416,7 +416,7 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
 
         # Add usage information if available
         if usage_info:
-            from litellm.types.utils import Usage
+            from embrouter.types.utils import Usage
 
             usage: Final = Usage(
                 prompt_tokens=usage_info.get("inputTokens", 0),
@@ -432,11 +432,11 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -478,7 +478,7 @@ class AmazonInvokeAgentConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

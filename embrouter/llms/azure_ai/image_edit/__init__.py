@@ -1,12 +1,12 @@
 from typing import Final
 
-from litellm.llms.azure_ai.image_generation.flux_transformation import (
+from embrouter.llms.azure_ai.image_generation.flux_transformation import (
     AzureFoundryFluxImageGenerationConfig,
 )
-from litellm.llms.azure_ai.image_generation.mai_transformation import (
+from embrouter.llms.azure_ai.image_generation.mai_transformation import (
     AzureFoundryMAIImageGenerationConfig,
 )
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
 
 from .flux2_transformation import AzureFoundryFlux2ImageEditConfig
 from .mai_transformation import AzureFoundryMAIImageEditConfig

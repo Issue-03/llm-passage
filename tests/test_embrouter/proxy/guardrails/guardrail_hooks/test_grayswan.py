@@ -3,14 +3,14 @@ from typing import Optional
 import pytest
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.grayswan import grayswan as grayswan_module
-from litellm.proxy.guardrails.guardrail_hooks.grayswan.grayswan import (
+from embrouter.integrations.custom_guardrail import ModifyResponseException
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.grayswan import grayswan as grayswan_module
+from embrouter.proxy.guardrails.guardrail_hooks.grayswan.grayswan import (
     GraySwanGuardrail,
     GraySwanGuardrailAPIError,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.types.guardrails import GuardrailEventHooks
 
 
 @pytest.fixture
@@ -82,12 +82,12 @@ def test_prepare_payload_forwards_only_scan_id_header(
                 "authorization": "Bearer secret",
             }
         },
-        "litellm_metadata": {"request_id": "request-123"},
+        "embrouter_metadata": {"request_id": "request-123"},
     }
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["embrouter_metadata"] == {
         "request_id": "request-123",
         "headers": {"SHADE_SCAN_ID": "scan-123"},
     }
@@ -103,7 +103,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
                 "shade_scan_id": "scan-123",
             }
         },
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "request_id": "request-123",
             "headers": {"x-existing": "keep-me"},
         },
@@ -111,7 +111,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["embrouter_metadata"] == {
         "request_id": "request-123",
         "headers": {
             "x-existing": "keep-me",
@@ -120,7 +120,7 @@ def test_prepare_payload_merges_scan_id_with_existing_metadata_headers(
     }
 
 
-def test_prepare_payload_sanitizes_headers_when_litellm_metadata_absent(
+def test_prepare_payload_sanitizes_headers_when_embrouter_metadata_absent(
     monkeypatch: pytest.MonkeyPatch,
     grayswan_guardrail: GraySwanGuardrail,
 ) -> None:
@@ -137,7 +137,7 @@ def test_prepare_payload_sanitizes_headers_when_litellm_metadata_absent(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
-    assert "litellm_metadata" not in payload
+    assert "embrouter_metadata" not in payload
 
 
 def test_prepare_payload_extracts_headers_from_logging_obj(
@@ -150,7 +150,7 @@ def test_prepare_payload_extracts_headers_from_logging_obj(
         (),
         {
             "model_call_details": {
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {
                         "headers": {
                             "shade_scan_id": "scan-from-logging",
@@ -164,7 +164,7 @@ def test_prepare_payload_extracts_headers_from_logging_obj(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data, logging_obj)
 
-    assert payload["litellm_metadata"] == {
+    assert payload["embrouter_metadata"] == {
         "headers": {"shade_scan_id": "scan-from-logging"},
     }
 
@@ -176,7 +176,7 @@ def test_prepare_payload_ignores_logging_obj_without_model_call_details(
 
     payload = grayswan_guardrail._prepare_payload(messages, {}, {}, object())
 
-    assert "litellm_metadata" not in payload
+    assert "embrouter_metadata" not in payload
 
 
 def test_process_response_does_not_block_under_threshold(
@@ -545,13 +545,13 @@ def test_format_violation_message() -> None:
     assert "Mutation effort to make the harmful intention disguised was DETECTED" in message
 
 
-def test_prepare_payload_includes_litellm_metadata(
+def test_prepare_payload_includes_embrouter_metadata(
     grayswan_guardrail: GraySwanGuardrail,
 ) -> None:
-    """Verify _prepare_payload forwards litellm_metadata from request_data."""
+    """Verify _prepare_payload forwards embrouter_metadata from request_data."""
     messages = [{"role": "user", "content": "hello"}]
     request_data = {
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "user_api_key_user_id": "user-123",
             "user_api_key_team_id": "team-456",
             "user_api_key_spend": 0,
@@ -561,36 +561,36 @@ def test_prepare_payload_includes_litellm_metadata(
     payload = grayswan_guardrail._prepare_payload(messages, {}, request_data)
 
     assert payload is not None
-    assert "litellm_metadata" in payload
-    assert payload["litellm_metadata"]["user_api_key_user_id"] == "user-123"
-    assert payload["litellm_metadata"]["user_api_key_team_id"] == "team-456"
+    assert "embrouter_metadata" in payload
+    assert payload["embrouter_metadata"]["user_api_key_user_id"] == "user-123"
+    assert payload["embrouter_metadata"]["user_api_key_team_id"] == "team-456"
 
 
-def test_ensure_litellm_metadata_populates_from_user_api_key_dict() -> None:
-    """Verify _ensure_litellm_metadata populates litellm_metadata."""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
-        _ensure_litellm_metadata,
+def test_ensure_embrouter_metadata_populates_from_user_api_key_dict() -> None:
+    """Verify _ensure_embrouter_metadata populates embrouter_metadata."""
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+        _ensure_embrouter_metadata,
     )
 
     user_auth = UserAPIKeyAuth(user_id="u1", team_id="t1", api_key="sk-test-hashed")
     data: dict = {}
 
-    _ensure_litellm_metadata(data, user_auth)
+    _ensure_embrouter_metadata(data, user_auth)
 
-    assert "litellm_metadata" in data
-    assert data["litellm_metadata"]["user_api_key_user_id"] == "u1"
-    assert data["litellm_metadata"]["user_api_key_team_id"] == "t1"
+    assert "embrouter_metadata" in data
+    assert data["embrouter_metadata"]["user_api_key_user_id"] == "u1"
+    assert data["embrouter_metadata"]["user_api_key_team_id"] == "t1"
 
 
-def test_ensure_litellm_metadata_noop_when_already_present() -> None:
-    """Verify _ensure_litellm_metadata does not overwrite existing litellm_metadata."""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
-        _ensure_litellm_metadata,
+def test_ensure_embrouter_metadata_noop_when_already_present() -> None:
+    """Verify _ensure_embrouter_metadata does not overwrite existing embrouter_metadata."""
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+        _ensure_embrouter_metadata,
     )
 
     user_auth = UserAPIKeyAuth(user_id="should-not-appear")
-    data: dict = {"litellm_metadata": {"existing": "value"}}
+    data: dict = {"embrouter_metadata": {"existing": "value"}}
 
-    _ensure_litellm_metadata(data, user_auth)
+    _ensure_embrouter_metadata(data, user_auth)
 
-    assert data["litellm_metadata"] == {"existing": "value"}
+    assert data["embrouter_metadata"] == {"existing": "value"}

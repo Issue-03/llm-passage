@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.utils import get_excluded_filtered_deployments
+import embrouter
+from embrouter import Router
+from embrouter.utils import get_excluded_filtered_deployments
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ def _make_dep(dep_id: str, weight: Optional[int] = None) -> dict:
         params["weight"] = weight
     return {
         "model_name": "test-model",
-        "litellm_params": params,
+        "embrouter_params": params,
         "model_info": {"id": dep_id},
     }
 
@@ -67,7 +67,7 @@ class TestGetExcludedFilteredDeployments:
 
     def test_handles_missing_model_info(self):
         deps = [
-            {"model_name": "x", "litellm_params": {"model": "gpt-4o"}},  # no model_info
+            {"model_name": "x", "embrouter_params": {"model": "gpt-4o"}},  # no model_info
             _make_dep("b"),
         ]
         result = get_excluded_filtered_deployments(deps, excluded_deployment_ids=["b"])
@@ -84,7 +84,7 @@ def test_set_failed_deployment_id_on_exception():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "key"},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
@@ -105,7 +105,7 @@ def test_stamp_failed_deployment_id_with_effective_model_info_prefers_kwargs():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "key"},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
@@ -124,7 +124,7 @@ def test_stamp_failed_deployment_id_with_effective_model_info_falls_back_to_depl
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "key"},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
@@ -139,12 +139,12 @@ async def test_ageneric_api_call_with_fallbacks_helper_stamps_failed_deployment_
     """_ageneric_api_call_with_fallbacks_helper must stamp failed_deployment_id on a
     failure, same as _completion/_acompletion, so callers identifying the failed
     deployment (cooldown, weighted failover) work for this call type too instead of
-    depending on which metadata bucket ("metadata" vs "litellm_metadata") it uses."""
+    depending on which metadata bucket ("metadata" vs "embrouter_metadata") it uses."""
     router = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
@@ -172,7 +172,7 @@ async def test_ageneric_api_call_with_fallbacks_helper_stamps_dynamic_id_for_cli
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
@@ -186,7 +186,7 @@ async def test_ageneric_api_call_with_fallbacks_helper_stamps_dynamic_id_for_cli
             model="test-model",
             original_generic_function=_failing_original_function,
             api_key="tenant-supplied-key",
-            litellm_metadata={"model_group": "test-model"},
+            embrouter_metadata={"model_group": "test-model"},
         )
 
     failed_deployment_id = getattr(exc_info.value, "failed_deployment_id", None)
@@ -203,13 +203,13 @@ async def test_acompletion_stamps_dynamic_id_for_clientside_credentials():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
     )
 
-    with patch("litellm.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+    with patch("embrouter.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
         with pytest.raises(RuntimeError) as exc_info:
             await router._acompletion(
                 model="test-model",
@@ -225,23 +225,23 @@ async def test_acompletion_stamps_dynamic_id_for_clientside_credentials():
 
 @pytest.mark.asyncio
 async def test_acompletion_stamps_dynamic_id_for_clientside_credentials_on_timeout():
-    """Same bug as the RuntimeError case above, but for the separate `except litellm.Timeout`
+    """Same bug as the RuntimeError case above, but for the separate `except embrouter.Timeout`
     branch in `_acompletion`: it has its own call to the stamping helper, so a fix that only
     covers the generic `except Exception` branch would leave a caller-supplied timeout
-    (`litellm.Timeout` is what `x-litellm-timeout` maps to) stamping the shared static id."""
+    (`embrouter.Timeout` is what `x-embrouter-timeout` maps to) stamping the shared static id."""
     router = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
     )
 
-    timeout_exc = litellm.Timeout(message="boom", model="test-model", llm_provider="openai")
-    with patch("litellm.acompletion", new_callable=AsyncMock, side_effect=timeout_exc):
-        with pytest.raises(litellm.Timeout) as exc_info:
+    timeout_exc = embrouter.Timeout(message="boom", model="test-model", llm_provider="openai")
+    with patch("embrouter.acompletion", new_callable=AsyncMock, side_effect=timeout_exc):
+        with pytest.raises(embrouter.Timeout) as exc_info:
             await router._acompletion(
                 model="test-model",
                 messages=[{"role": "user", "content": "Hello"}],
@@ -261,13 +261,13 @@ def test_completion_stamps_dynamic_id_for_clientside_credentials():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"},
                 "model_info": {"id": "dep-a"},
             }
         ],
     )
 
-    with patch("litellm.completion", side_effect=RuntimeError("boom")):
+    with patch("embrouter.completion", side_effect=RuntimeError("boom")):
         with pytest.raises(RuntimeError) as exc_info:
             router._completion(
                 model="test-model",
@@ -287,12 +287,12 @@ async def test_maybe_run_weighted_failover_returns_none_without_failed_id():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "key", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "key", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "key", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "key", "weight": 1},
                 "model_info": {"id": "B"},
             },
         ],
@@ -321,12 +321,12 @@ async def test_maybe_run_weighted_failover_persists_excluded_ids_to_kwargs(monke
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "B"},
             },
         ],
@@ -337,7 +337,7 @@ async def test_maybe_run_weighted_failover_persists_excluded_ids_to_kwargs(monke
     async def _stub_run_async_fallback(*args, **kwargs):
         return "ok"
 
-    monkeypatch.setattr("litellm.router.run_async_fallback", _stub_run_async_fallback)
+    monkeypatch.setattr("embrouter.router.run_async_fallback", _stub_run_async_fallback)
 
     exc = Exception("fail")
     exc.failed_deployment_id = "A"
@@ -367,7 +367,7 @@ async def test_no_failover_when_flag_off():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("region-A failed"),
@@ -377,7 +377,7 @@ async def test_no_failover_when_flag_off():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -391,7 +391,7 @@ async def test_no_failover_when_flag_off():
         # enable_weighted_failover defaults to False
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -405,7 +405,7 @@ async def test_failover_lands_on_other_deployment_when_flag_on():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("region-A down"),
@@ -415,7 +415,7 @@ async def test_failover_lands_on_other_deployment_when_flag_on():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -443,7 +443,7 @@ async def test_failover_chain_three_deployments():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -453,7 +453,7 @@ async def test_failover_chain_three_deployments():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -463,7 +463,7 @@ async def test_failover_chain_three_deployments():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from C",
@@ -491,7 +491,7 @@ async def test_failover_exhausted_raises_original_error_class():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -501,7 +501,7 @@ async def test_failover_exhausted_raises_original_error_class():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -515,7 +515,7 @@ async def test_failover_exhausted_raises_original_error_class():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -529,7 +529,7 @@ async def test_failover_falls_through_to_external_fallback():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -539,7 +539,7 @@ async def test_failover_falls_through_to_external_fallback():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -549,7 +549,7 @@ async def test_failover_falls_through_to_external_fallback():
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from fallback",
@@ -578,7 +578,7 @@ async def test_weights_respected_when_all_healthy():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "from A",
@@ -588,7 +588,7 @@ async def test_weights_respected_when_all_healthy():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "from B",
@@ -626,7 +626,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -635,7 +635,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -648,7 +648,7 @@ async def test_failover_skipped_for_non_simple_shuffle():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -662,13 +662,13 @@ async def test_failover_skipped_for_context_window_error():
     `mock_testing_context_fallbacks` to deterministically raise the right
     exception class.
     """
-    import litellm
+    import embrouter
 
     router = Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from A",
@@ -678,7 +678,7 @@ async def test_failover_skipped_for_context_window_error():
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from B",
@@ -692,7 +692,7 @@ async def test_failover_skipped_for_context_window_error():
         enable_weighted_failover=True,
     )
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         await router.acompletion(
             model="test-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -709,7 +709,7 @@ async def test_user_config_two_region_failover():
         model_list=[
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/deployment-eastus2",
                     "api_key": "bad",
                     "api_base": "https://eastus2.example",
@@ -720,7 +720,7 @@ async def test_user_config_two_region_failover():
             },
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/deployment-northcentralus",
                     "api_key": "good",
                     "api_base": "https://northcentralus.example",
@@ -777,17 +777,17 @@ async def test_maybe_run_weighted_failover_skips_when_remaining_all_in_cooldown(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "B"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "C"},
             },
         ],
@@ -806,11 +806,11 @@ async def test_maybe_run_weighted_failover_skips_when_remaining_all_in_cooldown(
         run_async_fallback_called = True
         return "should not reach here"
 
-    monkeypatch.setattr("litellm.router.run_async_fallback", _should_not_be_called)
+    monkeypatch.setattr("embrouter.router.run_async_fallback", _should_not_be_called)
 
     # Patch cooldown so B and C appear in cooldown.
     with patch(
-        "litellm.router._async_get_cooldown_deployments",
+        "embrouter.router._async_get_cooldown_deployments",
         new=AsyncMock(return_value=["B", "C"]),
     ):
         result = await router._maybe_run_weighted_failover(
@@ -837,17 +837,17 @@ async def test_maybe_run_weighted_failover_proceeds_when_one_healthy_remains(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "A"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "B"},
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "k", "weight": 1},
                 "model_info": {"id": "C"},
             },
         ],
@@ -866,10 +866,10 @@ async def test_maybe_run_weighted_failover_proceeds_when_one_healthy_remains(
         run_async_fallback_called = True
         return "ok from C"
 
-    monkeypatch.setattr("litellm.router.run_async_fallback", _stub_run_async_fallback)
+    monkeypatch.setattr("embrouter.router.run_async_fallback", _stub_run_async_fallback)
 
     with patch(
-        "litellm.router._async_get_cooldown_deployments",
+        "embrouter.router._async_get_cooldown_deployments",
         new=AsyncMock(return_value=["B"]),
     ):
         result = await router._maybe_run_weighted_failover(
@@ -899,7 +899,7 @@ async def test_failover_falls_through_to_external_fallback_when_remaining_in_coo
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("A down"),
@@ -909,7 +909,7 @@ async def test_failover_falls_through_to_external_fallback_when_remaining_in_coo
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "bad",
                     "mock_response": Exception("B down"),
@@ -919,7 +919,7 @@ async def test_failover_falls_through_to_external_fallback_when_remaining_in_coo
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_key": "good",
                     "mock_response": "ok from fallback",
@@ -935,7 +935,7 @@ async def test_failover_falls_through_to_external_fallback_when_remaining_in_coo
 
     # Put B in cooldown so weighted failover can't use it after A fails.
     with patch(
-        "litellm.router._async_get_cooldown_deployments",
+        "embrouter.router._async_get_cooldown_deployments",
         new=AsyncMock(return_value=["B"]),
     ):
         response = await router.acompletion(

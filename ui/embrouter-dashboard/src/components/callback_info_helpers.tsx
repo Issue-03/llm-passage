@@ -219,7 +219,7 @@ export const CALLBACK_CONFIGS: CallbackConfig[] = [
       signoz_ingestion_endpoint: "text",
       signoz_ingestion_key: "password",
     },
-    description: "SigNoz Logging Integration. Setup: https://signoz.io/docs/litellm-observability/",
+    description: "SigNoz Logging Integration. Setup: https://signoz.io/docs/embrouter-observability/",
   },
   {
     id: "SQS",

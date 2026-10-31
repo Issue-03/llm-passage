@@ -21,9 +21,9 @@ text-based fallback to estimate from the real completion text.
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.streaming_chunk_builder_utils import ChunkProcessor
-from litellm.types.utils import (
+import embrouter
+from embrouter.embrouter_core_utils.streaming_chunk_builder_utils import ChunkProcessor
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     Delta,
     ModelResponseStream,
@@ -55,7 +55,7 @@ def _make_chunk(
         usage=usage,
     )
     # The cursor reset is now gated on provider; populate the same field the
-    # real streaming_handler sets (see litellm/litellm_core_utils/streaming_handler.py).
+    # real streaming_handler sets (see embrouter/embrouter_core_utils/streaming_handler.py).
     chunk._hidden_params = {"custom_llm_provider": custom_llm_provider}
     return chunk
 
@@ -254,7 +254,7 @@ class TestAnthropicCursorBug:
             _make_chunk(reasoning_content=reasoning_text[i : i + 50]) for i in range(0, len(reasoning_text), 50)
         ]
 
-        response = litellm.stream_chunk_builder(
+        response = embrouter.stream_chunk_builder(
             chunks=[message_start, *reasoning_chunks],
             messages=[{"role": "user", "content": "Plan the schedule."}],
         )
@@ -275,9 +275,9 @@ class TestAnthropicCursorBug:
         text = "The list is already sorted, so no work is needed."
         chunks = [_make_chunk(reasoning_content=reasoning), _make_chunk(content=text)]
 
-        response = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "Sort it."}])
+        response = embrouter.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "Sort it."}])
 
-        text_only = litellm.token_counter(model="claude-sonnet-4-6", text=text, count_response_tokens=True)
+        text_only = embrouter.token_counter(model="claude-sonnet-4-6", text=text, count_response_tokens=True)
         details = response.usage.completion_tokens_details
         assert details.reasoning_tokens > 0
         assert response.usage.completion_tokens == text_only + details.reasoning_tokens
@@ -337,7 +337,7 @@ class TestAnthropicCursorBug:
                 usage=Usage(prompt_tokens=20, completion_tokens=5, total_tokens=25),
             ),
         ]
-        response = litellm.stream_chunk_builder(
+        response = embrouter.stream_chunk_builder(
             chunks=chunks,
             messages=[{"role": "user", "content": "Go."}],
         )

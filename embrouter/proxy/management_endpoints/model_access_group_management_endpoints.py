@@ -21,28 +21,28 @@ from typing import TYPE_CHECKING, Annotated, Any, Final, Protocol
 from fastapi import APIRouter, Depends, HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     model_access_group_cache_key,
     model_access_group_registry_cache_key,
 )
-from litellm.proxy.management_endpoints.common_utils import validate_budget_duration
+from embrouter.proxy.management_endpoints.common_utils import validate_budget_duration
 
 # Clear cache and reload models to pick up the access group changes
-from litellm.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.management_endpoints.model_management_endpoints import (
     clear_cache,
     live_model_ids_snapshot,
     model_info_as_mapping,
     reload_serving_verdict,
 )
-from litellm.proxy.management_helpers.utils import handle_budget_for_entity
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.table_repositories import ModelAccessGroupBudgetRepository
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.management_helpers.utils import handle_budget_for_entity
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.table_repositories import ModelAccessGroupBudgetRepository
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     AccessGroupBudget,
     AccessGroupBudgetRequest,
     AccessGroupBudgetResponse,
@@ -56,7 +56,7 @@ from litellm.types.proxy.management_endpoints.model_management_endpoints import 
 )
 
 if TYPE_CHECKING:
-    from litellm import Router
+    from embrouter import Router
 
 router: Final = APIRouter(tags=["model management"])
 
@@ -72,7 +72,7 @@ class _ModelAccessGroupWhere(TypedDict):
 
 
 class _BudgetInclude(TypedDict):
-    litellm_budget_table: ReadOnly[bool]
+    embrouter_budget_table: ReadOnly[bool]
 
 
 class _ModelAccessGroupBudgetCreate(TypedDict):
@@ -144,7 +144,7 @@ class _ModelAccessGroupBudgetRow(Protocol):
     def budget_id(self) -> str | None: ...
 
     @property
-    def litellm_budget_table(self) -> _BudgetRow | None: ...
+    def embrouter_budget_table(self) -> _BudgetRow | None: ...
 
 
 class _ModelAccessGroupBudgetTableClient(Protocol):
@@ -176,7 +176,7 @@ def _model_access_group_budget_table(prisma_client: PrismaClient) -> _ModelAcces
 
 
 def _prisma_client_or_500() -> PrismaClient:
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise _http_error(500, "Database not connected.")
@@ -184,7 +184,7 @@ def _prisma_client_or_500() -> PrismaClient:
 
 
 def _auth_cache() -> UserApiKeyCache:
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     return user_api_key_cache
 
@@ -195,7 +195,7 @@ async def _evict_model_access_group_cache_keys(access_group: str, auth_cache: Us
     unenforced until the TTL expires: auth gates the feature on a cached registry of the groups
     that have a budget row, read cache-first with no freshness check.
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
         evict_and_broadcast,
     )
 
@@ -209,7 +209,7 @@ async def _model_access_group_budget_row(
     access_group: str, prisma_client: PrismaClient
 ) -> _ModelAccessGroupBudgetRow | None:
     where: Final[_ModelAccessGroupWhere] = {"access_group_name": access_group}
-    include: Final[_BudgetInclude] = {"litellm_budget_table": True}
+    include: Final[_BudgetInclude] = {"embrouter_budget_table": True}
     return await _model_access_group_budget_table(prisma_client).find_unique(where=where, include=include)
 
 
@@ -218,7 +218,7 @@ async def _model_access_group_budget_rows(
 ) -> Mapping[str, _ModelAccessGroupBudgetRow]:
     """Every group's budget row in one read, so listing groups does not fan out into one query
     per group."""
-    include: Final[_BudgetInclude] = {"litellm_budget_table": True}
+    include: Final[_BudgetInclude] = {"embrouter_budget_table": True}
     rows: Final = await _model_access_group_budget_table(prisma_client).find_many(include=include)
     return MappingProxyType({row.access_group_name: row for row in rows})
 
@@ -236,7 +236,7 @@ def _with_budget(info: AccessGroupInfo, row: _ModelAccessGroupBudgetRow | None) 
 
 
 def _budget_or_none(row: _ModelAccessGroupBudgetRow | None) -> AccessGroupBudget | None:
-    budget: Final = row.litellm_budget_table if row is not None else None
+    budget: Final = row.embrouter_budget_table if row is not None else None
     if budget is None:
         return None
     return AccessGroupBudget(
@@ -260,7 +260,7 @@ async def _delete_model_access_group_budget_row(
     access_group: str, prisma_client: PrismaClient, auth_cache: UserApiKeyCache
 ) -> bool:
     """
-    Drop the group's budget row only, matching /tag/delete: the LiteLLM_BudgetTable row survives
+    Drop the group's budget row only, matching /tag/delete: the EmbRouter_BudgetTable row survives
     because the link is ON DELETE SET NULL and a budget_id an admin passed in may be shared with
     other entities.
 
@@ -298,8 +298,8 @@ def validate_models_exist(model_names: Sequence[str], llm_router: "Router | None
 async def _missing_models_after_read_through(
     model_names: Sequence[str], llm_router: "Router | None"
 ) -> tuple[str, ...]:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.registry_read_through import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import (
         model_registry_read_through,
     )
 
@@ -603,7 +603,7 @@ async def create_model_group(
     - HTTPException 400: If any model names don't exist
     - HTTPException 500: If database operations fail
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         llm_router,
         prisma_client,
     )
@@ -735,7 +735,7 @@ async def list_access_groups(
     Returns:
     - ListAccessGroupsResponse with all access groups
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -789,7 +789,7 @@ async def get_access_group_info(
     Raises:
     - HTTPException 404: If access group not found
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -859,7 +859,7 @@ async def update_access_group(
     - HTTPException 400: If any model names don't exist
     - HTTPException 404: If access group not found
     """
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -1005,7 +1005,7 @@ async def delete_access_group(
     Raises:
     - HTTPException 404: If access group not found
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -1049,7 +1049,7 @@ async def delete_access_group(
 
         # Budget last, deliberately: failing here strands a budget row for a group already on no
         # deployment (clutter), where the reverse order can leave a live group enforcing nothing.
-        # The LiteLLM_BudgetTable row it linked is left alone, as /tag/delete leaves a tag's.
+        # The EmbRouter_BudgetTable row it linked is left alone, as /tag/delete leaves a tag's.
         await _delete_model_access_group_budget_row(
             access_group=access_group, prisma_client=prisma_client, auth_cache=auth_cache
         )
@@ -1161,7 +1161,7 @@ async def set_access_group_budget(
     - HTTPException 400: If no budget field is given, or budget_duration cannot be parsed
     - HTTPException 404: If access group not found
     """
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     prisma_client: Final = _prisma_client_or_500()
     if not data.model_dump(exclude_none=True):
@@ -1175,9 +1175,9 @@ async def set_access_group_budget(
         existing_budget_id=existing_row.budget_id if existing_row is not None else None,
         user_api_key_dict=user_api_key_dict,
         prisma_client=prisma_client,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
-    actor: Final = user_api_key_dict.user_id or litellm_proxy_admin_name
+    actor: Final = user_api_key_dict.user_id or embrouter_proxy_admin_name
     upsert_data: Final[_ModelAccessGroupBudgetUpsert] = {
         "create": {
             "access_group_name": access_group,
@@ -1188,7 +1188,7 @@ async def set_access_group_budget(
         "update": {"budget_id": budget_id, "updated_by": actor},
     }
     where: Final[_ModelAccessGroupWhere] = {"access_group_name": access_group}
-    include: Final[_BudgetInclude] = {"litellm_budget_table": True}
+    include: Final[_BudgetInclude] = {"embrouter_budget_table": True}
     row: Final = await _model_access_group_budget_table(prisma_client).upsert(
         where=where, data=upsert_data, include=include
     )

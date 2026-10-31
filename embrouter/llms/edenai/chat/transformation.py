@@ -3,7 +3,7 @@ Support for OpenAI's `/v1/chat/completions` endpoint on Eden AI.
 
 Eden AI is an OpenAI-compatible gateway (one key across 1000+ models), so requests go through the
 shared HTTP handler untouched. Every Eden response reports the real per-request cost at the top
-level of the body; the only translation here lifts that number into LiteLLM's cost tracking.
+level of the body; the only translation here lifts that number into EmbRouter's cost tracking.
 
 Docs: https://www.edenai.co/docs
 """
@@ -15,18 +15,18 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from pydantic import BaseModel, TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler, OpenAIGPTConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, ModelResponseStream, Usage
+import embrouter
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler, OpenAIGPTConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, ModelResponseStream, Usage
 
 from ..common_utils import EdenAIException, reported_cost, resolve_api_base, resolve_api_key
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding
 
 _OPTIONAL_MAPPING: Final[TypeAdapter[Mapping[str, object] | None]] = TypeAdapter(Mapping[str, object] | None)
 
@@ -58,7 +58,7 @@ class EdenAIChatConfig(OpenAIGPTConfig):
     def get_supported_openai_params(self, model: str) -> list[str]:  # mutable-ok: inherited contract
         reasoning: Final[tuple[str, ...]] = (
             ("reasoning_effort",)
-            if litellm.supports_reasoning(model=model, custom_llm_provider=litellm.LlmProviders.EDENAI.value)
+            if embrouter.supports_reasoning(model=model, custom_llm_provider=embrouter.LlmProviders.EDENAI.value)
             else ()
         )
         return [*super().get_supported_openai_params(model), *reasoning]  # mutable-ok: inherited contract
@@ -76,11 +76,11 @@ class EdenAIChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         headers: dict[str, object],  # mutable-ok: inherited contract
     ) -> dict[str, object]:  # mutable-ok: inherited contract
         request: Final[dict[str, object]] = super().transform_request(  # mutable-ok: inherited contract
-            model, messages, optional_params, litellm_params, headers
+            model, messages, optional_params, embrouter_params, headers
         )
         if not request.get("stream"):
             return request
@@ -91,11 +91,11 @@ class EdenAIChatConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict[str, object],  # mutable-ok: inherited contract
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         encoding: "Encoding | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -108,7 +108,7 @@ class EdenAIChatConfig(OpenAIGPTConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,
@@ -137,7 +137,7 @@ class EdenAIChatConfig(OpenAIGPTConfig):
     def get_models(
         self, api_key: str | None = None, api_base: str | None = None
     ) -> list[str]:  # mutable-ok: inherited contract
-        response: Final = litellm.module_level_client.get(url=f"{self.get_api_base(api_base)}/models")
+        response: Final = embrouter.module_level_client.get(url=f"{self.get_api_base(api_base)}/models")
         if not response.is_success:
             raise EdenAIException(status_code=response.status_code, message=response.text, headers=response.headers)
         catalog: Final = _EdenAIModelCatalog.model_validate(response.json())

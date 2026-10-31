@@ -8,9 +8,9 @@ from typing import Any, Dict
 
 import pytest
 
-import litellm.integrations.focus.destinations.s3_destination as s3_module
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.focus.destinations.s3_destination import FocusS3Destination
+import embrouter.integrations.focus.destinations.s3_destination as s3_module
+from embrouter.integrations.focus.destinations.base import FocusTimeWindow
+from embrouter.integrations.focus.destinations.s3_destination import FocusS3Destination
 
 
 def _window(freq: str = "hourly", hour: int = 5) -> FocusTimeWindow:

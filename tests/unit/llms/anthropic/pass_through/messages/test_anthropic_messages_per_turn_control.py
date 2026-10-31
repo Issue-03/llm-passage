@@ -1,12 +1,12 @@
 import pytest
 
-from litellm import anthropic_beta_headers_manager
-from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter import anthropic_beta_headers_manager
+from embrouter.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.openai_like.json_loader import SimpleProviderConfig
-from litellm.llms.openai_like.messages.transformation import (
+from embrouter.llms.openai_like.json_loader import SimpleProviderConfig
+from embrouter.llms.openai_like.messages.transformation import (
     JSONProviderAnthropicMessagesConfig,
 )
 
@@ -39,7 +39,7 @@ def _validate(messages, headers=None, optional_params=None):
         model="claude-fable-5-1",
         messages=messages,
         optional_params=dict(optional_params or {"max_tokens": 64000, "output_config": {"effort": "high"}}),
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-ant-test",
     )
     return validated
@@ -47,7 +47,7 @@ def _validate(messages, headers=None, optional_params=None):
 
 @pytest.fixture(autouse=True)
 def bundled_beta_allowlist(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
     yield
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
@@ -125,7 +125,7 @@ def test_json_provider_passthrough_adds_per_turn_control_beta():
         model="claude-fable-5-1",
         messages=_claude_code_turn({"effort": "medium"}),
         optional_params={"max_tokens": 1024},
-        litellm_params={},
+        embrouter_params={},
         api_key="test",
     )
 

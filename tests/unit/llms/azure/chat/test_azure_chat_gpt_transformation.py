@@ -9,11 +9,11 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
-from litellm.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
-from litellm.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
-from litellm.utils import get_optional_params
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
+from embrouter.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
+from embrouter.llms.azure.chat.gpt_transformation import AzureOpenAIConfig
+from embrouter.utils import get_optional_params
 
 _MAPPED_PARAMS: Final = TypeAdapter(dict[str, object])
 _SUPPORTED_PARAMS: Final = TypeAdapter(list[str])
@@ -90,7 +90,7 @@ def test_transform_request_hoists_tool_message_image():
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -125,7 +125,7 @@ def test_transform_request_drops_tool_reference_parts():
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -138,7 +138,7 @@ def test_transform_request_drops_tool_reference_parts():
 def test_transform_request_system_messages_first_follows_global_flag(monkeypatch, enabled, expected):
     """Azure OpenAI shares OpenAI's prefix-matched prompt cache, so the same flag moves
     system messages ahead of the conversation on the Azure request body."""
-    monkeypatch.setattr(litellm, "openai_system_messages_first", enabled)
+    monkeypatch.setattr(embrouter, "openai_system_messages_first", enabled)
     messages = [
         {"role": "user", "content": "hi"},
         {"role": "system", "content": "sys"},
@@ -150,7 +150,7 @@ def test_transform_request_system_messages_first_follows_global_flag(monkeypatch
         model="gpt-4o",
         messages=messages,
         optional_params={},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -194,7 +194,7 @@ def test_azure_gpt_5_chat_stays_off_the_reasoning_path(model: str) -> None:
         )
     )
     supported: Final = _SUPPORTED_PARAMS.validate_python(
-        litellm.get_supported_openai_params(model=model, custom_llm_provider="azure")
+        embrouter.get_supported_openai_params(model=model, custom_llm_provider="azure")
     )
     assert mapped["temperature"] == 0.3
     assert mapped["presence_penalty"] == 0.1
@@ -217,7 +217,7 @@ def test_azure_gpt_5_takes_the_reasoning_path() -> None:
         )
     )
     supported: Final = _SUPPORTED_PARAMS.validate_python(
-        litellm.get_supported_openai_params(model="gpt-5", custom_llm_provider="azure")
+        embrouter.get_supported_openai_params(model="gpt-5", custom_llm_provider="azure")
     )
     assert "presence_penalty" not in mapped
     assert "logit_bias" not in mapped
@@ -264,7 +264,7 @@ class TestAzureToolSchemaCombinatorFlattening:
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"tools": tools},
-            litellm_params={"custom_llm_provider": "azure"},
+            embrouter_params={"custom_llm_provider": "azure"},
             headers={},
         )
 
@@ -328,7 +328,7 @@ class TestAzureToolSchemaCombinatorFlattening:
             model="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"temperature": 0.2},
-            litellm_params={"custom_llm_provider": "azure"},
+            embrouter_params={"custom_llm_provider": "azure"},
             headers={},
         )
         assert "tools" not in request
@@ -342,7 +342,7 @@ def test_azure_drops_tool_choice_without_tools_or_functions(tool_choice: str) ->
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -356,7 +356,7 @@ def test_azure_tools_empty_drops_tool_choice() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": [], "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -369,7 +369,7 @@ def test_azure_functions_empty_drops_tool_choice() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"functions": [], "tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -383,7 +383,7 @@ def test_azure_preserves_tool_choice_with_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": tools, "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -397,7 +397,7 @@ def test_azure_preserves_tool_choice_with_legacy_functions() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"functions": functions, "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -410,7 +410,7 @@ def test_azure_preserves_function_call_without_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"function_call": "none", "tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -423,7 +423,7 @@ def test_azure_gpt5_drops_tool_choice_without_tools() -> None:
         model="gpt5_series/gpt-5.6-sol",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -437,7 +437,7 @@ async def test_azure_async_transform_drops_tool_choice_without_tools() -> None:
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "none"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -450,7 +450,7 @@ async def test_azure_gpt5_async_transform_drops_tool_choice_without_tools() -> N
         model="gpt5_series/gpt-5.6-sol",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tool_choice": "auto"},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -458,15 +458,15 @@ async def test_azure_gpt5_async_transform_drops_tool_choice_without_tools() -> N
     assert "tool_choice" not in request
 
 
-def test_transform_request_strips_litellm_format_from_managed_file_id():
+def test_transform_request_strips_embrouter_format_from_managed_file_id():
     import base64
 
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_messages_with_model_file_ids,
     )
 
     managed_file_id: Final = base64.b64encode(
-        b"litellm_proxy:application/pdf;unified_id,abc123;llm_output_file_id,assistant-xyz;target_model_names,azure-gpt"
+        b"embrouter_proxy:application/pdf;unified_id,abc123;llm_output_file_id,assistant-xyz;target_model_names,azure-gpt"
     ).decode()
     messages = [
         {
@@ -483,7 +483,7 @@ def test_transform_request_strips_litellm_format_from_managed_file_id():
         model="gpt-5.4",
         messages=updated_messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

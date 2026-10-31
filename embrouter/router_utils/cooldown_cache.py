@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import TypedDict
 
-from litellm import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import DEFAULT_COOLDOWN_REDIS_READ_INTERVAL_SECONDS
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter import verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import DEFAULT_COOLDOWN_REDIS_READ_INTERVAL_SECONDS
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span

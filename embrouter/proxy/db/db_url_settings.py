@@ -7,8 +7,8 @@ the app directly, so they call ``DatabaseURLSettings.from_env().apply_to_env()``
 to do the same thing before importing ``proxy_server``.
 
 The env var names this module reads are exactly the ones emitted by the
-``helm/litellm`` chart's ``litellm.serverEnv`` block
-(``helm/litellm/templates/_helpers.tpl``). Both auth styles and both
+``helm/embrouter`` chart's ``embrouter.serverEnv`` block
+(``helm/embrouter/templates/_helpers.tpl``). Both auth styles and both
 endpoints are covered:
 
   * Token auth (``IAM_TOKEN_DB_AUTH`` truthy for AWS RDS IAM, or
@@ -52,8 +52,8 @@ from typing import Annotated, Final, Protocol, TypeAlias, cast
 from pydantic import AliasChoices, BeforeValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm.proxy.db.pgbouncer import database_url_is_pooled
-from litellm.proxy.db.token_auth import (
+from embrouter.proxy.db.pgbouncer import database_url_is_pooled
+from embrouter.proxy.db.token_auth import (
     AZURE_POSTGRESQL_AUTH_ENV_VAR,
     DEFAULT_POSTGRES_PORT,
     IAM_TOKEN_DB_AUTH_ENV_VAR,
@@ -196,7 +196,7 @@ def pin_bundle_root(cert_path: str, host: str, port: int) -> str:
     root: Final = _server_trust_anchor(cert_path, host, port)
     if root is None:
         return cert_path
-    pinned: Final = Path(tempfile.gettempdir()) / f"litellm-sslcert-{hashlib.sha256(root).hexdigest()[:16]}.pem"
+    pinned: Final = Path(tempfile.gettempdir()) / f"embrouter-sslcert-{hashlib.sha256(root).hexdigest()[:16]}.pem"
     return str(pinned) if _replace_file(pinned, ssl.DER_cert_to_PEM_cert(root)) else cert_path
 
 
@@ -301,7 +301,7 @@ def unsupported_db_scheme(database_url: str) -> str | None:
 def unsupported_db_scheme_message(env_var: str, scheme: str) -> str:
     """Operator-facing message naming the offending env var and scheme."""
     return (
-        f"{env_var} uses unsupported scheme '{scheme}'. LiteLLM's database "
+        f"{env_var} uses unsupported scheme '{scheme}'. EmbRouter's database "
         "features (virtual keys, store_model_in_db, spend tracking) require "
         "PostgreSQL; use a 'postgresql://' connection string. SQLite and other "
         "engines are not supported. "

@@ -1,7 +1,7 @@
 """`lite debug claude`: one-shot debug report for a Claude Code session routed through the proxy.
 
 Claude Code puts its session id in `metadata.user_id`, which the proxy lifts into
-`LiteLLM_SpendLogs.session_id`. This command pulls every turn of that session, plus
+`EmbRouter_SpendLogs.session_id`. This command pulls every turn of that session, plus
 the request / response bodies for failures and the most recent turns, and renders a
 single markdown report that can be pasted into a bug report or handed to another agent.
 """
@@ -24,14 +24,14 @@ from ...http_client import HTTPClient
 from ._cli_context import cli_context_values
 
 CLAUDE_DIR: Final = Path.home() / ".claude"
-REPORT_DIR: Final = Path.home() / ".litellm" / "debug"
+REPORT_DIR: Final = Path.home() / ".embrouter" / "debug"
 SESSION_ID_ENV: Final = "CLAUDE_CODE_SESSION_ID"
 SLASH_COMMAND_NAME: Final = "debug-lite"
 SLASH_COMMAND_BODY: Final = """---
-description: Pull the LiteLLM debug report (spend, request, response, error) for this Claude Code session
+description: Pull the EmbRouter debug report (spend, request, response, error) for this Claude Code session
 allowed-tools: Bash(lite debug claude:*)
 ---
-Below is the LiteLLM debug report for this Claude Code session. Summarize the failing
+Below is the EmbRouter debug report for this Claude Code session. Summarize the failing
 request(s) in a few sentences (model, error, request id) and tell me the path the full
 report was saved to so I can hand it off. If nothing failed, say so.
 
@@ -244,7 +244,7 @@ def render_report(
 ) -> str:
     failures: Final = tuple(r for r in rows if r.failed)
     summary: Final = (
-        f"# LiteLLM debug report: Claude Code session `{session_id}`",
+        f"# EmbRouter debug report: Claude Code session `{session_id}`",
         "",
         f"- proxy: {base_url}",
         f"- generated: {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
@@ -332,7 +332,7 @@ def debug() -> None:
     type=click.IntRange(min=100),
     help="Truncate each request/response body to this many characters",
 )
-@click.option("--no-save", is_flag=True, help="Print only, do not write the report under ~/.litellm/debug")
+@click.option("--no-save", is_flag=True, help="Print only, do not write the report under ~/.embrouter/debug")
 @click.pass_context
 def debug_claude(
     ctx: click.Context, session_id: str | None, recent_bodies: int, max_body_chars: int, no_save: bool

@@ -18,10 +18,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import VertexPartnerProvider
+import embrouter
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.vertex_ai import VertexPartnerProvider
 
 # ---------------------------------------------------------------------------
 # Model-cost entry used by all tests that need the model to be known
@@ -29,7 +29,7 @@ from litellm.types.llms.vertex_ai import VertexPartnerProvider
 
 _GEMMA_MODEL_COST_ENTRY = {
     "vertex_ai/google/gemma-4-26b-a4b-it-maas": {
-        "litellm_provider": "vertex_ai-openai_models",
+        "embrouter_provider": "vertex_ai-openai_models",
         "max_input_tokens": 262144,
         "max_output_tokens": 128000,
         "max_tokens": 128000,
@@ -49,9 +49,9 @@ _GEMMA_MODEL_COST_ENTRY = {
 
 
 @pytest.fixture(autouse=True)
-def _reset_litellm_http_client_cache():
+def _reset_embrouter_http_client_cache():
     """Ensure each test gets a fresh async HTTP client mock."""
-    from litellm import in_memory_llm_clients_cache
+    from embrouter import in_memory_llm_clients_cache
 
     in_memory_llm_clients_cache.flush_cache()
 
@@ -91,7 +91,7 @@ class TestVertexBaseGetVertexRegionGemma:
         vertex_base = VertexBase()
 
         with patch.dict(
-            litellm.model_cost,
+            embrouter.model_cost,
             {
                 "vertex_ai/google/gemma-4-26b-a4b-it-maas": {
                     "supported_regions": ["global"]
@@ -109,7 +109,7 @@ class TestVertexBaseGetVertexRegionGemma:
         vertex_base = VertexBase()
 
         with patch.dict(
-            litellm.model_cost,
+            embrouter.model_cost,
             {
                 "vertex_ai/google/gemma-4-26b-a4b-it-maas": {
                     "supported_regions": ["global"]
@@ -181,7 +181,7 @@ class TestCreateVertexURLGemma:
 
 
 def test_gemma_maas_context_window_matches_google(local_model_cost_map):
-    info = litellm.get_model_info("vertex_ai/google/gemma-4-26b-a4b-it-maas")
+    info = embrouter.get_model_info("vertex_ai/google/gemma-4-26b-a4b-it-maas")
 
     # 262,144 context length and 128,000 maximum output per Google's model page, checked 2026-09-18:
     # https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/maas/google/gemma-4-26b-a4b-it
@@ -193,7 +193,7 @@ def test_gemma_maas_context_window_matches_google(local_model_cost_map):
 # Integration tests: verify payloads reach the global OpenAI endpoint
 #
 # Patch target note (P1): AsyncHTTPHandler is patched at its *definition* site
-# (litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler).  This works
+# (embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler).  This works
 # correctly because the client is created by get_async_httpx_client(), which is
 # also defined in http_handler.py and calls AsyncHTTPHandler(...) using the
 # module-local name — so the patch intercepts instantiation there.
@@ -238,10 +238,10 @@ async def test_vertex_ai_gemma_global_endpoint_url():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
+            "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
             return_value=("fake-token", "test-project"),
         ),
         patch.dict(
@@ -249,7 +249,7 @@ async def test_vertex_ai_gemma_global_endpoint_url():
             {"vertexai": mock_vertexai, "vertexai.preview": mock_vertexai.preview},
         ),
         patch.dict(
-            litellm.model_cost,
+            embrouter.model_cost,
             {
                 "vertex_ai/google/gemma-4-26b-a4b-it-maas": {
                     "supported_regions": ["global"]
@@ -260,7 +260,7 @@ async def test_vertex_ai_gemma_global_endpoint_url():
     ):
         mock_http_handler.return_value.post = AsyncMock(return_value=mock_response)
 
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="vertex_ai/google/gemma-4-26b-a4b-it-maas",
             messages=[{"role": "user", "content": "Hello"}],
             vertex_ai_project="test-project",
@@ -314,21 +314,21 @@ async def test_vertex_ai_gemma_function_calling_passthrough():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
+            "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
             return_value=("fake-token", "test-project"),
         ),
         patch.dict(
             "sys.modules",
             {"vertexai": mock_vertexai, "vertexai.preview": mock_vertexai.preview},
         ),
-        patch.dict(litellm.model_cost, _GEMMA_MODEL_COST_ENTRY, clear=False),
+        patch.dict(embrouter.model_cost, _GEMMA_MODEL_COST_ENTRY, clear=False),
     ):
         mock_http_handler.return_value.post = AsyncMock(return_value=mock_response)
 
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="vertex_ai/google/gemma-4-26b-a4b-it-maas",
             messages=[{"role": "user", "content": "What's the weather in Paris?"}],
             tools=tools,
@@ -387,21 +387,21 @@ async def test_vertex_ai_gemma_vision_passthrough():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler"
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler"
         ) as mock_http_handler,
         patch(
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
+            "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels._ensure_access_token",
             return_value=("fake-token", "test-project"),
         ),
         patch.dict(
             "sys.modules",
             {"vertexai": mock_vertexai, "vertexai.preview": mock_vertexai.preview},
         ),
-        patch.dict(litellm.model_cost, _GEMMA_MODEL_COST_ENTRY, clear=False),
+        patch.dict(embrouter.model_cost, _GEMMA_MODEL_COST_ENTRY, clear=False),
     ):
         mock_http_handler.return_value.post = AsyncMock(return_value=mock_response)
 
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="vertex_ai/google/gemma-4-26b-a4b-it-maas",
             messages=messages,
             vertex_ai_project="test-project",

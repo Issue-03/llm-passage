@@ -49,7 +49,7 @@ const MakeMCPPublicForm: React.FC<MakeMCPPublicFormProps> = ({
   const hasPublicationMetadata = mcpHubData.every((server) => typeof server.mcp_info?.is_public_explicit === "boolean");
   const canManagePublication = hasPublicationMetadata && selection?.catalog === mcpHubData;
   const publicationYaml = [
-    "litellm_settings:",
+    "embrouter_settings:",
     "  public_mcp_hub_strict_whitelist: true",
     selectedServers.size === 0
       ? "  public_mcp_servers: []"
@@ -293,7 +293,7 @@ const MakeMCPPublicForm: React.FC<MakeMCPPublicFormProps> = ({
       return (
         <div role="alert" className="rounded-lg border border-warning/20 bg-warning/10 p-4 text-sm">
           This proxy does not provide explicit publication status for every MCP server. Update the proxy to manage
-          visibility here, or edit litellm_settings.public_mcp_servers in its existing configuration
+          visibility here, or edit embrouter_settings.public_mcp_servers in its existing configuration
         </div>
       );
     }

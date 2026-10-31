@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy.discovery_endpoints.ui_discovery_endpoints import router
-from litellm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
+from embrouter.proxy.discovery_endpoints.ui_discovery_endpoints import router
+from embrouter.types.proxy.control_plane_endpoints import WorkerRegistryEntry
 
 
 def test_ui_discovery_endpoints_with_defaults():
@@ -16,13 +16,13 @@ def test_ui_discovery_endpoints_with_defaults():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -39,17 +39,17 @@ def test_ui_discovery_endpoints_with_custom_server_root_path():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/embrouter"
         assert data["proxy_base_url"] is None
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is False
@@ -61,16 +61,16 @@ def test_ui_discovery_endpoints_with_proxy_base_url_when_set():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "embrouter.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
 
-        response = client.get("/litellm/.well-known/litellm-ui-config")
+        response = client.get("/embrouter/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -86,12 +86,12 @@ def test_ui_discovery_endpoints_with_sso_configured_and_auto_redirect_enabled():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "embrouter.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
@@ -99,11 +99,11 @@ def test_ui_discovery_endpoints_with_sso_configured_and_auto_redirect_enabled():
         ),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/embrouter"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is True
         assert data["sso_configured"] is True
@@ -116,22 +116,22 @@ def test_ui_discovery_endpoints_with_sso_configured_and_auto_redirect_not_set_de
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "embrouter.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
         # Ensure AUTO_REDIRECT_UI_LOGIN_TO_SSO is not set (simulate default)
         os.environ.pop("AUTO_REDIRECT_UI_LOGIN_TO_SSO", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/embrouter"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is True
@@ -143,12 +143,12 @@ def test_ui_discovery_endpoints_with_sso_configured_but_auto_redirect_disabled()
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "embrouter.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "false", "DISABLE_ADMIN_UI": "false"},
@@ -156,11 +156,11 @@ def test_ui_discovery_endpoints_with_sso_configured_but_auto_redirect_disabled()
         ),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["server_root_path"] == "/litellm"
+        assert data["server_root_path"] == "/embrouter"
         assert data["proxy_base_url"] == "https://proxy.example.com"
         assert data["auto_redirect_to_sso"] is False
         assert data["sso_configured"] is True
@@ -172,9 +172,9 @@ def test_ui_discovery_endpoints_with_sso_not_configured_but_auto_redirect_enable
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
@@ -182,7 +182,7 @@ def test_ui_discovery_endpoints_with_sso_not_configured_but_auto_redirect_enable
         ),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -198,12 +198,12 @@ def test_ui_discovery_endpoints_both_routes_return_same_data():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"),
         patch(
-            "litellm.proxy.utils.get_proxy_base_url",
+            "embrouter.proxy.utils.get_proxy_base_url",
             return_value="https://proxy.example.com",
         ),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch.dict(
             os.environ,
             {"AUTO_REDIRECT_UI_LOGIN_TO_SSO": "true", "DISABLE_ADMIN_UI": "false"},
@@ -211,8 +211,8 @@ def test_ui_discovery_endpoints_both_routes_return_same_data():
         ),
     ):
 
-        response1 = client.get("/.well-known/litellm-ui-config")
-        response2 = client.get("/litellm/.well-known/litellm-ui-config")
+        response1 = client.get("/.well-known/embrouter-ui-config")
+        response2 = client.get("/embrouter/.well-known/embrouter-ui-config")
 
         assert response1.status_code == 200
         assert response2.status_code == 200
@@ -226,18 +226,18 @@ def test_ui_discovery_endpoints_with_auto_redirect_via_general_settings():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"auto_redirect_ui_login_to_sso": True},
         ),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
         os.environ.pop("AUTO_REDIRECT_UI_LOGIN_TO_SSO", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -252,11 +252,11 @@ def test_ui_discovery_endpoints_with_auto_redirect_env_var_overrides_general_set
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=True),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"auto_redirect_ui_login_to_sso": False},
         ),
         patch.dict(
@@ -266,7 +266,7 @@ def test_ui_discovery_endpoints_with_auto_redirect_env_var_overrides_general_set
         ),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -279,13 +279,13 @@ def test_ui_discovery_endpoints_with_admin_ui_disabled():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "true"}, clear=False),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -309,14 +309,14 @@ def test_ui_discovery_endpoints_is_control_plane_true_when_workers_configured():
     ]
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_config),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.proxy_server.proxy_config", mock_config),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -334,15 +334,15 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_default_false():
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         os.environ.pop("UI_PASSWORD", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -355,9 +355,9 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_when_ui_password_s
     client = TestClient(app)
 
     with patch.dict(os.environ, {"UI_PASSWORD": "s3cret-pass", "DISABLE_ADMIN_UI": "false"}, clear=False):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         assert response.json()["hide_default_credentials_hint"] is True
@@ -376,37 +376,37 @@ def test_ui_discovery_endpoints_keeps_default_credentials_hint_without_real_ui_p
     client = TestClient(app)
 
     with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false", **env_overrides}, clear=False):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", None)
         if "UI_PASSWORD" not in env_overrides:
             os.environ.pop("UI_PASSWORD", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         assert response.json()["hide_default_credentials_hint"] is False
 
 
 def test_ui_discovery_endpoints_hide_default_credentials_hint_via_env_var():
-    """LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT=true hides the login-page credentials card."""
+    """EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT=true hides the login-page credentials card."""
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch.dict(
             os.environ,
             {
-                "LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT": "true",
+                "EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT": "true",
                 "DISABLE_ADMIN_UI": "false",
             },
             clear=False,
         ),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -420,18 +420,18 @@ def test_ui_discovery_endpoints_hide_default_credentials_hint_via_general_settin
     client = TestClient(app)
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"hide_default_credentials_hint": True},
         ),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
-        os.environ.pop("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", None)
+        os.environ.pop("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", None)
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()
@@ -447,14 +447,14 @@ def test_ui_discovery_endpoints_is_control_plane_false_when_no_workers():
     mock_config.worker_registry = []
 
     with (
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
-        patch("litellm.proxy.utils.get_proxy_base_url", return_value=None),
-        patch("litellm.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_config),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_proxy_base_url", return_value=None),
+        patch("embrouter.proxy.auth.auth_utils.has_user_setup_sso", return_value=False),
+        patch("embrouter.proxy.proxy_server.proxy_config", mock_config),
         patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}, clear=False),
     ):
 
-        response = client.get("/.well-known/litellm-ui-config")
+        response = client.get("/.well-known/embrouter-ui-config")
 
         assert response.status_code == 200
         data = response.json()

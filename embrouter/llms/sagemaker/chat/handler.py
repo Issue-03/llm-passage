@@ -5,10 +5,10 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, pop_aws_auth_params
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.utils import ModelResponse, get_secret
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, pop_aws_auth_params
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.utils import ModelResponse, get_secret
 
 from ..common_utils import AWSEventStreamDecoder
 from .transformation import SagemakerChatConfig
@@ -30,10 +30,10 @@ class SagemakerChatHandler(BaseAWSLLM):
         ### SET REGION NAME ###
         if aws_region_name is None:
             # check env #
-            litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+            embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
 
-            if litellm_aws_region_name is not None and isinstance(litellm_aws_region_name, str):
-                aws_region_name = litellm_aws_region_name
+            if embrouter_aws_region_name is not None and isinstance(embrouter_aws_region_name, str):
+                aws_region_name = embrouter_aws_region_name
 
             standard_aws_region_name: Final = get_secret("AWS_REGION", None)
             if standard_aws_region_name is not None and isinstance(standard_aws_region_name, str):
@@ -95,7 +95,7 @@ class SagemakerChatHandler(BaseAWSLLM):
         encoding,
         logging_obj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float | httpx.Timeout | None = None,
         custom_prompt_dict={},
         logger_fn=None,
@@ -108,7 +108,7 @@ class SagemakerChatHandler(BaseAWSLLM):
         inference_params: Final = deepcopy(optional_params)
         stream: Final = inference_params.pop("stream", None)
 
-        from litellm.llms.openai_like.chat.handler import OpenAILikeChatHandler
+        from embrouter.llms.openai_like.chat.handler import OpenAILikeChatHandler
 
         openai_like_chat_completions: Final = OpenAILikeChatHandler()
         inference_params["stream"] = True if stream is True else False
@@ -116,7 +116,7 @@ class SagemakerChatHandler(BaseAWSLLM):
             model=model,
             messages=messages,
             optional_params=inference_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -141,7 +141,7 @@ class SagemakerChatHandler(BaseAWSLLM):
             logging_obj=logging_obj,
             optional_params=inference_params,
             acompletion=acompletion,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             timeout=timeout,
             encoding=encoding,

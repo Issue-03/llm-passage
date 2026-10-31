@@ -1,7 +1,7 @@
 import pytest
 
-from litellm.router_strategy.adaptive_router.classifier import classify_prompt
-from litellm.types.router import RequestType
+from embrouter.router_strategy.adaptive_router.classifier import classify_prompt
+from embrouter.types.router import RequestType
 
 
 @pytest.mark.parametrize(

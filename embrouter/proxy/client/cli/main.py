@@ -5,8 +5,8 @@ from typing import Final
 
 import click
 
-from litellm._version import version as litellm_version
-from litellm.proxy.client.health import HealthManagementClient
+from embrouter._version import version as embrouter_version
+from embrouter.proxy.client.health import HealthManagementClient
 
 from .commands.agents import agent_commands
 from .commands.auth import (
@@ -39,16 +39,16 @@ from .interface import interactive_shell
 
 def print_version(base_url: str, api_key: str | None):
     """Print CLI and server version info."""
-    click.echo(f"LiteLLM Proxy CLI Version: {litellm_version}")
+    click.echo(f"EmbRouter Proxy CLI Version: {embrouter_version}")
     if base_url:
-        click.echo(f"LiteLLM Proxy Server URL: {base_url}")
+        click.echo(f"EmbRouter Proxy Server URL: {base_url}")
     try:
         health_client: Final = HealthManagementClient(base_url=base_url, api_key=api_key)
         server_version: Final = health_client.get_server_version()
         if server_version:
-            click.echo(f"LiteLLM Proxy Server Version: {server_version}")
+            click.echo(f"EmbRouter Proxy Server Version: {server_version}")
         else:
-            click.echo("LiteLLM Proxy Server Version: (unavailable)")
+            click.echo("EmbRouter Proxy Server Version: (unavailable)")
     except Exception as e:
         click.echo(f"Could not retrieve server version: {e}")
 
@@ -73,25 +73,25 @@ class HideConfiguredCommandsGroup(click.Group):
     "-v",
     "show_version",
     is_flag=True,
-    help="Show the LiteLLM Proxy CLI and server version and exit.",
+    help="Show the EmbRouter Proxy CLI and server version and exit.",
 )
 @click.option(
     "--base-url",
-    envvar="LITELLM_PROXY_URL",
+    envvar="EMBROUTER_PROXY_URL",
     show_envvar=True,
     default=None,
     show_default="base_url from `lite config`, else http://localhost:4000",
-    help="Base URL of the LiteLLM proxy server",
+    help="Base URL of the EmbRouter proxy server",
 )
 @click.option(
     "--api-key",
-    envvar="LITELLM_PROXY_API_KEY",
+    envvar="EMBROUTER_PROXY_API_KEY",
     show_envvar=True,
     help="API key for authentication",
 )
 @click.pass_context
 def cli(ctx: click.Context, show_version: bool, base_url: str | None, api_key: str | None) -> None:
-    """LiteLLM Proxy CLI - Manage your LiteLLM proxy server"""
+    """EmbRouter Proxy CLI - Manage your EmbRouter proxy server"""
     ctx.ensure_object(dict)
 
     stored_base_url: Final = get_config_value("base_url")
@@ -134,7 +134,7 @@ def cli(ctx: click.Context, show_version: bool, base_url: str | None, api_key: s
 @cli.command()
 @click.pass_context
 def version(ctx: click.Context):
-    """Show the LiteLLM Proxy CLI and server version."""
+    """Show the EmbRouter Proxy CLI and server version."""
     ctx_obj: Final[CliContextObj] = ctx.obj
     print_version(ctx_obj.get("base_url"), ctx_obj.get("api_key"))
 
@@ -165,7 +165,7 @@ cli.add_command(users)
 # Add a top-level command per coding agent (claude, codex, opencode, ...)
 for agent_command in agent_commands():
     cli.add_command(agent_command)
-# Add the up/down commands (route Claude Code through the local LiteLLM proxy)
+# Add the up/down commands (route Claude Code through the local EmbRouter proxy)
 cli.add_command(up)
 cli.add_command(down)
 # Add the model-groups command group (discover models your key can access)
@@ -179,14 +179,14 @@ cli.add_command(reconfigure_group)
 cli.add_command(unconfigure_group)
 
 
-LITELLM_PROXY_DEPRECATION_NOTICE: Final = (
-    "The `litellm-proxy` command is deprecated and will be removed in a future release; "
+EMBROUTER_PROXY_DEPRECATION_NOTICE: Final = (
+    "The `embrouter-proxy` command is deprecated and will be removed in a future release; "
     "run `lite` instead, it takes the same commands and options."
 )
 
 
-def litellm_proxy_cli() -> None:
-    click.secho(LITELLM_PROXY_DEPRECATION_NOTICE, err=True, fg="yellow")
+def embrouter_proxy_cli() -> None:
+    click.secho(EMBROUTER_PROXY_DEPRECATION_NOTICE, err=True, fg="yellow")
     cli()
 
 

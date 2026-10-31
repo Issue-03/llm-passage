@@ -6,8 +6,8 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-from litellm.llms.anthropic.pass_through.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+from embrouter.llms.anthropic.pass_through.adapters.handler import (
+    EmbRouterMessagesToCompletionTransformationHandler,
 )
 
 MESSAGES = [{"role": "user", "content": "hello"}]
@@ -15,7 +15,7 @@ CLAUDE_CODE_USER_ID = json.dumps({"device_id": "d" * 64, "account_uuid": "", "se
 
 
 def _prepare(model: str, extra_kwargs: dict[str, object], thinking: dict[str, object] | None = None):
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = EmbRouterMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -56,8 +56,8 @@ def test_prepare_completion_kwargs_skips_prompt_cache_key_without_provider_suppo
     assert "prompt_cache_key" not in completion_kwargs
 
 
-def test_prepare_completion_kwargs_skips_prompt_cache_key_for_chained_litellm_proxy():
-    completion_kwargs = _prepare("litellm_proxy/xai", {"custom_llm_provider": "litellm_proxy"})
+def test_prepare_completion_kwargs_skips_prompt_cache_key_for_chained_embrouter_proxy():
+    completion_kwargs = _prepare("embrouter_proxy/xai", {"custom_llm_provider": "embrouter_proxy"})
     assert completion_kwargs["user"] == CLAUDE_CODE_USER_ID
     assert "prompt_cache_key" not in completion_kwargs
 

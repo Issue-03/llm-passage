@@ -21,25 +21,25 @@ from typing import Final
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.caching.caching import RedisCache
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.caching.caching import RedisCache
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.proxy._types import (
     AUDIT_ACTIONS,
     CoordinationRedisParams,
-    LiteLLM_AuditLogs,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbRouter_AuditLogs,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.utils import invalidate_config_param
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.management_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.utils import invalidate_config_param
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.management_endpoints import (
     COORDINATION_REDIS_SETTINGS_FIELDS,
     CoordinationRedisSettingsField,
     CoordinationRedisSource,
@@ -66,7 +66,7 @@ _SETTINGS_ADAPTER: Final[TypeAdapter[dict[str, object]]] = TypeAdapter(dict[str,
 
 
 def _enforce_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> None:
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": "Only proxy admins can manage coordination Redis settings"},
@@ -162,7 +162,7 @@ def _validated_params(settings: Mapping[str, object]) -> CoordinationRedisParams
 
 async def _read_general_settings() -> dict[str, object]:
     """Read the persisted `general_settings` config row (empty when unset or no DB)."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return {}
@@ -190,7 +190,7 @@ async def _current_coordination_redis_settings() -> dict[str, object] | None:
     The persisted row wins over the yaml-loaded config state because startup
     applies the DB `general_settings` row over the file config.
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     persisted: Final = await get_persisted_coordination_redis_settings()
     if persisted is not None:
@@ -213,11 +213,11 @@ def _coordination_redis_source(settings: Mapping[str, object] | None) -> Coordin
     an explicit block wins, else a plain-Redis response-cache backend is
     borrowed, else the REDIS_* environment fallback applies.
     """
-    from litellm.proxy.proxy_server import _environment_has_redis_connection_target
+    from embrouter.proxy.proxy_server import _environment_has_redis_connection_target
 
     if settings:
         return "coordination_redis"
-    cache_backend: Final = litellm.cache.cache if litellm.cache is not None else None
+    cache_backend: Final = embrouter.cache.cache if embrouter.cache is not None else None
     if isinstance(cache_backend, (RedisCache, RedisClusterCache)):
         return "cache_backend"
     if _environment_has_redis_connection_target():
@@ -240,26 +240,26 @@ async def _emit_coordination_redis_audit_log(
     before_settings: Mapping[str, object] | None,
     after_settings: Mapping[str, object] | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> None:
     """Emit an audit-log row for a /coordination_redis/settings mutation."""
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_audit_log_for_update,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     if not is_audit_logging_enabled():
         return
 
     task: Final = asyncio.create_task(
         create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
-                changed_by=litellm_changed_by or user_api_key_dict.user_id or litellm_proxy_admin_name,
+                changed_by=embrouter_changed_by or user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.CONFIG_TABLE_NAME,
+                table_name=EmbrouterTableNames.CONFIG_TABLE_NAME,
                 object_id=_COORDINATION_REDIS_KEY,
                 action=action,
                 updated_values=json.dumps({"settings": _redact_all_values(after_settings)}, default=str),
@@ -329,9 +329,9 @@ async def get_coordination_redis_settings(
 async def update_coordination_redis_settings(
     request: CoordinationRedisSettingsRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ) -> dict[str, object]:
     """
@@ -340,11 +340,11 @@ async def update_coordination_redis_settings(
     Parameters:
     - settings: dict - Redis connection params (host, port, username, password, url, ssl, startup_nodes, sentinel_nodes, sentinel_password, service_name). Values may be `os.environ/VAR` references, which are stored as written and resolved at startup
 
-    The settings are written to the `general_settings` row of LiteLLM_Config,
+    The settings are written to the `general_settings` row of EmbRouter_Config,
     which startup merges over the yaml config; the proxy picks them up on its
     next restart.
     """
-    from litellm.proxy.proxy_server import prisma_client, store_model_in_db
+    from embrouter.proxy.proxy_server import prisma_client, store_model_in_db
 
     _enforce_proxy_admin(user_api_key_dict)
 
@@ -364,7 +364,7 @@ async def update_coordination_redis_settings(
     settings: Final = _merge_over_saved(request.settings, saved_settings or {})
     _validated_params(settings)
 
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     proxy_config.reject_config_owned_writes(
         section_name=_GENERAL_SETTINGS_PARAM_NAME, changed_keys={_COORDINATION_REDIS_KEY: settings}
@@ -387,7 +387,7 @@ async def update_coordination_redis_settings(
         before_settings=before_settings if isinstance(before_settings, dict) else None,
         after_settings=settings,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
     return {
@@ -415,7 +415,7 @@ async def check_coordination_redis_connection(
 
     Builds a throwaway client (never touching global state) and pings it.
     """
-    from litellm.proxy.proxy_server import _build_redis_usage_cache
+    from embrouter.proxy.proxy_server import _build_redis_usage_cache
 
     _enforce_proxy_admin(user_api_key_dict)
 

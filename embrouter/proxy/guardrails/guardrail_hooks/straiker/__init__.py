@@ -2,13 +2,13 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from pydantic import BaseModel
 
-import litellm
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+import embrouter
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .straiker import StraikerGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 class _V3Routing(BaseModel):
@@ -32,7 +32,7 @@ _OPTIONAL_INIT_FIELDS: Final = (
 )
 
 
-def _get_config_value(litellm_params: "LitellmParams", optional_params: object, attribute_name: str) -> object:
+def _get_config_value(embrouter_params: "EmbrouterParams", optional_params: object, attribute_name: str) -> object:
     if optional_params is not None:
         if isinstance(optional_params, dict):
             value = optional_params.get(attribute_name)
@@ -40,27 +40,27 @@ def _get_config_value(litellm_params: "LitellmParams", optional_params: object, 
             value = getattr(optional_params, attribute_name, None)
         if value is not None:
             return value
-    return getattr(litellm_params, attribute_name, None)
+    return getattr(embrouter_params, attribute_name, None)
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    optional_params: Final = getattr(litellm_params, "optional_params", None)
-    api_key: Final = litellm_params.api_key
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    optional_params: Final = getattr(embrouter_params, "optional_params", None)
+    api_key: Final = embrouter_params.api_key
     if not api_key:
         raise ValueError("api_key is required for straiker")
 
-    api_base: Final = litellm_params.api_base or "https://api.prod.straiker.ai"
-    default_app: Final = getattr(litellm_params, "default_app", None) or getattr(litellm_params, "source", None)
-    source: Final = default_app if isinstance(default_app, str) and default_app else "LiteLLM Gateway"
+    api_base: Final = embrouter_params.api_base or "https://api.prod.straiker.ai"
+    default_app: Final = getattr(embrouter_params, "default_app", None) or getattr(embrouter_params, "source", None)
+    source: Final = default_app if isinstance(default_app, str) and default_app else "EmbRouter Gateway"
     kwargs: Final[dict[str, object]] = {
         field: value
         for field in _OPTIONAL_INIT_FIELDS
-        for value in [_get_config_value(litellm_params, optional_params, field)]
+        for value in [_get_config_value(embrouter_params, optional_params, field)]
         if value is not None
     }
     routing: Final = _V3Routing.model_validate(
         {
-            field: _get_config_value(litellm_params, optional_params, field)
+            field: _get_config_value(embrouter_params, optional_params, field)
             for field in ("api_version", "agent_ref", "client", "format_hint")
         }
     )
@@ -69,8 +69,8 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
         api_base=api_base if isinstance(api_base, str) else "https://api.prod.straiker.ai",
         source=source,
         guardrail_name=guardrail.get("guardrail_name", "straiker"),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
         api_version=routing.api_version,
         agent_ref=routing.agent_ref,
         client=routing.client,
@@ -78,7 +78,7 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
         **kwargs,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_callback)
     return _callback
 
 

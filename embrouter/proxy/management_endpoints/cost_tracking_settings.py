@@ -17,19 +17,19 @@ from typing import Final
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-import litellm
-from litellm._internal_context import current_billing_time, pinned_billing_time
-from litellm._logging import verbose_proxy_logger
-from litellm.cost_calculator import completion_cost
-from litellm.proxy._types import (
+import embrouter
+from embrouter._internal_context import current_billing_time, pinned_billing_time
+from embrouter._logging import verbose_proxy_logger
+from embrouter.cost_calculator import completion_cost
+from embrouter.proxy._types import (
     CommonProxyErrors,
     CostEstimateRequest,
     CostEstimateResponse,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.prompt_cache_prediction import router as prompt_cache_prediction_router
-from litellm.types.utils import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.management_endpoints.prompt_cache_prediction import router as prompt_cache_prediction_router
+from embrouter.types.utils import (
     CostBreakdown,
     CostPerToken,
     LlmProvidersSet,
@@ -57,17 +57,17 @@ def _configured_price(key: str, sources: tuple[Mapping[str, object], ...]) -> fl
 
 
 def _extract_custom_pricing(
-    litellm_params: Mapping[str, object], model_info: Mapping[str, object], builtin: ModelInfo | None
+    embrouter_params: Mapping[str, object], model_info: Mapping[str, object], builtin: ModelInfo | None
 ) -> CostPerToken | None:
     """
     Pull per-token pricing configured on a deployment so on-prem / self-hosted
     models (absent from the public cost map) still estimate a real cost.
-    Pricing may live on ``litellm_params`` or ``model_info``; ``litellm_params``
+    Pricing may live on ``embrouter_params`` or ``model_info``; ``embrouter_params``
     wins, matching the router's cost-map registration precedence. Cache rates the
     deployment leaves unset come from the backend model's built-in entry, then its
     own input rate, again matching what the router registers for live billing.
     """
-    sources: Final = (litellm_params, model_info)
+    sources: Final = (embrouter_params, model_info)
     input_price: Final = _configured_price("input_cost_per_token", sources)
     output_price: Final = _configured_price("output_cost_per_token", sources)
 
@@ -88,7 +88,7 @@ def _extract_custom_pricing(
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
     try:
-        return litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        return embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:
         return None
 
@@ -96,14 +96,14 @@ def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> Mo
 def _resolve_model_for_cost_lookup(model: str) -> ResolvedCostModel:
     """
     Resolve a model name (which may be a router alias/model_group) to the
-    underlying litellm model name, provider, and any deployment-configured
+    underlying embrouter model name, provider, and any deployment-configured
     pricing used for cost lookup.
 
     Args:
         model: The model name from the request (could be a router alias like 'e-model-router'
                or an actual model name like 'azure_ai/gpt-4')
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     # Try to resolve from router if available
     if llm_router is not None:
@@ -113,17 +113,17 @@ def _resolve_model_for_cost_lookup(model: str) -> ResolvedCostModel:
 
             if deployments and len(deployments) > 0:
                 first_deployment: Final = deployments[0]
-                litellm_params: Final = first_deployment.get("litellm_params", {})
+                embrouter_params: Final = first_deployment.get("embrouter_params", {})
                 model_info: Final = first_deployment.get("model_info", {})
-                custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+                custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
                 provider: Final = str(custom_llm_provider) if custom_llm_provider is not None else None
                 # base_model wins (needed for Azure custom deployment names)
-                base_model: Final = model_info.get("base_model") or litellm_params.get("base_model")
-                resolved_model: Final = base_model or litellm_params.get("model")
+                base_model: Final = model_info.get("base_model") or embrouter_params.get("base_model")
+                resolved_model: Final = base_model or embrouter_params.get("model")
                 if resolved_model:
                     verbose_proxy_logger.debug("Resolved model '%s' to '%s' from router", model, resolved_model)
                     custom_cost_per_token: Final = _extract_custom_pricing(
-                        litellm_params, model_info, _lookup_model_info(str(resolved_model), provider)
+                        embrouter_params, model_info, _lookup_model_info(str(resolved_model), provider)
                     )
                     return ResolvedCostModel(str(resolved_model), provider, custom_cost_per_token)
         except Exception as e:
@@ -200,9 +200,9 @@ async def get_cost_discount_config(
     """
     Get current cost discount configuration.
 
-    Returns the cost_discount_config from litellm_settings.
+    Returns the cost_discount_config from embrouter_settings.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(
@@ -214,9 +214,9 @@ async def get_cost_discount_config(
         # Load config from DB
         config: Final = await proxy_config.get_config()
 
-        # Get cost_discount_config from litellm_settings
-        litellm_settings: Final = config.get("litellm_settings", {})
-        cost_discount_config: Final = litellm_settings.get("cost_discount_config", {})
+        # Get cost_discount_config from embrouter_settings
+        embrouter_settings: Final = config.get("embrouter_settings", {})
+        cost_discount_config: Final = embrouter_settings.get("cost_discount_config", {})
 
         return {"values": cost_discount_config}
     except Exception as e:
@@ -236,7 +236,7 @@ async def update_cost_discount_config(
     """
     Update cost discount configuration.
 
-    Updates the cost_discount_config in litellm_settings.
+    Updates the cost_discount_config in embrouter_settings.
     Discounts should be between 0 and 1 (e.g., 0.05 = 5% discount).
 
     Example:
@@ -248,7 +248,7 @@ async def update_cost_discount_config(
     }
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_config,
         store_model_in_db,
@@ -266,7 +266,7 @@ async def update_cost_discount_config(
             detail={"error": "Set `'STORE_MODEL_IN_DB='True'` in your env to enable this feature."},
         )
 
-    # Validate that all providers are valid LiteLLM providers
+    # Validate that all providers are valid EmbRouter providers
     invalid_providers: Final = []
     for provider in cost_discount_config:
         if provider not in LlmProvidersSet:
@@ -276,7 +276,7 @@ async def update_cost_discount_config(
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Invalid provider(s): {', '.join(invalid_providers)}. Must be valid LiteLLM providers. for the full list."
+                "error": f"Invalid provider(s): {', '.join(invalid_providers)}. Must be valid EmbRouter providers. for the full list."
             },
         )
 
@@ -294,18 +294,18 @@ async def update_cost_discount_config(
         # Load existing config
         config: Final = await proxy_config.get_config()
 
-        # Ensure litellm_settings exists
-        if "litellm_settings" not in config:
-            config["litellm_settings"] = {}
+        # Ensure embrouter_settings exists
+        if "embrouter_settings" not in config:
+            config["embrouter_settings"] = {}
 
         # Update cost_discount_config
-        config["litellm_settings"]["cost_discount_config"] = cost_discount_config
+        config["embrouter_settings"]["cost_discount_config"] = cost_discount_config
 
         # Save the updated config to DB
         await proxy_config.save_config(new_config=config)
 
-        # Update in-memory litellm.cost_discount_config
-        litellm.cost_discount_config = cost_discount_config
+        # Update in-memory embrouter.cost_discount_config
+        embrouter.cost_discount_config = cost_discount_config
 
         verbose_proxy_logger.info("Updated cost_discount_config: %s", cost_discount_config)
 
@@ -333,9 +333,9 @@ async def get_cost_margin_config(
     """
     Get current cost margin configuration.
 
-    Returns the cost_margin_config from litellm_settings.
+    Returns the cost_margin_config from embrouter_settings.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(
@@ -347,9 +347,9 @@ async def get_cost_margin_config(
         # Load config from DB
         config: Final = await proxy_config.get_config()
 
-        # Get cost_margin_config from litellm_settings
-        litellm_settings: Final = config.get("litellm_settings", {})
-        cost_margin_config: Final = litellm_settings.get("cost_margin_config", {})
+        # Get cost_margin_config from embrouter_settings
+        embrouter_settings: Final = config.get("embrouter_settings", {})
+        cost_margin_config: Final = embrouter_settings.get("cost_margin_config", {})
 
         return {"values": cost_margin_config}
     except Exception as e:
@@ -369,7 +369,7 @@ async def update_cost_margin_config(
     """
     Update cost margin configuration.
 
-    Updates the cost_margin_config in litellm_settings.
+    Updates the cost_margin_config in embrouter_settings.
     Margins can be:
     - Percentage: {"openai": 0.10} = 10% margin
     - Fixed amount: {"openai": {"fixed_amount": 0.001}} = $0.001 per request
@@ -386,7 +386,7 @@ async def update_cost_margin_config(
     }
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_config,
         store_model_in_db,
@@ -404,7 +404,7 @@ async def update_cost_margin_config(
             detail={"error": "Set `'STORE_MODEL_IN_DB='True'` in your env to enable this feature."},
         )
 
-    # Validate that all providers are valid LiteLLM providers (except "global")
+    # Validate that all providers are valid EmbRouter providers (except "global")
     invalid_providers: Final = []
     for provider in cost_margin_config:
         if provider != "global" and provider not in LlmProvidersSet:
@@ -414,7 +414,7 @@ async def update_cost_margin_config(
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Invalid provider(s): {', '.join(invalid_providers)}. Must be valid LiteLLM providers or 'global'. for the full list."
+                "error": f"Invalid provider(s): {', '.join(invalid_providers)}. Must be valid EmbRouter providers or 'global'. for the full list."
             },
         )
 
@@ -468,18 +468,18 @@ async def update_cost_margin_config(
         # Load existing config
         config: Final = await proxy_config.get_config()
 
-        # Ensure litellm_settings exists
-        if "litellm_settings" not in config:
-            config["litellm_settings"] = {}
+        # Ensure embrouter_settings exists
+        if "embrouter_settings" not in config:
+            config["embrouter_settings"] = {}
 
         # Update cost_margin_config
-        config["litellm_settings"]["cost_margin_config"] = cost_margin_config
+        config["embrouter_settings"]["cost_margin_config"] = cost_margin_config
 
         # Save the updated config to DB
         await proxy_config.save_config(new_config=config)
 
-        # Update in-memory litellm.cost_margin_config
-        litellm.cost_margin_config = cost_margin_config
+        # Update in-memory embrouter.cost_margin_config
+        embrouter.cost_margin_config = cost_margin_config
 
         verbose_proxy_logger.info("Updated cost_margin_config: %s", cost_margin_config)
 
@@ -511,7 +511,7 @@ class BlockUnpricedModelsResponse(BaseModel):
     response_model=BlockUnpricedModelsResponse,
 )
 async def get_block_requests_for_models_without_pricing() -> BlockUnpricedModelsResponse:
-    return BlockUnpricedModelsResponse(enabled=bool(litellm.block_requests_for_models_without_pricing))
+    return BlockUnpricedModelsResponse(enabled=bool(embrouter.block_requests_for_models_without_pricing))
 
 
 @router.patch(
@@ -523,7 +523,7 @@ async def get_block_requests_for_models_without_pricing() -> BlockUnpricedModels
 async def update_block_requests_for_models_without_pricing(
     request: BlockUnpricedModelsRequest,
 ) -> BlockUnpricedModelsResponse:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_config,
         store_model_in_db,
@@ -547,12 +547,12 @@ async def update_block_requests_for_models_without_pricing(
 
     try:
         config = await proxy_config.get_config()
-        if "litellm_settings" not in config:
-            config["litellm_settings"] = {}  # mutable-ok: config is a plain-dict payload for save_config
-        config["litellm_settings"]["block_requests_for_models_without_pricing"] = request.enabled
+        if "embrouter_settings" not in config:
+            config["embrouter_settings"] = {}  # mutable-ok: config is a plain-dict payload for save_config
+        config["embrouter_settings"]["block_requests_for_models_without_pricing"] = request.enabled
         await proxy_config.save_config(new_config=config)
 
-        litellm.block_requests_for_models_without_pricing = request.enabled
+        embrouter.block_requests_for_models_without_pricing = request.enabled
         verbose_proxy_logger.info("Updated block_requests_for_models_without_pricing: %s", request.enabled)
 
         return BlockUnpricedModelsResponse(enabled=request.enabled)
@@ -610,7 +610,7 @@ async def estimate_cost(
     }
     ```
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
     # Resolve model name (handles router aliases like 'e-model-router' -> 'azure_ai/gpt-4')
     resolved: Final = _resolve_model_for_cost_lookup(request.model)
@@ -623,13 +623,13 @@ async def estimate_cost(
     mock_response: Final = ModelResponse(model=resolved_model, usage=usage)
 
     # Create a logging object to capture cost breakdown
-    litellm_logging_obj: Final = LiteLLMLoggingObj(
+    embrouter_logging_obj: Final = EmbRouterLoggingObj(
         model=resolved_model,
         messages=[],
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="cost-estimate",
+        embrouter_call_id="cost-estimate",
         function_id="cost-estimate",
     )
 
@@ -643,7 +643,7 @@ async def estimate_cost(
                 model=resolved_model,
                 custom_llm_provider=resolved_provider,
                 custom_cost_per_token=resolved.custom_cost_per_token,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
             )
         except Exception as e:  # noqa: BLE001  # completion_cost raises a bare Exception for an unpriceable model
             raise HTTPException(
@@ -657,13 +657,13 @@ async def estimate_cost(
     # ones the cost lines above billed at even when completion_cost infers a provider this endpoint
     # never resolved (an unrouted "xai/grok-4" prices on xai's inclusive tier thresholds; a lookup
     # here without that provider would report the sub-200k rate for a line billed above it).
-    rates: Final = litellm_logging_obj.billed_token_rates
-    per_request: Final = _cost_lines(cost_per_request, litellm_logging_obj.cost_breakdown)
+    rates: Final = embrouter_logging_obj.billed_token_rates
+    per_request: Final = _cost_lines(cost_per_request, embrouter_logging_obj.cost_breakdown)
     daily: Final = per_request.times(request.num_requests_per_day)
     monthly: Final = per_request.times(request.num_requests_per_month)
 
     model_info: Final = _lookup_model_info(resolved_model, resolved_provider)
-    mapped_provider: Final = model_info.get("litellm_provider") if model_info is not None else None
+    mapped_provider: Final = model_info.get("embrouter_provider") if model_info is not None else None
     custom_llm_provider: Final = mapped_provider if mapped_provider is not None else resolved_provider
 
     return CostEstimateResponse(

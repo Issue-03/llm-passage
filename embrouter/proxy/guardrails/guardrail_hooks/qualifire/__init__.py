@@ -1,34 +1,34 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .qualifire import QualifireGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     _qualifire_callback: Final = QualifireGuardrail(
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        evaluation_id=getattr(litellm_params, "evaluation_id", None),
-        prompt_injections=getattr(litellm_params, "prompt_injections", None),
-        hallucinations_check=getattr(litellm_params, "hallucinations_check", None),
-        grounding_check=getattr(litellm_params, "grounding_check", None),
-        pii_check=getattr(litellm_params, "pii_check", None),
-        content_moderation_check=getattr(litellm_params, "content_moderation_check", None),
-        tool_selection_quality_check=getattr(litellm_params, "tool_selection_quality_check", None),
-        assertions=getattr(litellm_params, "assertions", None),
-        on_flagged=getattr(litellm_params, "on_flagged", "block"),
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        evaluation_id=getattr(embrouter_params, "evaluation_id", None),
+        prompt_injections=getattr(embrouter_params, "prompt_injections", None),
+        hallucinations_check=getattr(embrouter_params, "hallucinations_check", None),
+        grounding_check=getattr(embrouter_params, "grounding_check", None),
+        pii_check=getattr(embrouter_params, "pii_check", None),
+        content_moderation_check=getattr(embrouter_params, "content_moderation_check", None),
+        tool_selection_quality_check=getattr(embrouter_params, "tool_selection_quality_check", None),
+        assertions=getattr(embrouter_params, "assertions", None),
+        on_flagged=getattr(embrouter_params, "on_flagged", "block"),
         guardrail_name=guardrail.get("guardrail_name", ""),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(_qualifire_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_qualifire_callback)
 
     return _qualifire_callback
 

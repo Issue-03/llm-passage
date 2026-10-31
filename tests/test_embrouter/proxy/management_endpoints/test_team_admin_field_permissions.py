@@ -1,10 +1,10 @@
 import pytest
 from fastapi import HTTPException
 
-from litellm.models.team import BudgetLimitEntry
-from litellm.models.verification_token import LiteLLM_VerificationToken
-from litellm.proxy._types import LiteLLM_ModelTable, LiteLLM_TeamTable, UpdateKeyRequest, UpdateTeamRequest
-from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+from embrouter.models.team import BudgetLimitEntry
+from embrouter.models.verification_token import EmbRouter_VerificationToken
+from embrouter.proxy._types import EmbRouter_ModelTable, EmbRouter_TeamTable, UpdateKeyRequest, UpdateTeamRequest
+from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
     TeamAdminEditAllowed,
     TeamAdminEditingDisabled,
     TeamAdminFieldNotPermitted,
@@ -25,7 +25,7 @@ _SUPPORTED = frozenset({"tpm_limit", "rpm_limit", "team_alias"})
 
 
 def _team(**overrides):
-    return LiteLLM_TeamTable(team_id="team-1", **overrides)
+    return EmbRouter_TeamTable(team_id="team-1", **overrides)
 
 
 class TestResolveTeamAdminEditableFields:
@@ -105,11 +105,11 @@ class TestChangedTeamFields:
         assert changed_team_fields(data, existing) == frozenset()
 
     def test_model_aliases_compare_against_the_model_table(self):
-        table = LiteLLM_ModelTable(model_aliases='{"fast": "gpt-4o-mini"}', created_by="a", updated_by="a")
+        table = EmbRouter_ModelTable(model_aliases='{"fast": "gpt-4o-mini"}', created_by="a", updated_by="a")
         same = UpdateTeamRequest(team_id="team-1", model_aliases={"fast": "gpt-4o-mini"})
         different = UpdateTeamRequest(team_id="team-1", model_aliases={"fast": "gpt-4o"})
-        assert changed_team_fields(same, _team(litellm_model_table=table)) == frozenset()
-        assert changed_team_fields(different, _team(litellm_model_table=table)) == frozenset({"model_aliases"})
+        assert changed_team_fields(same, _team(embrouter_model_table=table)) == frozenset()
+        assert changed_team_fields(different, _team(embrouter_model_table=table)) == frozenset({"model_aliases"})
 
     def test_empty_model_aliases_against_no_model_table_is_not_a_change(self):
         assert changed_team_fields(UpdateTeamRequest(team_id="team-1", model_aliases={}), _team()) == frozenset()
@@ -167,7 +167,7 @@ class TestTeamAdminRequestOrRaise:
 
 
 def _key(**overrides):
-    return LiteLLM_VerificationToken(token="hashed", **overrides)
+    return EmbRouter_VerificationToken(token="hashed", **overrides)
 
 
 class TestTeamAdminMayEditMemberKeyBudgets:

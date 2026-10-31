@@ -1,4 +1,4 @@
-from litellm.proxy._experimental.mcp_server import operations as mcp_operations
+from embrouter.proxy._experimental.mcp_server import operations as mcp_operations
 """
 VERIA-7 regression: OpenAPI-backed (local-registry) MCP tools must run
 through `pre_call_tool_check` before dispatch, the same as managed
@@ -11,13 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.types import CallToolResult
 
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbRouter_ObjectPermissionTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp import MCPAuth, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @pytest.mark.asyncio
@@ -25,12 +25,12 @@ async def test_openapi_local_tool_runs_pre_call_tool_check():
     """When `execute_mcp_tool` resolves a local-registry (OpenAPI) tool
     AND a server, the pre-call hook must fire before the local handler
     runs. Pre-fix this path skipped the hook entirely."""
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     user = UserAPIKeyAuth(
         api_key="sk-user",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     fake_server = MagicMock()
@@ -66,11 +66,11 @@ async def test_openapi_local_tool_runs_pre_call_tool_check():
             return_value=fake_tool,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
             new=handle_local,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -108,12 +108,12 @@ async def test_openapi_local_tool_blocked_when_pre_call_check_raises():
     tool), the local handler must NOT be invoked."""
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     user = UserAPIKeyAuth(
         api_key="sk-user",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     fake_server = MagicMock()
@@ -151,11 +151,11 @@ async def test_openapi_local_tool_blocked_when_pre_call_check_raises():
             return_value=fake_tool,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
             new=handle_local,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -180,12 +180,12 @@ async def test_openapi_local_tool_denied_when_server_not_resolvable():
     rather than dispatched without `pre_call_tool_check`."""
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     user = UserAPIKeyAuth(
         api_key="sk-user",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     fake_tool = MagicMock()
@@ -214,11 +214,11 @@ async def test_openapi_local_tool_denied_when_server_not_resolvable():
             return_value=fake_tool,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
             new=handle_local,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -246,21 +246,21 @@ async def test_openapi_local_tool_injects_resolved_oauth_token():
     user's completed OAuth flow stored a token that never reached the upstream API. The resolved
     credential must land in the `_request_resolved_auth_headers` ContextVar the tool closure
     reads. Kills the mutant that deletes the resolve_openapi_upstream_auth call in server.py."""
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _request_resolved_auth_headers,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
         StaticHeaderAuth,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Ok
-    from litellm.types.mcp import MCPAuth, MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Ok
+    from embrouter.types.mcp import MCPAuth, MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     user = UserAPIKeyAuth(
         api_key="sk-user",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     oauth_server = MCPServer(
         server_id="srv-sheets",
@@ -302,11 +302,11 @@ async def test_openapi_local_tool_injects_resolved_oauth_token():
             new=AsyncMock(return_value=Ok(StaticHeaderAuth("Bearer stored-user-token"))),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
             new=handle_local,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -337,10 +337,10 @@ def legacy_local_tool():
     Yields the server and the list the handler appends to, so a test can tell
     "refused" from "dispatched" by whether the handler actually ran.
     """
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
-    from litellm.proxy._experimental.mcp_server.tool_registry import (
+    from embrouter.proxy._experimental.mcp_server.tool_registry import (
         global_mcp_tool_registry,
     )
 
@@ -378,8 +378,8 @@ def _caller_entitled_to(tools: list[str]) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-caller",
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
-        object_permission=LiteLLM_ObjectPermissionTable(
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="op-legacy-fallback",
             mcp_servers=[LEGACY_SERVER_ID],
             mcp_tool_permissions={LEGACY_SERVER_ID: tools},
@@ -399,8 +399,8 @@ async def test_legacy_local_tool_fallback_refuses_unentitled_caller(legacy_local
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -448,7 +448,7 @@ async def test_legacy_local_tool_fallback_still_dispatches_entitled_caller(
     This is the backwards-compatibility half. Refusing this call would trade an
     authorization hole for an outage on a configuration that worked before.
     """
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     server, executed = legacy_local_tool
     user = _caller_entitled_to([LEGACY_TOOL])
@@ -478,7 +478,7 @@ async def test_legacy_local_tool_fallback_fails_closed_on_empty_prefix(
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     _server, executed = legacy_local_tool
 
@@ -507,7 +507,7 @@ async def test_legacy_local_tool_fallback_fails_closed_when_prefix_names_no_serv
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     _server, executed = legacy_local_tool
     other_server = MCPServer(
@@ -521,7 +521,7 @@ async def test_legacy_local_tool_fallback_fails_closed_when_prefix_names_no_serv
     )
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+        "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
         return_value=True,
     ):
         with pytest.raises(HTTPException) as exc:
@@ -545,7 +545,7 @@ async def test_unknown_tool_name_still_reports_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
 
     with pytest.raises(HTTPException) as exc:
         await mcp_operations.execute_mcp_tool(
@@ -590,14 +590,14 @@ async def test_per_server_auth_header_reaches_both_openapi_dispatch_arms(dispatc
     modes the credential has to reach `resolve_openapi_upstream_auth`, whose passthrough arm outranks
     the ContextVar when it materializes a header.
     """
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _request_auth_header,
     )
 
     server = _spec_path_server()
     auth_headers = {"report_api": {"Authorization": OPENAPI_PER_SERVER_TOKEN}}
-    user = UserAPIKeyAuth(api_key="sk-user", user_id="alice", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    user = UserAPIKeyAuth(api_key="sk-user", user_id="alice", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     captured: dict = {}
 
     async def fake_resolver(**kwargs):
@@ -624,11 +624,11 @@ async def test_per_server_auth_header_reaches_both_openapi_dispatch_arms(dispatc
                 patch.object(manager, "_get_mcp_server_from_tool_name", return_value=server),
                 patch.object(mcp_operations.global_mcp_tool_registry, "get_tool", return_value=fake_tool),
                 patch(
-                    "litellm.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
+                    "embrouter.proxy._experimental.mcp_server.operations._handle_local_mcp_tool",
                     new=capture_local,
                 ),
                 patch(
-                    "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+                    "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
                     return_value=True,
                 ),
             ):
@@ -674,8 +674,8 @@ async def test_local_dispatch_reports_the_outcome_instead_of_success(failure: st
     `call_tool_rest_api` turns an unrecognized exception into HTTP 500 and an upstream 403 or 429 is
     not a gateway crash.
     """
-    from litellm.proxy._experimental.mcp_server import server as mcp_module
-    from litellm.proxy._experimental.mcp_server.exceptions import (
+    from embrouter.proxy._experimental.mcp_server import server as mcp_module
+    from embrouter.proxy._experimental.mcp_server.exceptions import (
         MCPOpenApiUpstreamError,
         MCPUpstreamAuthError,
     )
@@ -701,7 +701,7 @@ async def test_local_dispatch_reports_the_outcome_instead_of_success(failure: st
         auth_type=MCPAuth.oauth_delegate,
         spec_path="https://api.example.com/openapi.json",
     )
-    user = UserAPIKeyAuth(api_key="sk-user", user_id="alice", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    user = UserAPIKeyAuth(api_key="sk-user", user_id="alice", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     with (
         patch.object(mcp_operations.global_mcp_server_manager, "_get_mcp_server_from_tool_name", return_value=server),
@@ -713,7 +713,7 @@ async def test_local_dispatch_reports_the_outcome_instead_of_success(failure: st
             new=AsyncMock(return_value=(None, None)),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -748,7 +748,7 @@ def test_only_a_custom_credential_slot_needs_the_redirect_guard(resolved, expect
     slot needs the same cross-origin guard the MCP client installs. Authorization does not: the HTTP
     client already strips that one, and taking the guarded path would give up the shared client.
     """
-    from litellm.types.mcp import DEFAULT_CREDENTIAL_HEADER, same_header
+    from embrouter.types.mcp import DEFAULT_CREDENTIAL_HEADER, same_header
 
     guarded = next((n for n in resolved if not same_header(n, DEFAULT_CREDENTIAL_HEADER)), None)
     assert (guarded is not None) is expect_guard
@@ -761,7 +761,7 @@ async def test_the_openapi_arm_drops_a_custom_slot_across_origins():
     """
     import httpx
 
-    from litellm.types.mcp import credential_redirect_hook
+    from embrouter.types.mcp import credential_redirect_hook
 
     hook = credential_redirect_hook("https://api.example.com/v1/things", "esb-oauth")
 
@@ -778,7 +778,7 @@ def test_the_openapi_arm_installs_the_guard_when_a_credential_rides_a_custom_slo
     """Pins the wiring, not just the hook: the arm must actually build a guarded client. Testing the
     hook alone passes even if this arm never installs it.
     """
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _request_resolved_auth_headers,
         _upstream_client,
     )
@@ -796,7 +796,7 @@ def test_the_guarded_client_is_reused_rather_than_built_per_call():
     sets upstream_token_header would leak an httpx client and its connection pool. Both variants
     have to come from the shared cache.
     """
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _request_resolved_auth_headers,
         _upstream_client,
     )
@@ -815,7 +815,7 @@ async def test_the_shared_guard_reads_the_url_from_the_request_context():
     """
     import httpx
 
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _drop_credential_across_origin,
         _request_resolved_auth_headers,
         _request_upstream_url,
@@ -840,7 +840,7 @@ async def test_the_shared_guard_reads_the_url_from_the_request_context():
 def test_the_openapi_arm_keeps_the_shared_client_when_no_guard_is_needed(resolved):
     # Authorization is already stripped across origins by the HTTP client, so taking the guarded
     # path for it would give up the shared connection pool for nothing.
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
         _request_resolved_auth_headers,
         _upstream_client,
     )

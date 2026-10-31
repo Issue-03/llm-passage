@@ -24,21 +24,21 @@ from openai.types.responses import (
     ResponseFunctionToolCall,
 )
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.openai.responses.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms import get_guardrail_translation_mapping
+from embrouter.llms.openai.responses.guardrail_translation.handler import (
     OpenAIResponsesHandler,
 )
-from litellm.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
-from litellm.proxy.guardrails.guardrail_hooks.generic_guardrail_api import GenericGuardrailAPI
-from litellm.types.llms.openai import ChatCompletionToolCallChunk
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
+from embrouter.proxy.guardrails.guardrail_hooks.generic_guardrail_api import GenericGuardrailAPI
+from embrouter.types.llms.openai import ChatCompletionToolCallChunk
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.responses.main import CustomToolCallOutputItem, GenericResponseOutputItem, OutputText
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.responses.main import CustomToolCallOutputItem, GenericResponseOutputItem, OutputText
+from embrouter.types.utils import CallTypes, GenericGuardrailAPIInputs
 
 
 class MockGuardrail(CustomGuardrail):
@@ -80,7 +80,7 @@ class RecordingMaskingGuardrail(MockGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         self.seen_texts.append(list(inputs.get("texts", [])))
         self.seen_message_contents.append([m["content"] for m in inputs.get("structured_messages") or []])
@@ -93,7 +93,7 @@ class LastTextDroppingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         return {**inputs, "texts": list(inputs.get("texts", []))[:-1]}
 
@@ -110,7 +110,7 @@ class TextsReplacingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         answer: Final = {key: value for key, value in inputs.items() if key != "texts"}
         return answer if self.texts is None else {**answer, "texts": list(self.texts)}
@@ -122,7 +122,7 @@ class PersimmonMaskingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional[LiteLLMLoggingObj] = None,
+        logging_obj: Optional[EmbRouterLoggingObj] = None,
     ) -> GenericGuardrailAPIInputs:
         tool_calls = [
             {
@@ -143,7 +143,7 @@ class FlatShapeGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional[LiteLLMLoggingObj] = None,
+        logging_obj: Optional[EmbRouterLoggingObj] = None,
     ) -> GenericGuardrailAPIInputs:
         flat_tool_calls = [{"name": "exec", "input": "rm -rf /"} for _ in inputs.get("tool_calls", [])]
         return {**inputs, "tool_calls": flat_tool_calls}
@@ -155,7 +155,7 @@ class DroppingGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional[LiteLLMLoggingObj] = None,
+        logging_obj: Optional[EmbRouterLoggingObj] = None,
     ) -> GenericGuardrailAPIInputs:
         return {**inputs, "tool_calls": []}
 
@@ -341,7 +341,7 @@ class TestOpenAIResponsesHandlerInputProcessing:
 
     @pytest.mark.asyncio
     async def test_text_answer_missing_the_instructions_row_is_rejected_and_leaves_request_untouched(self) -> None:
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from embrouter.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         handler = OpenAIResponsesHandler()
         guardrail = LastTextDroppingGuardrail(guardrail_name="dropper")
@@ -953,7 +953,7 @@ class TestOpenAIResponsesHandlerToolCallExtraction:
             CustomToolCallOutputItem(**CUSTOM_TOOL_CALL_ITEM),
             ResponseCustomToolCall(**{key: value for key, value in CUSTOM_TOOL_CALL_ITEM.items() if key != "status"}),
         ],
-        ids=["dict", "litellm_typed", "openai_typed"],
+        ids=["dict", "embrouter_typed", "openai_typed"],
     )
     def test_extract_custom_tool_call_input_as_arguments(self, output_item):
         handler = OpenAIResponsesHandler()
@@ -1043,7 +1043,7 @@ class TestOpenAIResponsesHandlerToolCallExtraction:
         handler = OpenAIResponsesHandler()
         response = self._custom_tool_call_response(dict(CUSTOM_TOOL_CALL_ITEM))
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
             result = await handler.process_output_response(response, DroppingGuardrail(guardrail_name="dropper"))
 
         assert result["output"][0]["input"] == "echo persimmon"
@@ -1317,7 +1317,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses unchanged
@@ -1349,7 +1349,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses unchanged
@@ -1364,7 +1364,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert result == responses_so_far
@@ -1401,7 +1401,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses unchanged
@@ -1459,7 +1459,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses
@@ -1515,7 +1515,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         completed_chunk = next(
@@ -1558,7 +1558,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         output_text = result[-1]["response"]["output"][0]["content"][0]["text"]
@@ -1619,7 +1619,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1674,7 +1674,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
                 inputs: GenericGuardrailAPIInputs,
                 request_data: dict,
                 input_type: Literal["request", "response"],
-                logging_obj: LiteLLMLoggingObj | None = None,
+                logging_obj: EmbRouterLoggingObj | None = None,
             ) -> GenericGuardrailAPIInputs:
                 tool_calls = [
                     {**tool_call, "function": {**tool_call["function"], "arguments": '{"fruit": "[MASKED]"}'}}
@@ -1692,7 +1692,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1707,7 +1707,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrites_syncs_typed_function_call_events(self):
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             FunctionCallArgumentsDeltaEvent,
             FunctionCallArgumentsDoneEvent,
             OutputItemAddedEvent,
@@ -1739,7 +1739,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=typed_events,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1781,7 +1781,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=PersimmonMaskingGuardrail(guardrail_name="mask"),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1806,7 +1806,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=PersimmonMaskingGuardrail(guardrail_name="mask"),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1816,7 +1816,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrites_syncs_typed_custom_tool_call_events(self):
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             OutputItemAddedEvent,
             OutputItemDoneEvent,
             ResponseCompletedEvent,
@@ -1845,7 +1845,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=typed_events,
             guardrail_to_apply=PersimmonMaskingGuardrail(guardrail_name="mask"),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1858,7 +1858,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_custom_tool_call_rewrite_without_matching_events_fails_closed(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = OpenAIResponsesHandler()
         events = self._ended_custom_tool_call_stream_events()
@@ -1868,7 +1868,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
             await handler.process_output_streaming_response(
                 responses_so_far=events,
                 guardrail_to_apply=PersimmonMaskingGuardrail(guardrail_name="mask"),
-                litellm_logging_obj=None,
+                embrouter_logging_obj=None,
                 deliver_ended_stream_rewrites=True,
             )
         assert undeliverable.value.reason == "no stream event carries the rewritten call_id call_999"
@@ -1927,7 +1927,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1958,7 +1958,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
     async def test_deliver_ended_stream_function_call_rewrite_without_matching_events_fails_closed(
         self, mismatch, expected_reason
     ):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = OpenAIResponsesHandler()
         events = self._ended_function_call_stream_events()
@@ -1976,7 +1976,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
             await handler.process_output_streaming_response(
                 responses_so_far=events,
                 guardrail_to_apply=self._argument_masking_guardrail(),
-                litellm_logging_obj=None,
+                embrouter_logging_obj=None,
                 deliver_ended_stream_rewrites=True,
             )
         assert undeliverable.value.reason == expected_reason
@@ -1990,7 +1990,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert events[1]["delta"] == '{"fruit":'
@@ -2008,7 +2008,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2031,7 +2031,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2050,7 +2050,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2071,7 +2071,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
         assert [inputs.get("texts") for inputs in guardrail.seen_inputs] == [["hello world"]]
@@ -2079,7 +2079,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2089,7 +2089,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
 
     @pytest.mark.asyncio
     async def test_fallback_rewrite_over_an_unplaceable_scanned_event_fails_open(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = OpenAIResponsesHandler()
         events = [
@@ -2101,7 +2101,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
             await handler.process_output_streaming_response(
                 responses_so_far=events,
                 guardrail_to_apply=self._masking_guardrail(),
-                litellm_logging_obj=None,
+                embrouter_logging_obj=None,
                 deliver_ended_stream_rewrites=True,
             )
         assert [event["delta"] for event in events] == ["hello ", "world"]
@@ -2114,7 +2114,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2134,7 +2134,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -2150,7 +2150,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert result is events
@@ -2166,7 +2166,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert result is events
@@ -2179,7 +2179,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=events,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert events[0]["delta"] == "hello "
@@ -2217,7 +2217,7 @@ class TestOpenAIResponsesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert result == responses_so_far
@@ -2354,7 +2354,7 @@ class TestOpenAIResponsesHandlerToolInjection:
     def test_merge_keeps_guardrail_appended_tool(self):
         """merge_guardrailed_tools must not drop the extra appended tool."""
         original = [{"type": "function", "name": "a"}]
-        groups = [form.chat_tools for form in LiteLLMCompletionResponsesConfig.responses_tools_to_chat_forms(original)]
+        groups = [form.chat_tools for form in EmbRouterCompletionResponsesConfig.responses_tools_to_chat_forms(original)]
         guardrailed = [
             *groups[0],
             {"type": "function", "function": {"name": "b", "description": "", "parameters": {"type": "object"}}},
@@ -2430,7 +2430,7 @@ class RebuildingFullCoverageGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         raw_input = request_data["input"]
         assert isinstance(raw_input, list)
@@ -2835,7 +2835,7 @@ class TestPerMessageRewriteWriteBack:
 
     @pytest.mark.asyncio
     async def test_texts_only_per_message_answer_is_rejected_by_name(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from embrouter.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         guardrail = _per_message_redactor()
         data = _tool_replay_request()
@@ -2950,39 +2950,39 @@ class TestProvenancePatching:
         assert [_texts(item) for item in assistant_items] == [[COMPRESSED_MARKER]]
 
     def test_provenance_bails_on_non_mapping_item(self):
-        from litellm.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
+        from embrouter.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
 
         assert _input_item_provenance(["not a mapping"], []) is None
 
     def test_provenance_bails_when_expected_messages_disagree(self):
-        from litellm.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
+        from embrouter.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
 
         assert _input_item_provenance([{"role": "user", "content": "hi"}], [{"role": "user", "content": "bye"}]) is None
 
     def test_provenance_bails_on_unpredicted_merge(self):
-        from litellm.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
-        from litellm.responses.litellm_completion_transformation.transformation import (
-            LiteLLMCompletionResponsesConfig,
+        from embrouter.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
+            EmbRouterCompletionResponsesConfig,
         )
 
         raw_input = [
             {"id": "fc_1", "type": "function_call", "call_id": "call_1", "name": "read_a", "arguments": "{}"},
             {"role": "assistant", "content": "Reading the memo now."},
         ]
-        expected = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        expected = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=raw_input, responses_api_request={}
         )
         assert len(expected) == 1
         assert _input_item_provenance(raw_input, expected) is None
 
     def test_provenance_maps_and_taints_parallel_tool_calls(self):
-        from litellm.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
-        from litellm.responses.litellm_completion_transformation.transformation import (
-            LiteLLMCompletionResponsesConfig,
+        from embrouter.llms.openai.responses.guardrail_translation.handler import _input_item_provenance
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
+            EmbRouterCompletionResponsesConfig,
         )
 
         raw_input = _parallel_tool_call_input()
-        expected = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        expected = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=raw_input, responses_api_request={}
         )
         provenance = _input_item_provenance(raw_input, expected)
@@ -3105,7 +3105,7 @@ class TestPatchEdgeBranches:
         assert _texts(user_items[0]) == [COMPRESSED_MARKER]
 
     def test_item_rewrite_field_ignores_non_string_type(self):
-        from litellm.llms.openai.responses.guardrail_translation.handler import _item_rewrite_field
+        from embrouter.llms.openai.responses.guardrail_translation.handler import _item_rewrite_field
 
         assert _item_rewrite_field({"type": 123, "content": "hello"}) is None
 
@@ -3302,7 +3302,7 @@ class TestBuildBlockSseChunks:
     """build_block_sse_chunks turns a streaming ModifyResponseException into 200 SSE events"""
 
     def _exc(self, original_response=None):
-        from litellm.exceptions import ModifyResponseException
+        from embrouter.exceptions import ModifyResponseException
 
         return ModifyResponseException(
             message="Blocked by policy.",
@@ -3365,7 +3365,7 @@ class TestBuildBlockSseChunks:
         assert completed["usage"] == {"input_tokens": 7, "output_tokens": 21, "total_tokens": 28}
 
     def test_continuation_reads_usage_from_typed_completed_event(self):
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             ResponseCompletedEvent,
             ResponsesAPIResponse,
             ResponsesAPIStreamEvents,
@@ -3397,8 +3397,8 @@ class TestBuildBlockSseChunks:
         assert completed["usage"]["total_tokens"] == 28
 
     def test_continuation_closes_open_item_given_pydantic_events_with_enum_types(self):
-        from litellm.types.llms.openai import (
-            BaseLiteLLMOpenAIResponseObject,
+        from embrouter.types.llms.openai import (
+            BaseEmbRouterOpenAIResponseObject,
             ContentPartAddedEvent,
             OutputItemAddedEvent,
             OutputTextDeltaEvent,
@@ -3418,7 +3418,7 @@ class TestBuildBlockSseChunks:
                 item_id="msg_live",
                 output_index=0,
                 content_index=0,
-                part=BaseLiteLLMOpenAIResponseObject.model_validate(
+                part=BaseEmbRouterOpenAIResponseObject.model_validate(
                     {"type": "output_text", "text": "", "annotations": []}
                 ),
             ),
@@ -3532,13 +3532,13 @@ class TestOpenAIResponsesHandlerStreamingScanKey:
         assert OpenAIResponsesHandler().get_streaming_scan_key([]) is None
 
     def test_key_accumulates_deltas_while_the_stream_is_open(self):
-        from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+        from embrouter.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
 
         key = OpenAIResponsesHandler().get_streaming_scan_key([self._delta(0, "hel"), self._delta(1, "lo")])
         assert key == StreamingScanKey(texts=("hello",))
 
     def test_typed_delta_events_accumulate_like_dicts(self):
-        from litellm.types.llms.openai import OutputTextDeltaEvent
+        from embrouter.types.llms.openai import OutputTextDeltaEvent
 
         events = [
             OutputTextDeltaEvent(
@@ -3597,7 +3597,7 @@ class TestOpenAIResponsesHandlerStreamingScanKey:
         assert rewritten_key != ended_key
 
     def test_completed_event_reads_every_output_text_part(self):
-        from litellm.types.responses.main import CustomToolCallOutputItem, GenericResponseOutputItem, OutputText
+        from embrouter.types.responses.main import CustomToolCallOutputItem, GenericResponseOutputItem, OutputText
 
         item = GenericResponseOutputItem(
             type="message",

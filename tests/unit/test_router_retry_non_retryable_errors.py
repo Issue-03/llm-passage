@@ -18,21 +18,21 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+import embrouter
+from embrouter import Router
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
     _union_duration_ms,
     response_timing_metrics,
 )
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.rules import Rules
-from litellm.utils import function_setup
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.rules import Rules
+from embrouter.utils import function_setup
 
 
 def _make_rate_limit_error(message="Rate limited"):
     """Create a RateLimitError for testing."""
-    return litellm.RateLimitError(
+    return embrouter.RateLimitError(
         message=message,
         llm_provider="bedrock",
         model="anthropic.claude-v2",
@@ -41,7 +41,7 @@ def _make_rate_limit_error(message="Rate limited"):
 
 def _make_context_window_error(message="prompt is too long: 1205821 tokens > 200000"):
     """Create a ContextWindowExceededError for testing."""
-    return litellm.ContextWindowExceededError(
+    return embrouter.ContextWindowExceededError(
         message=message,
         llm_provider="vertex_ai",
         model="claude-3-opus",
@@ -50,7 +50,7 @@ def _make_context_window_error(message="prompt is too long: 1205821 tokens > 200
 
 def _make_bad_request_error(message="Invalid request"):
     """Create a BadRequestError for testing."""
-    return litellm.BadRequestError(
+    return embrouter.BadRequestError(
         message=message,
         llm_provider="openai",
         model="gpt-4",
@@ -59,7 +59,7 @@ def _make_bad_request_error(message="Invalid request"):
 
 def _make_not_found_error(message="Model not found"):
     """Create a NotFoundError for testing."""
-    return litellm.NotFoundError(
+    return embrouter.NotFoundError(
         message=message,
         llm_provider="openai",
         model="gpt-99",
@@ -72,14 +72,14 @@ def _create_router(num_retries=2):
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4",
                     "api_key": "fake-key-1",
                 },
             },
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4",
                     "api_key": "fake-key-2",
                 },
@@ -134,7 +134,7 @@ async def test_non_retryable_error_in_retry_loop_raises_immediately():
         patch.object(router, "_time_to_sleep_before_retry", return_value=0),
         patch.object(router, "log_retry", side_effect=lambda kwargs, e: kwargs),
     ):
-        with pytest.raises(litellm.ContextWindowExceededError):
+        with pytest.raises(embrouter.ContextWindowExceededError):
             await router.async_function_with_retries(
                 num_retries=2,
                 **_base_kwargs(),
@@ -172,7 +172,7 @@ async def test_bad_request_error_in_retry_loop_raises_immediately():
         patch.object(router, "_time_to_sleep_before_retry", return_value=0),
         patch.object(router, "log_retry", side_effect=lambda kwargs, e: kwargs),
     ):
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(embrouter.BadRequestError):
             await router.async_function_with_retries(
                 num_retries=2,
                 **_base_kwargs(),
@@ -204,7 +204,7 @@ async def test_original_exception_updated_to_latest_error():
         patch.object(router, "_time_to_sleep_before_retry", return_value=0),
         patch.object(router, "log_retry", side_effect=lambda kwargs, e: kwargs),
     ):
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await router.async_function_with_retries(
                 num_retries=2,
                 **_base_kwargs(),
@@ -238,7 +238,7 @@ async def test_retryable_errors_still_retry_normally():
         patch.object(router, "_time_to_sleep_before_retry", return_value=0),
         patch.object(router, "log_retry", side_effect=lambda kwargs, e: kwargs),
     ):
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await router.async_function_with_retries(
                 num_retries=3,
                 **_base_kwargs(),
@@ -278,7 +278,7 @@ async def test_not_found_error_in_retry_loop_raises_immediately():
         patch.object(router, "_time_to_sleep_before_retry", return_value=0),
         patch.object(router, "log_retry", side_effect=lambda kwargs, e: kwargs),
     ):
-        with pytest.raises(litellm.NotFoundError):
+        with pytest.raises(embrouter.NotFoundError):
             await router.async_function_with_retries(
                 num_retries=2,
                 **_base_kwargs(),
@@ -293,7 +293,7 @@ async def test_retry_attempts_accumulate_timing_in_shared_request_metadata():
     received_at: Final = datetime.datetime.now()
     metadata: dict[str, object] = {
         "model_group": "test-model",
-        "litellm_received_at": received_at,
+        "embrouter_received_at": received_at,
     }
     logging_obj_raw, _ = function_setup(
         "acompletion",
@@ -302,7 +302,7 @@ async def test_retry_attempts_accumulate_timing_in_shared_request_metadata():
         model="test-model",
         messages=[{"role": "user", "content": "test"}],
         metadata=metadata,
-        litellm_call_id="retry-timing-test",
+        embrouter_call_id="retry-timing-test",
         is_async_call=True,
     )
     assert isinstance(logging_obj_raw, Logging)
@@ -314,7 +314,7 @@ async def test_retry_attempts_accumulate_timing_in_shared_request_metadata():
     async def timed_attempt(*, logging_obj: Logging, **kwargs: object) -> str:
         del kwargs
         attempt_numbers.append(len(attempt_numbers) + 1)
-        metadata_ids.append(id(logging_obj.model_call_details["litellm_params"]["metadata"]))
+        metadata_ids.append(id(logging_obj.model_call_details["embrouter_params"]["metadata"]))
         await asyncio.sleep(0.01)
         if len(attempt_numbers) == 1:
             raise _make_rate_limit_error()
@@ -342,7 +342,7 @@ async def test_retry_attempts_accumulate_timing_in_shared_request_metadata():
             num_retries=1,
         )
 
-    request_metadata: Final = logging_obj.model_call_details["litellm_params"]["metadata"]
+    request_metadata: Final = logging_obj.model_call_details["embrouter_params"]["metadata"]
     windows: Final = request_metadata["llm_api_timing_windows"]
     end_time: Final = datetime.datetime.fromtimestamp(max(window[1] for window in windows))
     timing_metrics: Final = response_timing_metrics(received_at, end_time, logging_obj)
@@ -354,6 +354,6 @@ async def test_retry_attempts_accumulate_timing_in_shared_request_metadata():
     union_duration_ms: Final = _union_duration_ms(windows, received_at.timestamp(), end_time.timestamp())
     assert union_duration_ms is not None
     total_response_time_ms: Final = (end_time.timestamp() - received_at.timestamp()) * 1000
-    assert timing_metrics["litellm_overhead_time_ms"] == pytest.approx(
+    assert timing_metrics["embrouter_overhead_time_ms"] == pytest.approx(
         round(total_response_time_ms - union_duration_ms, 4)
     )

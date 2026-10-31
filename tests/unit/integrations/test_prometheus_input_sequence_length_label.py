@@ -8,20 +8,20 @@ import pytest
 from prometheus_client import REGISTRY
 from prometheus_client.samples import Sample
 
-import litellm
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.types.integrations.prometheus import (
+import embrouter
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.types.integrations.prometheus import (
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
     UserAPIKeyLabelValues,
     get_input_sequence_length_bucket,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 LATENCY_METRICS: Final = (
-    "litellm_llm_api_latency_metric",
-    "litellm_llm_api_time_to_first_token_metric",
-    "litellm_request_total_latency_metric",
+    "embrouter_llm_api_latency_metric",
+    "embrouter_llm_api_time_to_first_token_metric",
+    "embrouter_request_total_latency_metric",
 )
 FLAG: Final = "prometheus_emit_input_sequence_length_label"
 
@@ -34,7 +34,7 @@ def _clear_prometheus_registry() -> None:
 @pytest.fixture(autouse=True)
 def isolated_registry(monkeypatch: pytest.MonkeyPatch):
     _clear_prometheus_registry()
-    monkeypatch.setattr(litellm, FLAG, False)
+    monkeypatch.setattr(embrouter, FLAG, False)
     yield
     _clear_prometheus_registry()
 
@@ -43,14 +43,14 @@ def isolated_registry(monkeypatch: pytest.MonkeyPatch):
 def test_input_sequence_length_label_is_opt_in(monkeypatch: pytest.MonkeyPatch, metric: str):
     assert UserAPIKeyLabelNames.INPUT_SEQUENCE_LENGTH.value not in PrometheusMetricLabels.get_labels(metric)
 
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
     assert UserAPIKeyLabelNames.INPUT_SEQUENCE_LENGTH.value in PrometheusMetricLabels.get_labels(metric)
 
 
 def test_input_sequence_length_label_stays_off_non_latency_metrics(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
     assert UserAPIKeyLabelNames.INPUT_SEQUENCE_LENGTH.value not in PrometheusMetricLabels.get_labels(
-        "litellm_proxy_total_requests_metric"
+        "embrouter_proxy_total_requests_metric"
     )
 
 
@@ -88,7 +88,7 @@ def _assert_latency_metrics(expected: str | None, stream: bool = True, queue_tim
         counts: Final = tuple(sample for sample in samples if sample.name == f"{metric}_count")
         sums: Final = tuple(sample for sample in samples if sample.name == f"{metric}_sum")
         buckets: Final = tuple(sample for sample in samples if sample.name == f"{metric}_bucket")
-        if not stream and metric == "litellm_llm_api_time_to_first_token_metric":
+        if not stream and metric == "embrouter_llm_api_time_to_first_token_metric":
             assert not counts and not sums and not buckets
             continue
         assert len(counts) == len(sums) == 1
@@ -143,7 +143,7 @@ def _standard_logging_payload(now: datetime.datetime, prompt_tokens: int) -> Sta
                 "user_api_key_end_user_id": None,
                 "usage_object": None,
             },
-            "hidden_params": {"litellm_overhead_time_ms": None, "additional_headers": None},
+            "hidden_params": {"embrouter_overhead_time_ms": None, "additional_headers": None},
         },
     )
 
@@ -154,7 +154,7 @@ def _success_kwargs(
     payload: Final = _standard_logging_payload(now, prompt_tokens)
     return {
         "model": "gpt-4o-mini",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "standard_logging_object": {
             **payload,
             "metadata": {**payload["metadata"], "requester_metadata": requester_metadata},
@@ -173,9 +173,9 @@ async def test_logger_emits_bucket_from_its_startup_label_set(
     monkeypatch: pytest.MonkeyPatch, flag_at_request_time: bool
 ):
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
     logger: Final = PrometheusLogger()
-    monkeypatch.setattr(litellm, FLAG, flag_at_request_time)
+    monkeypatch.setattr(embrouter, FLAG, flag_at_request_time)
 
     await logger.async_log_success_event(dict(_success_kwargs(now, prompt_tokens=4_000)), None, now, now)
 
@@ -195,8 +195,8 @@ async def test_logger_emits_bucket_from_its_startup_label_set(
         ({"usage": {"prompt_tokens": 4_000}}, None, "4k-16k"),
         ({"usage": {"input_tokens": 0, "output_tokens": 3, "total_tokens": 3}}, None, "0-1k"),
         ({"usage": {"input_tokens": 4_000, "output_tokens": 3, "total_tokens": 4_003}}, None, "4k-16k"),
-        (litellm.ModelResponse(usage=litellm.Usage(prompt_tokens=0)), None, "0-1k"),
-        (None, litellm.Usage(prompt_tokens=0), "0-1k"),
+        (embrouter.ModelResponse(usage=embrouter.Usage(prompt_tokens=0)), None, "0-1k"),
+        (None, embrouter.Usage(prompt_tokens=0), "0-1k"),
     ),
 )
 @pytest.mark.parametrize("include_usage_metadata", (True, False))
@@ -207,10 +207,10 @@ async def test_logger_distinguishes_missing_usage_from_reported_zero(
     expected: str,
     include_usage_metadata: bool,
 ):
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
     logger: Final = PrometheusLogger()
     usage: Final = StandardLoggingPayloadSetup.get_usage_as_dict(
         response_obj=response if isinstance(response, dict) else None
@@ -242,11 +242,11 @@ async def test_upstream_total_only_usage_has_unknown_input_length(
 ):
     import httpx
 
-    from litellm.litellm_core_utils.litellm_logging import Logging, StandardLoggingPayloadSetup
-    from litellm.proxy.pass_through_endpoints.upstream_usage_headers import apply_upstream_reported_usage
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging, StandardLoggingPayloadSetup
+    from embrouter.proxy.pass_through_endpoints.upstream_usage_headers import apply_upstream_reported_usage
 
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
     logger: Final = PrometheusLogger()
     logging_obj: Final = Logging(
         model="gpt-4o-mini",
@@ -254,13 +254,13 @@ async def test_upstream_total_only_usage_has_unknown_input_length(
         stream=True,
         call_type="pass_through_endpoint",
         start_time=now,
-        litellm_call_id="test-call-id",
+        embrouter_call_id="test-call-id",
         function_id="1",
     )
     headers: Final = httpx.Headers(
         {
-            "x-litellm-response-cost": "0.001",
-            **({"x-litellm-total-tokens": str(total_tokens)} if total_tokens is not None else {}),
+            "x-embrouter-response-cost": "0.001",
+            **({"x-embrouter-total-tokens": str(total_tokens)} if total_tokens is not None else {}),
         }
     )
     reported: Final = apply_upstream_reported_usage(logging_obj=logging_obj, headers=headers)
@@ -288,7 +288,7 @@ async def test_upstream_total_only_usage_has_unknown_input_length(
 async def test_logger_built_with_flag_off_emits_no_bucket_label(monkeypatch: pytest.MonkeyPatch):
     now: Final = datetime.datetime.now()
     logger: Final = PrometheusLogger()
-    monkeypatch.setattr(litellm, FLAG, True)
+    monkeypatch.setattr(embrouter, FLAG, True)
 
     await logger.async_log_success_event(dict(_success_kwargs(now, prompt_tokens=4_000)), None, now, now)
 
@@ -317,20 +317,20 @@ async def test_custom_input_length_label_is_scoped_to_target_histograms(
     monkeypatch: pytest.MonkeyPatch, flag_at_startup: bool, stream: bool, metadata: Mapping[str, object] | None
 ):
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, "custom_prometheus_metadata_labels", ["input_sequence_length"])
+    monkeypatch.setattr(embrouter, "custom_prometheus_metadata_labels", ["input_sequence_length"])
     kwargs: Final = {
         **_success_kwargs(now, prompt_tokens=4_000, requester_metadata=metadata),
         "stream": stream,
-        "litellm_params": {"metadata": {"queue_time_seconds": 0.25}},
+        "embrouter_params": {"metadata": {"queue_time_seconds": 0.25}},
     }
     original_kwargs: Final = deepcopy(kwargs)
     baseline_logger: Final = PrometheusLogger()
     await baseline_logger.async_log_success_event(kwargs, None, now, now)
     baseline_samples: Final = _non_target_samples()
     _clear_prometheus_registry()
-    monkeypatch.setattr(litellm, FLAG, flag_at_startup)
+    monkeypatch.setattr(embrouter, FLAG, flag_at_startup)
     logger: Final = PrometheusLogger()
-    monkeypatch.setattr(litellm, FLAG, not flag_at_startup)
+    monkeypatch.setattr(embrouter, FLAG, not flag_at_startup)
 
     await logger.async_log_success_event(kwargs, None, now, now)
 
@@ -341,15 +341,15 @@ async def test_custom_input_length_label_is_scoped_to_target_histograms(
     assert all(logger.get_labels_for_metric(metric).count("input_sequence_length") == 1 for metric in LATENCY_METRICS)
     non_target_samples: Final = _non_target_samples()
     assert {
-        "litellm_requests_metric_total",
-        "litellm_spend_metric_total",
-        "litellm_total_tokens_metric_total",
-        "litellm_request_queue_time_seconds_count",
-        "litellm_deployment_success_responses_total",
+        "embrouter_requests_metric_total",
+        "embrouter_spend_metric_total",
+        "embrouter_total_tokens_metric_total",
+        "embrouter_request_queue_time_seconds_count",
+        "embrouter_deployment_success_responses_total",
     }.issubset({sample.name for sample in non_target_samples})
     assert non_target_samples == baseline_samples
     queue_sum: Final = tuple(
-        sample for sample in non_target_samples if sample.name == "litellm_request_queue_time_seconds_sum"
+        sample for sample in non_target_samples if sample.name == "embrouter_request_queue_time_seconds_sum"
     )
     assert len(queue_sum) == 1 and queue_sum[0].value == 0.25
 
@@ -358,7 +358,7 @@ async def test_custom_input_length_label_is_scoped_to_target_histograms(
 @pytest.mark.parametrize("enabled", (True, False))
 async def test_concurrent_requests_keep_independent_buckets(monkeypatch: pytest.MonkeyPatch, enabled: bool):
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, FLAG, enabled)
+    monkeypatch.setattr(embrouter, FLAG, enabled)
     logger: Final = PrometheusLogger()
     cases: Final = (
         (None, "unknown"),
@@ -384,7 +384,7 @@ async def test_concurrent_requests_keep_independent_buckets(monkeypatch: pytest.
     assert calls == original_calls
     samples: Final = tuple(sample for metric in REGISTRY.collect() for sample in metric.samples)
     for metric, duration in zip(LATENCY_METRICS, (2, 1, 3)):
-        expected_count: Final = 2 if metric == "litellm_llm_api_time_to_first_token_metric" else 4
+        expected_count: Final = 2 if metric == "embrouter_llm_api_time_to_first_token_metric" else 4
         counts: Final = tuple(sample for sample in samples if sample.name == f"{metric}_count")
         sums: Final = tuple(sample for sample in samples if sample.name == f"{metric}_sum")
         buckets: Final = tuple(sample for sample in samples if sample.name == f"{metric}_bucket")
@@ -408,8 +408,8 @@ async def test_concurrent_requests_keep_independent_buckets(monkeypatch: pytest.
 @pytest.mark.parametrize("enabled", (True, False))
 async def test_failed_request_does_not_observe_latency(monkeypatch: pytest.MonkeyPatch, enabled: bool):
     now: Final = datetime.datetime.now()
-    monkeypatch.setattr(litellm, FLAG, enabled)
-    monkeypatch.setattr(litellm, "custom_prometheus_metadata_labels", ["input_sequence_length"])
+    monkeypatch.setattr(embrouter, FLAG, enabled)
+    monkeypatch.setattr(embrouter, "custom_prometheus_metadata_labels", ["input_sequence_length"])
     logger: Final = PrometheusLogger()
     kwargs: Final = {
         **_success_kwargs(now, prompt_tokens=4_000),
@@ -421,7 +421,7 @@ async def test_failed_request_does_not_observe_latency(monkeypatch: pytest.Monke
 
     samples: Final = tuple(sample for metric in REGISTRY.collect() for sample in metric.samples)
     assert not any(sample.name.startswith(LATENCY_METRICS) for sample in samples)
-    for metric in ("litellm_llm_api_failed_requests_metric_total", "litellm_deployment_failure_responses_total"):
+    for metric in ("embrouter_llm_api_failed_requests_metric_total", "embrouter_deployment_failure_responses_total"):
         counts: Final = tuple(sample for sample in samples if sample.name == metric)
         assert len(counts) == 1
         assert counts[0].value == 1

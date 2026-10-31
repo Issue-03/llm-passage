@@ -5,7 +5,7 @@ from typing import Optional
 
 import pytest
 
-from litellm.interactions.background_cost_polling import (
+from embrouter.interactions.background_cost_polling import (
     _SETTLED_KEY,
     _poll_intervals,
     BackgroundInteractionPollContext,
@@ -13,8 +13,8 @@ from litellm.interactions.background_cost_polling import (
     maybe_settle_background_interaction_before_delete,
     poll_and_log_background_interaction_cost,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.types.interactions import InteractionsAPIResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.types.interactions import InteractionsAPIResponse
 
 USAGE_BLOCK = {
     "total_tokens": 175,
@@ -30,19 +30,19 @@ USAGE_BLOCK = {
 
 def _logging_obj(
     call_type: str = "acreate_interaction",
-    litellm_params: Optional[dict] = None,
-) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+    embrouter_params: Optional[dict] = None,
+) -> EmbrouterLogging:
+    logging_obj = EmbrouterLogging(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id="bg-interactions-call-id",
+        embrouter_call_id="bg-interactions-call-id",
         function_id="bg-interactions-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params=litellm_params or {},
+        embrouter_params=embrouter_params or {},
         optional_params={},
         model="gemini-2.5-flash",
         custom_llm_provider="gemini",
@@ -55,15 +55,15 @@ def _reservation() -> dict:
     return {"reserved_cost": 0.05, "entries": [], "finalized": False, "input_cost": 0.001}
 
 
-def _logging_obj_with_reservation(reservation: dict) -> LitellmLogging:
-    return _logging_obj(litellm_params={"metadata": {"user_api_key_budget_reservation": reservation}})
+def _logging_obj_with_reservation(reservation: dict) -> EmbrouterLogging:
+    return _logging_obj(embrouter_params={"metadata": {"user_api_key_budget_reservation": reservation}})
 
 
 async def _raise_on_billing(result: InteractionsAPIResponse) -> None:
     raise RuntimeError("cost calculation failed for a settled background interaction")
 
 
-def _context(logging_obj: LitellmLogging, timeout_seconds: float = 1.0) -> BackgroundInteractionPollContext:
+def _context(logging_obj: EmbrouterLogging, timeout_seconds: float = 1.0) -> BackgroundInteractionPollContext:
     return BackgroundInteractionPollContext(
         interaction_id="interactions/bg-abc",
         custom_llm_provider="gemini",
@@ -248,7 +248,7 @@ async def test_schedule_creates_poll_task_for_in_progress_create():
     logging_obj = _logging_obj()
     task = maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"embrouter_logging_obj": logging_obj},
         custom_llm_provider="gemini",
     )
 
@@ -262,14 +262,14 @@ async def test_schedule_creates_poll_task_for_in_progress_create():
 @pytest.mark.parametrize(
     "response,create_kwargs",
     [
-        (_response("completed", with_usage=True), {"litellm_logging_obj": "placeholder"}),
+        (_response("completed", with_usage=True), {"embrouter_logging_obj": "placeholder"}),
         (_response("in_progress", with_usage=False), {}),
-        ("not a response", {"litellm_logging_obj": "placeholder"}),
+        ("not a response", {"embrouter_logging_obj": "placeholder"}),
     ],
 )
 async def test_schedule_skips_non_pollable_results(response, create_kwargs):
-    if create_kwargs.get("litellm_logging_obj") == "placeholder":
-        create_kwargs = {"litellm_logging_obj": _logging_obj()}
+    if create_kwargs.get("embrouter_logging_obj") == "placeholder":
+        create_kwargs = {"embrouter_logging_obj": _logging_obj()}
 
     task = maybe_schedule_background_interaction_cost_polling(
         response=response,
@@ -280,8 +280,8 @@ async def test_schedule_skips_non_pollable_results(response, create_kwargs):
     assert task is None
 
 
-def _register_poll(logging_obj: LitellmLogging, poll_fetch=None) -> asyncio.Task:
-    import litellm.interactions.background_cost_polling as bg
+def _register_poll(logging_obj: EmbrouterLogging, poll_fetch=None) -> asyncio.Task:
+    import embrouter.interactions.background_cost_polling as bg
 
     if poll_fetch is None:
         poll_fetch, _ = _fetch_sequence(_response("in_progress", with_usage=False))
@@ -437,13 +437,13 @@ async def test_poller_exits_without_billing_once_settled_elsewhere():
 
 @pytest.mark.asyncio
 async def test_schedule_respects_kill_switch(monkeypatch):
-    import litellm.interactions.background_cost_polling as module
+    import embrouter.interactions.background_cost_polling as module
 
     monkeypatch.setattr(module, "BACKGROUND_INTERACTION_COST_POLLING_ENABLED", False)
 
     task = maybe_schedule_background_interaction_cost_polling(
         response=_response("in_progress", with_usage=False),
-        create_kwargs={"litellm_logging_obj": _logging_obj()},
+        create_kwargs={"embrouter_logging_obj": _logging_obj()},
         custom_llm_provider="gemini",
     )
 
@@ -462,8 +462,8 @@ def test_every_status_the_api_can_return_is_either_pollable_or_terminal():
     a status Google adds later breaks this test instead of silently shipping
     another unbilled path.
     """
-    from litellm.interactions.background_cost_polling import _POLLABLE_STATUSES, _TERMINAL_STATUSES
-    from litellm.types.interactions.generated import Status1
+    from embrouter.interactions.background_cost_polling import _POLLABLE_STATUSES, _TERMINAL_STATUSES
+    from embrouter.types.interactions.generated import Status1
 
     spec_statuses = {member.value for member in Status1}
     handled = _POLLABLE_STATUSES | _TERMINAL_STATUSES
@@ -482,7 +482,7 @@ async def test_schedule_creates_poll_task_for_queued_create():
     logging_obj = _logging_obj()
     task = maybe_schedule_background_interaction_cost_polling(
         response=_response("queued", with_usage=False),
-        create_kwargs={"litellm_logging_obj": logging_obj},
+        create_kwargs={"embrouter_logging_obj": logging_obj},
         custom_llm_provider="gemini",
     )
 
@@ -529,7 +529,7 @@ async def test_giving_up_on_an_unrecognized_status_says_which_status_it_was(monk
     The give-up line is the only trace it leaves, so it has to name the status
     rather than reporting it as an interaction that was merely still running.
     """
-    import litellm.interactions.background_cost_polling as bg
+    import embrouter.interactions.background_cost_polling as bg
 
     errors = []
     monkeypatch.setattr(bg.verbose_logger, "error", lambda *args, **kwargs: errors.append(args))

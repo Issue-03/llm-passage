@@ -5,10 +5,10 @@ import { AgentControlPlaneView } from "./layout";
 const { getMock } = vi.hoisted(() => ({ getMock: vi.fn(() => Promise.resolve({ session_claim: "claim" })) }));
 
 const pluginModeValue = {
-  mode: "litellm-platform-plugin" as string,
+  mode: "embrouter-platform-plugin" as string,
   setMode: vi.fn(),
-  plugins: [{ name: "litellm-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }],
-  activePlugin: { name: "litellm-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" } as {
+  plugins: [{ name: "embrouter-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }],
+  activePlugin: { name: "embrouter-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" } as {
     name: string;
     display_name: string;
     url: string;
@@ -38,14 +38,14 @@ describe("AgentControlPlaneView iframe", () => {
 
   it("does not double the slash when the plugin url has a trailing slash", () => {
     pluginModeValue.activePlugin = {
-      name: "litellm-platform-plugin",
+      name: "embrouter-platform-plugin",
       display_name: "Chat UI",
       url: "http://localhost:3300/",
     };
     const { container } = render(<AgentControlPlaneView />);
     expect(container.querySelector("iframe")!).toHaveAttribute("src", "http://localhost:3300/");
     pluginModeValue.activePlugin = {
-      name: "litellm-platform-plugin",
+      name: "embrouter-platform-plugin",
       display_name: "Chat UI",
       url: "http://localhost:3300",
     };
@@ -75,7 +75,7 @@ describe("AgentControlPlaneView iframe", () => {
     expect(opts.query).toEqual({ plugin_name: "reports-plugin" });
 
     pluginModeValue.activePlugin = {
-      name: "litellm-platform-plugin",
+      name: "embrouter-platform-plugin",
       display_name: "Chat UI",
       url: "http://localhost:3300",
     };

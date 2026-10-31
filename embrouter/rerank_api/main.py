@@ -4,20 +4,20 @@ from collections.abc import Coroutine
 from functools import partial
 from typing import Any, Final, Literal
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.llms.bedrock.rerank.handler import BedrockRerankHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.together_ai.rerank.handler import TogetherAIRerank
-from litellm.llms.watsonx.common_utils import IBMWatsonXMixin
-from litellm.rerank_api.rerank_utils import get_optional_rerank_params
-from litellm.secret_managers.main import get_secret, get_secret_str
-from litellm.types.rerank import RerankResponse
-from litellm.types.router import *
-from litellm.utils import ProviderConfigManager, client, exception_type
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.llms.bedrock.rerank.handler import BedrockRerankHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.together_ai.rerank.handler import TogetherAIRerank
+from embrouter.llms.watsonx.common_utils import IBMWatsonXMixin
+from embrouter.rerank_api.rerank_utils import get_optional_rerank_params
+from embrouter.secret_managers.main import get_secret, get_secret_str
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.router import *
+from embrouter.utils import ProviderConfigManager, client, exception_type
 
 ####### ENVIRONMENT VARIABLES ###################
 # Initialize any necessary instances or variables here
@@ -53,7 +53,7 @@ async def arerank(
         if declared_provider is not None:
             _custom_llm_provider = declared_provider  # rebind-ok: see pre-declaration above
         else:
-            _, _custom_llm_provider, _, _ = litellm.get_llm_provider(  # rebind-ok: see pre-declaration above
+            _, _custom_llm_provider, _, _ = embrouter.get_llm_provider(  # rebind-ok: see pre-declaration above
                 model=model,
                 custom_llm_provider=custom_llm_provider,
                 api_base=kwargs.get("api_base", None),
@@ -100,7 +100,7 @@ def rerank(
             "together_ai",
             "azure_ai",
             "infinity",
-            "litellm_proxy",
+            "embrouter_proxy",
             "hosted_vllm",
             "deepinfra",
             "fireworks_ai",
@@ -125,8 +125,8 @@ def rerank(
     # adding real safety; it stays typed downstream via get_optional_rerank_params.
     instruction: Final[str | None] = kwargs.get("instruction", None)
     headers: Final[dict | None] = kwargs.get("headers")
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-    litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+    embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
     proxy_server_request: Final = kwargs.get("proxy_server_request", None)
     model_info: Final = kwargs.get("model_info", None)
     user: Final = kwargs.get("user", None)
@@ -134,7 +134,7 @@ def rerank(
     _custom_llm_provider: str | None = None  # rebind-ok: set by the get_llm_provider unpack; read in the except
     try:
         _is_async: Final = kwargs.pop("arerank", False) is True
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         # Params that are unique to specific versions of the client for the rerank call
         unique_version_params: Final = {
             "max_chunks_per_doc": max_chunks_per_doc,
@@ -147,7 +147,7 @@ def rerank(
             _custom_llm_provider,  # rebind-ok: see pre-declaration above
             dynamic_api_key,
             dynamic_api_base,
-        ) = litellm.get_llm_provider(
+        ) = embrouter.get_llm_provider(
             model=model,
             custom_llm_provider=custom_llm_provider,
             api_base=optional_params.api_base,
@@ -156,7 +156,7 @@ def rerank(
 
         rerank_provider_config: Final[BaseRerankConfig] = ProviderConfigManager.get_provider_rerank_config(
             model=model,
-            provider=litellm.LlmProviders(_custom_llm_provider),
+            provider=embrouter.LlmProviders(_custom_llm_provider),
             api_base=optional_params.api_base,
             present_version_params=present_version_params,
         )
@@ -164,7 +164,7 @@ def rerank(
         optional_rerank_params: Final[dict] = get_optional_rerank_params(
             rerank_provider_config=rerank_provider_config,
             model=model,
-            drop_params=kwargs.get("drop_params") or litellm.drop_params or False,
+            drop_params=kwargs.get("drop_params") or embrouter.drop_params or False,
             query=query,
             documents=documents,
             custom_llm_provider=_custom_llm_provider,
@@ -182,8 +182,8 @@ def rerank(
 
         model_response: Final = RerankResponse()
 
-        rerank_litellm_params: Final = {
-            "litellm_call_id": litellm_call_id,
+        rerank_embrouter_params: Final = {
+            "embrouter_call_id": embrouter_call_id,
             "proxy_server_request": proxy_server_request,
             "model_info": model_info,
             "preset_cache_key": None,
@@ -191,27 +191,27 @@ def rerank(
             **optional_params.model_dump(exclude_unset=True),
         }
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             user=user,
             optional_params=dict(optional_rerank_params),
-            litellm_params=dict(rerank_litellm_params),
+            embrouter_params=dict(rerank_embrouter_params),
             custom_llm_provider=_custom_llm_provider,
         )
 
         # Implement rerank logic here based on the custom_llm_provider
         if (
-            _custom_llm_provider == litellm.LlmProviders.COHERE
-            or _custom_llm_provider == litellm.LlmProviders.LITELLM_PROXY
+            _custom_llm_provider == embrouter.LlmProviders.COHERE
+            or _custom_llm_provider == embrouter.LlmProviders.EMBROUTER_PROXY
         ):
             # Implement Cohere rerank logic
-            api_key: str | None = dynamic_api_key or optional_params.api_key or litellm.api_key
+            api_key: str | None = dynamic_api_key or optional_params.api_key or embrouter.api_key
 
             api_base: str | None = (
                 dynamic_api_base
                 or optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret("COHERE_API_BASE")
                 or "https://api.cohere.com"
             )
@@ -223,21 +223,21 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.AZURE_AI:
+        elif _custom_llm_provider == embrouter.LlmProviders.AZURE_AI:
             api_base = (
                 dynamic_api_base  # for deepinfra/perplexity/anyscale/groq/friendliai we check in get_llm_provider and pass in the api base from there
                 or optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret("AZURE_AI_API_BASE")
             )
             response = base_llm_http_handler.rerank(
@@ -245,22 +245,22 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 optional_rerank_params=optional_rerank_params,
                 provider_config=rerank_provider_config,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=dynamic_api_key or optional_params.api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.INFINITY:
+        elif _custom_llm_provider == embrouter.LlmProviders.INFINITY:
             # Implement Infinity rerank logic
-            api_key = dynamic_api_key or optional_params.api_key or litellm.api_key
+            api_key = dynamic_api_key or optional_params.api_key or embrouter.api_key
 
             api_base = (
-                dynamic_api_base or optional_params.api_base or litellm.api_base or get_secret_str("INFINITY_API_BASE")
+                dynamic_api_base or optional_params.api_base or embrouter.api_base or get_secret_str("INFINITY_API_BASE")
             )
 
             if api_base is None:
@@ -271,30 +271,30 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=dynamic_api_key or optional_params.api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.TOGETHER_AI:
+        elif _custom_llm_provider == embrouter.LlmProviders.TOGETHER_AI:
             # Implement Together AI rerank logic
             api_key = (
                 dynamic_api_key
                 or optional_params.api_key
-                or litellm.togetherai_api_key
+                or embrouter.togetherai_api_key
                 or get_secret("TOGETHERAI_API_KEY")
-                or litellm.api_key
+                or embrouter.api_key
             )
 
             if api_key is None:
                 raise ValueError("TogetherAI API key is required, please set 'TOGETHERAI_API_KEY' in your environment")
 
-            api_base = dynamic_api_base or optional_params.api_base or litellm.api_base or "https://api.together.ai/v1"
+            api_base = dynamic_api_base or optional_params.api_base or embrouter.api_base or "https://api.together.ai/v1"
 
             response = together_rerank.rerank(
                 model=model,
@@ -308,30 +308,30 @@ def rerank(
                 api_base=api_base,
                 _is_async=_is_async,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.JINA_AI:
+        elif _custom_llm_provider == embrouter.LlmProviders.JINA_AI:
             if dynamic_api_key is None:
                 raise ValueError("Jina AI API key is required, please set 'JINA_AI_API_KEY' in your environment")
 
             api_base = (
-                dynamic_api_base or optional_params.api_base or litellm.api_base or get_secret("BEDROCK_API_BASE")
+                dynamic_api_base or optional_params.api_base or embrouter.api_base or get_secret("BEDROCK_API_BASE")
             )
 
             response = base_llm_http_handler.rerank(
                 model=model,
                 custom_llm_provider=_custom_llm_provider,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 provider_config=rerank_provider_config,
                 timeout=optional_params.timeout,
                 api_key=dynamic_api_key or optional_params.api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.NVIDIA_NIM:
+        elif _custom_llm_provider == embrouter.LlmProviders.NVIDIA_NIM:
             if dynamic_api_key is None:
                 raise ValueError("Nvidia NIM API key is required, please set 'NVIDIA_NIM_API_KEY' in your environment")
 
@@ -347,24 +347,24 @@ def rerank(
                 model=model,
                 custom_llm_provider=_custom_llm_provider,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 provider_config=rerank_provider_config,
                 timeout=optional_params.timeout,
                 api_key=dynamic_api_key or optional_params.api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.BEDROCK:
+        elif _custom_llm_provider == embrouter.LlmProviders.BEDROCK:
             api_base = (
-                dynamic_api_base or optional_params.api_base or litellm.api_base or get_secret("BEDROCK_API_BASE")
+                dynamic_api_base or optional_params.api_base or embrouter.api_base or get_secret("BEDROCK_API_BASE")
             )
 
             # Merge headers and extra_headers if both are provided
-            merged_headers = headers or litellm.headers or {}
+            merged_headers = headers or embrouter.headers or {}
             extra_headers_from_kwargs: Final = kwargs.get("extra_headers")
             if extra_headers_from_kwargs:
                 merged_headers = {**merged_headers, **extra_headers_from_kwargs}
@@ -382,10 +382,10 @@ def rerank(
                 timeout=optional_params.timeout,
                 api_base=api_base,
                 extra_headers=merged_headers,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 client=client,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.HOSTED_VLLM:
+        elif _custom_llm_provider == embrouter.LlmProviders.HOSTED_VLLM:
             # Implement Hosted VLLM rerank logic
             api_key = dynamic_api_key or optional_params.api_key or get_secret_str("HOSTED_VLLM_API_KEY")
 
@@ -401,18 +401,18 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
 
-        elif _custom_llm_provider == litellm.LlmProviders.DEEPINFRA:
+        elif _custom_llm_provider == embrouter.LlmProviders.DEEPINFRA:
             api_key = dynamic_api_key or optional_params.api_key or get_secret_str("DEEPINFRA_API_KEY")
 
             api_base = dynamic_api_base or optional_params.api_base or get_secret_str("DEEPINFRA_API_BASE")
@@ -427,17 +427,17 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.FIREWORKS_AI:
+        elif _custom_llm_provider == embrouter.LlmProviders.FIREWORKS_AI:
             api_key = (
                 dynamic_api_key
                 or optional_params.api_key
@@ -454,17 +454,17 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.VOYAGE:
+        elif _custom_llm_provider == embrouter.LlmProviders.VOYAGE:
             api_key = (
                 dynamic_api_key
                 or optional_params.api_key
@@ -479,17 +479,17 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
-        elif _custom_llm_provider == litellm.LlmProviders.WATSONX:
+        elif _custom_llm_provider == embrouter.LlmProviders.WATSONX:
             credentials: Final = IBMWatsonXMixin.get_watsonx_credentials(
                 optional_params=dict(optional_params),
                 api_key=dynamic_api_key,
@@ -507,15 +507,15 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=api_key,
                 api_base=api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
         else:
             # Generic handler for all providers that use base_llm_http_handler
@@ -523,15 +523,15 @@ def rerank(
             # is handled in the respective transformation configs
 
             # Check if the provider is actually supported
-            # If rerank_provider_config is a default CohereRerankConfig but the provider is not Cohere or litellm_proxy,
+            # If rerank_provider_config is a default CohereRerankConfig but the provider is not Cohere or embrouter_proxy,
             # it means the provider is not supported
             if (
                 (
-                    isinstance(rerank_provider_config, litellm.CohereRerankConfig)
-                    or isinstance(rerank_provider_config, litellm.CohereRerankV2Config)
+                    isinstance(rerank_provider_config, embrouter.CohereRerankConfig)
+                    or isinstance(rerank_provider_config, embrouter.CohereRerankV2Config)
                 )
                 and _custom_llm_provider != "cohere"
-                and _custom_llm_provider != "litellm_proxy"
+                and _custom_llm_provider != "embrouter_proxy"
             ):
                 raise ValueError(f"Unsupported provider: {_custom_llm_provider}")
 
@@ -540,15 +540,15 @@ def rerank(
                 custom_llm_provider=_custom_llm_provider,
                 provider_config=rerank_provider_config,
                 optional_rerank_params=optional_rerank_params,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 timeout=optional_params.timeout,
                 api_key=dynamic_api_key or optional_params.api_key,
                 api_base=dynamic_api_base or optional_params.api_base,
                 _is_async=_is_async,
-                headers=headers or litellm.headers or {},
+                headers=headers or embrouter.headers or {},
                 client=client,
                 model_response=model_response,
-                litellm_params=rerank_litellm_params,
+                embrouter_params=rerank_embrouter_params,
             )
 
         # Placeholder return

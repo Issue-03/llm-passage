@@ -41,7 +41,7 @@ def resolve_passthrough_managed_id_provider(
 
 def is_base64_encoded_unified_id(
     resource_id: str,
-    prefix: str = "litellm_proxy:",
+    prefix: str = "embrouter_proxy:",
 ) -> str | Literal[False]:
     """
     Check if a resource ID is a base64 encoded unified ID.
@@ -84,7 +84,7 @@ def extract_target_model_names_from_unified_id(
         List of target model names
 
     Example:
-        unified_id = "litellm_proxy:vector_store;unified_id,uuid;target_model_names,gpt-4,gemini-2.0"
+        unified_id = "embrouter_proxy:vector_store;unified_id,uuid;target_model_names,gpt-4,gemini-2.0"
         returns: ["gpt-4", "gemini-2.0"]
     """
     try:
@@ -121,7 +121,7 @@ def extract_resource_type_from_unified_id(
         Resource type string or None
 
     Example:
-        unified_id = "litellm_proxy:vector_store;unified_id,uuid;..."
+        unified_id = "embrouter_proxy:vector_store;unified_id,uuid;..."
         returns: "vector_store"
     """
     try:
@@ -135,7 +135,7 @@ def extract_resource_type_from_unified_id(
             unified_id = decoded_id
 
         # Extract resource type (comes after prefix and before first semicolon)
-        match: Final = re.search(r"litellm_proxy:([^;]+)", unified_id)
+        match: Final = re.search(r"embrouter_proxy:([^;]+)", unified_id)
         if match:
             return match.group(1).strip()
 
@@ -157,7 +157,7 @@ def extract_unified_uuid_from_unified_id(
         UUID string or None
 
     Example:
-        unified_id = "litellm_proxy:vector_store;unified_id,abc-123;..."
+        unified_id = "embrouter_proxy:vector_store;unified_id,abc-123;..."
         returns: "abc-123"
     """
     try:
@@ -193,7 +193,7 @@ def extract_model_id_from_unified_id(
         Model ID string or None
 
     Example:
-        unified_id = "litellm_proxy:vector_store;...;model_id,gpt-4-model-id;..."
+        unified_id = "embrouter_proxy:vector_store;...;model_id,gpt-4-model-id;..."
         returns: "gpt-4-model-id"
     """
     try:
@@ -235,7 +235,7 @@ def extract_provider_resource_id_from_unified_id(
         Provider resource ID string or None
 
     Example:
-        unified_id = "litellm_proxy:vector_store;...;resource_id,vs_abc123;..."
+        unified_id = "embrouter_proxy:vector_store;...;resource_id,vs_abc123;..."
         returns: "vs_abc123"
     """
     try:
@@ -295,11 +295,11 @@ def generate_unified_id_string(
             provider_resource_id="vs_xyz",
             model_id="model-id-123",
         )
-        returns: "litellm_proxy:vector_store;unified_id,abc-123;target_model_names,gpt-4,gemini;resource_id,vs_xyz;model_id,model-id-123"
+        returns: "embrouter_proxy:vector_store;unified_id,abc-123;target_model_names,gpt-4,gemini;resource_id,vs_xyz;model_id,model-id-123"
     """
     # Build the unified ID string
     parts: Final = [
-        f"litellm_proxy:{resource_type}",
+        f"embrouter_proxy:{resource_type}",
         f"unified_id,{unified_uuid}",
         f"target_model_names,{','.join(target_model_names)}",
         f"resource_id,{provider_resource_id}",
@@ -345,7 +345,7 @@ def decode_unified_id(encoded_unified_id: str) -> str | None:
         decoded: Final = base64.urlsafe_b64decode(padded).decode()
 
         # Verify it starts with the expected prefix
-        if decoded.startswith("litellm_proxy:"):
+        if decoded.startswith("embrouter_proxy:"):
             return decoded
 
         return None
@@ -379,7 +379,7 @@ def parse_unified_id(
         decoded_id = decode_unified_id(unified_id)
         if not decoded_id:
             # Maybe it's already decoded
-            if unified_id.startswith("litellm_proxy:"):
+            if unified_id.startswith("embrouter_proxy:"):
                 decoded_id = unified_id
             else:
                 return None

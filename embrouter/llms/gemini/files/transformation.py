@@ -13,21 +13,21 @@ import httpx
 from openai.types.file_deleted import FileDeleted
 from typing_extensions import ReadOnly, Required
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import extract_file_data
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.files.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import extract_file_data
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateFileRequest,
     HttpxBinaryResponseContent,
     OpenAICreateFileRequestOptionalParams,
     OpenAIFileObject,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 from ..common_utils import GeminiModelInfo
 
@@ -65,7 +65,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict[str, object],
-        litellm_params: dict[str, object],
+        embrouter_params: dict[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, str]:
@@ -86,7 +86,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -102,7 +102,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
             raise ValueError("api_base is required")
 
         # Get API key from multiple sources
-        final_api_key: Final = api_key or litellm_params.get("api_key") or self.get_api_key()
+        final_api_key: Final = api_key or embrouter_params.get("api_key") or self.get_api_key()
         if not final_api_key:
             raise ValueError("api_key is required")
 
@@ -126,7 +126,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> dict:
         """
         Transform the OpenAI-style file creation request into Gemini's format
@@ -177,8 +177,8 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform Gemini's file upload response into OpenAI-style FileObject
@@ -215,7 +215,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """
         Get the URL to retrieve a file from Google AI Studio.
@@ -229,13 +229,13 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         We expect file_id to be just the file identifier (e.g., files/abc123 or abc123)
         as returned by the upload response. (If it's a full URL, extract the file name.)
         """
-        api_key: Final = litellm_params.get("api_key") or self.get_api_key()
+        api_key: Final = embrouter_params.get("api_key") or self.get_api_key()
         if not api_key:
             raise ValueError("api_key is required")
 
         file_part: Final = self._normalize_gemini_file_id(file_id)
 
-        api_base = self.get_api_base(litellm_params.get("api_base")) or "https://generativelanguage.googleapis.com"
+        api_base = self.get_api_base(embrouter_params.get("api_base")) or "https://generativelanguage.googleapis.com"
         api_base = api_base.rstrip("/")
 
         url: Final = f"{api_base}/v1beta/{file_part}"
@@ -274,8 +274,8 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
     def transform_retrieve_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform Gemini's file retrieval response into OpenAI-style FileObject
@@ -319,7 +319,7 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """
         Transform delete file request for Google AI Studio.
@@ -327,17 +327,17 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         Args:
             file_id: The file URI (e.g., "files/abc123" or full URI)
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters containing api_key
+            embrouter_params: EmbRouter parameters containing api_key
 
         Returns:
             tuple[str, dict]: (url, params) for the DELETE request
         """
-        api_base: Final = self.get_api_base(litellm_params.get("api_base"))
+        api_base: Final = self.get_api_base(embrouter_params.get("api_base"))
         if not api_base:
             raise ValueError("api_base is required")
 
         # Get API key from multiple sources (same pattern as get_complete_url)
-        api_key: Final = litellm_params.get("api_key") or self.get_api_key()
+        api_key: Final = embrouter_params.get("api_key") or self.get_api_key()
         if not api_key:
             raise ValueError("api_key is required")
 
@@ -355,8 +355,8 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
     def transform_delete_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileDeleted:
         """
         Transform Gemini's file delete response into OpenAI-style FileDeleted.
@@ -387,15 +387,15 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         self,
         purpose: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         raise NotImplementedError("GoogleAIStudioFilesHandler does not support file listing")
 
     def transform_list_files_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> list[OpenAIFileObject]:
         raise NotImplementedError("GoogleAIStudioFilesHandler does not support file listing")
 
@@ -403,14 +403,14 @@ class GoogleAIStudioFilesHandler(GeminiModelInfo, BaseFilesConfig):
         self,
         file_content_request,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         raise NotImplementedError("GoogleAIStudioFilesHandler does not support file content retrieval")
 
     def transform_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> HttpxBinaryResponseContent:
         raise NotImplementedError("GoogleAIStudioFilesHandler does not support file content retrieval")

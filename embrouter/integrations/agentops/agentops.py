@@ -1,13 +1,13 @@
 """
-AgentOps integration for LiteLLM - Provides OpenTelemetry tracing for LLM calls
+AgentOps integration for EmbRouter - Provides OpenTelemetry tracing for LLM calls
 """
 
 import os
 from dataclasses import dataclass
 from typing import Any, Final
 
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
 
 @dataclass
@@ -35,11 +35,11 @@ class AgentOps(OpenTelemetry):
 
     Example usage:
         ```python
-        import litellm
+        import embrouter
 
-        litellm.success_callback = ["agentops"]
+        embrouter.success_callback = ["agentops"]
 
-        response = litellm.completion(
+        response = embrouter.completion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
         )
@@ -73,7 +73,7 @@ class AgentOps(OpenTelemetry):
 
         # Set AgentOps-specific resource attributes
         resource_attrs: Final = {
-            "service.name": config.service_name or "litellm",
+            "service.name": config.service_name or "embrouter",
             "deployment.environment": config.deployment_environment or "production",
             "telemetry.sdk.name": "agentops",
         }

@@ -8,7 +8,7 @@ import valkeyLogo from "../../public/assets/logos/valkey.svg";
 export enum VectorStoreProviders {
   Bedrock = "Amazon Bedrock",
   S3Vectors = "Amazon S3 Vectors",
-  PgVector = "PostgreSQL pgvector (LiteLLM Connector)",
+  PgVector = "PostgreSQL pgvector (EmbRouter Connector)",
   VertexRagEngine = "Vertex AI RAG Engine",
   VertexAiSearch = "Vertex AI Search",
   OpenAI = "OpenAI",
@@ -63,7 +63,7 @@ export const vectorStoreProviderFields: Record<string, VectorStoreFieldConfig[]>
     {
       name: "api_base",
       label: "API Base",
-      tooltip: "Enter the base URL of your deployed litellm-pgvector server (e.g., http://your-server:8000)",
+      tooltip: "Enter the base URL of your deployed embrouter-pgvector server (e.g., http://your-server:8000)",
       placeholder: "http://your-deployed-server:8000",
       required: true,
       type: "text",
@@ -71,7 +71,7 @@ export const vectorStoreProviderFields: Record<string, VectorStoreFieldConfig[]>
     {
       name: "api_key",
       label: "API Key",
-      tooltip: "Enter the API key from your deployed litellm-pgvector server",
+      tooltip: "Enter the API key from your deployed embrouter-pgvector server",
       placeholder: "your-deployed-api-key",
       required: true,
       type: "password",

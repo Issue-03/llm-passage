@@ -12,15 +12,15 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm.proxy._types import (
+import embrouter
+from embrouter.proxy._types import (
     AddTeamCallback,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.callback_config_validation import cross_entry_family_error
-from litellm.proxy.management_endpoints.team_callback_endpoints import (
+from embrouter.proxy.common_utils.callback_config_validation import cross_entry_family_error
+from embrouter.proxy.management_endpoints.team_callback_endpoints import (
     add_team_callbacks,
     delete_team_callback,
     disable_team_logging,
@@ -56,7 +56,7 @@ def _patch_prisma(existing_team: MagicMock):
 
     updated_row = MagicMock()
     updated_row.team_id = existing_team.team_id
-    mock_prisma.db.litellm_teamtable.update = AsyncMock(return_value=updated_row)
+    mock_prisma.db.embrouter_teamtable.update = AsyncMock(return_value=updated_row)
     return mock_prisma
 
 
@@ -64,7 +64,7 @@ def _admin_auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="hashed",
         user_id="admin-user",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
 
@@ -73,13 +73,13 @@ def stub_team_cache_refresh():
     """Keep the cached-team refresh out of the way of the mocked prisma rows.
 
     The endpoints under test now refresh the auth cache after their DB write.
-    That helper validates a real Prisma row into LiteLLM_TeamTableCachedObj,
+    That helper validates a real Prisma row into EmbRouter_TeamTableCachedObj,
     which the MagicMock rows these tests use cannot satisfy. The refresh being
     called at all is asserted explicitly in
     test_disable_team_logging_refreshes_cached_team.
     """
     with patch(
-        "litellm.proxy.management_endpoints.team_callback_endpoints._refresh_cached_team",
+        "embrouter.proxy.management_endpoints.team_callback_endpoints._refresh_cached_team",
         new_callable=AsyncMock,
     ) as refresh:
         yield refresh
@@ -88,7 +88,7 @@ def stub_team_cache_refresh():
 @pytest.fixture
 def unauthorized_caller():
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="random_authenticated_user",
         api_key="sk-random",
     )
@@ -97,15 +97,15 @@ def unauthorized_caller():
 @pytest.fixture
 def patched_prisma():
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_client,
+        patch("embrouter.proxy.proxy_server.prisma_client") as mock_client,
         patch(
-            "litellm.proxy.management_endpoints.team_endpoints._is_user_org_admin_for_team",
+            "embrouter.proxy.management_endpoints.team_endpoints._is_user_org_admin_for_team",
             new_callable=AsyncMock,
             return_value=False,
         ),
     ):
         mock_client.get_data = AsyncMock(return_value=_team_row())
-        mock_client.db.litellm_teamtable.update = AsyncMock()
+        mock_client.db.embrouter_teamtable.update = AsyncMock()
         yield mock_client
 
 
@@ -127,7 +127,7 @@ async def test_add_team_callbacks_rejects_unauthorized_caller(patched_prisma, un
             user_api_key_dict=unauthorized_caller,
         )
     assert exc.value.status_code == 403
-    patched_prisma.db.litellm_teamtable.update.assert_not_called()
+    patched_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -139,7 +139,7 @@ async def test_disable_team_logging_rejects_unauthorized_caller(patched_prisma, 
             user_api_key_dict=unauthorized_caller,
         )
     assert exc.value.status_code == 403
-    patched_prisma.db.litellm_teamtable.update.assert_not_called()
+    patched_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -169,7 +169,7 @@ async def test_proxy_admin_can_add_team_callbacks(patched_prisma):
         team_id="team-victim",
         user_api_key_dict=_admin_auth(),
     )
-    patched_prisma.db.litellm_teamtable.update.assert_awaited_once()
+    patched_prisma.db.embrouter_teamtable.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -177,7 +177,7 @@ async def test_team_admin_of_target_team_can_add_callbacks(patched_prisma):
     patched_prisma.get_data = AsyncMock(return_value=_team_row(admin_user_id="team_admin_user"))
 
     team_admin = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="team_admin_user",
         api_key="sk-team-admin",
     )
@@ -195,12 +195,12 @@ async def test_team_admin_of_target_team_can_add_callbacks(patched_prisma):
         team_id="team-victim",
         user_api_key_dict=team_admin,
     )
-    patched_prisma.db.litellm_teamtable.update.assert_awaited_once()
+    patched_prisma.db.embrouter_teamtable.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_disable_team_logging_emits_audit_log_when_enabled(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _patch_prisma(
         _team_row(
             team_id="team-1",
@@ -219,10 +219,10 @@ async def test_disable_team_logging_emits_audit_log_when_enabled(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -230,7 +230,7 @@ async def test_disable_team_logging_emits_audit_log_when_enabled(monkeypatch):
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
         import asyncio
 
@@ -239,7 +239,7 @@ async def test_disable_team_logging_emits_audit_log_when_enabled(monkeypatch):
 
     assert len(audit_calls) == 1
     log = audit_calls[0]
-    assert log.table_name == LitellmTableNames.TEAM_TABLE_NAME
+    assert log.table_name == EmbrouterTableNames.TEAM_TABLE_NAME
     assert log.object_id == "team-1"
     assert log.action == "updated"
     assert log.changed_by == "admin-user"
@@ -256,7 +256,7 @@ async def test_disable_team_logging_emits_audit_log_when_enabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_disable_team_logging_no_audit_when_disabled(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _patch_prisma(
         _team_row(
             team_id="team-1",
@@ -275,9 +275,9 @@ async def test_disable_team_logging_no_audit_when_disabled(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -285,7 +285,7 @@ async def test_disable_team_logging_no_audit_when_disabled(monkeypatch):
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     assert audit_calls == []
@@ -293,7 +293,7 @@ async def test_disable_team_logging_no_audit_when_disabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_add_team_callbacks_emits_audit_log_when_enabled(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={"logging": []}))
 
     audit_calls = []
@@ -302,10 +302,10 @@ async def test_add_team_callbacks_emits_audit_log_when_enabled(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -321,7 +321,7 @@ async def test_add_team_callbacks_emits_audit_log_when_enabled(monkeypatch):
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by="ops-on-call",
+            embrouter_changed_by="ops-on-call",
         )
         import asyncio
 
@@ -330,7 +330,7 @@ async def test_add_team_callbacks_emits_audit_log_when_enabled(monkeypatch):
 
     assert len(audit_calls) == 1
     log = audit_calls[0]
-    assert log.table_name == LitellmTableNames.TEAM_TABLE_NAME
+    assert log.table_name == EmbrouterTableNames.TEAM_TABLE_NAME
     assert log.object_id == "team-1"
     assert log.action == "updated"
     assert log.changed_by == "ops-on-call"
@@ -352,7 +352,7 @@ async def test_add_team_callbacks_emits_audit_log_when_enabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_disable_team_logging_redacts_existing_callback_secrets(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _patch_prisma(
         _team_row(
             team_id="team-1",
@@ -375,10 +375,10 @@ async def test_disable_team_logging_redacts_existing_callback_secrets(monkeypatc
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -386,7 +386,7 @@ async def test_disable_team_logging_redacts_existing_callback_secrets(monkeypatc
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
         import asyncio
 
@@ -403,7 +403,7 @@ async def test_disable_team_logging_redacts_existing_callback_secrets(monkeypatc
 
 @pytest.mark.asyncio
 async def test_add_team_callbacks_no_audit_when_disabled(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={"logging": []}))
 
     audit_calls = []
@@ -412,9 +412,9 @@ async def test_add_team_callbacks_no_audit_when_disabled(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -430,7 +430,7 @@ async def test_add_team_callbacks_no_audit_when_disabled(monkeypatch):
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     assert audit_calls == []
@@ -439,15 +439,15 @@ async def test_add_team_callbacks_no_audit_when_disabled(monkeypatch):
 @pytest.mark.asyncio
 async def test_add_team_callbacks_writes_encrypted_callback_vars(monkeypatch):
     """add_team_callbacks must encrypt callback_vars values before the DB write."""
-    from litellm.proxy.common_utils.callback_utils import decrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import decrypt_callback_vars
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={"logging": []}))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await add_team_callbacks(
             data=AddTeamCallback(
@@ -461,10 +461,10 @@ async def test_add_team_callbacks_writes_encrypted_callback_vars(monkeypatch):
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     cv = written["logging"][0]["callback_vars"]
     assert cv["langfuse_secret_key"] != "sk-lf-real-secret"
     assert cv["langfuse_public_key"] != "pk-lf-real-public"
@@ -482,14 +482,14 @@ async def test_get_team_callbacks_returns_callbacks_registered_via_post(monkeypa
     configured through the API. The row handed to the GET here is the exact
     payload the POST wrote, so the two code paths cannot drift apart again.
     """
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     row = _team_row(team_id="team-1", metadata={})
     mock_prisma = _patch_prisma(row)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await add_team_callbacks(
             data=AddTeamCallback(
@@ -503,11 +503,11 @@ async def test_get_team_callbacks_returns_callbacks_registered_via_post(monkeypa
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
         # Feed the GET exactly what the POST persisted.
-        row.metadata = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+        row.metadata = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
         row.model_dump.return_value["metadata"] = row.metadata
 
         response = await get_team_callbacks(
@@ -523,7 +523,7 @@ async def test_get_team_callbacks_returns_callbacks_registered_via_post(monkeypa
     assert response["data"]["callback_vars"]["langsmith_project"] == "tenant-project"
     assert response["data"]["callback_vars"]["langsmith_api_key"] == "***REDACTED***"
     assert "lsv2-real-secret" not in json.dumps(response)
-    assert "litellm_enc::" not in json.dumps(response)
+    assert "embrouter_enc::" not in json.dumps(response)
 
 
 @pytest.mark.asyncio
@@ -552,7 +552,7 @@ async def test_get_team_callbacks_prefers_logging_over_deprecated_callback_setti
     }
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
@@ -585,7 +585,7 @@ async def test_get_team_callbacks_reports_nothing_when_logging_slot_is_empty():
     }
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
@@ -603,12 +603,12 @@ async def test_get_team_callbacks_decrypts_vars_stored_under_non_sensitive_keys(
 
     Which keys count as sensitive is a moving classification, so a value can be
     encrypted at rest under a key that later stops being masked on read. Without
-    the decrypt step that value comes back as an unusable litellm_enc:: blob.
+    the decrypt step that value comes back as an unusable embrouter_enc:: blob.
     """
-    from litellm.proxy.common_utils.callback_utils import _CALLBACK_VAR_ENCRYPTED_PREFIX, is_sensitive_callback_key
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from embrouter.proxy.common_utils.callback_utils import _CALLBACK_VAR_ENCRYPTED_PREFIX, is_sensitive_callback_key
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     assert not is_sensitive_callback_key("langsmith_project"), "test needs a key that is not masked on read"
 
     metadata = {
@@ -625,8 +625,8 @@ async def test_get_team_callbacks_decrypts_vars_stored_under_non_sensitive_keys(
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
@@ -646,12 +646,12 @@ async def test_get_team_callbacks_masks_values_that_fail_to_decrypt(monkeypatch)
     classified as sensitive it would otherwise reach the caller as an opaque
     blob that is indistinguishable from a real value.
     """
-    from litellm.proxy.common_utils.callback_utils import _CALLBACK_VAR_ENCRYPTED_PREFIX
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from embrouter.proxy.common_utils.callback_utils import _CALLBACK_VAR_ENCRYPTED_PREFIX
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     stale = _CALLBACK_VAR_ENCRYPTED_PREFIX + encrypt_value_helper("tenant-project")
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-bbbbbbbbbbbbbb")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-bbbbbbbbbbbbbb")
 
     metadata = {
         "logging": [
@@ -665,8 +665,8 @@ async def test_get_team_callbacks_masks_values_that_fail_to_decrypt(monkeypatch)
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
@@ -696,7 +696,7 @@ async def test_get_team_callbacks_falls_back_to_deprecated_callback_settings():
     }
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
@@ -717,7 +717,7 @@ async def test_get_team_callbacks_reports_empty_for_team_without_callbacks():
     """A team with no callback config still returns the documented empty shape."""
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={}))
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         response = await get_team_callbacks(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
@@ -743,7 +743,7 @@ async def test_disable_team_logging_stops_callbacks_registered_via_api():
     the endpoint and then asks the real request-time resolver what the written
     row would do.
     """
-    from litellm.proxy.litellm_pre_call_utils import _get_dynamic_logging_metadata
+    from embrouter.proxy.embrouter_pre_call_utils import _get_dynamic_logging_metadata
 
     metadata = {
         "logging": [
@@ -757,18 +757,18 @@ async def test_disable_team_logging_stops_callbacks_registered_via_api():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await disable_team_logging(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     assert response["status"] == "success"
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert written["logging"] == []
 
     resolved = _get_dynamic_logging_metadata(
@@ -799,23 +799,23 @@ async def test_disable_team_logging_refreshes_cached_team(stub_team_cache_refres
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await disable_team_logging(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     stub_team_cache_refresh.assert_awaited_once()
     refreshed = stub_team_cache_refresh.await_args.kwargs["team_row"]
-    assert refreshed is mock_prisma.db.litellm_teamtable.update.return_value
+    assert refreshed is mock_prisma.db.embrouter_teamtable.update.return_value
     # The row fed to the cache has to carry object_permission, or the refresh
     # publishes a team whose tool allowlists look empty, which reads as
     # unrestricted on the search-tool and MCP-tool checks.
-    update_kwargs = mock_prisma.db.litellm_teamtable.update.await_args.kwargs
+    update_kwargs = mock_prisma.db.embrouter_teamtable.update.await_args.kwargs
     assert update_kwargs["include"]["object_permission"] is True
 
 
@@ -825,8 +825,8 @@ async def test_add_team_callbacks_refreshes_cached_team(stub_team_cache_refresh)
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={"logging": []}))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await add_team_callbacks(
             data=AddTeamCallback(
@@ -837,20 +837,20 @@ async def test_add_team_callbacks_refreshes_cached_team(stub_team_cache_refresh)
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     stub_team_cache_refresh.assert_awaited_once()
     refreshed = stub_team_cache_refresh.await_args.kwargs["team_row"]
-    assert refreshed is mock_prisma.db.litellm_teamtable.update.return_value
-    update_kwargs = mock_prisma.db.litellm_teamtable.update.await_args.kwargs
+    assert refreshed is mock_prisma.db.embrouter_teamtable.update.return_value
+    update_kwargs = mock_prisma.db.embrouter_teamtable.update.await_args.kwargs
     assert update_kwargs["include"]["object_permission"] is True
 
 
 @pytest.mark.asyncio
 async def test_disable_team_logging_clears_both_metadata_shapes():
     """A team carrying both shapes ends up with neither active."""
-    from litellm.proxy.litellm_pre_call_utils import _get_dynamic_logging_metadata
+    from embrouter.proxy.embrouter_pre_call_utils import _get_dynamic_logging_metadata
 
     metadata = {
         "logging": [
@@ -869,17 +869,17 @@ async def test_disable_team_logging_clears_both_metadata_shapes():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await disable_team_logging(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert written["logging"] == []
     assert written["callback_settings"]["success_callback"] == []
     assert written["callback_settings"]["failure_callback"] == []
@@ -908,16 +908,16 @@ async def test_disable_team_logging_leaves_team_re_enablable():
     mock_prisma = _patch_prisma(row)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await disable_team_logging(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
-        row.metadata = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+        row.metadata = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
         row.model_dump.return_value["metadata"] = row.metadata
 
         await add_team_callbacks(
@@ -929,10 +929,10 @@ async def test_disable_team_logging_leaves_team_re_enablable():
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert [entry["callback_name"] for entry in written["logging"]] == ["langfuse"]
 
 
@@ -970,7 +970,7 @@ async def test_delete_team_callback_rejects_unauthorized_caller(patched_prisma, 
             user_api_key_dict=unauthorized_caller,
         )
     assert exc.value.status_code == 403
-    patched_prisma.db.litellm_teamtable.update.assert_not_called()
+    patched_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -984,18 +984,18 @@ async def test_delete_team_callback_removes_only_the_named_callback():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert [entry["callback_name"] for entry in written["logging"]] == ["langfuse"]
     assert written["logging"][0]["callback_vars"].keys() == {
         "langfuse_public_key",
@@ -1014,23 +1014,23 @@ async def test_delete_team_callback_leaves_the_other_callback_firing():
     Asks the real request-time resolver what the written row would do, the same
     way the disable_logging regression test does.
     """
-    from litellm.proxy.litellm_pre_call_utils import _get_dynamic_logging_metadata
+    from embrouter.proxy.embrouter_pre_call_utils import _get_dynamic_logging_metadata
 
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     resolved = _get_dynamic_logging_metadata(
         UserAPIKeyAuth(api_key="hashed", team_id="team-1", team_metadata=written),
         proxy_config=MagicMock(**{"load_team_config.return_value": {}}),
@@ -1071,18 +1071,18 @@ async def test_delete_team_callback_removes_every_type_under_that_name():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langfuse",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert [entry["callback_name"] for entry in written["logging"]] == ["langsmith"]
     assert response.data.success_callbacks == ("langsmith",)
     assert response.data.failure_callbacks == ()
@@ -1094,8 +1094,8 @@ async def test_delete_team_callback_404s_for_unregistered_callback():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         with pytest.raises(HTTPException) as exc:
             await delete_team_callback(
@@ -1103,12 +1103,12 @@ async def test_delete_team_callback_404s_for_unregistered_callback():
                 team_id="team-1",
                 callback_name="gcs",
                 user_api_key_dict=_admin_auth(),
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
             )
 
     assert exc.value.status_code == 404
     assert exc.value.detail == {"error": "callback_name = gcs is not registered for team_id = team-1."}
-    mock_prisma.db.litellm_teamtable.update.assert_not_called()
+    mock_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1124,8 +1124,8 @@ async def test_delete_team_callback_404s_when_team_has_no_logging_slot():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         with pytest.raises(HTTPException) as exc:
             await delete_team_callback(
@@ -1133,31 +1133,31 @@ async def test_delete_team_callback_404s_when_team_has_no_logging_slot():
                 team_id="team-1",
                 callback_name="langfuse",
                 user_api_key_dict=_admin_auth(),
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
             )
 
     assert exc.value.status_code == 404
-    mock_prisma.db.litellm_teamtable.update.assert_not_called()
+    mock_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_delete_team_callback_404s_for_unknown_team():
     mock_prisma = MagicMock()
     mock_prisma.get_data = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_teamtable.update = AsyncMock()
+    mock_prisma.db.embrouter_teamtable.update = AsyncMock()
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         with pytest.raises(HTTPException) as exc:
             await delete_team_callback(
                 http_request=MagicMock(spec=Request),
                 team_id="team-missing",
                 callback_name="langfuse",
                 user_api_key_dict=_admin_auth(),
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
             )
 
     assert exc.value.status_code == 404
-    mock_prisma.db.litellm_teamtable.update.assert_not_called()
+    mock_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1170,7 +1170,7 @@ async def test_add_team_callbacks_rejects_team_deleted_before_write():
     caller sees the same 400 whether the team vanished before or after the read.
     """
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata={}))
-    mock_prisma.db.litellm_teamtable.update = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_teamtable.update = AsyncMock(return_value=None)
 
     data = AddTeamCallback(
         callback_name="langfuse",
@@ -1183,10 +1183,10 @@ async def test_add_team_callbacks_rejects_team_deleted_before_write():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "embrouter.proxy.proxy_server.prisma_client", mock_prisma
         ),  # test-quality-ok: proxy_server module global is the endpoint's only injection point
         patch(
-            "litellm.proxy.proxy_server.master_key", None
+            "embrouter.proxy.proxy_server.master_key", None
         ),  # test-quality-ok: proxy_server module global is the endpoint's only injection point
     ):
         with pytest.raises(HTTPException) as exc:
@@ -1197,7 +1197,7 @@ async def test_add_team_callbacks_rejects_team_deleted_before_write():
                 user_api_key_dict=_admin_auth(),
             )
 
-    mock_prisma.db.litellm_teamtable.update.assert_called_once()
+    mock_prisma.db.embrouter_teamtable.update.assert_called_once()
     assert exc.value.status_code == 400
     assert exc.value.detail == {"error": "Team id = team-1 does not exist. Please use a different team id."}
 
@@ -1210,7 +1210,7 @@ async def test_delete_team_callback_keeps_last_removal_from_reviving_legacy_shap
     dropping the key would fall through to a legacy callback_settings block and
     silently re-enable a destination the caller just removed.
     """
-    from litellm.proxy.litellm_pre_call_utils import _get_dynamic_logging_metadata
+    from embrouter.proxy.embrouter_pre_call_utils import _get_dynamic_logging_metadata
 
     metadata = {
         "logging": [
@@ -1229,18 +1229,18 @@ async def test_delete_team_callback_keeps_last_removal_from_reviving_legacy_shap
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert written["logging"] == []
     assert response.data.success_callbacks == ()
 
@@ -1262,31 +1262,31 @@ async def test_delete_team_callback_refreshes_cached_team(stub_team_cache_refres
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     stub_team_cache_refresh.assert_awaited_once()
     refreshed = stub_team_cache_refresh.await_args.kwargs["team_row"]
-    assert refreshed is mock_prisma.db.litellm_teamtable.update.return_value
+    assert refreshed is mock_prisma.db.embrouter_teamtable.update.return_value
     # The row fed to the cache has to carry object_permission, or the refresh
     # publishes a team whose tool allowlists look empty, which reads as
     # unrestricted on the search-tool and MCP-tool checks.
-    update_kwargs = mock_prisma.db.litellm_teamtable.update.await_args.kwargs
+    update_kwargs = mock_prisma.db.embrouter_teamtable.update.await_args.kwargs
     assert update_kwargs["include"]["object_permission"] is True
 
 
 @pytest.mark.asyncio
 async def test_delete_team_callback_emits_redacted_audit_log(monkeypatch):
     """The audit row records the removal without becoming a credential sink."""
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     audit_calls = []
@@ -1295,11 +1295,11 @@ async def test_delete_team_callback_emits_redacted_audit_log(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.master_key", None),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture,
         ),
     ):
@@ -1308,7 +1308,7 @@ async def test_delete_team_callback_emits_redacted_audit_log(monkeypatch):
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
         import asyncio
 
@@ -1317,7 +1317,7 @@ async def test_delete_team_callback_emits_redacted_audit_log(monkeypatch):
 
     assert len(audit_calls) == 1
     log = audit_calls[0]
-    assert log.table_name == LitellmTableNames.TEAM_TABLE_NAME
+    assert log.table_name == EmbrouterTableNames.TEAM_TABLE_NAME
     assert log.object_id == "team-1"
     assert log.action == "updated"
 
@@ -1335,24 +1335,24 @@ async def test_delete_team_callback_emits_redacted_audit_log(monkeypatch):
 @pytest.mark.asyncio
 async def test_delete_team_callback_encrypts_surviving_callback_vars(monkeypatch):
     """The write must not downgrade the survivors' stored credentials to plaintext."""
-    from litellm.proxy.common_utils.callback_utils import decrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import decrypt_callback_vars
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=_two_callback_metadata()))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     stored = written["logging"][0]["callback_vars"]
     assert stored["langfuse_secret_key"] != "sk-demo"
     assert decrypt_callback_vars(written)["logging"][0]["callback_vars"]["langfuse_secret_key"] == "sk-demo"
@@ -1378,18 +1378,18 @@ async def test_delete_team_callback_keeps_entries_it_cannot_parse():
     mock_prisma = _patch_prisma(_team_row(team_id="team-1", metadata=metadata))
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         await delete_team_callback(
             http_request=MagicMock(spec=Request),
             team_id="team-1",
             callback_name="langsmith",
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert written["logging"] == ["not-a-callback-entry"]
 
 
@@ -1404,8 +1404,8 @@ async def test_delete_team_callback_route_accepts_team_ids_containing_slashes():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.management_endpoints.team_callback_endpoints import router
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.management_endpoints.team_callback_endpoints import router
 
     team_id = "tenant/eu-west"
     metadata = {
@@ -1429,14 +1429,14 @@ async def test_delete_team_callback_route_accepts_team_ids_containing_slashes():
     app.dependency_overrides[user_api_key_auth] = _admin_auth
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.master_key", None),
     ):
         response = TestClient(app).delete(f"/team/{team_id}/callback/langfuse")
 
     assert response.status_code == 200
     assert response.json()["data"]["success_callbacks"] == ["langsmith"]
-    written = json.loads(mock_prisma.db.litellm_teamtable.update.await_args.kwargs["data"]["metadata"])
+    written = json.loads(mock_prisma.db.embrouter_teamtable.update.await_args.kwargs["data"]["metadata"])
     assert [entry["callback_name"] for entry in written["logging"]] == ["langsmith"]
 
 
@@ -1477,19 +1477,19 @@ async def test_unknown_team_is_indistinguishable_from_no_access(call_handler, un
     no-access one exactly, status and body.
     """
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_client
+        patch("embrouter.proxy.proxy_server.prisma_client") as mock_client
     ):  # test-quality-ok: the handler imports prisma_client from proxy_server at call time, so there is no seam to inject through
         mock_client.get_data = AsyncMock(return_value=None)
         with pytest.raises(HTTPException) as unknown_team:
             await call_handler(unauthorized_caller)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_client
+        patch("embrouter.proxy.proxy_server.prisma_client") as mock_client
     ):  # test-quality-ok: the handler imports prisma_client from proxy_server at call time, so there is no seam to inject through
         mock_client.get_data = AsyncMock(return_value=_team_row())
-        mock_client.db.litellm_teamtable.update = AsyncMock()
+        mock_client.db.embrouter_teamtable.update = AsyncMock()
         with patch(  # test-quality-ok: _verify_team_access calls this module-level helper directly, so there is no seam to inject through
-            "litellm.proxy.management_endpoints.team_endpoints._is_user_org_admin_for_team",
+            "embrouter.proxy.management_endpoints.team_endpoints._is_user_org_admin_for_team",
             new_callable=AsyncMock,
             return_value=False,
         ):
@@ -1505,9 +1505,9 @@ async def test_unknown_team_is_indistinguishable_from_no_access(call_handler, un
 async def test_proxy_admin_still_told_the_team_is_unknown():
     """The masking is only for callers who could not have managed the team; a proxy
     admin keeps the diagnosable error."""
-    admin = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin", api_key="sk-admin")
+    admin = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin", api_key="sk-admin")
     with (
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_client
+        patch("embrouter.proxy.proxy_server.prisma_client") as mock_client
     ):  # test-quality-ok: the handler imports prisma_client from proxy_server at call time, so there is no seam to inject through
         mock_client.get_data = AsyncMock(return_value=None)
         with pytest.raises(HTTPException) as exc:
@@ -1624,7 +1624,7 @@ def test_one_entry_owns_a_credential_family(new_vars, stored, rejected):
     "caller",
     [
         _admin_auth(),
-        UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER, user_id="victim_admin", api_key="sk-team-admin"),
+        UserAPIKeyAuth(user_role=EmbrouterUserRoles.INTERNAL_USER, user_id="victim_admin", api_key="sk-team-admin"),
     ],
 )
 async def test_a_second_entry_may_not_flip_the_span_scope(patched_prisma, caller):
@@ -1662,7 +1662,7 @@ async def test_a_second_entry_may_not_flip_the_span_scope(patched_prisma, caller
         )
     assert exc.value.status_code == 400
     assert "langfuse_span_scope" in str(exc.value.detail) and "'full'" in str(exc.value.detail)
-    patched_prisma.db.litellm_teamtable.update.assert_not_called()
+    patched_prisma.db.embrouter_teamtable.update.assert_not_called()
 
     data.callback_vars["langfuse_span_scope"] = "full"
     await add_team_callbacks(
@@ -1671,7 +1671,7 @@ async def test_a_second_entry_may_not_flip_the_span_scope(patched_prisma, caller
         team_id="team-victim",
         user_api_key_dict=caller,
     )
-    patched_prisma.db.litellm_teamtable.update.assert_awaited_once()
+    patched_prisma.db.embrouter_teamtable.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1690,7 +1690,7 @@ async def test_add_team_callbacks_rejects_out_of_range_arize_sampling_rate(patch
         )
     assert exc.value.status_code == 400
     assert "arize_success_sampling_rate" in str(exc.value.detail)
-    patched_prisma.db.litellm_teamtable.update.assert_not_called()
+    patched_prisma.db.embrouter_teamtable.update.assert_not_called()
 
 
 def test_add_team_callback_accepts_arize_sampling_rate_vars():

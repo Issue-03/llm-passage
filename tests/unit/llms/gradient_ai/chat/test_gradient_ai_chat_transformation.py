@@ -1,7 +1,7 @@
 import pytest
 
 
-from litellm.llms.gradient_ai.chat.transformation import (
+from embrouter.llms.gradient_ai.chat.transformation import (
     GradientAIConfig,
     GRADIENT_AI_SERVERLESS_ENDPOINT,
 )
@@ -23,7 +23,7 @@ def test_validate_environment_sets_headers(monkeypatch, config):
         model="gradient_ai/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -37,7 +37,7 @@ def test_get_complete_url_custom_base(config):
         api_key="test-key",
         model="gradient_ai/test-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == f"{DO_BASE_URL}{DO_ENDPOINT_PATH}"
@@ -50,7 +50,7 @@ def test_get_complete_url_default_serverless(monkeypatch, config):
         api_key="test-key",
         model="gradient_ai/test-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == f"{GRADIENT_AI_SERVERLESS_ENDPOINT}/v1/chat/completions"
@@ -63,7 +63,7 @@ def test_get_complete_url_with_env_endpoint(monkeypatch, config):
         api_key="test-key",
         model="gradient_ai/test-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == f"{DO_BASE_URL}{DO_ENDPOINT_PATH}"

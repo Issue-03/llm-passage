@@ -1,7 +1,7 @@
 import traceback
 from typing import Final
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class TraceloopLogger:
@@ -23,7 +23,7 @@ class TraceloopLogger:
             raise e
 
         Traceloop.init(
-            app_name="Litellm-Server",
+            app_name="Embrouter-Server",
             disable_batch=True,
         )
         self.tracer_wrapper = TracerWrapper()
@@ -50,7 +50,7 @@ class TraceloopLogger:
             optional_params: Final = kwargs.get("optional_params", {})
             start_time = int(start_time.timestamp())
             end_time = int(end_time.timestamp())
-            span: Final = tracer.start_span("litellm.completion", kind=SpanKind.CLIENT, start_time=start_time)
+            span: Final = tracer.start_span("embrouter.completion", kind=SpanKind.CLIENT, start_time=start_time)
 
             if span.is_recording():
                 span.set_attribute(SpanAttributes.LLM_REQUEST_MODEL, kwargs.get("model"))

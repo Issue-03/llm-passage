@@ -26,7 +26,7 @@ const CompressionControls: React.FC<CompressionControlsProps> = ({ value, onChan
 
   const { data } = useGuardrails();
   const compressionOptions: SearchSelectOption[] = (data?.guardrails ?? [])
-    .filter((g) => isCompressionGuardrailProvider(g.litellm_params?.guardrail))
+    .filter((g) => isCompressionGuardrailProvider(g.embrouter_params?.guardrail))
     .map((g) => ({ label: g.guardrail_name, value: g.guardrail_name }));
   const options: SearchSelectOption[] = [NONE_OPTION, ...compressionOptions];
 

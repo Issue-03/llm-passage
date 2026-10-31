@@ -3,10 +3,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
 
 # Create a simple test

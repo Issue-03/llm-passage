@@ -109,7 +109,7 @@ export const getGuardrailTableColumns = ({
     header: "Provider",
     size: 180,
     enableSorting: false,
-    cell: ({ row }) => <GuardrailProviderCell provider={row.original.litellm_params.guardrail} />,
+    cell: ({ row }) => <GuardrailProviderCell provider={row.original.embrouter_params.guardrail} />,
   },
   {
     id: "mode",
@@ -118,7 +118,7 @@ export const getGuardrailTableColumns = ({
     size: 130,
     enableSorting: false,
     cell: ({ row }) => {
-      const mode = formatGuardrailMode(row.original.litellm_params.mode);
+      const mode = formatGuardrailMode(row.original.embrouter_params.mode);
       return (
         <span className="font-mono text-xs text-muted-foreground" title={mode || undefined}>
           {mode || "-"}
@@ -133,7 +133,7 @@ export const getGuardrailTableColumns = ({
     size: 120,
     enableSorting: false,
     cell: ({ row }) => {
-      const isDefaultOn = !!row.original.litellm_params?.default_on;
+      const isDefaultOn = !!row.original.embrouter_params?.default_on;
       return (
         <StatusBadge tone={isDefaultOn ? "success" : "neutral"} label={isDefaultOn ? "Default On" : "Default Off"} />
       );

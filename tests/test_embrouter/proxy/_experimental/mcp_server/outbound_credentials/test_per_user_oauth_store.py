@@ -2,11 +2,11 @@ import asyncio
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InvalidatableOAuthTokenStore,
     OAuthToken,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.per_user_oauth_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.per_user_oauth_store import (
     LazyPerUserOAuthTokenStore,
     ServerLookup,
 )
@@ -250,8 +250,8 @@ async def test_lazy_store_invalidate_works_after_redis_chain_is_built() -> None:
 
 @pytest.mark.asyncio
 async def test_enforcement_invalidates_cached_legacy_credentials_before_use():
-    from litellm.types.mcp import MCPAuth, MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
+    from embrouter.types.mcp import MCPAuth, MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -280,9 +280,9 @@ async def test_enforcement_invalidates_cached_legacy_credentials_before_use():
 async def test_enforced_cache_hit_avoids_credential_read_and_rejects_changed_policy(monkeypatch):
     from unittest.mock import AsyncMock
 
-    from litellm.proxy._experimental.mcp_server.oauth_identity_binding import current_binding_proof
-    from litellm.proxy._experimental.mcp_server.outbound_credentials import per_user_oauth_store as module
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server.oauth_identity_binding import current_binding_proof
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials import per_user_oauth_store as module
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",
@@ -316,8 +316,8 @@ async def test_enforced_cache_hit_avoids_credential_read_and_rejects_changed_pol
 async def test_expired_unverified_credential_never_reaches_refresh(monkeypatch):
     from unittest.mock import AsyncMock
 
-    from litellm.proxy._experimental.mcp_server.outbound_credentials import per_user_oauth_store as module
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials import per_user_oauth_store as module
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(
         server_id="srv",

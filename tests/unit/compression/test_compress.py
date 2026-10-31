@@ -1,13 +1,13 @@
 """
-Unit tests for litellm.compression.compress helpers.
+Unit tests for embrouter.compression.compress helpers.
 
 get_protected_indices is the shared policy for which messages a compressor may
 never rewrite. It is consumed by compress() and by the Headroom guardrail, so
 the two agree on what "never compress this" means.
 """
 
-from litellm.compression.compress import compress, get_protected_indices
-from litellm.types.utils import CallTypes
+from embrouter.compression.compress import compress, get_protected_indices
+from embrouter.types.utils import CallTypes
 
 
 def test_protects_system_last_user_and_last_assistant():

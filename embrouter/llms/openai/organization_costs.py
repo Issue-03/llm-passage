@@ -10,13 +10,13 @@ from typing import Final, Literal, TypeAlias
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.constants import (
+from embrouter.constants import (
     OPENAI_ORGANIZATION_COSTS_PAGE_LIMIT,
     OPENAI_ORGANIZATION_COSTS_URL,
     PROVIDER_BILLING_TIMEOUT_SECONDS,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 OPENAI_ADMIN_KEY_ENV_VAR: Final = "OPENAI_ADMIN_KEY"
 

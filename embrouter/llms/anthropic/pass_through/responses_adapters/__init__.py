@@ -1,3 +1,3 @@
-from .transformation import LiteLLMAnthropicToResponsesAPIAdapter
+from .transformation import EmbRouterAnthropicToResponsesAPIAdapter
 
-__all__ = ["LiteLLMAnthropicToResponsesAPIAdapter"]
+__all__ = ["EmbRouterAnthropicToResponsesAPIAdapter"]

@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import TypedDict
 
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 if TYPE_CHECKING:
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 else:
     VertexBase = Any
 
@@ -17,7 +17,7 @@ GCS_DEFAULT_USE_BATCHED_LOGGING: Final = True
 
 class GCSLoggingConfig(TypedDict):
     """
-    Internal LiteLLM Config for GCS Bucket logging
+    Internal EmbRouter Config for GCS Bucket logging
     """
 
     bucket_name: str

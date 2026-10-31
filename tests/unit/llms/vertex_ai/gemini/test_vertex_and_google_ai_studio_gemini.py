@@ -9,18 +9,18 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-import litellm
-from litellm import ModelResponse, completion
-from litellm.llms.anthropic.pass_through.messages import handler as anthropic_messages_handler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+import embrouter
+from embrouter import ModelResponse, completion
+from embrouter.llms.anthropic.pass_through.messages import handler as anthropic_messages_handler
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+from embrouter.llms.vertex_ai.common_utils import VertexAIError
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.types.llms.vertex_ai import GeminiFinishReason, UsageMetadata
-from litellm.types.utils import ChoiceLogprobs, Usage
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.llms.vertex_ai import GeminiFinishReason, UsageMetadata
+from embrouter.types.utils import ChoiceLogprobs, Usage
+from embrouter.utils import CustomStreamWrapper
 
 
 def test_top_logprobs():
@@ -406,10 +406,10 @@ def test_vertex_ai_retain_property_ordering():
 
 
 def test_vertex_ai_thinking_output_part():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from embrouter.types.llms.vertex_ai import HttpxPartType
 
     v = VertexGeminiConfig()
     parts = [
@@ -425,10 +425,10 @@ def test_vertex_ai_thinking_output_part():
 
 
 def test_vertex_ai_empty_content():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from embrouter.types.llms.vertex_ai import HttpxPartType
 
     v = VertexGeminiConfig()
     parts = [
@@ -639,7 +639,7 @@ def test_vertex_ai_maps_grounding_sets_google_maps_grounding_requests_non_stream
     google_maps_grounding_requests and leave web_search_requests unset, so the Maps fee is
     billed instead of nothing (Vertex) or the Google Search fee (Gemini API).
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -672,7 +672,7 @@ def test_vertex_ai_maps_grounding_sets_google_maps_grounding_requests_non_stream
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
     )
 
@@ -744,11 +744,11 @@ def test_vertex_ai_url_context_tool_use_tokens_billed_as_input_tokens():
 
 
 def test_streaming_chunk_includes_reasoning_tokens():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    embrouter_logging = MagicMock()
 
     # Simulate a streaming chunk as would be received from Gemini
     chunk = {
@@ -761,7 +761,7 @@ def test_streaming_chunk_includes_reasoning_tokens():
         },
     }
     iterator = ModelResponseIterator(
-        streaming_response=[], sync_stream=True, logging_obj=litellm_logging
+        streaming_response=[], sync_stream=True, logging_obj=embrouter_logging
     )
     streaming_chunk = iterator.chunk_parser(chunk)
     assert streaming_chunk.usage is not None
@@ -775,11 +775,11 @@ def test_streaming_chunk_includes_reasoning_content():
     """
     Ensure that when Gemini returns a chunk with `thought=True`, the parser maps it to `reasoning_content`.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    embrouter_logging = MagicMock()
 
     # Simulate a streaming chunk from Gemini which contains reasoning (thought) content
     chunk = {
@@ -799,7 +799,7 @@ def test_streaming_chunk_includes_reasoning_content():
     }
 
     iterator = ModelResponseIterator(
-        streaming_response=[], sync_stream=True, logging_obj=litellm_logging
+        streaming_response=[], sync_stream=True, logging_obj=embrouter_logging
     )
     streaming_chunk = iterator.chunk_parser(chunk)
 
@@ -819,11 +819,11 @@ def test_streaming_chunk_with_tool_calls_and_thought_includes_reasoning_content(
     Per Google's docs: thought: true indicates reasoning content, NOT thoughtSignature.
     thoughtSignature is just a token for multi-turn context preservation.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    embrouter_logging = MagicMock()
 
     chunk = {
         "candidates": [
@@ -854,7 +854,7 @@ def test_streaming_chunk_with_tool_calls_and_thought_includes_reasoning_content(
     }
 
     iterator = ModelResponseIterator(
-        streaming_response=[], sync_stream=True, logging_obj=litellm_logging
+        streaming_response=[], sync_stream=True, logging_obj=embrouter_logging
     )
     streaming_chunk = iterator.chunk_parser(chunk)
 
@@ -882,11 +882,11 @@ def test_streaming_chunk_with_tool_calls_no_thought_no_reasoning_content():
     being placed into reasoning_content when thoughtSignature was present.
     Per Google's docs: thoughtSignature is just a token for multi-turn, not reasoning.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
-    litellm_logging = MagicMock()
+    embrouter_logging = MagicMock()
 
     chunk = {
         "candidates": [
@@ -913,7 +913,7 @@ def test_streaming_chunk_with_tool_calls_no_thought_no_reasoning_content():
     }
 
     iterator = ModelResponseIterator(
-        streaming_response=[], sync_stream=True, logging_obj=litellm_logging
+        streaming_response=[], sync_stream=True, logging_obj=embrouter_logging
     )
     streaming_chunk = iterator.chunk_parser(chunk)
 
@@ -983,7 +983,7 @@ def test_finish_reason_unspecified_and_malformed_function_call():
 
 def test_vertex_ai_usage_metadata_response_token_count():
     """For Gemini Live API"""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     v = VertexGeminiConfig()
     usage_metadata = {
@@ -1186,7 +1186,7 @@ def test_vertex_ai_map_thinking_param_with_budget_tokens_0():
     """
     If budget_tokens is 0, do not set includeThoughts to True
     """
-    from litellm.types.llms.anthropic import AnthropicThinkingParam
+    from embrouter.types.llms.anthropic import AnthropicThinkingParam
 
     v = VertexGeminiConfig()
     thinking_param: AnthropicThinkingParam = {"type": "enabled", "budget_tokens": 0}
@@ -1310,7 +1310,7 @@ def test_vertex_ai_streaming_usage_calculation():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
         VertexGeminiConfig,
     )
@@ -1356,7 +1356,7 @@ def test_vertex_ai_streaming_usage_calculation():
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -1372,7 +1372,7 @@ def test_vertex_ai_streaming_usage_web_search_calculation():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
         VertexGeminiConfig,
     )
@@ -1418,7 +1418,7 @@ def test_vertex_ai_maps_grounding_chunk_parser_sets_maps_requests():
     """A Vertex-shaped Maps-only streaming chunk sets the Maps counter and not the Search one."""
     from unittest.mock import MagicMock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -1447,7 +1447,7 @@ def test_gemini_api_maps_grounding_chunk_parser_counts_queries_as_maps_requests(
     """A Gemini-API-shaped Maps chunk (webSearchQueries plus maps chunks) bills Maps, not Search."""
     from unittest.mock import MagicMock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -1483,10 +1483,10 @@ def test_vertex_ai_transform_parts():
     1. Multiple tool calls within a single message
     2. Multiple tool calls across different messages (cumulative indexing)
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from embrouter.types.llms.vertex_ai import HttpxPartType
 
     # Test case 1: Function call mode (is_function_call=True)
     parts_with_function = [
@@ -1678,7 +1678,7 @@ def test_vertex_ai_transform_parts():
 
 def test_vertex_ai_usage_metadata_missing_token_count():
     """Test that missing tokenCount in responseTokensDetails defaults to 0"""
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     v = VertexGeminiConfig()
     usage_metadata = {
@@ -1707,7 +1707,7 @@ def test_vertex_ai_usage_metadata_missing_token_count():
 
 
 def test_vertex_ai_process_candidates_with_grounding_metadata():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -1824,10 +1824,10 @@ def test_vertex_ai_tool_call_id_format():
     The ID should be in format 'call_' + 28 hex characters (total 33 characters).
     This test verifies the fix for keeping the code line under 40 characters.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
-    from litellm.types.llms.vertex_ai import HttpxPartType
+    from embrouter.types.llms.vertex_ai import HttpxPartType
 
     # Create parts with function calls
     parts_with_functions = [
@@ -2142,12 +2142,12 @@ def test_vertex_ai_annotation_streaming_events():
     2. Annotations are included in the delta of streaming chunks
     3. Multiple annotations are handled correctly
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
-    from litellm.types.llms.openai import ChatCompletionAnnotation
+    from embrouter.types.llms.openai import ChatCompletionAnnotation
 
-    litellm_logging = MagicMock()
+    embrouter_logging = MagicMock()
 
     # Simulate a streaming chunk with grounding metadata (as Gemini sends it)
     chunk_with_annotations = {
@@ -2193,7 +2193,7 @@ def test_vertex_ai_annotation_streaming_events():
 
     # Create iterator and parse chunk
     iterator = ModelResponseIterator(
-        streaming_response=[], sync_stream=True, logging_obj=litellm_logging
+        streaming_response=[], sync_stream=True, logging_obj=embrouter_logging
     )
     streaming_chunk = iterator.chunk_parser(chunk_with_annotations)
 
@@ -2221,7 +2221,7 @@ def test_vertex_ai_annotation_streaming_events():
 async def test_vertex_ai_streaming_bad_request_is_not_wrapped():
     class DummyLogging:
         def __init__(self):
-            self.model_call_details = {"litellm_params": {}}
+            self.model_call_details = {"embrouter_params": {}}
             self.optional_params = {}
             self.messages = []
             self.completion_start_time = None
@@ -2247,7 +2247,7 @@ async def test_vertex_ai_streaming_bad_request_is_not_wrapped():
         custom_llm_provider="vertex_ai_beta",
     )
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         await stream.__anext__()
 
     assert getattr(exc_info.value, "status_code", None) == 400
@@ -2260,7 +2260,7 @@ def test_vertex_ai_annotation_conversion():
     This test verifies the _convert_grounding_metadata_to_annotations method
     correctly transforms grounding metadata into the expected format.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2357,7 +2357,7 @@ def test_vertex_ai_annotation_empty_grounding_metadata():
 
     This test ensures the annotation conversion handles edge cases gracefully.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2395,7 +2395,7 @@ def test_vertex_ai_annotation_empty_grounding_metadata():
 
 def test_is_gemini_3_or_newer():
     """Test the _is_gemini_3_or_newer method for version detection"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2446,8 +2446,8 @@ def test_is_gemini_3_or_newer():
 )
 def test_gemini_3_reasoning_effort_maps_to_thinking_level(model: str):
     """Test that reasoning_effort maps to thinkingLevel and default temperature=1.0"""
-    from litellm.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.gemini.chat.transformation import GoogleAIStudioGeminiConfig
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2479,7 +2479,7 @@ def test_gemini_3_reasoning_effort_maps_to_thinking_level(model: str):
     ["4965075652664360960", "gemini/4965075652664360960", "gemini/ft-uuid", "gemma-3-27b-it"],
 )
 def test_fine_tuned_endpoint_and_gemma_get_no_gemini_3_default_temperature(model: str):
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2535,7 +2535,7 @@ def _collect_function_call_ids(contents):
 
 def test_forward_gemini_function_call_id_is_gated_on_model_version_only():
     """Gemini 3+ takes `id` on Vertex AI and Google AI Studio alike; older models reject it."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2552,7 +2552,7 @@ def test_gemini_35_tool_calls_include_function_call_id(custom_llm_provider):
     Both parts are asserted together: Vertex pairs a result to its call by id, so emitting one
     side without the other would break strict tool-call matching.
     """
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -2569,7 +2569,7 @@ def test_gemini_35_tool_calls_include_function_call_id(custom_llm_provider):
 @pytest.mark.parametrize("custom_llm_provider", ["vertex_ai", "gemini"])
 def test_gemini_25_tool_calls_omit_function_call_id(custom_llm_provider):
     """Regression: models older than Gemini 3 reject `id`, so the key must be absent entirely."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -2594,10 +2594,10 @@ def test_vertex_ai_forwarded_function_call_id_strips_thought_signature_suffix():
 
     Vertex now sees this code path for the first time, so the suffix has to be stripped here too.
     """
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         THOUGHT_SIGNATURE_SEPARATOR,
     )
 
@@ -2615,7 +2615,7 @@ def test_vertex_ai_forwarded_function_call_id_strips_thought_signature_suffix():
 @pytest.mark.parametrize("model", ["gemini-3.5-flash", "gemini-2.5-flash"])
 def test_tool_response_without_matching_tool_call_is_rejected(model):
     """An unpairable tool result must raise, not ship a functionResponse with no matching call."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -2648,7 +2648,7 @@ def test_tool_response_without_matching_tool_call_is_rejected(model):
 
 def test_reasoning_effort_maps_to_thinking_level_gemini_3():
     """Test that reasoning_effort maps to thinking_level AND includeThoughts for Gemini 3+ models"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2778,7 +2778,7 @@ def test_gemini_flash_minimal_thinking_support(
 
 
 def test_gemini_38_flash_feature_flag_uses_low_thinking_level(local_model_cost_map, monkeypatch):
-    monkeypatch.setattr(litellm, "enable_gemini_default_thinking_level_low", True)
+    monkeypatch.setattr(embrouter, "enable_gemini_default_thinking_level_low", True)
     thinking_param = {"type": "enabled", "budget_tokens": 1024}
 
     result_38 = VertexGeminiConfig._map_thinking_param(
@@ -2849,7 +2849,7 @@ def test_reasoning_effort_dict_format_gemini_3():
 
 
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2907,7 +2907,7 @@ def test_reasoning_effort_dict_format_gemini_3():
 
 def test_temperature_default_for_gemini_3():
     """Test that temperature defaults to 1.0 for Gemini 3+ models when not specified"""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -2931,7 +2931,7 @@ def test_temperature_default_for_gemini_3():
 
 def test_media_resolution_from_detail_parameter():
     """Test that OpenAI's detail parameter is correctly mapped to media_resolution"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _convert_detail_to_media_resolution_enum,
         _gemini_convert_messages_with_history,
     )
@@ -2983,7 +2983,7 @@ def test_media_resolution_from_detail_parameter():
 
 def test_media_resolution_low_detail():
     """Test that detail='low' maps to media_resolution enum with MEDIA_RESOLUTION_LOW"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -3020,7 +3020,7 @@ def test_media_resolution_low_detail():
 
 def test_media_resolution_auto_detail():
     """Test that detail='auto' or None doesn't set media_resolution"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -3075,7 +3075,7 @@ def test_media_resolution_auto_detail():
 
 def test_media_resolution_per_part():
     """Test that different images can have different media_resolution values"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -3125,7 +3125,7 @@ def test_media_resolution_per_part():
 
 def test_media_resolution_only_for_gemini_3_models():
     """Ensure media_resolution is not added for non-Gemini 3 models."""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -3168,7 +3168,7 @@ def test_gemini_3_image_models_no_thinking_config():
     gemini-3-pro-image-preview does not support thinking_level parameter
     and returns BadRequestError: "Thinking level is not supported for this model"
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3197,7 +3197,7 @@ def test_gemini_3_text_models_get_thinking_config():
     Test that Gemini 3 text models do NOT receive automatic thinkingConfig
     when no reasoning_effort or thinking param is provided.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3225,7 +3225,7 @@ def test_gemini_image_models_excluded_from_thinking():
     Test that any Gemini model with 'image' in the name is excluded from thinking config.
     This covers current and future image models.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -3265,7 +3265,7 @@ def test_partial_json_chunk_after_first_chunk():
     The bug was that accumulation mode only activated on the first chunk.
     If chunk 1 was valid and chunk 5 arrived partial, it would crash.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -3296,7 +3296,7 @@ def test_partial_json_chunk_after_first_chunk():
 
 def test_partial_json_chunk_on_first_chunk():
     """Test that first chunk being partial still works (existing behavior)."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -3333,7 +3333,7 @@ def test_accumulated_json_does_not_reparse_every_fragment():
     `json.JSONDecoder.raw_decode`, not `json.loads` (see the equivalent
     Anthropic tests) so the spy targets that call, not `json.loads`.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -3375,7 +3375,7 @@ def test_accumulated_json_partial_fragment_returns_none_without_parsing():
     attempt over the whole growing buffer (issue #26181). Decoding goes
     through `json.JSONDecoder.raw_decode` post-JSONFragmentAccumulator
     migration, not `json.loads`."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -3424,7 +3424,7 @@ async def test_google_ai_studio_forwards_seed_to_generation_config(drop_params: 
             request=request,
         )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await embrouter.acompletion(
         model="gemini/gemini-3.8-flash",
         messages=[{"role": "user", "content": "hi"}],
         seed=42,
@@ -3728,7 +3728,7 @@ def test_get_optional_params_keeps_google_search_with_server_side_flag():
     include_server_side_tool_invocations must be in non_default_params before
     map_openai_params runs (not only via add_provider_specific_params after).
     """
-    from litellm.utils import get_optional_params
+    from embrouter.utils import get_optional_params
 
     optional_params = get_optional_params(
         model="gemini-3.1-pro-preview",
@@ -4125,7 +4125,7 @@ def test_gemini_image_gen_usage_metadata_prompt_vs_completion_separation():
 
 def test_file_object_detail_parameter():
     """Test that detail parameter works for type: file objects (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -4170,7 +4170,7 @@ def test_file_object_detail_parameter():
 
 def test_video_metadata_fps():
     """Test fps parameter in video_metadata (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -4209,7 +4209,7 @@ def test_video_metadata_fps():
 
 def test_video_metadata_complete():
     """Test all video_metadata fields: fps, start_offset, end_offset (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -4257,7 +4257,7 @@ def test_video_metadata_complete():
 
 def test_detail_and_video_metadata_combined():
     """Test using both detail and video_metadata together (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -4299,7 +4299,7 @@ def test_detail_and_video_metadata_combined():
 
 def test_new_detail_levels():
     """Test new detail levels: medium and ultra_high (Issue #19026)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _convert_detail_to_media_resolution_enum,
         _gemini_convert_messages_with_history,
     )
@@ -4351,7 +4351,7 @@ def test_new_detail_levels():
 
 def test_video_metadata_supported_for_all_gemini_models():
     """Test that video_metadata is applied for all Gemini models (Issue #25474)"""
-    from litellm.llms.vertex_ai.gemini.transformation import (
+    from embrouter.llms.vertex_ai.gemini.transformation import (
         _gemini_convert_messages_with_history,
     )
 
@@ -4412,7 +4412,7 @@ def test_chunk_parser_handles_prompt_feedback_block():
     """Test chunk_parser correctly handles promptFeedback.blockReason"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -4449,7 +4449,7 @@ def test_chunk_parser_handles_prompt_feedback_safety_block():
     """Test chunk_parser handles different blockReason types (SAFETY)"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -4482,7 +4482,7 @@ def test_chunk_parser_handles_prompt_feedback_block_with_usage():
     """Test chunk_parser correctly extracts usageMetadata when promptFeedback.blockReason is present"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -4535,7 +4535,7 @@ def test_chunk_parser_handles_prompt_feedback_block_with_usage():
 
 def test_vertex_ai_traffic_type_preserved_in_hidden_params_streaming():
     """Test trafficType is preserved in _hidden_params for streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -4561,7 +4561,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_streaming():
 
 def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
     """Test trafficType is preserved in _hidden_params for non-streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4591,7 +4591,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
     )
 
@@ -4603,7 +4603,7 @@ def test_vertex_ai_traffic_type_preserved_in_hidden_params_non_streaming():
 
 def test_vertex_ai_service_tier_streaming():
     """Test service_tier is preserved in model_response from headers for streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -4635,7 +4635,7 @@ def test_vertex_ai_service_tier_streaming():
 
 def test_vertex_ai_service_tier_non_streaming():
     """Test service_tier is preserved in model_response from headers for non-streaming."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4665,7 +4665,7 @@ def test_vertex_ai_service_tier_non_streaming():
         request_data={},
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
     )
 
@@ -4674,12 +4674,12 @@ def test_vertex_ai_service_tier_non_streaming():
 
 def test_vertex_ai_traffic_type_surfaced_in_responses_api():
     """Test trafficType is surfaced as provider_specific_fields in ResponsesAPIResponse."""
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     # Create a ModelResponse with provider_specific_fields in _hidden_params
-    from litellm.types.utils import Choices, Message
+    from embrouter.types.utils import Choices, Message
 
     model_response = ModelResponse()
     model_response._hidden_params["provider_specific_fields"] = {
@@ -4693,7 +4693,7 @@ def test_vertex_ai_traffic_type_surfaced_in_responses_api():
         )
     ]
 
-    responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="test",
         chat_completion_response=model_response,
         responses_api_request={},
@@ -4720,7 +4720,7 @@ def test_vertex_ai_web_search_options_parameter():
     Expected Output:
         tools=[{"googleSearch": {}}]
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4755,7 +4755,7 @@ def test_vertex_ai_web_search_options_in_map_openai_params():
     Expected:
         optional_params should have tools with googleSearch
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -4791,7 +4791,7 @@ def test_vertex_ai_web_search_options_in_map_openai_params():
 
 def test_vertex_ai_service_tier_in_map_openai_params():
     """Test that service_tier is correctly mapped to optional_params."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -5090,8 +5090,8 @@ def test_async_streaming_uses_custom_client():
     """
     from functools import partial
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         make_call,
     )
 
@@ -5124,8 +5124,8 @@ def test_sync_streaming_uses_custom_client():
     """
     from functools import partial
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         make_sync_call,
     )
 
@@ -5157,7 +5157,7 @@ def test_transform_response_does_not_leak_body_on_parse_failure():
     raw_response.headers = {}
 
     with patch(
-        "litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.GenerateContentResponseBody",
+        "embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini.GenerateContentResponseBody",
         side_effect=KeyError("missing required field"),
     ):
         with pytest.raises(VertexAIError) as exc_info:
@@ -5169,7 +5169,7 @@ def test_transform_response_does_not_leak_body_on_parse_failure():
                 request_data={},
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -5182,8 +5182,8 @@ def test_chunk_parser_raises_on_429_error_chunk():
     """Test chunk_parser raises VertexAIError on 429 RESOURCE_EXHAUSTED error chunk"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5216,8 +5216,8 @@ def test_chunk_parser_raises_on_500_error_chunk():
     """Test chunk_parser raises VertexAIError on 500 INTERNAL error chunk"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5249,8 +5249,8 @@ def test_chunk_parser_raises_on_error_chunk_with_minimal_fields():
     """Test chunk_parser handles error chunks with missing optional fields"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5280,7 +5280,7 @@ def test_chunk_parser_normal_chunk_unaffected_by_error_check():
     """Test that normal streaming chunks still work correctly after error check addition"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5320,8 +5320,8 @@ def test_chunk_parser_raises_on_non_dict_error():
     """Test chunk_parser raises VertexAIError when chunk['error'] is not a dict"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5347,8 +5347,8 @@ def test_chunk_parser_raises_on_string_error_code():
     """Test chunk_parser correctly converts string error code to int"""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5381,8 +5381,8 @@ def test_chunk_parser_error_chunk_explicit_null_code_uses_500():
     """JSON null for code must not call int(None); status defaults to 500."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5414,8 +5414,8 @@ def test_chunk_parser_error_chunk_non_numeric_code_defaults_to_500():
     """Non-numeric code must not become ValueError -> RuntimeError in __next__."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5447,8 +5447,8 @@ def test_chunk_parser_error_chunk_empty_dict_defaults_to_500():
     """Empty error object {} uses default code 500 and default message/status strings."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5475,8 +5475,8 @@ def test_chunk_parser_error_chunk_non_dict_int_value():
     """Non-dict error payloads (e.g. bare JSON number) must raise with status 500, not TypeError."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5503,8 +5503,8 @@ def test_chunk_parser_error_chunk_non_dict_null_value():
     """JSON null for error must hit the non-dict branch (same as int/string)."""
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5535,8 +5535,8 @@ def test_mid_stream_429_error_raises_during_iteration():
     import json
     from unittest.mock import Mock
 
-    from litellm.llms.vertex_ai.common_utils import VertexAIError
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.common_utils import VertexAIError
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5637,7 +5637,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_closes_iterator_and_response(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -5663,7 +5663,7 @@ class TestModelResponseIteratorCleanup:
     def test_close_closes_iterator_and_response(self):
         from unittest.mock import MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -5686,7 +5686,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_without_response_does_not_raise(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -5707,7 +5707,7 @@ class TestModelResponseIteratorCleanup:
     def test_aclose_tolerates_iterator_error(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -5733,8 +5733,8 @@ class TestModelResponseIteratorCleanup:
         """CustomStreamWrapper.aclose() must propagate to ModelResponseIterator.aclose()."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             ModelResponseIterator,
         )
 
@@ -5804,7 +5804,7 @@ def test_process_candidates_merges_thought_signatures_and_server_side_tools():
 
 
 def _accumulating_gemini_iterator():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -5969,12 +5969,12 @@ def test_invalid_reasoning_effort_is_a_400_not_a_500(custom_llm_provider, model,
     Both reasoning_effort mappers used to end their if/elif chain in a bare `ValueError`, which
     `exception_type()` has no branch for, so it fell through to `APIConnectionError` and the proxy
     answered a malformed client request with a retryable HTTP 500. `xhigh` is covered alongside the
-    nonsense value because it is a member of litellm's own `REASONING_EFFORT` literal, so callers
+    nonsense value because it is a member of embrouter's own `REASONING_EFFORT` literal, so callers
     bridging from OpenAI-shaped code reach it without typing anything wrong.
     """
-    from litellm.utils import get_optional_params
+    from embrouter.utils import get_optional_params
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         get_optional_params(
             model=model,
             custom_llm_provider=custom_llm_provider,
@@ -5995,7 +5995,7 @@ def test_invalid_reasoning_effort_surfaces_as_400_through_completion(custom_llm_
 
     Needs no provider credentials: param mapping runs before any network call.
     """
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         completion(
             model=f"{custom_llm_provider}/gemini-3-pro-preview",
             messages=[{"role": "user", "content": "hi"}],
@@ -6003,13 +6003,13 @@ def test_invalid_reasoning_effort_surfaces_as_400_through_completion(custom_llm_
         )
 
     assert exc_info.value.status_code == 400
-    assert not isinstance(exc_info.value, litellm.APIConnectionError)
+    assert not isinstance(exc_info.value, embrouter.APIConnectionError)
 
 
 @pytest.mark.parametrize("model", ["gemini-2.5-flash", "gemini-3-pro-preview"])
 def test_supported_reasoning_efforts_still_map(model):
     """Guards the fix against over-rejecting: every advertised value must still produce a config."""
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         SUPPORTED_REASONING_EFFORTS,
     )
 
@@ -6072,7 +6072,7 @@ def test_generate_content_transform_falls_back_to_requested_model():
 
 
 def test_streaming_chunk_carries_model_version():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6084,8 +6084,8 @@ def test_streaming_chunk_carries_model_version():
 
 
 def test_served_model_version_reaches_assembled_stream_through_custom_stream_wrapper():
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6109,7 +6109,7 @@ def test_served_model_version_reaches_assembled_stream_through_custom_stream_wra
     assert len(chunks) >= 3
     for chunk in chunks[:-1]:
         assert chunk._hidden_params["provider_response_model"] == served_model
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
+    assembled: Final = embrouter.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
     assert assembled._hidden_params["provider_response_model"] == served_model
 
 
@@ -6129,7 +6129,7 @@ def test_generate_content_transform_strips_version_suffix_from_model_version():
 
 
 def test_prompt_blocked_chunk_keeps_served_model_version():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 
@@ -6180,8 +6180,8 @@ def test_gemini_candidate_with_finish_reason_no_content_chat_completion():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
 
     config = VertexGeminiConfig()
@@ -6206,7 +6206,7 @@ def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
         raw_response=MagicMock(headers={}),
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_resp = adapter.translate_openai_response_to_anthropic(
         response=resp,
         tool_name_mapping={},
@@ -6216,8 +6216,8 @@ def test_gemini_candidate_with_finish_reason_no_content_anthropic_messages():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_responses_api():
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     config = VertexGeminiConfig()
@@ -6242,7 +6242,7 @@ def test_gemini_candidate_with_finish_reason_no_content_responses_api():
         raw_response=MagicMock(headers={}),
     )
 
-    responses_resp = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    responses_resp = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="Generate picture",
         responses_api_request={},
         chat_completion_response=resp,
@@ -6253,11 +6253,11 @@ def test_gemini_candidate_with_finish_reason_no_content_responses_api():
 
 
 def test_gemini_candidate_other_finish_reasons_no_content():
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     config = VertexGeminiConfig()
@@ -6276,13 +6276,13 @@ def test_gemini_candidate_other_finish_reasons_no_content():
     assert resp_length.choices[0].finish_reason == "length"
     assert resp_length.choices[0].provider_specific_fields["native_finish_reason"] == "MAX_TOKENS"
 
-    anthropic_length = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_length = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=resp_length,
         tool_name_mapping={},
     )
     assert anthropic_length["stop_reason"] == "max_tokens"
 
-    responses_length = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    responses_length = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="thinking request",
         responses_api_request={},
         chat_completion_response=resp_length,
@@ -6292,7 +6292,7 @@ def test_gemini_candidate_other_finish_reasons_no_content():
 
 
 def test_gemini_candidate_with_finish_reason_no_content_streaming_chunk():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         ModelResponseIterator,
     )
 

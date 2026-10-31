@@ -9,13 +9,13 @@ from pydantic import JsonValue
 from sentry_sdk.scrubber import DEFAULT_DENYLIST, DEFAULT_PII_DENYLIST, EventScrubber
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.constants import (
-    LENGTH_OF_LITELLM_GENERATED_KEY,
+from embrouter.constants import (
+    LENGTH_OF_EMBROUTER_GENERATED_KEY,
     MINIMUM_CUSTOM_KEY_LENGTH,
     SENTRY_DENYLIST,
     SENTRY_PII_DENYLIST,
 )
-from litellm.secret_managers.main import str_to_bool
+from embrouter.secret_managers.main import str_to_bool
 
 if TYPE_CHECKING:
     from sentry_sdk.types import Event, Hint
@@ -37,7 +37,7 @@ def build_key_pattern(custom_key_minimum: int, generated_key_bytes: int) -> re.P
     return re.compile(rf"{KEY_PREFIX}[A-Za-z0-9_-]{{{floor},}}")
 
 
-LITELLM_KEY_PATTERN: Final = build_key_pattern(MINIMUM_CUSTOM_KEY_LENGTH, LENGTH_OF_LITELLM_GENERATED_KEY)
+EMBROUTER_KEY_PATTERN: Final = build_key_pattern(MINIMUM_CUSTOM_KEY_LENGTH, LENGTH_OF_EMBROUTER_GENERATED_KEY)
 SOURCE_CONTEXT_KEYS: Final = frozenset({"pre_context", "context_line", "post_context"})
 STACK_FRAME_PATHS: Final = frozenset(
     {
@@ -83,7 +83,7 @@ def build_string_scrubber(send_default_pii: bool) -> Callable[[str], str]:
     field_names: Final = SECRET_FIELD_NAMES if send_default_pii else SECRET_FIELD_NAMES + PII_FIELD_NAMES
     field_pattern: Final = build_repr_field_pattern(field_names)
     value_patterns: Final = (
-        (LITELLM_KEY_PATTERN,) if send_default_pii else (LITELLM_KEY_PATTERN, EMAIL_PATTERN, SHA256_HEX_PATTERN)
+        (EMBROUTER_KEY_PATTERN,) if send_default_pii else (EMBROUTER_KEY_PATTERN, EMAIL_PATTERN, SHA256_HEX_PATTERN)
     )
 
     def scrub(text: str) -> str:

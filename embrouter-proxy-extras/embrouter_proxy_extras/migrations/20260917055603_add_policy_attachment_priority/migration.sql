@@ -1,1 +1,1 @@
-ALTER TABLE "LiteLLM_PolicyAttachmentTable" ADD COLUMN IF NOT EXISTS "priority" INTEGER;
+ALTER TABLE "EmbRouter_PolicyAttachmentTable" ADD COLUMN IF NOT EXISTS "priority" INTEGER;

@@ -13,36 +13,36 @@ import inspect
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm.constants import REDACTED_BY_LITELLM
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.classifier_logging import without_classifier_audit
-from litellm.litellm_core_utils.core_helpers import (
+import embrouter
+from embrouter.constants import REDACTED_BY_EMBROUTER
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.classifier_logging import without_classifier_audit
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
 )
-from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
-from litellm.llms.vertex_ai.common_utils import (
-    redact_vertex_ai_metadata_from_litellm_params,
+from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+from embrouter.llms.vertex_ai.common_utils import (
+    redact_vertex_ai_metadata_from_embrouter_params,
     redact_vertex_ai_metadata_from_logged_object,
 )
-from litellm.secret_managers.main import str_to_bool
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.secret_managers.main import str_to_bool
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as _LiteLLMLoggingObject,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as _EmbRouterLoggingObject,
     )
 
-    LiteLLMLoggingObject = _LiteLLMLoggingObject
+    EmbRouterLoggingObject = _EmbRouterLoggingObject
 else:
-    LiteLLMLoggingObject = Any
+    EmbRouterLoggingObject = Any
 
 
 def redact_message_input_output_from_custom_logger(
-    litellm_logging_obj: LiteLLMLoggingObject, result, custom_logger: CustomLogger
+    embrouter_logging_obj: EmbRouterLoggingObject, result, custom_logger: CustomLogger
 ):
     if hasattr(custom_logger, "message_logging") and custom_logger.message_logging is not True:
-        return perform_redaction(litellm_logging_obj.model_call_details, result, redact_streaming_responses=False)
+        return perform_redaction(embrouter_logging_obj.model_call_details, result, redact_streaming_responses=False)
     return result
 
 
@@ -88,31 +88,31 @@ def _redact_tool_calls(tool_calls) -> None:
     for tool_call in tool_calls:
         function = getattr(tool_call, "function", None)
         if function is not None and hasattr(function, "arguments"):
-            function.arguments = REDACTED_BY_LITELLM
+            function.arguments = REDACTED_BY_EMBROUTER
 
 
 def _redact_function_call(function_call) -> None:
     """Redact legacy assistant function_call arguments."""
     if function_call is not None and hasattr(function_call, "arguments"):
-        function_call.arguments = REDACTED_BY_LITELLM
+        function_call.arguments = REDACTED_BY_EMBROUTER
 
 
 def _redact_choice_content(choice):
     """Helper to redact content in a choice (message or delta)."""
-    if isinstance(choice, litellm.Choices):
+    if isinstance(choice, embrouter.Choices):
         if choice.message.content is not None:
-            choice.message.content = REDACTED_BY_LITELLM
+            choice.message.content = REDACTED_BY_EMBROUTER
         if getattr(choice.message, "reasoning_content", None) is not None:
-            choice.message.reasoning_content = REDACTED_BY_LITELLM
+            choice.message.reasoning_content = REDACTED_BY_EMBROUTER
         if hasattr(choice.message, "thinking_blocks"):
             choice.message.thinking_blocks = None
         _redact_tool_calls(getattr(choice.message, "tool_calls", None))
         _redact_function_call(getattr(choice.message, "function_call", None))
-    elif isinstance(choice, litellm.utils.StreamingChoices):
+    elif isinstance(choice, embrouter.utils.StreamingChoices):
         if choice.delta.content is not None:
-            choice.delta.content = REDACTED_BY_LITELLM
+            choice.delta.content = REDACTED_BY_EMBROUTER
         if getattr(choice.delta, "reasoning_content", None) is not None:
-            choice.delta.reasoning_content = REDACTED_BY_LITELLM
+            choice.delta.reasoning_content = REDACTED_BY_EMBROUTER
         if hasattr(choice.delta, "thinking_blocks"):
             choice.delta.thinking_blocks = None
         _redact_tool_calls(getattr(choice.delta, "tool_calls", None))
@@ -123,26 +123,26 @@ def _redact_responses_api_output(output_items):
     """Helper to redact ResponsesAPIResponse output items."""
     for output_item in output_items:
         if getattr(output_item, "text", None) is not None:
-            output_item.text = REDACTED_BY_LITELLM
+            output_item.text = REDACTED_BY_EMBROUTER
 
         if hasattr(output_item, "content") and isinstance(output_item.content, list):
             for content_part in output_item.content:
                 if getattr(content_part, "text", None) is not None:
-                    content_part.text = REDACTED_BY_LITELLM
+                    content_part.text = REDACTED_BY_EMBROUTER
                 if getattr(content_part, "refusal", None) is not None:
-                    content_part.refusal = REDACTED_BY_LITELLM
+                    content_part.refusal = REDACTED_BY_EMBROUTER
 
         # Redact reasoning items in output array
         if hasattr(output_item, "type") and output_item.type == "reasoning":
             if hasattr(output_item, "summary") and isinstance(output_item.summary, list):
                 for summary_item in output_item.summary:
                     if getattr(summary_item, "text", None) is not None:
-                        summary_item.text = REDACTED_BY_LITELLM
+                        summary_item.text = REDACTED_BY_EMBROUTER
 
         if hasattr(output_item, "type") and output_item.type == "function_call" and hasattr(output_item, "arguments"):
-            output_item.arguments = REDACTED_BY_LITELLM
+            output_item.arguments = REDACTED_BY_EMBROUTER
         if hasattr(output_item, "type") and output_item.type == "custom_tool_call" and hasattr(output_item, "input"):
-            output_item.input = REDACTED_BY_LITELLM
+            output_item.input = REDACTED_BY_EMBROUTER
 
 
 def _redact_responses_api_output_dict(output_items, redacted_str: str):
@@ -185,7 +185,7 @@ def redacted_standard_logging_payload(payload: Mapping[str, object]) -> Mapping[
 
 def _redact_standard_logging_object(payload: Mapping[str, object]) -> dict[str, object]:
     standard_logging_object: Final = copy.deepcopy(without_classifier_audit(payload))
-    redacted_str: Final = REDACTED_BY_LITELLM
+    redacted_str: Final = REDACTED_BY_EMBROUTER
 
     if standard_logging_object.get("messages") is not None:
         standard_logging_object["messages"] = [{"role": "user", "content": redacted_str}]
@@ -216,11 +216,11 @@ def _redact_tool_calls_dict(message: Mapping[str, object]) -> None:
     if isinstance(tool_calls, list):
         for tool_call in tool_calls:
             if isinstance(tool_call, dict) and isinstance(tool_call.get("function"), dict):
-                tool_call["function"]["arguments"] = REDACTED_BY_LITELLM
+                tool_call["function"]["arguments"] = REDACTED_BY_EMBROUTER
 
     function_call: Final = message.get("function_call")
     if isinstance(function_call, dict) and "arguments" in function_call:
-        function_call["arguments"] = REDACTED_BY_LITELLM
+        function_call["arguments"] = REDACTED_BY_EMBROUTER
 
 
 def _redact_model_response_dict_choices(choices, redacted_str: str):
@@ -261,18 +261,18 @@ def perform_redaction(model_call_details: dict, result, redact_streaming_respons
     copy via redact_streaming_responses_for_custom_logger instead.
     """
     # Redact model_call_details
-    params: Final = model_call_details.get("litellm_params")
+    params: Final = model_call_details.get("embrouter_params")
     request: Final = params.get("proxy_server_request") if isinstance(params, dict) else None
     if isinstance(params, dict) and isinstance(request, Mapping):
-        model_call_details["litellm_params"] = {**params, "proxy_server_request": without_classifier_audit(request)}
-    model_call_details["messages"] = [{"role": "user", "content": REDACTED_BY_LITELLM}]
+        model_call_details["embrouter_params"] = {**params, "proxy_server_request": without_classifier_audit(request)}
+    model_call_details["messages"] = [{"role": "user", "content": REDACTED_BY_EMBROUTER}]
     model_call_details["prompt"] = ""
     model_call_details["input"] = ""
     model_call_details.pop(SERVED_OUTPUT_TEXTS_KEY, None)
     standard_logging_object: Final = model_call_details.get("standard_logging_object")
     if isinstance(standard_logging_object, Mapping):
         model_call_details["standard_logging_object"] = _redact_standard_logging_object(standard_logging_object)
-    redact_vertex_ai_metadata_from_litellm_params(model_call_details)
+    redact_vertex_ai_metadata_from_embrouter_params(model_call_details)
 
     # Redact streaming response
     if redact_streaming_responses and model_call_details.get("stream", False) is True:
@@ -289,16 +289,16 @@ def perform_redaction(model_call_details: dict, result, redact_streaming_respons
             or hasattr(result, "__anext__")  # async generator
         ):  # async iterator
             # For async objects, return a simple redacted response without deepcopy
-            return {"text": REDACTED_BY_LITELLM}
+            return {"text": REDACTED_BY_EMBROUTER}
 
         if not (
-            isinstance(result, (litellm.ModelResponse, litellm.ResponsesAPIResponse, litellm.EmbeddingResponse))
+            isinstance(result, (embrouter.ModelResponse, embrouter.ResponsesAPIResponse, embrouter.EmbeddingResponse))
             or (isinstance(result, dict) and ("choices" in result or "output" in result))
         ):
-            return {"text": REDACTED_BY_LITELLM}
+            return {"text": REDACTED_BY_EMBROUTER}
 
         _result: Final = copy.deepcopy(result)
-        if isinstance(_result, litellm.ModelResponse):
+        if isinstance(_result, embrouter.ModelResponse):
             if hasattr(_result, "choices") and _result.choices is not None:
                 for choice in _result.choices:
                     _redact_choice_content(choice)
@@ -306,22 +306,22 @@ def perform_redaction(model_call_details: dict, result, redact_streaming_respons
         elif isinstance(_result, dict) and "choices" in _result:
             # Handle dict representation of ModelResponse (e.g., from model_dump())
             if _result.get("choices") is not None:
-                _redact_model_response_dict_choices(_result["choices"], REDACTED_BY_LITELLM)
+                _redact_model_response_dict_choices(_result["choices"], REDACTED_BY_EMBROUTER)
             redact_vertex_ai_metadata_from_logged_object(_result)
         elif isinstance(_result, dict) and "output" in _result:
             if isinstance(_result.get("output"), list):
-                _redact_responses_api_output_dict(_result["output"], REDACTED_BY_LITELLM)
-        elif isinstance(_result, litellm.ResponsesAPIResponse):
+                _redact_responses_api_output_dict(_result["output"], REDACTED_BY_EMBROUTER)
+        elif isinstance(_result, embrouter.ResponsesAPIResponse):
             if hasattr(_result, "output"):
                 _redact_responses_api_output(_result.output)
             # Redact reasoning field in ResponsesAPIResponse
             if hasattr(_result, "reasoning") and _result.reasoning is not None:
                 _result.reasoning = None
-        elif isinstance(_result, litellm.EmbeddingResponse):
+        elif isinstance(_result, embrouter.EmbeddingResponse):
             if hasattr(_result, "data") and _result.data is not None:
                 _result.data = []
         else:
-            return {"text": REDACTED_BY_LITELLM}
+            return {"text": REDACTED_BY_EMBROUTER}
         return _result
 
 
@@ -331,16 +331,16 @@ def should_redact_message_logging(model_call_details: dict) -> bool:
 
     Priority order:
     1. Dynamic parameter (turn_off_message_logging in request)
-    2. Headers (litellm-disable-message-redaction / litellm-enable-message-redaction)
-    3. Global setting (litellm.turn_off_message_logging)
+    2. Headers (embrouter-disable-message-redaction / embrouter-enable-message-redaction)
+    3. Global setting (embrouter.turn_off_message_logging)
     """
-    litellm_params: Final = model_call_details.get("litellm_params", {})
+    embrouter_params: Final = model_call_details.get("embrouter_params", {})
 
-    metadata_field: Final = get_metadata_variable_name_from_kwargs(litellm_params)
-    metadata = litellm_params.get(metadata_field, {})
+    metadata_field: Final = get_metadata_variable_name_from_kwargs(embrouter_params)
+    metadata = embrouter_params.get(metadata_field, {})
     if not isinstance(metadata, dict):
-        # Fall back: litellm_metadata was None, try metadata
-        metadata = litellm_params.get("metadata", {})
+        # Fall back: embrouter_metadata was None, try metadata
+        metadata = embrouter_params.get("metadata", {})
     if not isinstance(metadata, dict):
         metadata = {}
 
@@ -348,13 +348,13 @@ def should_redact_message_logging(model_call_details: dict) -> bool:
     request_headers: Final = metadata.get("headers", {})
 
     # Check for headers that explicitly control redaction
-    if request_headers and bool(request_headers.get("litellm-disable-message-redaction", False)):
+    if request_headers and bool(request_headers.get("embrouter-disable-message-redaction", False)):
         # User explicitly disabled redaction via header
         return False
 
     possible_enable_headers: Final = [
-        "litellm-enable-message-redaction",  # old header. maintain backwards compatibility
-        "x-litellm-enable-message-redaction",  # new header
+        "embrouter-enable-message-redaction",  # old header. maintain backwards compatibility
+        "x-embrouter-enable-message-redaction",  # new header
     ]
 
     is_redaction_enabled_via_header = False
@@ -374,13 +374,13 @@ def should_redact_message_logging(model_call_details: dict) -> bool:
         return True
 
     # Priority 3: Fall back to global setting
-    return litellm.turn_off_message_logging is True
+    return embrouter.turn_off_message_logging is True
 
 
 def redact_message_input_output_from_logging(model_call_details: dict, result, input: Any | None = None) -> Any:
     """
     Removes messages, prompts, input, response from logging. This modifies the data in-place
-    only redacts when litellm.turn_off_message_logging == True
+    only redacts when embrouter.turn_off_message_logging == True
     """
     if should_redact_message_logging(model_call_details):
         return perform_redaction(model_call_details, result)
@@ -415,16 +415,16 @@ def redact_user_api_key_info(metadata: dict) -> dict:
 
     SDK
     ```python
-    litellm.redact_user_api_key_info = True
+    embrouter.redact_user_api_key_info = True
     ```
 
     PROXY:
     ```yaml
-    litellm_settings:
+    embrouter_settings:
         redact_user_api_key_info: true
     ```
     """
-    if litellm.redact_user_api_key_info is not True:
+    if embrouter.redact_user_api_key_info is not True:
         return metadata
 
     new_metadata: Final = {}

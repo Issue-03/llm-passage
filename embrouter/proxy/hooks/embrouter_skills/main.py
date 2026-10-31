@@ -1,25 +1,25 @@
 """
-Skills Injection Hook for LiteLLM Proxy
+Skills Injection Hook for EmbRouter Proxy
 
 Main hook that orchestrates skill processing:
-- Fetches skills from LiteLLM DB
+- Fetches skills from EmbRouter DB
 - Injects SKILL.md content into system prompt
-- Adds litellm_code_execution tool for automatic code execution
-- Handles agentic loop internally when litellm_code_execution is called
+- Adds embrouter_code_execution tool for automatic code execution
+- Handles agentic loop internally when embrouter_code_execution is called
 
 For non-Anthropic models (e.g., Bedrock, OpenAI, etc.):
 - Skills are converted to OpenAI-style tools
 - Skill file content (SKILL.md) is extracted and injected into the system prompt
-- litellm_code_execution tool is added - when model calls it, LiteLLM handles
+- embrouter_code_execution tool is added - when model calls it, EmbRouter handles
   execution automatically and returns final response with file_ids
 
 Usage:
-    # Simple - LiteLLM handles everything automatically via proxy
+    # Simple - EmbRouter handles everything automatically via proxy
     # The container parameter triggers the SkillsInjectionHook
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Create a bouncing ball GIF"}],
-        container={"skills": [{"skill_id": "litellm_skill_abc123"}]},
+        container={"skills": [{"skill_id": "embrouter_skill_abc123"}]},
     )
     # Response includes file_ids for generated files
 """
@@ -29,19 +29,19 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.litellm_proxy.skills.constants import LITELLM_SKILL_ID_PREFIX
-from litellm.llms.litellm_proxy.skills.prompt_injection import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.embrouter_proxy.skills.constants import EMBROUTER_SKILL_ID_PREFIX
+from embrouter.llms.embrouter_proxy.skills.prompt_injection import (
     SkillPromptInjectionHandler,
 )
-from litellm.proxy._types import LiteLLM_SkillsTable, UserAPIKeyAuth
-from litellm.types.utils import CallTypes, CallTypesLiteral, LLMResponseTypes
+from embrouter.proxy._types import EmbRouter_SkillsTable, UserAPIKeyAuth
+from embrouter.types.utils import CallTypes, CallTypesLiteral, LLMResponseTypes
 
 if TYPE_CHECKING:
-    from litellm.llms.litellm_proxy.skills.sandbox_executor import SkillsSandboxExecutor
+    from embrouter.llms.embrouter_proxy.skills.sandbox_executor import SkillsSandboxExecutor
 
 
 class _ToolCallFunction(Protocol):
@@ -91,20 +91,20 @@ class SkillsInjectionHook(CustomLogger):
     Pre/Post-call hook that processes skills from container.skills parameter.
 
     Pre-call (async_pre_call_hook):
-    - Skills with 'litellm_skill_' prefix are fetched from LiteLLM DB
-    - For Anthropic models: native skills pass through, LiteLLM skills converted to tools
-    - For non-Anthropic models: LiteLLM skills are converted to tools + execute_code tool
+    - Skills with 'embrouter_skill_' prefix are fetched from EmbRouter DB
+    - For Anthropic models: native skills pass through, EmbRouter skills converted to tools
+    - For non-Anthropic models: EmbRouter skills are converted to tools + execute_code tool
 
     Post-call (async_post_call_success_deployment_hook):
-    - If response has litellm_code_execution tool call, automatically execute code
+    - If response has embrouter_code_execution tool call, automatically execute code
     - Continue conversation loop until model gives final response
     - Return response with generated files inline
 
-    This hook is called automatically by litellm during completion calls.
+    This hook is called automatically by embrouter during completion calls.
     """
 
     def __init__(self, **kwargs):
-        from litellm.llms.litellm_proxy.skills.constants import (
+        from embrouter.llms.embrouter_proxy.skills.constants import (
             DEFAULT_MAX_ITERATIONS,
             DEFAULT_SANDBOX_TIMEOUT,
         )
@@ -126,10 +126,10 @@ class SkillsInjectionHook(CustomLogger):
         Process skills from container.skills before the LLM call.
 
         1. Check if container.skills exists in request
-        2. Separate skills by prefix (litellm_skill_ vs native)
-        3. Fetch LiteLLM skills from database
+        2. Separate skills by prefix (embrouter_skill_ vs native)
+        3. Fetch EmbRouter skills from database
         4. For Anthropic: keep native skills in container
-        5. For non-Anthropic: convert LiteLLM skills to tools, inject content, add execute_code
+        5. For non-Anthropic: convert EmbRouter skills to tools, inject content, add execute_code
         """
         # Only process completion-type calls
         if call_type not in ["completion", "acompletion", "anthropic_messages"]:
@@ -145,7 +145,7 @@ class SkillsInjectionHook(CustomLogger):
 
         verbose_proxy_logger.debug("SkillsInjectionHook: Processing %s skills", len(skills))
 
-        litellm_skills: Final[list[LiteLLM_SkillsTable]] = []
+        embrouter_skills: Final[list[EmbRouter_SkillsTable]] = []
         anthropic_skills: Final[list[dict[str, object]]] = []
 
         # Separate skills by prefix
@@ -154,16 +154,16 @@ class SkillsInjectionHook(CustomLogger):
                 continue
 
             skill_id = skill.get("skill_id", "")
-            if skill_id.startswith(LITELLM_SKILL_ID_PREFIX):
-                # Fetch from LiteLLM DB
+            if skill_id.startswith(EMBROUTER_SKILL_ID_PREFIX):
+                # Fetch from EmbRouter DB
                 db_skill = await self._fetch_skill_from_db(
                     skill_id,
                     user_api_key_dict=user_api_key_dict,
                 )
                 if db_skill:
-                    litellm_skills.append(db_skill)
+                    embrouter_skills.append(db_skill)
                 else:
-                    verbose_proxy_logger.warning("SkillsInjectionHook: Skill '%s' not found in LiteLLM DB", skill_id)
+                    verbose_proxy_logger.warning("SkillsInjectionHook: Skill '%s' not found in EmbRouter DB", skill_id)
             else:
                 # Native Anthropic skill - pass through
                 anthropic_skills.append(skill)
@@ -172,10 +172,10 @@ class SkillsInjectionHook(CustomLogger):
         # Messages API always uses Anthropic-style tool format
         use_anthropic_format: Final = call_type == "anthropic_messages"
 
-        if len(litellm_skills) > 0:
+        if len(embrouter_skills) > 0:
             data = self._process_for_messages_api(
                 data=data,
-                litellm_skills=litellm_skills,
+                embrouter_skills=embrouter_skills,
                 use_anthropic_format=use_anthropic_format,
             )
 
@@ -184,7 +184,7 @@ class SkillsInjectionHook(CustomLogger):
     def _process_for_messages_api(
         self,
         data: dict,
-        litellm_skills: list[LiteLLM_SkillsTable],
+        embrouter_skills: list[EmbRouter_SkillsTable],
         use_anthropic_format: bool = True,
     ) -> dict:
         """
@@ -192,11 +192,11 @@ class SkillsInjectionHook(CustomLogger):
 
         - Converts skills to Anthropic-style tools (name, description, input_schema)
         - Extracts and injects SKILL.md content into system prompt
-        - Adds litellm_code_execution tool for code execution
+        - Adds embrouter_code_execution tool for code execution
         - Stores skill files in metadata for sandbox execution
         """
-        from litellm.llms.litellm_proxy.skills.code_execution import (
-            get_litellm_code_execution_tool_anthropic,
+        from embrouter.llms.embrouter_proxy.skills.code_execution import (
+            get_embrouter_code_execution_tool_anthropic,
         )
 
         tools: Final = data.get("tools", [])
@@ -204,7 +204,7 @@ class SkillsInjectionHook(CustomLogger):
         all_skill_files: Final[dict[str, dict[str, bytes]]] = {}
         all_module_paths: Final[list[str]] = []
 
-        for skill in litellm_skills:
+        for skill in embrouter_skills:
             # Convert skill to Anthropic-style tool
             tools.append(self.prompt_handler.convert_skill_to_anthropic_tool(skill))
 
@@ -231,22 +231,22 @@ class SkillsInjectionHook(CustomLogger):
                 data, skill_contents, use_anthropic_format=use_anthropic_format
             )
 
-        # Add litellm_code_execution tool if we have skill files
+        # Add embrouter_code_execution tool if we have skill files
         if all_skill_files:
-            code_exec_tool: Final = get_litellm_code_execution_tool_anthropic()
+            code_exec_tool: Final = get_embrouter_code_execution_tool_anthropic()
             data["tools"] = data.get("tools", []) + [code_exec_tool]
 
-            # Store skill files in litellm_metadata for automatic code execution
-            data["litellm_metadata"] = data.get("litellm_metadata", {})
-            data["litellm_metadata"]["_skill_files"] = all_skill_files
-            data["litellm_metadata"]["_litellm_code_execution_enabled"] = True
+            # Store skill files in embrouter_metadata for automatic code execution
+            data["embrouter_metadata"] = data.get("embrouter_metadata", {})
+            data["embrouter_metadata"]["_skill_files"] = all_skill_files
+            data["embrouter_metadata"]["_embrouter_code_execution_enabled"] = True
 
         # Remove container (not supported by underlying providers)
         data.pop("container", None)
 
         verbose_proxy_logger.debug(
-            "SkillsInjectionHook: Messages API - converted %s skills to Anthropic tools, injected %s skill contents, added litellm_code_execution tool with %s modules",
-            len(litellm_skills),
+            "SkillsInjectionHook: Messages API - converted %s skills to Anthropic tools, injected %s skill contents, added embrouter_code_execution tool with %s modules",
+            len(embrouter_skills),
             len(skill_contents),
             len(all_module_paths),
         )
@@ -256,7 +256,7 @@ class SkillsInjectionHook(CustomLogger):
     def _process_non_anthropic_model(
         self,
         data: dict,
-        litellm_skills: list[LiteLLM_SkillsTable],
+        embrouter_skills: list[EmbRouter_SkillsTable],
     ) -> dict:
         """
         Process skills for non-Anthropic models (OpenAI format tools).
@@ -271,7 +271,7 @@ class SkillsInjectionHook(CustomLogger):
         all_skill_files: Final[dict[str, dict[str, bytes]]] = {}
         all_module_paths: Final[list[str]] = []
 
-        for skill in litellm_skills:
+        for skill in embrouter_skills:
             # Convert skill to OpenAI-style tool
             tools.append(self.prompt_handler.convert_skill_to_tool(skill))
 
@@ -296,26 +296,26 @@ class SkillsInjectionHook(CustomLogger):
         if skill_contents:
             data = self.prompt_handler.inject_skill_content_to_messages(data, skill_contents)
 
-        # Add litellm_code_execution tool if we have skill files
+        # Add embrouter_code_execution tool if we have skill files
         if all_skill_files:
-            from litellm.llms.litellm_proxy.skills.code_execution import (
-                get_litellm_code_execution_tool,
+            from embrouter.llms.embrouter_proxy.skills.code_execution import (
+                get_embrouter_code_execution_tool,
             )
 
-            data["tools"] = data.get("tools", []) + [get_litellm_code_execution_tool()]
+            data["tools"] = data.get("tools", []) + [get_embrouter_code_execution_tool()]
 
-            # Store skill files in litellm_metadata for automatic code execution
-            # Using litellm_metadata instead of metadata to avoid conflicts with user metadata
-            data["litellm_metadata"] = data.get("litellm_metadata", {})
-            data["litellm_metadata"]["_skill_files"] = all_skill_files
-            data["litellm_metadata"]["_litellm_code_execution_enabled"] = True
+            # Store skill files in embrouter_metadata for automatic code execution
+            # Using embrouter_metadata instead of metadata to avoid conflicts with user metadata
+            data["embrouter_metadata"] = data.get("embrouter_metadata", {})
+            data["embrouter_metadata"]["_skill_files"] = all_skill_files
+            data["embrouter_metadata"]["_embrouter_code_execution_enabled"] = True
 
         # Remove container for non-Anthropic (they don't support it)
         data.pop("container", None)
 
         verbose_proxy_logger.debug(
             "SkillsInjectionHook: Non-Anthropic model - converted %s skills to tools, injected %s skill contents, added execute_code tool with %s modules",
-            len(litellm_skills),
+            len(embrouter_skills),
             len(skill_contents),
             len(all_module_paths),
         )
@@ -326,20 +326,20 @@ class SkillsInjectionHook(CustomLogger):
         self,
         skill_id: str,
         user_api_key_dict: UserAPIKeyAuth,
-    ) -> LiteLLM_SkillsTable | None:
+    ) -> EmbRouter_SkillsTable | None:
         """
-        Fetch a skill from the LiteLLM database.
+        Fetch a skill from the EmbRouter database.
 
         Args:
-            skill_id: The skill ID (including the 'litellm_skill_' prefix)
+            skill_id: The skill ID (including the 'embrouter_skill_' prefix)
 
         Returns:
-            LiteLLM_SkillsTable or None if not found
+            EmbRouter_SkillsTable or None if not found
         """
         try:
-            from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+            from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
-            return await LiteLLMSkillsHandler.fetch_skill_from_db(
+            return await EmbRouterSkillsHandler.fetch_skill_from_db(
                 skill_id,
                 user_api_key_dict=user_api_key_dict,
             )
@@ -358,7 +358,7 @@ class SkillsInjectionHook(CustomLogger):
             True if Anthropic model, False otherwise
         """
         try:
-            from litellm.litellm_core_utils.get_llm_provider_logic import (
+            from embrouter.embrouter_core_utils.get_llm_provider_logic import (
                 get_llm_provider,
             )
 
@@ -380,29 +380,29 @@ class SkillsInjectionHook(CustomLogger):
         Handles both OpenAI format (response.choices) and Anthropic/messages API
         format (response["content"]).
 
-        If the response contains a tool call (litellm_code_execution or skill tool):
+        If the response contains a tool call (embrouter_code_execution or skill tool):
         1. Execute the code in sandbox
         2. Add result to messages
         3. Make another LLM call
         4. Repeat until model gives final response
         5. Return modified response with generated files
         """
-        from litellm.llms.litellm_proxy.skills.code_execution import (
-            LiteLLMInternalTools,
+        from embrouter.llms.embrouter_proxy.skills.code_execution import (
+            EmbRouterInternalTools,
         )
 
         # Check if code execution is enabled for this request
-        litellm_metadata: Final = request_data.get("litellm_metadata") or {}
+        embrouter_metadata: Final = request_data.get("embrouter_metadata") or {}
         metadata: Final = request_data.get("metadata") or {}
 
-        code_exec_enabled: Final = litellm_metadata.get("_litellm_code_execution_enabled") or metadata.get(
-            "_litellm_code_execution_enabled"
+        code_exec_enabled: Final = embrouter_metadata.get("_embrouter_code_execution_enabled") or metadata.get(
+            "_embrouter_code_execution_enabled"
         )
         if not code_exec_enabled:
             return None
 
         # Get skill files
-        skill_files_by_id: Final = litellm_metadata.get("_skill_files") or metadata.get("_skill_files", {})
+        skill_files_by_id: Final = embrouter_metadata.get("_skill_files") or metadata.get("_skill_files", {})
         all_skill_files: Final[dict[str, bytes]] = {}
         for files_dict in skill_files_by_id.values():
             all_skill_files.update(files_dict)
@@ -416,12 +416,12 @@ class SkillsInjectionHook(CustomLogger):
         if not tool_calls:
             return None
 
-        # Check if any tool call needs execution (litellm_code_execution or skill tool)
+        # Check if any tool call needs execution (embrouter_code_execution or skill tool)
         has_executable_tool = False
         for tc in tool_calls:
             tool_name: str = tc.get("name", "")
-            # Execute if it's litellm_code_execution OR a skill tool (litellm_skill_xxx)
-            if tool_name == LiteLLMInternalTools.CODE_EXECUTION.value or tool_name.startswith(LITELLM_SKILL_ID_PREFIX):
+            # Execute if it's embrouter_code_execution OR a skill tool (embrouter_skill_xxx)
+            if tool_name == EmbRouterInternalTools.CODE_EXECUTION.value or tool_name.startswith(EMBROUTER_SKILL_ID_PREFIX):
                 has_executable_tool = True
                 break
 
@@ -494,10 +494,10 @@ class SkillsInjectionHook(CustomLogger):
 
         Returns the final response with generated files inline.
         """
-        from litellm.llms.litellm_proxy.skills.code_execution import (
-            LiteLLMInternalTools,
+        from embrouter.llms.embrouter_proxy.skills.code_execution import (
+            EmbRouterInternalTools,
         )
-        from litellm.llms.litellm_proxy.skills.sandbox_executor import (
+        from embrouter.llms.embrouter_proxy.skills.sandbox_executor import (
             SkillsSandboxExecutor,
         )
 
@@ -561,11 +561,11 @@ class SkillsInjectionHook(CustomLogger):
                 tool_id = tc.get("id", "")
                 tool_input: Mapping[str, str] = tc.get("input", {})
 
-                # Execute if it's litellm_code_execution OR a skill tool
-                if tool_name == LiteLLMInternalTools.CODE_EXECUTION.value:
+                # Execute if it's embrouter_code_execution OR a skill tool
+                if tool_name == EmbRouterInternalTools.CODE_EXECUTION.value:
                     code = tool_input.get("code", "")
                     result = await self._execute_code(code, skill_files, executor, generated_files)
-                elif tool_name.startswith(LITELLM_SKILL_ID_PREFIX):
+                elif tool_name.startswith(EMBROUTER_SKILL_ID_PREFIX):
                     # Skill tool - execute the skill's code
                     result = await self._execute_skill_tool(
                         tool_name, tool_input, skill_files, executor, generated_files
@@ -587,7 +587,7 @@ class SkillsInjectionHook(CustomLogger):
             # Make next LLM call
             verbose_proxy_logger.debug("SkillsInjectionHook: Making LLM call iteration %s", iteration + 2)
             try:
-                current_response = await litellm.anthropic.acreate(
+                current_response = await embrouter.anthropic.acreate(
                     model=model,
                     messages=messages,
                     tools=tools,
@@ -723,10 +723,10 @@ print('No executable skill module found')
 
         Returns the final response with generated files inline.
         """
-        from litellm.llms.litellm_proxy.skills.code_execution import (
-            LiteLLMInternalTools,
+        from embrouter.llms.embrouter_proxy.skills.code_execution import (
+            EmbRouterInternalTools,
         )
-        from litellm.llms.litellm_proxy.skills.sandbox_executor import (
+        from embrouter.llms.embrouter_proxy.skills.sandbox_executor import (
             SkillsSandboxExecutor,
         )
 
@@ -735,14 +735,14 @@ print('No executable skill module found')
         tools: Final = data.get("tools", [])
 
         # Keys to exclude when passing through to acompletion
-        # These are either handled explicitly or are internal LiteLLM fields
+        # These are either handled explicitly or are internal EmbRouter fields
         _EXCLUDED_ACOMPLETION_KEYS: Final = frozenset(
             {
                 "messages",
                 "model",
                 "tools",
                 "metadata",
-                "litellm_metadata",
+                "embrouter_metadata",
                 "container",
             }
         )
@@ -792,7 +792,7 @@ print('No executable skill module found')
             for tool_call in assistant_message.tool_calls:
                 tool_name = tool_call.function.name
 
-                if tool_name == LiteLLMInternalTools.CODE_EXECUTION.value:
+                if tool_name == EmbRouterInternalTools.CODE_EXECUTION.value:
                     tool_result = await self._execute_code_tool(
                         tool_call=tool_call,
                         skill_files=skill_files,
@@ -813,7 +813,7 @@ print('No executable skill module found')
 
             # Make next LLM call using the messages API
             verbose_proxy_logger.debug("SkillsInjectionHook: Making LLM call iteration %s", iteration + 2)
-            current_response = await litellm.anthropic.acreate(
+            current_response = await embrouter.anthropic.acreate(
                 model=model,
                 messages=messages,
                 tools=tools,
@@ -831,7 +831,7 @@ print('No executable skill module found')
         executor: "SkillsSandboxExecutor",
         generated_files: list[dict[str, object]],
     ) -> str:
-        """Execute a litellm_code_execution tool call and return result string."""
+        """Execute a embrouter_code_execution tool call and return result string."""
         try:
             args: Final[Mapping[str, str]] = json.loads(tool_call.function.arguments)
             code: Final[str] = args.get("code", "")
@@ -883,7 +883,7 @@ print('No executable skill module found')
         """
         Attach generated files to the response object.
 
-        Files are added to response._litellm_generated_files for easy access.
+        Files are added to response._embrouter_generated_files for easy access.
         For dict responses, files are added as a key.
         """
         if not generated_files:
@@ -893,13 +893,13 @@ print('No executable skill module found')
 
         # Handle dict response (Anthropic/messages API format)
         if isinstance(response, dict):
-            response["_litellm_generated_files"] = generated_files
+            response["_embrouter_generated_files"] = generated_files
             verbose_proxy_logger.debug("SkillsInjectionHook: Attached %s files to dict response", len(generated_files))
             return raw_response
 
         # Handle object response (OpenAI format)
         try:
-            response._litellm_generated_files = generated_files
+            response._embrouter_generated_files = generated_files
         except AttributeError:
             pass
 
@@ -907,7 +907,7 @@ print('No executable skill module found')
         if hasattr(response, "model_extra"):
             if response.model_extra is None:
                 response.model_extra = {}
-            response.model_extra["_litellm_generated_files"] = generated_files
+            response.model_extra["_embrouter_generated_files"] = generated_files
 
         verbose_proxy_logger.debug("SkillsInjectionHook: Attached %s files to response", len(generated_files))
 

@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGatewayRequests" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGatewayRequests" (
     "date" TEXT NOT NULL,
     "category" TEXT NOT NULL,
     "route" TEXT NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGatewayRequests" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyGatewayRequests_pkey" PRIMARY KEY ("date","category","route")
+    CONSTRAINT "EmbRouter_DailyGatewayRequests_pkey" PRIMARY KEY ("date","category","route")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyGatewayRequests_date_idx" ON "LiteLLM_DailyGatewayRequests"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGatewayRequests_date_idx" ON "EmbRouter_DailyGatewayRequests"("date");

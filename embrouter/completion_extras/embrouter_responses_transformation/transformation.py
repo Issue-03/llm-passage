@@ -1,5 +1,5 @@
 """
-Handler for transforming /chat/completions api requests to litellm.responses requests
+Handler for transforming /chat/completions api requests to embrouter.responses requests
 """
 
 import json
@@ -21,23 +21,23 @@ from openai.types.responses.tool_choice_function_param import ToolChoiceFunction
 from openai.types.responses.tool_param import FunctionToolParam
 from pydantic import BaseModel
 
-import litellm
-from litellm import ModelResponse
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter import ModelResponse
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     responses_reasoning_items_from_thinking_blocks,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.bridges.completion_transformation import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.bridges.completion_transformation import (
     CompletionTransformationBridge,
 )
-from litellm.responses.sse_output_recovery import (
+from embrouter.responses.sse_output_recovery import (
     parse_sse_json_chunk,
     record_output_item_chunk,
     record_output_text_chunk,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils, normalize_responses_api_stream_options
-from litellm.types.llms.openai import (
+from embrouter.responses.utils import ResponsesAPIRequestUtils, normalize_responses_api_stream_options
+from embrouter.types.llms.openai import (
     ChatCompletionAnnotation,
     ChatCompletionReasoningItem,
     ChatCompletionToolCallChunk,
@@ -48,7 +48,7 @@ from litellm.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.utils import GenericStreamingChunk, ModelResponseStream
+from embrouter.types.utils import GenericStreamingChunk, ModelResponseStream
 
 if TYPE_CHECKING:
     from openai.types.responses import ResponseInputImageParam, ResponseOutputItem
@@ -57,9 +57,9 @@ if TYPE_CHECKING:
     )
     from pydantic import BaseModel
 
-    from litellm import LiteLLMLoggingObj
-    from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-    from litellm.types.llms.openai import (
+    from embrouter import EmbRouterLoggingObj
+    from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+    from embrouter.types.llms.openai import (
         ALL_RESPONSES_API_TOOL_PARAMS,
         AllMessageValues,
         ChatCompletionFileObject,
@@ -69,7 +69,7 @@ if TYPE_CHECKING:
         ChatCompletionToolReferenceObject,
         OpenAIMessageContentListBlock,
     )
-    from litellm.types.utils import Choices
+    from embrouter.types.utils import Choices
 
 
 _CHAT_COMPLETION_FIELDS: Final = frozenset((*ModelResponse.model_fields, "usage"))
@@ -234,8 +234,8 @@ def tool_call_dict_from_output_item(item: Mapping[str, Any], index: int) -> _Cha
     ``function.arguments`` so chat clients (e.g. Cursor agent mode) receive them like
     any other tool call. The single conversion rule shared by the non-streaming
     accumulator and the streaming ``output_item.added`` branch."""
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     item_type: Final[object] = item.get("type")
@@ -244,7 +244,7 @@ def tool_call_dict_from_output_item(item: Mapping[str, Any], index: int) -> _Cha
     name: Final = item.get("name") or ("custom_tool" if is_custom else "")
     function_chunk: Final = ChatCompletionToolCallFunctionChunk(name=name, arguments=arguments)
     tool_call_dict: Final = _ChatToolCallDict(
-        id=LiteLLMCompletionResponsesConfig._tool_call_id_from_responses_item(item.get("id"), item.get("call_id")),
+        id=EmbRouterCompletionResponsesConfig._tool_call_id_from_responses_item(item.get("id"), item.get("call_id")),
         type="function",
         function=function_chunk,
         index=index,
@@ -283,9 +283,9 @@ def _reasoning_item_to_response_input(
     return r_input
 
 
-class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
+class EmbRouterResponsesTransformationHandler(CompletionTransformationBridge):
     """
-    Handler for transforming /chat/completions api requests to litellm.responses requests
+    Handler for transforming /chat/completions api requests to embrouter.responses requests
     """
 
     def __init__(self):
@@ -323,7 +323,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         Returns:
             Tuple of (Choice object or None, updated index)
         """
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         item_type: Final = item.get("type")
 
@@ -340,7 +340,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                     if content_type == "output_text":
                         response_text = content_item.get("text", "")
                         # Extract annotations from content if present
-                        annotations = LiteLLMResponsesTransformationHandler._convert_annotations_to_chat_format(
+                        annotations = EmbRouterResponsesTransformationHandler._convert_annotations_to_chat_format(
                             content_item.get("annotations", None)
                         )
                         msg = Message(
@@ -538,23 +538,23 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
             {**existing, **update},  # mutable-ok: one-shot merged payload
         )
 
-    def _build_sanitized_litellm_params(self, litellm_params: dict) -> dict[str, object]:
-        """Build sanitized litellm_params with merged metadata."""
+    def _build_sanitized_embrouter_params(self, embrouter_params: dict) -> dict[str, object]:
+        """Build sanitized embrouter_params with merged metadata."""
         responses_optional_param_keys: Final = set(ResponsesAPIOptionalRequestParams.__annotations__.keys())
         sanitized: Final[dict[str, object]] = {
-            key: value for key, value in litellm_params.items() if key not in responses_optional_param_keys
+            key: value for key, value in embrouter_params.items() if key not in responses_optional_param_keys
         }
-        legacy_metadata: Final = litellm_params.get("metadata")
-        existing_litellm_metadata: Final = litellm_params.get("litellm_metadata")
-        merged_litellm_metadata: Final[dict[str, object]] = {}
+        legacy_metadata: Final = embrouter_params.get("metadata")
+        existing_embrouter_metadata: Final = embrouter_params.get("embrouter_metadata")
+        merged_embrouter_metadata: Final[dict[str, object]] = {}
         if isinstance(legacy_metadata, dict):
-            merged_litellm_metadata.update(legacy_metadata)
-        if isinstance(existing_litellm_metadata, dict):
-            merged_litellm_metadata.update(existing_litellm_metadata)
-        if merged_litellm_metadata:
-            sanitized["litellm_metadata"] = merged_litellm_metadata
+            merged_embrouter_metadata.update(legacy_metadata)
+        if isinstance(existing_embrouter_metadata, dict):
+            merged_embrouter_metadata.update(existing_embrouter_metadata)
+        if merged_embrouter_metadata:
+            sanitized["embrouter_metadata"] = merged_embrouter_metadata
         else:
-            sanitized.pop("litellm_metadata", None)
+            sanitized.pop("embrouter_metadata", None)
         return sanitized
 
     def _merge_responses_api_request_into_request_data(
@@ -583,9 +583,9 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         model: str,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         client: object | None = None,
     ) -> dict:
         (
@@ -618,7 +618,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
 
         self._map_optional_params_to_responses_api_request(optional_params, responses_api_request)
 
-        stream: Final = optional_params.get("stream") or litellm_params.get("stream", False)
+        stream: Final = optional_params.get("stream") or embrouter_params.get("stream", False)
         verbose_logger.debug("Chat provider: Stream parameter: %s", stream)
 
         # Ensure stream is properly set in the request
@@ -635,17 +635,17 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
 
         api_model: Final = model
 
-        from litellm.types.utils import CallTypes
+        from embrouter.types.utils import CallTypes
 
-        setattr(litellm_logging_obj, "call_type", CallTypes.responses.value)
+        setattr(embrouter_logging_obj, "call_type", CallTypes.responses.value)
 
-        sanitized_litellm_params: Final = self._build_sanitized_litellm_params(litellm_params)
+        sanitized_embrouter_params: Final = self._build_sanitized_embrouter_params(embrouter_params)
 
         request_data: Final = {
             "model": api_model,
             "input": input_items,
-            "litellm_logging_obj": litellm_logging_obj,
-            **sanitized_litellm_params,
+            "embrouter_logging_obj": embrouter_logging_obj,
+            **sanitized_embrouter_params,
             "client": client,
         }
 
@@ -686,7 +686,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         except ImportError:
             ResponseApplyPatchToolCall = None
 
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         choices: Final[list[Choices]] = []
         index = 0
@@ -712,7 +712,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                     response_text = getattr(content, "text", "")
                     # Extract annotations from content if present
                     raw_annotations = getattr(content, "annotations", None)
-                    annotations = LiteLLMResponsesTransformationHandler._convert_annotations_to_chat_format(
+                    annotations = EmbRouterResponsesTransformationHandler._convert_annotations_to_chat_format(
                         raw_annotations
                     )
                     msg = Message(
@@ -739,12 +739,12 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                     index += 1
 
             elif isinstance(item, ResponseFunctionToolCall):
-                from litellm.responses.litellm_completion_transformation.transformation import (
-                    LiteLLMCompletionResponsesConfig,
+                from embrouter.responses.embrouter_completion_transformation.transformation import (
+                    EmbRouterCompletionResponsesConfig,
                 )
 
                 tool_call_dict = (
-                    LiteLLMCompletionResponsesConfig.convert_response_function_tool_call_to_chat_completion_tool_call(
+                    EmbRouterCompletionResponsesConfig.convert_response_function_tool_call_to_chat_completion_tool_call(
                         tool_call_item=item,
                         index=tool_call_index,
                     )
@@ -753,12 +753,12 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                 tool_call_index += 1
 
             elif ResponseApplyPatchToolCall is not None and isinstance(item, ResponseApplyPatchToolCall):
-                from litellm.responses.litellm_completion_transformation.transformation import (
-                    LiteLLMCompletionResponsesConfig,
+                from embrouter.responses.embrouter_completion_transformation.transformation import (
+                    EmbRouterCompletionResponsesConfig,
                 )
 
                 tool_call_dict = (
-                    LiteLLMCompletionResponsesConfig.convert_apply_patch_tool_call_to_chat_completion_tool_call(
+                    EmbRouterCompletionResponsesConfig.convert_apply_patch_tool_call_to_chat_completion_tool_call(
                         tool_call_item=item,
                         index=tool_call_index,
                     )
@@ -768,7 +768,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
 
             elif isinstance(item, (dict, BaseModel)):
                 # Raw dict items (e.g., from GPT-5 Codex) and pydantic items matching no
-                # openai SDK class above: typed ResponseCustomToolCall and litellm's own
+                # openai SDK class above: typed ResponseCustomToolCall and embrouter's own
                 # GenericResponseOutputItem from the completion bridge both land here
                 raw_item = item if isinstance(item, dict) else item.model_dump()
                 if raw_item.get("type") in ("function_call", "custom_tool_call"):
@@ -806,7 +806,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         output_items: Sequence[object],
         finish_reason: Literal["length", "content_filter"],
     ) -> "Choices":
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         reasoning_items: Final = _reasoning_items_from_output_items(output_items)
         reasoning_content: Final = " ".join(
@@ -882,7 +882,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         return []
 
     @classmethod
-    def _recover_output_items_from_logging(cls, logging_obj: "LiteLLMLoggingObj") -> list[dict[str, object]]:
+    def _recover_output_items_from_logging(cls, logging_obj: "EmbRouterLoggingObj") -> list[dict[str, object]]:
         model_call_details: Final = getattr(logging_obj, "model_call_details", {}) or {}
         original_response: Final = model_call_details.get("original_response")
         return cls._recover_output_items_from_raw_sse(original_response)
@@ -892,18 +892,18 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         model: str,
         raw_response: "BaseModel",
         model_response: "ModelResponse",
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> "ModelResponse":
         """Transform Responses API response to chat completion response"""
-        from litellm.responses.utils import ResponseAPILoggingUtils
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.responses.utils import ResponseAPILoggingUtils
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         if not isinstance(raw_response, ResponsesAPIResponse):
             raise ValueError(f"Unexpected response type: {type(raw_response)}")
@@ -1038,7 +1038,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
         role: str,
     ) -> list[dict[str, object]]:
         """Convert chat completion content to responses API format"""
-        from litellm.types.llms.openai import ChatCompletionImageObject
+        from embrouter.types.llms.openai import ChatCompletionImageObject
 
         verbose_logger.debug("Chat provider: Converting content to responses format - input type: %s", type(content))
 
@@ -1133,7 +1133,7 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
                     )
                 )
             elif tool.get("type") == "custom" and isinstance(custom_payload := tool.get("custom"), dict):
-                from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                     convert_custom_tool_format_to_responses_shape,
                 )
 
@@ -1185,9 +1185,9 @@ class LiteLLMResponsesTransformationHandler(CompletionTransformationBridge):
             )
 
         # Check if auto-summary is enabled via flag or environment variable
-        # Priority: litellm.reasoning_auto_summary flag > LITELLM_REASONING_AUTO_SUMMARY env var
+        # Priority: embrouter.reasoning_auto_summary flag > EMBROUTER_REASONING_AUTO_SUMMARY env var
         auto_summary_enabled: Final = (
-            litellm.reasoning_auto_summary or os.getenv("LITELLM_REASONING_AUTO_SUMMARY", "false").lower() == "true"
+            embrouter.reasoning_auto_summary or os.getenv("EMBROUTER_REASONING_AUTO_SUMMARY", "false").lower() == "true"
         )
 
         return (
@@ -1390,8 +1390,8 @@ class OpenAiResponsesToChatCompletionStreamIterator(BaseModelResponseIterator):
         Raises:
             ValueError: If chunk is invalid or missing required fields
         """
-        from litellm.types.llms.openai import ChatCompletionToolCallFunctionChunk
-        from litellm.types.utils import (
+        from embrouter.types.llms.openai import ChatCompletionToolCallFunctionChunk
+        from embrouter.types.utils import (
             ChatCompletionToolCallChunk,
             Delta,
             ModelResponseStream,
@@ -1595,7 +1595,7 @@ class OpenAiResponsesToChatCompletionStreamIterator(BaseModelResponseIterator):
 
             usage = None
             if response_data.get("usage"):
-                from litellm.responses.utils import ResponseAPILoggingUtils
+                from embrouter.responses.utils import ResponseAPILoggingUtils
 
                 usage = ResponseAPILoggingUtils._transform_response_api_usage_to_chat_usage(response_data.get("usage"))
             provider_metadata: Final = _provider_metadata(response_data)

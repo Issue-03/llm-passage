@@ -2,7 +2,7 @@
 
 import pytest
 
-from litellm.llms.watsonx.embed.transformation import IBMWatsonXEmbeddingConfig
+from embrouter.llms.watsonx.embed.transformation import IBMWatsonXEmbeddingConfig
 
 
 class TestIBMWatsonXEmbeddingConfig:

@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.constants import (
+from embrouter.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
 )
-from litellm.llms.hosted_vllm.chat.transformation import HostedVLLMChatConfig
+from embrouter.llms.hosted_vllm.chat.transformation import HostedVLLMChatConfig
 
 
 def test_hosted_vllm_chat_transformation_file_url():
@@ -32,7 +32,7 @@ def test_hosted_vllm_chat_transformation_file_url():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert transformed_response["messages"] == [
@@ -146,7 +146,7 @@ def test_hosted_vllm_reasoning_content_kept_and_thinking_blocks_removed():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][1]
@@ -178,7 +178,7 @@ def test_hosted_vllm_forwards_only_string_reasoning_content(reasoning_content, e
             {"role": "user", "content": "Again"},
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][1]
@@ -214,7 +214,7 @@ def test_hosted_vllm_thinking_blocks_with_list_content():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assistant_msg = transformed["messages"][0]
@@ -240,7 +240,7 @@ def test_hosted_vllm_assistant_structured_content_is_preserved():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -271,7 +271,7 @@ def test_hosted_vllm_assistant_tool_use_content_becomes_tool_calls():
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -319,7 +319,7 @@ def test_hosted_vllm_assistant_tool_use_does_not_duplicate_existing_tool_calls()
         model="hosted_vllm/llama-3.1-70b-instruct",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

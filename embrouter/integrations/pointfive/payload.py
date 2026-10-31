@@ -5,8 +5,8 @@ from collections.abc import Iterator, Mapping, Sequence
 from itertools import accumulate, groupby, islice
 from typing import Final
 
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
 _NEWLINE_BYTES: Final = 1
 

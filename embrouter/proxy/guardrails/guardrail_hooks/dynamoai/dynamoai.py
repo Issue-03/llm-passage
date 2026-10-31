@@ -12,37 +12,37 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.proxy.guardrails.guardrail_hooks.dynamoai import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.proxy.guardrails.guardrail_hooks.dynamoai import (
     DynamoAIProcessedResult,
     DynamoAIRequest,
     DynamoAIResponse,
 )
-from litellm.types.utils import CallTypesLiteral, GuardrailStatus, ModelResponseStream
+from embrouter.types.utils import CallTypesLiteral, GuardrailStatus, ModelResponseStream
 
 GUARDRAIL_NAME: Final = "dynamoai"
 
 
 class DynamoAIGuardrails(CustomGuardrail):
     """
-    DynamoAI Guardrails integration for LiteLLM.
+    DynamoAI Guardrails integration for EmbRouter.
 
     Provides content moderation and policy enforcement using DynamoAI's guardrail API.
     """
 
     def __init__(
         self,
-        guardrail_name: str = "litellm_test",
+        guardrail_name: str = "embrouter_test",
         api_key: str | None = None,
         api_base: str | None = None,
         model_id: str = "",
@@ -299,7 +299,7 @@ class DynamoAIGuardrails(CustomGuardrail):
         """
         verbose_proxy_logger.debug("Running DynamoAI pre-call hook")
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -344,7 +344,7 @@ class DynamoAIGuardrails(CustomGuardrail):
 
         This can NOT modify the input, only used to reject or accept a call before going to LLM API
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -390,10 +390,10 @@ class DynamoAIGuardrails(CustomGuardrail):
 
         Uses DynamoAI guardrails to check the response for policy violations
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         if self.should_run_guardrail(data=data, event_type=GuardrailEventHooks.post_call) is not True:
             return
@@ -402,12 +402,12 @@ class DynamoAIGuardrails(CustomGuardrail):
 
         # Check if the ModelResponse has text content in its choices
         # to avoid sending empty content to DynamoAI (e.g., during tool calls)
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             has_text_content = False
             dynamoai_messages: Final[list[dict[str, str]]] = []
 
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     if choice.message.content and isinstance(choice.message.content, str):
                         has_text_content = True
                         dynamoai_messages.append(
@@ -461,7 +461,7 @@ class DynamoAIGuardrails(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.dynamoai import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.dynamoai import (
             DynamoAIGuardrailConfigModel,
         )
 

@@ -1,5 +1,5 @@
 """
-LiteLLM A2A Client class.
+EmbRouter A2A Client class.
 
 Provides a class-based interface for A2A agent invocation.
 """
@@ -7,7 +7,7 @@ Provides a class-based interface for A2A agent invocation.
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.agents import LiteLLMSendMessageResponse
+from embrouter.types.agents import EmbRouterSendMessageResponse
 
 if TYPE_CHECKING:
     from a2a.client import A2AClient as A2AClientType
@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
 class A2AClient:
     """
-    LiteLLM wrapper for A2A agent invocation.
+    EmbRouter wrapper for A2A agent invocation.
 
     Creates the underlying A2A client once on first use and reuses it.
 
     Example:
         ```python
-        from litellm.a2a_protocol import A2AClient
+        from embrouter.a2a_protocol import A2AClient
         from a2a.types import SendMessageRequest, MessageSendParams
         from uuid import uuid4
 
@@ -69,7 +69,7 @@ class A2AClient:
     async def _get_client(self) -> "A2AClientType":
         """Get or create the underlying A2A client."""
         if self._a2a_client is None:
-            from litellm.a2a_protocol.main import create_a2a_client
+            from embrouter.a2a_protocol.main import create_a2a_client
 
             self._a2a_client = await create_a2a_client(
                 base_url=self.base_url,
@@ -80,7 +80,7 @@ class A2AClient:
 
     async def get_agent_card(self) -> "AgentCard":
         """Fetch the agent card from the server."""
-        from litellm.a2a_protocol.main import aget_agent_card
+        from embrouter.a2a_protocol.main import aget_agent_card
 
         return await aget_agent_card(
             base_url=self.base_url,
@@ -88,9 +88,9 @@ class A2AClient:
             extra_headers=self.extra_headers,
         )
 
-    async def send_message(self, request: "SendMessageRequest") -> LiteLLMSendMessageResponse:
+    async def send_message(self, request: "SendMessageRequest") -> EmbRouterSendMessageResponse:
         """Send a message to the A2A agent."""
-        from litellm.a2a_protocol.main import asend_message
+        from embrouter.a2a_protocol.main import asend_message
 
         a2a_client: Final = await self._get_client()
         return await asend_message(a2a_client=a2a_client, request=request)
@@ -99,7 +99,7 @@ class A2AClient:
         self, request: "SendStreamingMessageRequest"
     ) -> AsyncIterator["SendStreamingMessageResponse"]:
         """Send a streaming message to the A2A agent."""
-        from litellm.a2a_protocol.main import asend_message_streaming
+        from embrouter.a2a_protocol.main import asend_message_streaming
 
         a2a_client: Final = await self._get_client()
         async for chunk in asend_message_streaming(a2a_client=a2a_client, request=request):

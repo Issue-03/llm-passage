@@ -14,20 +14,20 @@ from typing import Final, Literal
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.constants import (
     DEFAULT_PROMPT_INJECTION_SIMILARITY_THRESHOLD,
     PROMPT_INJECTION_HEURISTICS_MAX_THREADS,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     prompt_injection_detection_default_pt,
 )
-from litellm.proxy._types import LiteLLMPromptInjectionParams, UserAPIKeyAuth
-from litellm.router import Router
-from litellm.utils import get_formatted_prompt
+from embrouter.proxy._types import EmbRouterPromptInjectionParams, UserAPIKeyAuth
+from embrouter.router import Router
+from embrouter.utils import get_formatted_prompt
 
 HEURISTICS_EXECUTOR: Final = ThreadPoolExecutor(
     max_workers=PROMPT_INJECTION_HEURISTICS_MAX_THREADS, thread_name_prefix="prompt-injection-heuristics"
@@ -40,7 +40,7 @@ class _OPTIONAL_PromptInjectionDetection(CustomLogger):
     # Class variables or attributes
     def __init__(
         self,
-        prompt_injection_params: LiteLLMPromptInjectionParams | None = None,
+        prompt_injection_params: EmbRouterPromptInjectionParams | None = None,
     ):
         self.prompt_injection_params = prompt_injection_params
         self.llm_router: Router | None = None
@@ -82,7 +82,7 @@ class _OPTIONAL_PromptInjectionDetection(CustomLogger):
         elif level == "DEBUG":
             verbose_proxy_logger.debug(print_statement)
 
-        if litellm.set_verbose is True:
+        if embrouter.set_verbose is True:
             print(print_statement)  # noqa: T201
 
     def update_environment(self, router: Router | None = None):
@@ -213,7 +213,7 @@ class _OPTIONAL_PromptInjectionDetection(CustomLogger):
             raise e
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
             )
 
     async def async_moderation_hook(
@@ -265,7 +265,7 @@ class _OPTIONAL_PromptInjectionDetection(CustomLogger):
 
             self.print_verbose(f"Received LLM Moderation response: {response}")
             self.print_verbose(f"llm_api_fail_call_string: {self.prompt_injection_params.llm_api_fail_call_string}")
-            if isinstance(response, litellm.ModelResponse) and isinstance(response.choices[0], litellm.Choices):
+            if isinstance(response, embrouter.ModelResponse) and isinstance(response.choices[0], embrouter.Choices):
                 fail_call_string: Final = self.prompt_injection_params.llm_api_fail_call_string
                 content: Final = response.choices[0].message.content
                 if fail_call_string is not None and content is not None and fail_call_string in content:

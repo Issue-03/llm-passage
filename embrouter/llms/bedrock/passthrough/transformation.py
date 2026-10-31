@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Final, Optional, cast
 import httpx
 from httpx import Response
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig, PassthroughStreamCollector
-from litellm.types.utils import ModelResponseStream
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig, PassthroughStreamCollector
+from embrouter.types.utils import ModelResponseStream
 
 from ..base_aws_llm import BaseAWSLLM
 from ..common_utils import BedrockError, BedrockEventStreamDecoderBase, BedrockModelInfo
@@ -17,9 +17,9 @@ if TYPE_CHECKING:
     from botocore.eventstream import EventStreamMessage
     from httpx import URL
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-    from litellm.types.utils import CostResponseTypes
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+    from embrouter.types.utils import CostResponseTypes
 
 
 _TEXT_ONLY_DELTA_FIELDS: Final = frozenset({"content", "role"})
@@ -68,11 +68,11 @@ class _CoalescedChunks:
 
 
 def _translate_message(decoder: "AWSEventStreamDecoder", message: str) -> ModelResponseStream | None:
-    from litellm.litellm_core_utils.streaming_handler import (
+    from embrouter.embrouter_core_utils.streaming_handler import (
         convert_generic_chunk_to_model_response_stream,
         generic_chunk_has_all_required_fields,
     )
-    from litellm.types.utils import GenericStreamingChunk
+    from embrouter.types.utils import GenericStreamingChunk
 
     translated_chunk: Final = decoder._chunk_parser(chunk_data=json.loads(message))
     if isinstance(translated_chunk, ModelResponseStream):
@@ -83,13 +83,13 @@ def _translate_message(decoder: "AWSEventStreamDecoder", message: str) -> ModelR
 
 
 def _build_logged_response(
-    chunks: Sequence[ModelResponseStream], litellm_logging_obj: "LiteLLMLoggingObj"
+    chunks: Sequence[ModelResponseStream], embrouter_logging_obj: "EmbRouterLoggingObj"
 ) -> Optional["CostResponseTypes"]:
-    from litellm.main import stream_chunk_builder
+    from embrouter.main import stream_chunk_builder
 
     if len(chunks) == 0:
         return None
-    return stream_chunk_builder(chunks=list(chunks), logging_obj=litellm_logging_obj)
+    return stream_chunk_builder(chunks=list(chunks), logging_obj=embrouter_logging_obj)
 
 
 class BedrockEventStreamCollector:
@@ -120,8 +120,8 @@ class BedrockEventStreamCollector:
         if translated is not None:
             self._chunks.add(translated)
 
-    def build_logged_response(self, litellm_logging_obj: "LiteLLMLoggingObj") -> Optional["CostResponseTypes"]:
-        return _build_logged_response(self._chunks.chunks(), litellm_logging_obj)
+    def build_logged_response(self, embrouter_logging_obj: "EmbRouterLoggingObj") -> Optional["CostResponseTypes"]:
+        return _build_logged_response(self._chunks.chunks(), embrouter_logging_obj)
 
 
 class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamDecoderBase, BasePassthroughConfig):
@@ -154,7 +154,7 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
         """
         import re
 
-        from litellm.passthrough.utils import CommonUtils
+        from embrouter.passthrough.utils import CommonUtils
 
         # Create a temporary endpoint with the model_id to check if encoding is needed
         temp_endpoint: Final = f"/model/{model_id}/converse"
@@ -175,9 +175,9 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple["URL", str]:
-        optional_params: Final = litellm_params.copy()
+        optional_params: Final = embrouter_params.copy()
         model_id: Final = optional_params.get("model_id", None)
 
         aws_region_name: Final = self._get_aws_region_name(
@@ -209,18 +209,18 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
             endpoint_url,
         )
 
-    def get_bedrock_bearer_token(self, litellm_params: Mapping[str, object]) -> str | None:
+    def get_bedrock_bearer_token(self, embrouter_params: Mapping[str, object]) -> str | None:
         return None
 
     def sign_request(
         self,
         headers: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         request_data: dict | None,
         api_base: str,
         model: str | None = None,
     ) -> tuple[dict, bytes | None]:
-        optional_params: Final = litellm_params.copy()
+        optional_params: Final = embrouter_params.copy()
         return self._sign_request(
             service_name="bedrock",
             headers=headers,
@@ -240,9 +240,9 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
         logging_obj: Logging,
         endpoint: str,
     ) -> Optional["CostResponseTypes"]:
-        from litellm import encoding
-        from litellm.types.utils import LlmProviders, ModelResponse
-        from litellm.utils import ProviderConfigManager
+        from embrouter import encoding
+        from embrouter.types.utils import LlmProviders, ModelResponse
+        from embrouter.utils import ProviderConfigManager
 
         if "invoke" in endpoint:
             chat_config_model = "invoke/" + model
@@ -259,20 +259,20 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
         if provider_chat_config is None:
             raise ValueError(f"No provider config found for model: {model}")
 
-        litellm_model_response: Final[ModelResponse] = provider_chat_config.transform_response(
+        embrouter_model_response: Final[ModelResponse] = provider_chat_config.transform_response(
             model=model,
             messages=[{"role": "user", "content": "no-message-pass-through-endpoint"}],
             raw_response=httpx_response,
             model_response=ModelResponse(),
             logging_obj=logging_obj,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="",
             request_data=request_data,
             encoding=encoding,
         )
 
-        return litellm_model_response
+        return embrouter_model_response
 
     def create_stream_collector(
         self, model: str, custom_llm_provider: str, endpoint: str
@@ -283,8 +283,8 @@ class BedrockPassthroughConfig(BaseAWSLLM, BedrockModelInfo, BedrockEventStreamD
         )
 
     def _get_event_stream_decoder(self, model: str, endpoint: str) -> Optional["AWSEventStreamDecoder"]:
-        from litellm.llms.bedrock.chat import get_bedrock_event_stream_decoder
-        from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+        from embrouter.llms.bedrock.chat import get_bedrock_event_stream_decoder
+        from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
             AmazonInvokeConfig,
         )
 

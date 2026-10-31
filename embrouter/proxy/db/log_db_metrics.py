@@ -10,8 +10,8 @@ from datetime import datetime
 from functools import wraps
 from typing import Final
 
-from litellm._service_logger import ServiceTypes
-from litellm.litellm_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
+from embrouter._service_logger import ServiceTypes
+from embrouter.embrouter_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
 
 
 def _safe_db_event_metadata(kwargs: dict) -> dict[str, str] | None:
@@ -50,7 +50,7 @@ def log_db_metrics(func):
         try:
             result: Final = await func(*args, **kwargs)
             end_time: datetime = datetime.now()
-            from litellm.proxy.proxy_server import proxy_logging_obj
+            from embrouter.proxy.proxy_server import proxy_logging_obj
 
             if "PROXY" not in func.__name__:
                 asyncio.create_task(
@@ -65,7 +65,7 @@ def log_db_metrics(func):
                     )
                 )
             elif (
-                # in litellm custom callbacks kwargs is passed as arg[0]
+                # in embrouter custom callbacks kwargs is passed as arg[0]
                 args is not None and len(args) > 1 and isinstance(args[1], dict)
             ):
                 passed_kwargs: Final = args[1]
@@ -121,7 +121,7 @@ async def _handle_logging_db_exception(
     start_time: datetime,
     end_time: datetime,
 ) -> None:
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     # don't log this as a DB Service Failure, if the DB did not raise an exception
     if _is_exception_related_to_db(e) is not True:

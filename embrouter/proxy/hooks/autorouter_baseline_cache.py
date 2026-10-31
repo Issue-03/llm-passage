@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
-    get_litellm_metadata_from_kwargs,  # pyright: ignore[reportUnknownVariableType]  # legacy metadata boundary validated below
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
+    get_embrouter_metadata_from_kwargs,  # pyright: ignore[reportUnknownVariableType]  # legacy metadata boundary validated below
 )
-from litellm.llms.anthropic.prompt_cache_prediction import (
+from embrouter.llms.anthropic.prompt_cache_prediction import (
     CountedPromptCachePlan,
     NativePredictionTarget,
     TokenCounter,
@@ -32,19 +32,19 @@ from litellm.llms.anthropic.prompt_cache_prediction import (
     supported_baseline_recipient,
     supported_prediction_headers,
 )
-from litellm.proxy.spend_tracking.baseline_accounting import BaselineObservation
-from litellm.proxy.spend_tracking.savings import (
+from embrouter.proxy.spend_tracking.baseline_accounting import BaselineObservation
+from embrouter.proxy.spend_tracking.savings import (
     _effective_model_info,  # pyright: ignore[reportPrivateUsage]  # existing deployment-price owner
     _proxy_llm_router,  # pyright: ignore[reportPrivateUsage]  # existing optional proxy-router owner
 )
-from litellm.types.router import BaselineRouteStamp
-from litellm.types.utils import CallTypes, ModelInfo, Usage
-from litellm.utils import get_prompt_cache_min_tokens
+from embrouter.types.router import BaselineRouteStamp
+from embrouter.types.utils import CallTypes, ModelInfo, Usage
+from embrouter.utils import get_prompt_cache_min_tokens
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
 
 _METADATA: Final = TypeAdapter(Mapping[str, object])
 _PRICES: Final[TypeAdapter[ModelInfo | None]] = TypeAdapter(ModelInfo | None)
@@ -117,15 +117,15 @@ class AutoRouterBaselineCache(CustomLogger):
         self.counts: Mapping[str, tuple[int, float]] = MappingProxyType({})
 
     async def async_pre_call_deployment_hook(self, kwargs: Mapping[str, object], call_type: CallTypes | None) -> None:
-        from litellm.litellm_core_utils.litellm_logging import Logging
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-        logging_obj: Final = kwargs.get("litellm_logging_obj")
+        logging_obj: Final = kwargs.get("embrouter_logging_obj")
         if not isinstance(logging_obj, Logging) or call_type != CallTypes.anthropic_messages:
             return
         try:
             metadata: Final = _METADATA.validate_python(
-                get_litellm_metadata_from_kwargs(
-                    {"litellm_params": kwargs}  # mutable-ok: legacy metadata owner requires a dictionary
+                get_embrouter_metadata_from_kwargs(
+                    {"embrouter_params": kwargs}  # mutable-ok: legacy metadata owner requires a dictionary
                 )
             )
             if metadata.get(INTERNAL_CALL_ORIGIN_METADATA_KEY):
@@ -134,14 +134,14 @@ class AutoRouterBaselineCache(CustomLogger):
                 await invalidate_baseline_cache(logging_obj, "retried_request")
                 return
             request: Final = _Metadata.model_validate(metadata)
-            session: Final = kwargs.get("litellm_session_id") or request.session_id or logging_obj.litellm_session_id
+            session: Final = kwargs.get("embrouter_session_id") or request.session_id or logging_obj.embrouter_session_id
             if not isinstance(session, str) or not session or len(session) > 256:
                 return
             router: Final = self.router()
             deployment: Final = router.get_deployment(request.route.baseline_deployment_id) if router else None
             if deployment is None:
                 return
-            target: Final = resolve_baseline_prediction_target(deployment.litellm_params)
+            target: Final = resolve_baseline_prediction_target(deployment.embrouter_params)
             prices: Final = _PRICES.validate_python(
                 _effective_model_info(router, request.route.baseline_deployment_id, request.route.baseline_model)
             )
@@ -151,7 +151,7 @@ class AutoRouterBaselineCache(CustomLogger):
                     session,
                     request.route.router_name,
                     request.route.baseline_deployment_id,
-                    deployment.litellm_params.model_dump(mode="json"),
+                    deployment.embrouter_params.model_dump(mode="json"),
                     prices,
                 )
             )
@@ -165,7 +165,7 @@ class AutoRouterBaselineCache(CustomLogger):
                 model=target.model if isinstance(target, NativePredictionTarget) else request.route.baseline_model,
                 prices=prices,
                 observation=BaselineObservation(
-                    request_id=logging_obj.litellm_call_id,
+                    request_id=logging_obj.embrouter_call_id,
                     started_at=started,
                     available_at=started,
                     outcome="uncertain",

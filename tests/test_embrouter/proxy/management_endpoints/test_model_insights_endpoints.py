@@ -5,14 +5,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.model_usage_rollup import increment_daily_model_usage
-from litellm.proxy.management_endpoints.model_insights_endpoints import router
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.model_usage_rollup import increment_daily_model_usage
+from embrouter.proxy.management_endpoints.model_insights_endpoints import router
 
 
 def _override_auth() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-test", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(api_key="sk-test", user_id="admin", user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
 
 def _grouped_row(*, prompt_tokens: str = "100", completion_tokens: str = "200", **dimensions: str) -> dict[str, object]:
@@ -47,14 +47,14 @@ def test_model_insights_reads_only_bounded_rollup() -> None:
     table = MagicMock()
     table.group_by = AsyncMock(side_effect=[[model, prompt_heavy_model], [daily]])
     prisma = MagicMock()
-    prisma.db.litellm_dailymodelusage = table
+    prisma.db.embrouter_dailymodelusage = table
     prisma.db.query_raw = AsyncMock()
-    prisma.db.litellm_spendlogs.find_many = AsyncMock()
+    prisma.db.embrouter_spendlogs.find_many = AsyncMock()
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = _override_auth
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         response = TestClient(app).get("/model-insights?start_date=2026-09-09&end_date=2026-09-28")
 
     assert response.status_code == 200
@@ -62,7 +62,7 @@ def test_model_insights_reads_only_bounded_rollup() -> None:
     assert "by_task" not in response.json()
     assert table.group_by.await_count == 2
     prisma.db.query_raw.assert_not_awaited()
-    prisma.db.litellm_spendlogs.find_many.assert_not_awaited()
+    prisma.db.embrouter_spendlogs.find_many.assert_not_awaited()
 
 
 def test_model_insights_rejects_ranges_over_365_days() -> None:
@@ -71,7 +71,7 @@ def test_model_insights_rejects_ranges_over_365_days() -> None:
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = _override_auth
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         response = TestClient(app).get("/model-insights?start_date=2025-09-01&end_date=2026-09-28")
 
     assert response.status_code == 400
@@ -79,11 +79,11 @@ def test_model_insights_rejects_ranges_over_365_days() -> None:
 
 def _call(table: MagicMock, query: str, path: str = "/model-insights") -> object:
     prisma = MagicMock()
-    prisma.db.litellm_dailymodelusage = table
+    prisma.db.embrouter_dailymodelusage = table
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = _override_auth
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         return TestClient(app).get(f"{path}?start_date=2026-09-01&end_date=2026-09-28&{query}")
 
 
@@ -167,9 +167,9 @@ def test_model_insight_tasks_require_an_admin() -> None:
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        api_key="sk-test", user_id="u", user_role=LitellmUserRoles.INTERNAL_USER
+        api_key="sk-test", user_id="u", user_role=EmbrouterUserRoles.INTERNAL_USER
     )
-    with patch("litellm.proxy.proxy_server.prisma_client", MagicMock()):
+    with patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()):
         assert TestClient(app).get("/model-insights/tasks").status_code == 403
 
 
@@ -207,7 +207,7 @@ class _InMemoryUsageTable:
 async def test_model_insights_reads_back_what_the_rollup_wrote() -> None:
     table = _InMemoryUsageTable()
     prisma = MagicMock()
-    prisma.db.litellm_dailymodelusage = table
+    prisma.db.embrouter_dailymodelusage = table
     payload = {
         "call_type": "acompletion",
         "spend": 0.5,

@@ -9,8 +9,8 @@ import httpx
 from pydantic import BaseModel, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     ANTHROPIC_MIN_THINKING_BUDGET_TOKENS,
     ANTHROPIC_WEB_SEARCH_TOOL_MAX_USES,
     DEFAULT_ANTHROPIC_CHAT_MAX_TOKENS,
@@ -22,22 +22,22 @@ from litellm.constants import (
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
     RESPONSE_FORMAT_TOOL_NAME,
 )
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     sanitize_input_schema_for_anthropic,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     RemoteMedia,
     async_inline_remote_media,
     inline_remote_image_urls,
 )
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import (
+from embrouter.embrouter_core_utils.prompt_templates.mid_conversation_system import (
     place_mid_conversation_system,
     split_leading_system_run,
 )
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.anthropic import (
+from embrouter.llms.base_llm.base_utils import type_to_response_format_param
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_ADVISOR_TOOL_TYPE,
     ANTHROPIC_BETA_HEADER_VALUES,
     ANTHROPIC_HOSTED_TOOLS,
@@ -57,7 +57,7 @@ from litellm.types.llms.anthropic import (
     AnthropicWebSearchTool,
     AnthropicWebSearchUserLocation,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     REASONING_EFFORT,
     AllMessageValues,
     ChatCompletionCachedContent,
@@ -71,19 +71,19 @@ from litellm.types.llms.openai import (
     OpenAIMcpServerTool,
     OpenAIWebSearchOptions,
 )
-from litellm.types.responses.main import (
+from embrouter.types.responses.main import (
     OutputCodeInterpreterCall,
     build_code_interpreter_log_outputs,
     build_web_search_call,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     CompletionTokensDetailsWrapper,
     PromptTokensDetailsWrapper,
     ServerToolUse,
 )
-from litellm.types.utils import Message as LitellmMessage
-from litellm.utils import (
+from embrouter.types.utils import Message as EmbrouterMessage
+from embrouter.utils import (
     ModelResponse,
     Usage,
     add_dummy_tool,
@@ -106,10 +106,10 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -181,9 +181,9 @@ def _enum_conflicts_with_declared_type(schema: Mapping[str, object]) -> bool:
     return check is not None and not all(check(value) for value in enum_values)
 
 
-# Single, internal-only key on ``litellm_params`` used to thread the per-
+# Single, internal-only key on ``embrouter_params`` used to thread the per-
 # request reverse map (sanitized -> original) from request build to response
-# parsing. ``litellm_params`` is never serialized to a provider; ``optional_
+# parsing. ``embrouter_params`` is never serialized to a provider; ``optional_
 # params`` IS (it becomes the JSON body via ``data = {**optional_params}``).
 # Keep these two channels strictly separate -- never stash internal
 # coordination state in ``optional_params``.
@@ -454,17 +454,17 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             return
         if AnthropicConfig._model_supports_speed_param(model, custom_llm_provider):
             return
-        if not (litellm.drop_params or drop_params):
+        if not (embrouter.drop_params or drop_params):
             speed_value: Final = optional_params.get("speed")
-            raise litellm.utils.UnsupportedParamsError(
+            raise embrouter.utils.UnsupportedParamsError(
                 message=(
                     f"{model} does not support speed={speed_value!r}. "
                     "To drop unsupported params, set "
-                    "`litellm.drop_params = True`."
+                    "`embrouter.drop_params = True`."
                 ),
                 status_code=400,
             )
-        litellm.verbose_logger.warning(
+        embrouter.verbose_logger.warning(
             DROP_UNSUPPORTED_SPEED_WARNING,
             model,
         )
@@ -481,9 +481,9 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                 ``"bedrock_converse"``, ``"databricks"``, ...).
 
         Raises:
-            litellm.exceptions.BadRequestError: Always.
+            embrouter.exceptions.BadRequestError: Always.
         """
-        raise litellm.exceptions.BadRequestError(
+        raise embrouter.exceptions.BadRequestError(
             message=(
                 f"Invalid reasoning_effort: {value!r}. "
                 f"Must be one of: 'minimal', 'low', 'medium', "
@@ -803,7 +803,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             mcp_server = self._map_openai_mcp_server_tool(cast(OpenAIMcpServerTool, tool))
         elif tool["type"] == "tool_search_tool_regex_20251119":
             # Tool search tool using regex
-            from litellm.types.llms.anthropic import AnthropicToolSearchToolRegex
+            from embrouter.types.llms.anthropic import AnthropicToolSearchToolRegex
 
             tool_name_obj = tool.get("name", "tool_search_tool_regex")
             if not isinstance(tool_name_obj, str):
@@ -815,7 +815,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             )
         elif tool["type"] == "tool_search_tool_bm25_20251119":
             # Tool search tool using BM25
-            from litellm.types.llms.anthropic import AnthropicToolSearchToolBM25
+            from embrouter.types.llms.anthropic import AnthropicToolSearchToolBM25
 
             tool_name_obj = tool.get("name", "tool_search_tool_bm25")
             if not isinstance(tool_name_obj, str):
@@ -826,7 +826,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                 name=tool_name,
             )
         elif tool["type"] == ANTHROPIC_ADVISOR_TOOL_TYPE:
-            from litellm.types.llms.anthropic import AnthropicAdvisorTool
+            from embrouter.types.llms.anthropic import AnthropicAdvisorTool
 
             _tool_dict: Final = cast(dict, tool)
             advisor_model: Final = _tool_dict.get("model")
@@ -921,7 +921,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         return returned_tool, mcp_server
 
     def _map_openai_mcp_server_tool(self, tool: OpenAIMcpServerTool) -> AnthropicMcpServerTool:
-        from litellm.types.llms.anthropic import AnthropicMcpServerToolConfiguration
+        from embrouter.types.llms.anthropic import AnthropicMcpServerToolConfiguration
 
         allowed_tools: Final = tool.get("allowed_tools", None)
         tool_configuration: AnthropicMcpServerToolConfiguration | None = None
@@ -1230,7 +1230,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         new_stop: list[str] | None = None
         if isinstance(stop, str):
             if (
-                stop.isspace() and litellm.drop_params is True
+                stop.isspace() and embrouter.drop_params is True
             ):  # anthropic doesn't allow whitespace characters as stop-sequences
                 return new_stop
             new_stop = [stop]
@@ -1238,7 +1238,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             new_v: Final = []
             for v in stop:
                 if (
-                    v.isspace() and litellm.drop_params is True
+                    v.isspace() and embrouter.drop_params is True
                 ):  # anthropic doesn't allow whitespace characters as stop-sequences
                     continue
                 new_v.append(v)
@@ -1297,7 +1297,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                 ),
             )
         else:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=(
                     f"Unmapped reasoning effort: {reasoning_effort!r}. "
                     f"Must be one of: 'minimal', 'low', 'medium', 'high', "
@@ -1344,7 +1344,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         # external schema references (e.g., /$defs/CalendarEvent).
         import copy
 
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             DEFS_MAX_INLINED_BYTES,
             unpack_defs,
         )
@@ -1484,7 +1484,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         # chokepoint where Anthropic, Bedrock-Anthropic, and Vertex-Anthropic
         # all pass through. Doing it there guarantees:
         #   1. one source of truth for the per-request forward/reverse maps,
-        #   2. the maps land on ``litellm_params`` (internal), never on
+        #   2. the maps land on ``embrouter_params`` (internal), never on
         #      ``optional_params`` (which is serialized into the request body
         #      via ``data = {**optional_params}`` and would 400 with
         #      ``Extra inputs are not permitted``).
@@ -1579,7 +1579,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                     if capped_thinking is not None:
                         optional_params["thinking"] = capped_thinking
                     else:
-                        litellm.verbose_logger.warning(
+                        embrouter.verbose_logger.warning(
                             DROP_UNSUPPORTED_ADAPTIVE_THINKING_WARNING,
                             model,
                         )
@@ -1881,14 +1881,14 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: BaseConfig signature
         optional_params: dict[str, object],  # mutable-ok: BaseConfig signature
-        litellm_params: dict[str, object],  # mutable-ok: BaseConfig signature
+        embrouter_params: dict[str, object],  # mutable-ok: BaseConfig signature
         headers: dict[str, object],  # mutable-ok: BaseConfig signature
     ) -> dict[str, object]:  # mutable-ok: BaseConfig signature
         return self.transform_request(
             model=model,
             messages=await async_inline_remote_media(messages, should_inline=self.inlines_remote_media),
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -1897,15 +1897,15 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
         Translate messages to anthropic format.
         """
         ## VALIDATE REQUEST
-        """Anthropic requires ``tools`` when messages include tool blocks; LiteLLM injects a dummy tool if omitted (no ``modify_params`` needed)."""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        """Anthropic requires ``tools`` when messages include tool blocks; EmbRouter injects a dummy tool if omitted (no ``modify_params`` needed)."""
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             anthropic_messages_pt,
         )
 
@@ -1924,9 +1924,9 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             and last_assistant_with_tool_calls_has_no_thinking_blocks(messages)
             and not any_assistant_message_has_thinking_blocks(messages)
         ):
-            if litellm.modify_params:
+            if embrouter.modify_params:
                 optional_params.pop("thinking", None)
-                litellm.verbose_logger.warning(
+                embrouter.verbose_logger.warning(
                     "Dropping 'thinking' param because the last assistant message with tool_calls "
                     "has no thinking_blocks. The model won't use extended thinking for this turn."
                 )
@@ -1934,7 +1934,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         AnthropicConfig._maybe_drop_speed_param(
             model=model,
             optional_params=optional_params,
-            drop_params=litellm.drop_params or litellm_params.get("drop_params") is True,
+            drop_params=embrouter.drop_params or embrouter_params.get("drop_params") is True,
             custom_llm_provider=self.custom_llm_provider,
         )
 
@@ -1954,7 +1954,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         #     or ``AnthropicConfig.transform_request(self, ...)``). Sanitizing
         #     once here covers every Anthropic-shaped request.
         #   - The forward/reverse maps are coordination state; they belong on
-        #     ``litellm_params`` (internal-only), never on ``optional_params``
+        #     ``embrouter_params`` (internal-only), never on ``optional_params``
         #     (which becomes the JSON body via ``{**optional_params}``).
         #   - It keeps ``map_openai_params`` a pure param translator with no
         #     side-channel state.
@@ -1969,8 +1969,8 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         )
         if _name_forward_map:
             messages = self._rewrite_tool_names_in_messages(messages, _name_forward_map)
-        if _name_reverse_map and isinstance(litellm_params, dict):
-            litellm_params[ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY] = _name_reverse_map
+        if _name_reverse_map and isinstance(embrouter_params, dict):
+            embrouter_params[ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY] = _name_reverse_map
 
         # Only the leading system run becomes the top-level system prompt. A later
         # system message stays in the conversation: hoisting it rewrites the cached
@@ -2025,7 +2025,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             optional_params["tools"] = tools
 
         ## Load Config
-        config: Final = litellm.AnthropicConfig.get_config(model=model)
+        config: Final = embrouter.AnthropicConfig.get_config(model=model)
         for k, v in config.items():
             if (
                 k not in optional_params
@@ -2033,15 +2033,15 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                 optional_params[k] = v
 
         ## Handle user_id in metadata
-        _litellm_metadata: Final = litellm_params.get("metadata", None)
+        _embrouter_metadata: Final = embrouter_params.get("metadata", None)
         if (
-            _litellm_metadata
-            and isinstance(_litellm_metadata, dict)
-            and "user_id" in _litellm_metadata
-            and _litellm_metadata["user_id"] is not None
-            and _valid_user_id(_litellm_metadata["user_id"])
+            _embrouter_metadata
+            and isinstance(_embrouter_metadata, dict)
+            and "user_id" in _embrouter_metadata
+            and _embrouter_metadata["user_id"] is not None
+            and _valid_user_id(_embrouter_metadata["user_id"])
         ):
-            optional_params["metadata"] = {"user_id": _litellm_metadata["user_id"]}
+            optional_params["metadata"] = {"user_id": _embrouter_metadata["user_id"]}
 
         ## Ensure metadata only contains user_id (only documented field in Anthropic Messages API)
         if "metadata" in optional_params and isinstance(optional_params["metadata"], dict):
@@ -2051,7 +2051,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             else:
                 optional_params.pop("metadata")
 
-        # Remove internal LiteLLM parameters that should not be sent to Anthropic API
+        # Remove internal EmbRouter parameters that should not be sent to Anthropic API
         optional_params.pop("is_vertex_request", None)
         optional_params.pop("client_metadata", None)
 
@@ -2065,7 +2065,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
                 model=model,
                 param="top_k",
                 value=top_k,
-                drop_params=litellm_params.get("drop_params") is True,
+                drop_params=embrouter_params.get("drop_params") is True,
                 output_key="top_k",
             )
 
@@ -2093,11 +2093,11 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         if not output_config or not isinstance(output_config, dict):
             return
         if (
-            litellm.drop_params is True
+            embrouter.drop_params is True
             and any(key != "format" for key in output_config)
             and not self._model_supports_effort_param(model, self._resolved_provider)
         ):
-            litellm.verbose_logger.warning(
+            embrouter.verbose_logger.warning(
                 DROP_UNSUPPORTED_OUTPUT_CONFIG_WARNING,
                 model,
             )
@@ -2113,14 +2113,14 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         effort: Final = output_config.get("effort")
         valid_efforts: Final = ["high", "medium", "low", "xhigh", "max"]
         if effort is not None and effort not in valid_efforts:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=(f"Invalid effort value: {effort!r}. Must be one of: 'high', 'medium', 'low', 'xhigh', 'max'"),
                 model=model,
                 llm_provider=self._resolved_provider,
             )
         gate_error: Final = self._validate_effort_for_model(model, effort, self._resolved_provider)
         if gate_error is not None:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=gate_error,
                 model=model,
                 llm_provider=self._resolved_provider,
@@ -2132,7 +2132,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         json_mode: bool | None,
         tool_calls: list[ChatCompletionToolCallChunk],
     ) -> tuple[
-        LitellmMessage | None,
+        EmbrouterMessage | None,
         list[ChatCompletionToolCallChunk],
         str | None,
     ]:
@@ -2630,7 +2630,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         if (
             prefix_prompt is not None
             and not text_content.startswith(prefix_prompt)
-            and not litellm.disable_add_prefix_to_prompt
+            and not embrouter.disable_add_prefix_to_prompt
         ):
             text_content = prefix_prompt + text_content
 
@@ -2652,7 +2652,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         if json_extra_content:
             merged_text = merged_text + json_extra_content if merged_text else json_extra_content
 
-        _message = litellm.Message(
+        _message = embrouter.Message(
             tool_calls=tool_calls_for_message,
             content=merged_text or None,
             provider_specific_fields=provider_specific_fields,
@@ -2715,7 +2715,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -2742,8 +2742,8 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
         prefix_prompt: Final = self.get_prefix_prompt(messages=messages)
         speed: Final = optional_params.get("speed")
         tool_name_reverse_map: dict[str, str] | None = None
-        if isinstance(litellm_params, dict):
-            _candidate: Final = litellm_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY)
+        if isinstance(embrouter_params, dict):
+            _candidate: Final = embrouter_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY)
             if isinstance(_candidate, dict):
                 tool_name_reverse_map = _candidate
 
@@ -2761,7 +2761,7 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
     @staticmethod
     def _convert_tool_response_to_message(
         tool_calls: list[ChatCompletionToolCallChunk],
-    ) -> LitellmMessage | None:
+    ) -> EmbrouterMessage | None:
         """
         In JSON mode, Anthropic API returns JSON schema as a tool call, we need to convert it to a message to follow the OpenAI format
 
@@ -2772,15 +2772,15 @@ class AnthropicConfig(AnthropicModelInfo, BaseConfig):
             if json_mode_content_str is not None:
                 args: Final = json.loads(json_mode_content_str)
                 if isinstance(args, dict) and (values := args.get("values")) is not None:
-                    _message = litellm.Message(content=json.dumps(values))
+                    _message = embrouter.Message(content=json.dumps(values))
                     return _message
                 else:
                     # a lot of the times the `values` key is not present in the tool response
-                    _message = litellm.Message(content=json.dumps(args))
+                    _message = embrouter.Message(content=json.dumps(args))
                     return _message
         except json.JSONDecodeError:
             # json decode error does occur, return the original tool response str
-            return litellm.Message(content=json_mode_content_str)
+            return embrouter.Message(content=json_mode_content_str)
         return None
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:

@@ -5,12 +5,12 @@ from typing import Final, Literal
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 
 class NewRelicInitParams(StandardCustomLoggerInitParams):
     """
-    Params for initializing a New Relic logger on litellm
+    Params for initializing a New Relic logger on embrouter
     """
 
 
@@ -42,14 +42,14 @@ NEWRELIC_METRICS_MAX_DRAIN_PASSES: Final = 3
 # from inflating the shared batch payload into a 413
 NEWRELIC_METRIC_ATTRIBUTE_MAX_LEN: Final = 255
 
-NEWRELIC_METRIC_REQUESTS: Final = "litellm.requests"
-NEWRELIC_METRIC_COST_USD: Final = "litellm.cost.usd"
-NEWRELIC_METRIC_PROMPT_TOKENS: Final = "litellm.tokens.prompt"
-NEWRELIC_METRIC_COMPLETION_TOKENS: Final = "litellm.tokens.completion"
-NEWRELIC_METRIC_TOTAL_TOKENS: Final = "litellm.tokens.total"
-NEWRELIC_METRIC_REQUEST_DURATION_MS: Final = "litellm.request.duration_ms"
-NEWRELIC_METRIC_TEAM_MAX_BUDGET: Final = "litellm.team.max_budget"
-NEWRELIC_METRIC_TEAM_REMAINING_BUDGET: Final = "litellm.team.remaining_budget"
+NEWRELIC_METRIC_REQUESTS: Final = "embrouter.requests"
+NEWRELIC_METRIC_COST_USD: Final = "embrouter.cost.usd"
+NEWRELIC_METRIC_PROMPT_TOKENS: Final = "embrouter.tokens.prompt"
+NEWRELIC_METRIC_COMPLETION_TOKENS: Final = "embrouter.tokens.completion"
+NEWRELIC_METRIC_TOTAL_TOKENS: Final = "embrouter.tokens.total"
+NEWRELIC_METRIC_REQUEST_DURATION_MS: Final = "embrouter.request.duration_ms"
+NEWRELIC_METRIC_TEAM_MAX_BUDGET: Final = "embrouter.team.max_budget"
+NEWRELIC_METRIC_TEAM_REMAINING_BUDGET: Final = "embrouter.team.remaining_budget"
 
 
 class NewRelicSummaryValue(TypedDict):

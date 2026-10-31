@@ -6,7 +6,7 @@ tool, runs the model-emitted code in a sandbox, and feeds the result back into
 the agentic loop.
 """
 
-from litellm.integrations.code_interpreter_interception.handler import (
+from embrouter.integrations.code_interpreter_interception.handler import (
     CodeInterpreterInterceptionLogger,
 )
 

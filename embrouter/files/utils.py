@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.types.llms.openai import CreateFileRequest
-from litellm.types.utils import ExtractedFileData
+from embrouter.types.llms.openai import CreateFileRequest
+from embrouter.types.utils import ExtractedFileData
 
 # MIME types a .jsonl batch upload is plausibly labeled with. Clients are
 # inconsistent (text/plain, application/json, octet-stream, ndjson, ...), so a
@@ -22,7 +22,7 @@ _BATCH_JSONL_CONTENT_TYPES: Final = frozenset(
 
 class FilesAPIUtils:
     """
-    Utils for files API interface on litellm
+    Utils for files API interface on embrouter
     """
 
     @staticmethod

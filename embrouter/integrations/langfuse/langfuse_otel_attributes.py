@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Any, Final
 from pydantic import BaseModel
 from typing_extensions import override
 
-from litellm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
+from embrouter.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
     BaseLLMObsOTELAttributes,
     safe_set_attribute,
 )
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.utils import (
+from embrouter.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from embrouter.types.utils import (
     EmbeddingResponse,
     ImageResponse,
     ModelResponse,

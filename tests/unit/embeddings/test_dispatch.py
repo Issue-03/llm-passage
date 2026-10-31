@@ -6,21 +6,21 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.embeddings import dispatch
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteRule, Rules
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.embeddings.entrypoints import LiteLLMEmbeddingRequest
-from litellm.types.utils import EmbeddingResponse
+import embrouter
+from embrouter.embeddings import dispatch
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteRule, Rules
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.rust_bridge.embeddings.entrypoints import EmbRouterEmbeddingRequest
+from embrouter.types.utils import EmbeddingResponse
 
 
 @pytest.mark.asyncio
 async def test_public_embedding_calls_keep_the_python_result() -> None:
     vector: Final = [0.1, 0.2]
 
-    sync_response: Final = litellm.embedding(model="openai/test-model", input="hello", mock_response=vector)
-    async_response: Final = await litellm.aembedding(model="openai/test-model", input="hello", mock_response=vector)
+    sync_response: Final = embrouter.embedding(model="openai/test-model", input="hello", mock_response=vector)
+    async_response: Final = await embrouter.aembedding(model="openai/test-model", input="hello", mock_response=vector)
 
     assert isinstance(sync_response, EmbeddingResponse)
     rows: Final = TypeAdapter(list[dict[str, object]])
@@ -33,7 +33,7 @@ def test_sync_embedding_request_projects_public_arguments() -> None:
     expected: Final = EmbeddingResponse(model="test-model", data=[])
 
     def native(
-        request: LiteLLMEmbeddingRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterEmbeddingRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> EmbeddingResponse:
         assert request.model == "test-model"
         assert request.input == "hello"
@@ -41,7 +41,7 @@ def test_sync_embedding_request_projects_public_arguments() -> None:
         return expected
 
     binding: Final[
-        NativeBinding[Callable[[LiteLLMEmbeddingRequest, tuple[object, ...], Mapping[str, object]], EmbeddingResponse]]
+        NativeBinding[Callable[[EmbRouterEmbeddingRequest, tuple[object, ...], Mapping[str, object]], EmbeddingResponse]]
     ] = NativeBinding("embedding", validate=lambda _: None)
     binding.override(native)
     response: Final = dispatch._DISPATCH.run(  # pyright: ignore[reportPrivateUsage]  # test an explicit route decision
@@ -58,7 +58,7 @@ def test_sync_embedding_request_projects_public_arguments() -> None:
 
 @pytest.mark.asyncio
 async def test_async_embedding_falls_back_after_native_declines() -> None:
-    from litellm.rust_bridge.bindings import native_exception_types
+    from embrouter.rust_bridge.bindings import native_exception_types
 
     native_types: Final = native_exception_types()
     if native_types is None:
@@ -68,7 +68,7 @@ async def test_async_embedding_falls_back_after_native_declines() -> None:
     rules: Final[Rules] = (RouteRule(Route.EMBEDDINGS, Rollout.RUST_OPT_OUT),)
 
     async def native(
-        request: LiteLLMEmbeddingRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterEmbeddingRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> EmbeddingResponse:
         raise declined("unsupported")
 
@@ -77,7 +77,7 @@ async def test_async_embedding_falls_back_after_native_declines() -> None:
 
     binding: Final[
         NativeBinding[
-            Callable[[LiteLLMEmbeddingRequest, tuple[object, ...], Mapping[str, object]], Awaitable[EmbeddingResponse]]
+            Callable[[EmbRouterEmbeddingRequest, tuple[object, ...], Mapping[str, object]], Awaitable[EmbeddingResponse]]
         ]
     ] = NativeBinding("aembedding", validate=lambda _: None)
     binding.override(native)

@@ -26,22 +26,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.llms.stability import (
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.llms.stability import (
     OPENAI_SIZE_TO_STABILITY_ASPECT_RATIO,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageObject, ImageResponse
-from litellm.utils import get_model_info
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageObject, ImageResponse
+from embrouter.utils import get_model_info
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BedrockStabilityImageEditConfig(BaseImageEditConfig):
@@ -163,7 +163,7 @@ class BedrockStabilityImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, Any]:
         """
@@ -280,7 +280,7 @@ class BedrockStabilityImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
@@ -342,7 +342,7 @@ class BedrockStabilityImageEditConfig(BaseImageEditConfig):
         model_info: Final = get_model_info(model, custom_llm_provider="bedrock")
         cost_per_image: Final = model_info.get("output_cost_per_image", 0)
         if cost_per_image is not None:
-            model_response._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = float(
+            model_response._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = float(
                 cost_per_image
             )
 
@@ -358,7 +358,7 @@ class BedrockStabilityImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for the Bedrock Image Edit API.
@@ -378,7 +378,7 @@ class BedrockStabilityImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         """

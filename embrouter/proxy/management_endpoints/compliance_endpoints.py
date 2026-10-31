@@ -11,11 +11,11 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, Request
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.compliance_checks import ComplianceChecker
-from litellm.proxy.management_helpers.utils import management_endpoint_wrapper
-from litellm.types.proxy.compliance_endpoints import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.compliance_checks import ComplianceChecker
+from embrouter.proxy.management_helpers.utils import management_endpoint_wrapper
+from embrouter.types.proxy.compliance_endpoints import (
     ComplianceCheckRequest,
     ComplianceResponse,
 )

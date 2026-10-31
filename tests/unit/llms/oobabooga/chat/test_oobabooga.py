@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 
-import litellm
+import embrouter
 
 MOCK_COMPLETION_RESPONSE = {
     "choices": [{"message": {"role": "assistant", "content": "hi there"}}],
@@ -21,11 +21,11 @@ def test_model_name_with_https_substring_uses_api_base():
     api_base = "https://legit.example"
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post"
+        "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = _mock_post_response()
 
-        litellm.completion(
+        embrouter.completion(
             model="oobabooga/my-https-model",
             messages=[{"role": "user", "content": "hello"}],
             api_base=api_base,
@@ -38,11 +38,11 @@ def test_model_name_with_https_substring_uses_api_base():
 
 def test_url_valued_model_still_targets_that_url():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post"
+        "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_post.return_value = _mock_post_response()
 
-        litellm.completion(
+        embrouter.completion(
             model="oobabooga/https://sdk-user.example",
             messages=[{"role": "user", "content": "hello"}],
         )

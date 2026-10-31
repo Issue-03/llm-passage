@@ -1,11 +1,11 @@
 import pytest
 from typing import AsyncIterator, Iterator, cast
 
-from litellm.files import main as files_main
-from litellm.files.streaming import FileContentStreamingResponse
-from litellm.files.types import FileContentStreamingResult
-from litellm.llms.openai.openai import OpenAIFilesAPI
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+from embrouter.files import main as files_main
+from embrouter.files.streaming import FileContentStreamingResponse
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.llms.openai.openai import OpenAIFilesAPI
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 @pytest.mark.asyncio
@@ -88,12 +88,12 @@ async def test_afile_content_streaming_builds_standard_logging_object_on_complet
         _mock_file_content_streaming,
     )
     monkeypatch.setattr(
-        LiteLLMLoggingObj,
+        EmbRouterLoggingObj,
         "async_success_handler",
         _mock_async_success_handler,
     )
     monkeypatch.setattr(
-        LiteLLMLoggingObj,
+        EmbRouterLoggingObj,
         "handle_sync_success_callbacks_for_async_calls",
         lambda self, result, start_time, end_time, cache_hit=None: None,
     )
@@ -213,7 +213,7 @@ async def test_afile_content_streaming_populates_hidden_params_before_iteration(
     stream_iterator = cast(FileContentStreamingResponse, stream_result.stream_iterator)
 
     assert stream_iterator._hidden_params["api_base"] == "https://api.openai.com/v1"
-    assert stream_iterator._hidden_params["litellm_model_name"] is None
+    assert stream_iterator._hidden_params["embrouter_model_name"] is None
 
 
 @pytest.mark.asyncio

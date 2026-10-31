@@ -3,9 +3,9 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
+import embrouter
+from embrouter import Router
+from embrouter.router_utils.client_initalization_utils import MaxParallelRequestsLimit
 
 
 def _limit(max_parallel_requests: int = 1) -> MaxParallelRequestsLimit:
@@ -20,8 +20,8 @@ async def _hold(limit: MaxParallelRequestsLimit, release: asyncio.Event) -> str:
         return "ok"
 
 
-def _expect_rejection(limit: MaxParallelRequestsLimit) -> litellm.RateLimitError:
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+def _expect_rejection(limit: MaxParallelRequestsLimit) -> embrouter.RateLimitError:
+    with pytest.raises(embrouter.RateLimitError) as excinfo:
         limit.acquire()
     return excinfo.value
 
@@ -58,7 +58,7 @@ async def test_burst_over_the_cap_admits_exactly_max_parallel_requests_and_rejec
     async def attempt() -> str:
         try:
             return await _hold(limit, release)
-        except litellm.RateLimitError as e:
+        except embrouter.RateLimitError as e:
             return f"rejected:{e.status_code}"
 
     callers: Final = [asyncio.create_task(attempt()) for _ in range(10)]
@@ -92,7 +92,7 @@ def _router_limit(router: Router, model_name: str) -> MaxParallelRequestsLimit:
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected_cap"),
+    ("embrouter_params", "expected_cap"),
     [
         ({"max_parallel_requests": 2, "rpm": 7, "tpm": 100_000}, 2),
         ({"rpm": 7, "tpm": 100_000}, 7),
@@ -101,9 +101,9 @@ def _router_limit(router: Router, model_name: str) -> MaxParallelRequestsLimit:
     ],
 )
 @pytest.mark.asyncio
-async def test_router_deployment_rejects_past_its_derived_cap(litellm_params: dict[str, int], expected_cap: int):
+async def test_router_deployment_rejects_past_its_derived_cap(embrouter_params: dict[str, int], expected_cap: int):
     router: Final = Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", **litellm_params}}]
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6", **embrouter_params}}]
     )
     limit: Final = _router_limit(router, "gpt-5.6")
     assert limit.max_parallel_requests == expected_cap
@@ -117,7 +117,7 @@ async def test_router_deployment_rejects_past_its_derived_cap(litellm_params: di
 
 
 def test_router_without_any_concurrency_setting_has_no_limit():
-    router: Final = Router(model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6"}}])
+    router: Final = Router(model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6"}}])
     deployment: Final = router.get_deployment_by_model_group_name(model_group_name="gpt-5.6")
     assert deployment is not None
     assert (

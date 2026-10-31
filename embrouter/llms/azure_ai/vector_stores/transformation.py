@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseQueryEmbeddingVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
@@ -23,11 +23,11 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM):
@@ -35,7 +35,7 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
     Configuration for Azure AI Search Vector Store
 
     This implementation uses the Azure AI Search API for vector store operations.
-    Supports vector search with embeddings generated via litellm.embeddings.
+    Supports vector search with embeddings generated via embrouter.embeddings.
     """
 
     def __init__(self):
@@ -70,8 +70,8 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
             "write": [("POST", "/docs/index")],
         }
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
-        api_key: Final = litellm_params.get("api_key")
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
+        api_key: Final = embrouter_params.get("api_key")
         if api_key is None:
             raise ValueError("api_key is required")
 
@@ -81,15 +81,15 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
             }
         }
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
-        basic_headers: Final = self._base_validate_azure_environment(headers, litellm_params)
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        basic_headers: Final = self._base_validate_azure_environment(headers, embrouter_params)
         basic_headers.update({"Content-Type": "application/json"})
         return basic_headers
 
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the base endpoint for Azure AI Search API
@@ -99,13 +99,13 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
         if api_base:
             return api_base.rstrip("/")
 
-        # Get search service name from litellm_params
-        search_service_name: Final = litellm_params.get("azure_search_service_name")
+        # Get search service name from embrouter_params
+        search_service_name: Final = embrouter_params.get("azure_search_service_name")
 
         if not search_service_name:
             raise ValueError(
                 "Azure AI Search service name is required. "
-                "Provide it via litellm_params['azure_search_service_name'] or api_base parameter"
+                "Provide it via embrouter_params['azure_search_service_name'] or api_base parameter"
             )
 
         # Azure AI Search endpoint
@@ -117,21 +117,21 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
         query_text: Final = self.query_text(query)
-        query_vector: Final = self.embed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = self.embed_query(query_text, embrouter_params, embedding_executor)
         return self._search_request(
             vector_store_id,
             query_text,
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
-            litellm_params,
+            embrouter_logging_obj,
+            embrouter_params,
         )
 
     async def atransform_search_vector_store_request(
@@ -140,21 +140,21 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
         query_text: Final = self.query_text(query)
-        query_vector: Final = await self.aembed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = await self.aembed_query(query_text, embrouter_params, embedding_executor)
         return self._search_request(
             vector_store_id,
             query_text,
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
-            litellm_params,
+            embrouter_logging_obj,
+            embrouter_params,
         )
 
     @staticmethod
@@ -164,14 +164,14 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
         query_vector: Sequence[float],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
-        vector_field: Final = litellm_params.get("azure_search_vector_field", "contentVector")
+        vector_field: Final = embrouter_params.get("azure_search_vector_field", "contentVector")
         top_k: Final = vector_store_search_optional_params.get("top_k", 10)
-        litellm_logging_obj.model_call_details["input"] = query_text
-        litellm_logging_obj.model_call_details["embedding_model"] = litellm_params.get("litellm_embedding_model")
-        litellm_logging_obj.model_call_details["top_k"] = top_k
+        embrouter_logging_obj.model_call_details["input"] = query_text
+        embrouter_logging_obj.model_call_details["embedding_model"] = embrouter_params.get("embrouter_embedding_model")
+        embrouter_logging_obj.model_call_details["top_k"] = top_k
         return f"{api_base}/indexes/{vector_store_id}/docs/search?api-version=2024-07-01", {
             "search": "*",
             "vectorQueries": [{"vector": query_vector, "fields": vector_field, "kind": "vector", "k": top_k}],
@@ -180,7 +180,7 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
         }
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         """
         Transform Azure AI Search API response to standard vector store search response
@@ -247,7 +247,7 @@ class AzureAIVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAzureLLM
 
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",
-                search_query=litellm_logging_obj.model_call_details.get("input", ""),
+                search_query=embrouter_logging_obj.model_call_details.get("input", ""),
                 data=search_results,
             )
 

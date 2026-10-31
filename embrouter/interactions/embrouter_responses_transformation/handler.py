@@ -1,29 +1,29 @@
 """
-Handler for transforming interactions API requests to litellm.responses requests.
+Handler for transforming interactions API requests to embrouter.responses requests.
 """
 
 from collections.abc import AsyncIterator, Callable, Coroutine, Iterator
 from typing import Any, Final
 
-import litellm
-from litellm.interactions.litellm_responses_transformation.streaming_iterator import (
-    LiteLLMResponsesInteractionsStreamingIterator,
+import embrouter
+from embrouter.interactions.embrouter_responses_transformation.streaming_iterator import (
+    EmbRouterResponsesInteractionsStreamingIterator,
 )
-from litellm.interactions.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesInteractionsConfig,
+from embrouter.interactions.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesInteractionsConfig,
 )
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.types.interactions import (
+from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from embrouter.types.interactions import (
     InteractionInput,
     InteractionsAPIOptionalRequestParams,
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
-class LiteLLMResponsesInteractionsHandler:
-    """Handler for bridging Interactions API to Responses API via litellm.responses()."""
+class EmbRouterResponsesInteractionsHandler:
+    """Handler for bridging Interactions API to Responses API via embrouter.responses()."""
 
     def interactions_api_handler(
         self,
@@ -40,7 +40,7 @@ class LiteLLMResponsesInteractionsHandler:
         | Coroutine[object, object, InteractionsAPIResponse | AsyncIterator[InteractionsAPIStreamingResponse]]
     ):
         """
-        Handle Interactions API request by calling litellm.responses().
+        Handle Interactions API request by calling embrouter.responses().
 
         Args:
             model: The model to use
@@ -56,7 +56,7 @@ class LiteLLMResponsesInteractionsHandler:
         """
         # Transform interactions request to responses request
         responses_request: Final = (
-            LiteLLMResponsesInteractionsConfig.transform_interactions_request_to_responses_request(
+            EmbRouterResponsesInteractionsConfig.transform_interactions_request_to_responses_request(
                 model=model,
                 input=input,
                 optional_params=optional_params,
@@ -75,10 +75,10 @@ class LiteLLMResponsesInteractionsHandler:
                 **kwargs,
             )
 
-        # Call litellm.responses()
-        # Note: litellm.responses() returns Union[ResponsesAPIResponse, BaseResponsesAPIStreamingIterator]
+        # Call embrouter.responses()
+        # Note: embrouter.responses() returns Union[ResponsesAPIResponse, BaseResponsesAPIStreamingIterator]
         # but the type checker may see it as a coroutine in some contexts
-        responses_fn: Final[Callable[..., ResponsesAPIResponse | BaseResponsesAPIStreamingIterator]] = vars(litellm)[
+        responses_fn: Final[Callable[..., ResponsesAPIResponse | BaseResponsesAPIStreamingIterator]] = vars(embrouter)[
             "responses"
         ]
         responses_response: Final = responses_fn(
@@ -87,20 +87,20 @@ class LiteLLMResponsesInteractionsHandler:
 
         # Handle streaming response
         if isinstance(responses_response, BaseResponsesAPIStreamingIterator):
-            return LiteLLMResponsesInteractionsStreamingIterator(
+            return EmbRouterResponsesInteractionsStreamingIterator(
                 model=model,
-                litellm_custom_stream_wrapper=responses_response,
+                embrouter_custom_stream_wrapper=responses_response,
                 request_input=input,
                 optional_params=optional_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             )
 
         # At this point, responses_response must be ResponsesAPIResponse (not streaming)
         responses_api_response: Final = responses_response
 
         # Transform responses response to interactions response
-        return LiteLLMResponsesInteractionsConfig.transform_responses_response_to_interactions_response(
+        return EmbRouterResponsesInteractionsConfig.transform_responses_response_to_interactions_response(
             responses_response=responses_api_response,
             model=model,
         )
@@ -114,31 +114,31 @@ class LiteLLMResponsesInteractionsHandler:
         **kwargs,
     ) -> InteractionsAPIResponse | AsyncIterator[InteractionsAPIStreamingResponse]:
         """Async handler for interactions API requests."""
-        # Call litellm.aresponses()
-        # Note: litellm.aresponses() returns Union[ResponsesAPIResponse, BaseResponsesAPIStreamingIterator]
+        # Call embrouter.aresponses()
+        # Note: embrouter.aresponses() returns Union[ResponsesAPIResponse, BaseResponsesAPIStreamingIterator]
         aresponses_fn: Final[
             Callable[..., Coroutine[object, object, ResponsesAPIResponse | BaseResponsesAPIStreamingIterator]]
-        ] = vars(litellm)["aresponses"]
+        ] = vars(embrouter)["aresponses"]
         responses_response: Final = await aresponses_fn(
             **responses_request,
         )
 
         # Handle streaming response
         if isinstance(responses_response, BaseResponsesAPIStreamingIterator):
-            return LiteLLMResponsesInteractionsStreamingIterator(
+            return EmbRouterResponsesInteractionsStreamingIterator(
                 model=model,
-                litellm_custom_stream_wrapper=responses_response,
+                embrouter_custom_stream_wrapper=responses_response,
                 request_input=input,
                 optional_params=optional_params,
                 custom_llm_provider=responses_request.get("custom_llm_provider"),
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             )
 
         # At this point, responses_response must be ResponsesAPIResponse (not streaming)
         responses_api_response: Final = responses_response
 
         # Transform responses response to interactions response
-        return LiteLLMResponsesInteractionsConfig.transform_responses_response_to_interactions_response(
+        return EmbRouterResponsesInteractionsConfig.transform_responses_response_to_interactions_response(
             responses_response=responses_api_response,
             model=model,
         )

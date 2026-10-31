@@ -1,5 +1,5 @@
 """
-LiteLLM Follows the cohere API format for the re rank API
+EmbRouter Follows the cohere API format for the re rank API
 https://docs.cohere.com/reference/rerank
 
 """

@@ -26,7 +26,7 @@ _ROLE_MAP: Final[dict[str, Role]] = {
 
 
 def map_role(value: str | None) -> Role | None:
-    """Map a LiteLLM ``user_role`` string to a platform Role."""
+    """Map a EmbRouter ``user_role`` string to a platform Role."""
     if value is None:
         return None
     return _ROLE_MAP.get(value)

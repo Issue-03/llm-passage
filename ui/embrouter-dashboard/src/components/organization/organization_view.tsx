@@ -198,12 +198,12 @@ const OrganizationInfoView: React.FC<OrganizationInfoProps> = ({
                   <p className="text-xl font-semibold">${formatNumberWithCommas(orgData.spend, 4)}</p>
                   <p>
                     of{" "}
-                    {orgData.litellm_budget_table.max_budget === null
+                    {orgData.embrouter_budget_table.max_budget === null
                       ? "Unlimited"
-                      : `$${formatNumberWithCommas(orgData.litellm_budget_table.max_budget, 4)}`}
+                      : `$${formatNumberWithCommas(orgData.embrouter_budget_table.max_budget, 4)}`}
                   </p>
-                  {orgData.litellm_budget_table.budget_duration && (
-                    <p className="text-muted-foreground">Reset: {orgData.litellm_budget_table.budget_duration}</p>
+                  {orgData.embrouter_budget_table.budget_duration && (
+                    <p className="text-muted-foreground">Reset: {orgData.embrouter_budget_table.budget_duration}</p>
                   )}
                 </div>
               </CardContent>
@@ -213,10 +213,10 @@ const OrganizationInfoView: React.FC<OrganizationInfoProps> = ({
               <CardContent>
                 <p className="text-sm text-muted-foreground">Rate Limits</p>
                 <div className="mt-2 text-sm text-foreground">
-                  <p>TPM: {orgData.litellm_budget_table.tpm_limit ?? "Unlimited"}</p>
-                  <p>RPM: {orgData.litellm_budget_table.rpm_limit ?? "Unlimited"}</p>
-                  {orgData.litellm_budget_table.max_parallel_requests && (
-                    <p>Max Parallel Requests: {orgData.litellm_budget_table.max_parallel_requests}</p>
+                  <p>TPM: {orgData.embrouter_budget_table.tpm_limit ?? "Unlimited"}</p>
+                  <p>RPM: {orgData.embrouter_budget_table.rpm_limit ?? "Unlimited"}</p>
+                  {orgData.embrouter_budget_table.max_parallel_requests && (
+                    <p>Max Parallel Requests: {orgData.embrouter_budget_table.max_parallel_requests}</p>
                   )}
                 </div>
               </CardContent>
@@ -320,18 +320,18 @@ const OrganizationInfoView: React.FC<OrganizationInfoProps> = ({
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Rate Limits</p>
-                    <div>TPM: {orgData.litellm_budget_table.tpm_limit ?? "Unlimited"}</div>
-                    <div>RPM: {orgData.litellm_budget_table.rpm_limit ?? "Unlimited"}</div>
+                    <div>TPM: {orgData.embrouter_budget_table.tpm_limit ?? "Unlimited"}</div>
+                    <div>RPM: {orgData.embrouter_budget_table.rpm_limit ?? "Unlimited"}</div>
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Budget</p>
                     <div>
                       Max:{" "}
-                      {orgData.litellm_budget_table.max_budget !== null
-                        ? `$${formatNumberWithCommas(orgData.litellm_budget_table.max_budget, 4)}`
+                      {orgData.embrouter_budget_table.max_budget !== null
+                        ? `$${formatNumberWithCommas(orgData.embrouter_budget_table.max_budget, 4)}`
                         : "No Limit"}
                     </div>
-                    <div>Reset: {orgData.litellm_budget_table.budget_duration || "Never"}</div>
+                    <div>Reset: {orgData.embrouter_budget_table.budget_duration || "Never"}</div>
                   </div>
 
                   <ObjectPermissionsView

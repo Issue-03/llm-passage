@@ -4,11 +4,11 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
-from litellm.responses.main import _will_bridge_to_chat_completions
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.llms.azure_ai.responses.transformation import AzureAIResponsesAPIConfig
+from embrouter.responses.main import _will_bridge_to_chat_completions
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager
 
 FOUNDRY_PROJECT_BASE = "https://res.services.ai.azure.com/api/projects/proj"
 FOUNDRY_RESPONSES_URL = f"{FOUNDRY_PROJECT_BASE}/openai/v1/responses"
@@ -23,10 +23,10 @@ WEATHER_TOOL = {
 
 @pytest.fixture(autouse=True)
 def clear_azure_ai_env(monkeypatch):
-    monkeypatch.setattr(litellm, "api_base", None)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_key", None)
+    monkeypatch.setattr(embrouter, "enable_azure_ad_token_refresh", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     for env_var in (
         "AZURE_AI_API_BASE",
         "AZURE_AI_API_KEY",
@@ -134,24 +134,24 @@ def test_will_bridge_to_chat_completions_follows_host(api_base, bridged):
     ],
 )
 def test_get_complete_url(api_base, expected):
-    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=api_base, litellm_params={}) == expected
+    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=api_base, embrouter_params={}) == expected
 
 
 def test_get_complete_url_ignores_api_version():
     url = AzureAIResponsesAPIConfig().get_complete_url(
-        api_base=FOUNDRY_PROJECT_BASE, litellm_params={"api_version": "2025-04-01-preview"}
+        api_base=FOUNDRY_PROJECT_BASE, embrouter_params={"api_version": "2025-04-01-preview"}
     )
     assert url == FOUNDRY_RESPONSES_URL
 
 
 def test_get_complete_url_uses_env_api_base(monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_BASE", FOUNDRY_PROJECT_BASE)
-    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={}) == FOUNDRY_RESPONSES_URL
+    assert AzureAIResponsesAPIConfig().get_complete_url(api_base=None, embrouter_params={}) == FOUNDRY_RESPONSES_URL
 
 
 def test_get_complete_url_raises_without_api_base():
     with pytest.raises(ValueError, match="AZURE_AI_API_BASE"):
-        AzureAIResponsesAPIConfig().get_complete_url(api_base=None, litellm_params={})
+        AzureAIResponsesAPIConfig().get_complete_url(api_base=None, embrouter_params={})
 
 
 def test_native_websocket_stays_off():
@@ -162,7 +162,7 @@ def test_validate_environment_sends_api_key_header():
     headers = AzureAIResponsesAPIConfig().validate_environment(
         headers={"x-custom": "1"},
         model="gpt-5.6-luna",
-        litellm_params=GenericLiteLLMParams(api_key="secret", api_base=FOUNDRY_PROJECT_BASE),
+        embrouter_params=GenericEmbRouterParams(api_key="secret", api_base=FOUNDRY_PROJECT_BASE),
     )
     assert headers == {"x-custom": "1", "api-key": "secret", "Content-Type": "application/json"}
 
@@ -170,7 +170,7 @@ def test_validate_environment_sends_api_key_header():
 def test_validate_environment_reads_api_key_from_env(monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_KEY", "env-secret")
     headers = AzureAIResponsesAPIConfig().validate_environment(
-        headers={}, model="gpt-5.6-luna", litellm_params=GenericLiteLLMParams(api_base=FOUNDRY_PROJECT_BASE)
+        headers={}, model="gpt-5.6-luna", embrouter_params=GenericEmbRouterParams(api_base=FOUNDRY_PROJECT_BASE)
     )
     assert headers["api-key"] == "env-secret"
 
@@ -179,7 +179,7 @@ def test_validate_environment_uses_entra_token_without_api_key():
     headers = AzureAIResponsesAPIConfig().validate_environment(
         headers={},
         model="gpt-5.6-luna",
-        litellm_params=GenericLiteLLMParams(azure_ad_token="entra-token", api_base=FOUNDRY_PROJECT_BASE),
+        embrouter_params=GenericEmbRouterParams(azure_ad_token="entra-token", api_base=FOUNDRY_PROJECT_BASE),
     )
     assert headers["Authorization"] == "Bearer entra-token"
     assert "api-key" not in headers
@@ -188,7 +188,7 @@ def test_validate_environment_uses_entra_token_without_api_key():
 def test_validate_environment_raises_without_credentials():
     with pytest.raises(ValueError, match="AZURE_AI_API_KEY"):
         AzureAIResponsesAPIConfig().validate_environment(
-            headers={}, model="gpt-5.6-luna", litellm_params=GenericLiteLLMParams(api_base=FOUNDRY_PROJECT_BASE)
+            headers={}, model="gpt-5.6-luna", embrouter_params=GenericEmbRouterParams(api_base=FOUNDRY_PROJECT_BASE)
         )
 
 
@@ -241,7 +241,7 @@ async def test_aresponses_sends_reasoning_and_tools_to_native_endpoint(model, ap
         return_value=httpx.Response(200, json=_responses_payload(expected_model))
     )
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model=model,
         input="What is the weather in SF?",
         reasoning_effort="high",
@@ -261,7 +261,7 @@ async def test_aresponses_catalog_name_remapped_to_azure_sends_bare_deployment_n
         return_value=httpx.Response(200, json=_responses_payload("gpt-5.4-nano"))
     )
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model="azure_ai/gpt-5.4-nano",
         input="What is the weather in SF?",
         api_base="https://res.openai.azure.com",
@@ -278,8 +278,8 @@ async def test_router_aresponses_sends_bare_deployment_name(model, api_base, exp
     route = respx.post(url__regex=r".*/openai/v1/responses(\?.*)?$").mock(
         return_value=httpx.Response(200, json=_responses_payload(expected_model))
     )
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": model, "api_base": api_base, "api_key": "fake-key"}}],
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": model, "api_base": api_base, "api_key": "fake-key"}}],
         num_retries=0,
     )
 
@@ -298,7 +298,7 @@ async def test_aresponses_serverless_host_stays_on_chat_bridge():
     )
     responses_route = respx.post(url__regex=r".*/responses$")
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model="azure_ai/gpt-5.6-luna-20260710154139",
         input="What is the weather in SF?",
         tools=[WEATHER_TOOL],

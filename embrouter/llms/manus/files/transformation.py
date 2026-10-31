@@ -16,26 +16,26 @@ from typing import Any, Final
 import httpx
 from openai.types.file_deleted import FileDeleted
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import extract_file_data
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.files.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import extract_file_data
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.files import TwoStepFileUploadConfig, TwoStepFileUploadRequest
-from litellm.types.llms.openai import (
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.files import TwoStepFileUploadConfig, TwoStepFileUploadRequest
+from embrouter.types.llms.openai import (
     CreateFileRequest,
     FileContentRequest,
     HttpxBinaryResponseContent,
     OpenAICreateFileRequestOptionalParams,
     OpenAIFileObject,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 MANUS_API_BASE: Final = "https://api.manus.im"
 
@@ -65,7 +65,7 @@ class ManusFilesConfig(BaseFilesConfig):
         model: str,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -75,7 +75,7 @@ class ManusFilesConfig(BaseFilesConfig):
         Manus uses API_KEY header instead of Authorization: Bearer.
         For file uploads, don't set Content-Type - httpx will set it for multipart.
         """
-        api_key = api_key or litellm.api_key or get_secret_str("MANUS_API_KEY")
+        api_key = api_key or embrouter.api_key or get_secret_str("MANUS_API_KEY")
 
         if not api_key:
             raise ValueError(
@@ -118,7 +118,7 @@ class ManusFilesConfig(BaseFilesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -127,7 +127,7 @@ class ManusFilesConfig(BaseFilesConfig):
         Returns:
             str: The full URL for the Manus /v1/files endpoint
         """
-        api_base = api_base or litellm.api_base or get_secret_str("MANUS_API_BASE") or MANUS_API_BASE
+        api_base = api_base or embrouter.api_base or get_secret_str("MANUS_API_BASE") or MANUS_API_BASE
 
         # Remove trailing slashes
         api_base = api_base.rstrip("/")
@@ -158,7 +158,7 @@ class ManusFilesConfig(BaseFilesConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> TwoStepFileUploadConfig:
         """
         Transform OpenAI-style file creation request into Manus's two-step format.
@@ -178,15 +178,15 @@ class ManusFilesConfig(BaseFilesConfig):
 
         # Get API base URL
         api_base: Final = self.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            api_key=litellm_params.get("api_key"),
+            api_base=embrouter_params.get("api_base"),
+            api_key=embrouter_params.get("api_key"),
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Get API key
-        api_key: Final = litellm_params.get("api_key") or litellm.api_key or get_secret_str("MANUS_API_KEY")
+        api_key: Final = embrouter_params.get("api_key") or embrouter.api_key or get_secret_str("MANUS_API_KEY")
 
         if not api_key:
             raise ValueError(
@@ -218,13 +218,13 @@ class ManusFilesConfig(BaseFilesConfig):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform Manus's file upload response into OpenAI-style FileObject.
 
-        For two-step uploads, the handler stores the initial response in litellm_params.
+        For two-step uploads, the handler stores the initial response in embrouter_params.
         We need to return the file object from the initial POST, not the final PUT.
 
         Manus initial response format:
@@ -239,8 +239,8 @@ class ManusFilesConfig(BaseFilesConfig):
         }
         """
         try:
-            # For two-step uploads, get the initial response from litellm_params
-            initial_response_data: Final = litellm_params.get("initial_file_response")
+            # For two-step uploads, get the initial response from embrouter_params
+            initial_response_data: Final = embrouter_params.get("initial_file_response")
             if initial_response_data:
                 response_json = initial_response_data
             else:
@@ -286,15 +286,15 @@ class ManusFilesConfig(BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Get URL and params for retrieving a file."""
         api_base: Final = self.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            api_key=litellm_params.get("api_key"),
+            api_base=embrouter_params.get("api_base"),
+            api_key=embrouter_params.get("api_key"),
             model="",
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         return f"{api_base}/{encoded_file_id}", {}
@@ -302,30 +302,30 @@ class ManusFilesConfig(BaseFilesConfig):
     def transform_retrieve_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """Transform retrieve file response."""
         return self.transform_create_file_response(
             model=None,
             raw_response=raw_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def transform_delete_file_request(
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Get URL and params for deleting a file."""
         api_base: Final = self.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            api_key=litellm_params.get("api_key"),
+            api_base=embrouter_params.get("api_base"),
+            api_key=embrouter_params.get("api_key"),
             model="",
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         return f"{api_base}/{encoded_file_id}", {}
@@ -333,8 +333,8 @@ class ManusFilesConfig(BaseFilesConfig):
     def transform_delete_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileDeleted:
         """Transform delete file response."""
         response_json: Final = raw_response.json()
@@ -344,15 +344,15 @@ class ManusFilesConfig(BaseFilesConfig):
         self,
         purpose: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Get URL and params for listing files."""
         api_base: Final = self.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            api_key=litellm_params.get("api_key"),
+            api_base=embrouter_params.get("api_base"),
+            api_key=embrouter_params.get("api_key"),
             model="",
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         params: Final = {}
         if purpose:
@@ -362,8 +362,8 @@ class ManusFilesConfig(BaseFilesConfig):
     def transform_list_files_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> list[OpenAIFileObject]:
         """Transform list files response."""
         response_json: Final = raw_response.json()
@@ -403,16 +403,16 @@ class ManusFilesConfig(BaseFilesConfig):
         self,
         file_content_request: FileContentRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Get URL and params for retrieving file content."""
         file_id: Final = file_content_request.get("file_id")
         api_base: Final = self.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            api_key=litellm_params.get("api_key"),
+            api_base=embrouter_params.get("api_base"),
+            api_key=embrouter_params.get("api_key"),
             model="",
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         return f"{api_base}/{encoded_file_id}/content", {}
@@ -420,8 +420,8 @@ class ManusFilesConfig(BaseFilesConfig):
     def transform_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> HttpxBinaryResponseContent:
         """Transform file content response."""
         return HttpxBinaryResponseContent(response=raw_response)

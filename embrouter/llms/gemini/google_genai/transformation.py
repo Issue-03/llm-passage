@@ -7,20 +7,20 @@ from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.google_genai.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.google_genai.transformation import (
     BaseGoogleGenAIGenerateContentConfig,
 )
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.vertex_ai.common_utils import (
     _build_vertex_schema,
     supports_response_json_schema,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.types.router import GenericEmbRouterParams
 
 if TYPE_CHECKING:
-    from litellm.types.google_genai.main import (
+    from embrouter.types.google_genai.main import (
         GenerateContentConfigDict,
         GenerateContentContentListUnionDict,
         GenerateContentResponse,
@@ -112,7 +112,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         Returns:
             Mapped parameters for the provider
         """
-        from litellm.llms.vertex_ai.gemini.transformation import (
+        from embrouter.llms.vertex_ai.gemini.transformation import (
             _camel_to_snake,
             _snake_to_camel,
         )
@@ -148,13 +148,13 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         api_key: str | None,
         headers: dict | None,
         model: str,
-        litellm_params: GenericLiteLLMParams | dict | None,
+        embrouter_params: GenericEmbRouterParams | dict | None,
     ) -> dict:
         default_headers: Final = {
             "Content-Type": "application/json",
         }
-        # Use the passed api_key first, then fall back to litellm_params and environment
-        gemini_api_key: Final = api_key or self._get_google_ai_studio_api_key(dict(litellm_params or {}))
+        # Use the passed api_key first, then fall back to embrouter_params and environment
+        gemini_api_key: Final = api_key or self._get_google_ai_studio_api_key(dict(embrouter_params or {}))
         if isinstance(gemini_api_key, dict):
             default_headers.update(gemini_api_key)
         elif gemini_api_key is not None:
@@ -164,17 +164,17 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
 
         return default_headers
 
-    def _get_google_ai_studio_api_key(self, litellm_params: dict) -> str | None:
+    def _get_google_ai_studio_api_key(self, embrouter_params: dict) -> str | None:
         return (
-            litellm_params.pop("api_key", None)
-            or litellm_params.pop("gemini_api_key", None)
+            embrouter_params.pop("api_key", None)
+            or embrouter_params.pop("gemini_api_key", None)
             or get_api_key_from_env()
-            or litellm.api_key
+            or embrouter.api_key
         )
 
     def _get_common_auth_components(
         self,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str | None, str | None, str | None]:
         """
         Get common authentication components used by both sync and async methods.
@@ -182,9 +182,9 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         Returns:
             Tuple of (vertex_credentials, vertex_project, vertex_location)
         """
-        vertex_credentials: Final = self.get_vertex_ai_credentials(litellm_params)
-        vertex_project: Final = self.get_vertex_ai_project(litellm_params)
-        vertex_location: Final = self.get_vertex_ai_location(litellm_params)
+        vertex_credentials: Final = self.get_vertex_ai_credentials(embrouter_params)
+        vertex_project: Final = self.get_vertex_ai_project(embrouter_params)
+        vertex_location: Final = self.get_vertex_ai_location(embrouter_params)
         return vertex_credentials, vertex_project, vertex_location
 
     def _build_final_headers_and_url(
@@ -196,12 +196,12 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         vertex_credentials: str | None,
         stream: bool,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[dict, str]:
         """
         Build final headers and API URL from auth components.
         """
-        gemini_api_key: Final = self._get_google_ai_studio_api_key(litellm_params)
+        gemini_api_key: Final = self._get_google_ai_studio_api_key(embrouter_params)
 
         auth_header, api_base = self._get_token_and_url(
             model=model,
@@ -220,7 +220,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
             api_key=auth_header,
             headers=None,
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         return headers, api_base
@@ -229,7 +229,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         self,
         api_base: str | None,
         model: str,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool,
     ) -> tuple[dict, str]:
         """
@@ -239,7 +239,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
             vertex_credentials,
             vertex_project,
             vertex_location,
-        ) = self._get_common_auth_components(litellm_params)
+        ) = self._get_common_auth_components(embrouter_params)
 
         _auth_header, vertex_project = self._ensure_access_token(
             credentials=vertex_credentials,
@@ -255,14 +255,14 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
             vertex_credentials=vertex_credentials,
             stream=stream,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def get_auth_token_and_url(
         self,
         api_base: str | None,
         model: str,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool,
     ) -> tuple[dict, str]:
         """
@@ -271,7 +271,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         Args:
             api_base: Base API URL
             model: The model name
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Tuple of headers and API base
@@ -280,7 +280,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
             vertex_credentials,
             vertex_project,
             vertex_location,
-        ) = self._get_common_auth_components(litellm_params)
+        ) = self._get_common_auth_components(embrouter_params)
 
         _auth_header, vertex_project = await self._ensure_access_token_async(
             credentials=vertex_credentials,
@@ -296,7 +296,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
             vertex_credentials=vertex_credentials,
             stream=stream,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     @staticmethod
@@ -339,7 +339,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         generate_content_config_dict: dict,
         system_instruction: Any | None = None,
     ) -> dict:
-        from litellm.types.google_genai.main import (
+        from embrouter.types.google_genai.main import (
             GenerateContentConfigDict,
             GenerateContentRequestDict,
         )
@@ -363,7 +363,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> GenerateContentResponse:
         """
         Transform the raw response from the generate content API.
@@ -375,7 +375,7 @@ class GoogleGenAIConfig(BaseGoogleGenAIGenerateContentConfig, VertexLLM):
         Returns:
             Transformed response data
         """
-        from litellm.types.google_genai.main import GenerateContentResponse
+        from embrouter.types.google_genai.main import GenerateContentResponse
 
         try:
             response = raw_response.json()

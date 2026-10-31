@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypedDict, Union, cast
 
 from typing_extensions import ReadOnly, Required
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import (
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import (
     ChatCompletionAssistantContentValue,
     ChatCompletionAudioDelta,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     ChatCompletionAudioResponse,
     ChatCompletionCustomToolCallPayload,
@@ -34,16 +34,16 @@ from litellm.types.utils import (
     StreamingChoices,
     Usage,
 )
-from litellm.utils import print_verbose, token_counter
+from embrouter.utils import print_verbose, token_counter
 
 if TYPE_CHECKING:
     from openai.types.completion_usage import CompletionUsage
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.litellm_core_utils.streaming_chunk_builder_utils import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.types.embrouter_core_utils.streaming_chunk_builder_utils import (
         UsagePerChunk,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ChatCompletionRedactedThinkingBlock,
         ChatCompletionThinkingBlock,
     )
@@ -302,11 +302,11 @@ class ChunkProcessor:
             custom_llm_provider = logging_obj.model_call_details.get("custom_llm_provider")
 
         try:
-            from litellm.litellm_core_utils.get_llm_provider_logic import (
+            from embrouter.embrouter_core_utils.get_llm_provider_logic import (
                 get_llm_provider,
             )
-            from litellm.types.utils import LlmProviders
-            from litellm.utils import ProviderConfigManager
+            from embrouter.types.utils import LlmProviders
+            from embrouter.utils import ProviderConfigManager
 
             if custom_llm_provider:
                 provider = LlmProviders(custom_llm_provider)
@@ -688,7 +688,7 @@ class ChunkProcessor:
     def get_combined_thinking_content(
         self, chunks: Sequence["_ThinkingChunk"]
     ) -> list[Union["ChatCompletionThinkingBlock", "ChatCompletionRedactedThinkingBlock"]] | None:
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             ChatCompletionRedactedThinkingBlock,
             ChatCompletionThinkingBlock,
         )
@@ -855,7 +855,7 @@ class ChunkProcessor:
         self,
         chunks: Sequence["_UsageBearingChunk | ModelResponse"],
     ) -> "UsagePerChunk":
-        from litellm.types.litellm_core_utils.streaming_chunk_builder_utils import (
+        from embrouter.types.embrouter_core_utils.streaming_chunk_builder_utils import (
             UsagePerChunk,
         )
 

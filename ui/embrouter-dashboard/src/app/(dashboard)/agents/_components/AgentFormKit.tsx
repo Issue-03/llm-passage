@@ -124,7 +124,7 @@ export interface AgentRequestPayload {
   [key: string]: unknown;
   agent_name?: string;
   agent_card_params?: Record<string, unknown>;
-  litellm_params?: Record<string, unknown>;
+  embrouter_params?: Record<string, unknown>;
   object_permission?: Record<string, unknown>;
   access_group_ids?: string[];
   kill_switch?: KillSwitchConfig | null;

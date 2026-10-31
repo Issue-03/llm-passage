@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import status
 
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
 
 
 class IdentityResolutionError(Exception):

@@ -8,8 +8,8 @@ This handler provides fake streaming by converting non-streaming responses into 
 from collections.abc import AsyncIterator
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.providers.pydantic_ai_agents.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.providers.pydantic_ai_agents.transformation import (
     PydanticAITransformation,
 )
 

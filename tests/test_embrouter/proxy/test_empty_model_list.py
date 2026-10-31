@@ -11,9 +11,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.proxy_server import app
-import litellm.proxy.proxy_server as ps
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.proxy_server import app
+import embrouter.proxy.proxy_server as ps
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def client():
 def mock_auth():
     """Override auth dependency for all tests."""
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
     yield
     app.dependency_overrides.pop(ps.user_api_key_auth, None)
@@ -42,10 +42,10 @@ class TestEmptyModelListHandling:
         Test that /v2/model/info returns paginated empty response instead of 500
         when llm_router is None.
         """
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_model_list", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_model_list", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         response = client.get(
             "/v2/model/info",
@@ -70,10 +70,10 @@ class TestEmptyModelListHandling:
         mock_router = MagicMock()
         mock_router.model_list = []
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", mock_router)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_model_list", [])
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", mock_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_model_list", [])
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         response = client.get(
             "/v2/model/info",
@@ -96,10 +96,10 @@ class TestEmptyModelListHandling:
         mock_router = MagicMock()
         mock_router.model_list = []
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", mock_router)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_model_list", [])
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", mock_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_model_list", [])
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         # Test with custom pagination parameters
         response = client.get(
@@ -123,10 +123,10 @@ class TestEmptyModelListHandling:
         Test that /model_group/info returns {"data": []} instead of 500
         when llm_model_list is None.
         """
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_model_list", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_model_list", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         response = client.get(
             "/model_group/info",
@@ -146,10 +146,10 @@ class TestEmptyModelListHandling:
         mock_router = MagicMock()
         mock_router.model_list = []
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", mock_router)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_model_list", [])
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", mock_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_model_list", [])
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         response = client.get(
             "/model_group/info",

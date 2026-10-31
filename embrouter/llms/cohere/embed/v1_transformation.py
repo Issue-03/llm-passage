@@ -7,14 +7,14 @@ from typing import Final, Protocol
 
 import httpx
 
-from litellm import COHERE_DEFAULT_EMBEDDING_INPUT_TYPE
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.llms.bedrock import (
+from embrouter import COHERE_DEFAULT_EMBEDDING_INPUT_TYPE
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.llms.bedrock import (
     CohereEmbeddingRequest,
     CohereEmbeddingRequestWithModel,
 )
-from litellm.types.utils import EmbeddingResponse, PromptTokensDetailsWrapper, Usage
-from litellm.utils import is_base64_encoded
+from embrouter.types.utils import EmbeddingResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.utils import is_base64_encoded
 
 
 class _SupportsEncode(Protocol):
@@ -100,7 +100,7 @@ class CohereEmbeddingConfig:
         self,
         response: httpx.Response,
         api_key: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         data: dict | CohereEmbeddingRequest,
         model_response: EmbeddingResponse,
         model: str,

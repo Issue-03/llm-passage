@@ -93,7 +93,7 @@ interface MCPServerEditProps {
 }
 
 const AUTH_TYPES_REQUIRING_AUTH_VALUE = [AUTH_TYPE.API_KEY, AUTH_TYPE.BEARER_TOKEN, AUTH_TYPE.TOKEN, AUTH_TYPE.BASIC];
-export const EDIT_OAUTH_UI_STATE_KEY = "litellm-mcp-oauth-edit-state";
+export const EDIT_OAUTH_UI_STATE_KEY = "embrouter-mcp-oauth-edit-state";
 
 const MCPServerEdit: React.FC<MCPServerEditProps> = ({
   mcpServer,

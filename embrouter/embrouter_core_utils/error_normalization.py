@@ -1,5 +1,5 @@
 """
-Map any exception litellm logs to one stable ``normalized_error`` code so dashboards can cluster
+Map any exception embrouter logs to one stable ``normalized_error`` code so dashboards can cluster
 failures without parsing free-text messages that embed team names, token counts, model names, etc.
 """
 
@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final, Protocol, runtime_checkable
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     APIConnectionError,
     AuthenticationError,
     BadGatewayError,

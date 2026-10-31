@@ -118,7 +118,7 @@ def test_transform_modalities_set_vision_image_and_video_flags(sync_module):
 def test_transform_skips_rows_without_valid_token_prices_so_priced_local_entries_survive(sync_module):
     local = {
         "friendliai/zai-org/GLM-Test": {
-            "litellm_provider": "friendliai",
+            "embrouter_provider": "friendliai",
             "input_cost_per_token": 1.5e-07,
             "output_cost_per_token": 5e-07,
         }
@@ -186,7 +186,7 @@ def test_vercel_transform_skips_rows_without_token_pricing_or_limits(sync_module
 def test_sync_replaces_friendli_entries_so_dropped_cache_pricing_does_not_survive(sync_module):
     local = {
         "friendliai/zai-org/GLM-Test": {
-            "litellm_provider": "friendliai",
+            "embrouter_provider": "friendliai",
             "cache_read_input_token_cost": 3e-08,
             "supports_prompt_caching": True,
         }

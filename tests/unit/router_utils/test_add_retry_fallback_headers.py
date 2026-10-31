@@ -5,7 +5,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel
 
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.router_utils.add_retry_fallback_headers import (
     add_fallback_headers_to_response,
     add_retry_headers_to_response,
     complexity_router_decision_headers,
@@ -20,9 +20,9 @@ class StreamingWrapper:
         self._hidden_params = {"additional_headers": {"x-existing": "keep"}}
 
 
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
 def test_complexity_router_decision_headers_exposes_only_bounded_fields(
-    metadata_key: Literal["metadata", "litellm_metadata"],
+    metadata_key: Literal["metadata", "embrouter_metadata"],
 ) -> None:
     headers = complexity_router_decision_headers(
         {
@@ -32,7 +32,7 @@ def test_complexity_router_decision_headers_exposes_only_bounded_fields(
                     "tier": " REASONING ",
                     "cause": "heuristic_scorer",
                     "score": 0.75,
-                    "tier_litellm_params": {"reasoning_effort": "xhigh", "api_key": "secret"},
+                    "tier_embrouter_params": {"reasoning_effort": "xhigh", "api_key": "secret"},
                     "signals": ["private prompt"],
                     "matched_keyword": "private prompt",
                 }
@@ -41,10 +41,10 @@ def test_complexity_router_decision_headers_exposes_only_bounded_fields(
     )
 
     assert dict(headers) == {
-        "x-litellm-complexity-router-tier": "REASONING",
-        "x-litellm-complexity-router-cause": "heuristic_scorer",
-        "x-litellm-complexity-router-score": "0.75",
-        "x-litellm-complexity-router-reasoning-effort": "xhigh",
+        "x-embrouter-complexity-router-tier": "REASONING",
+        "x-embrouter-complexity-router-cause": "heuristic_scorer",
+        "x-embrouter-complexity-router-score": "0.75",
+        "x-embrouter-complexity-router-reasoning-effort": "xhigh",
     }
 
 
@@ -54,23 +54,23 @@ def test_complexity_router_decision_headers_exposes_only_bounded_fields(
         (
             {"router_type": "complexity", "tier": "SIMPLE", "cause": "heuristic_scorer", "score": 0},
             {
-                "x-litellm-complexity-router-tier": "SIMPLE",
-                "x-litellm-complexity-router-cause": "heuristic_scorer",
-                "x-litellm-complexity-router-score": "0",
+                "x-embrouter-complexity-router-tier": "SIMPLE",
+                "x-embrouter-complexity-router-cause": "heuristic_scorer",
+                "x-embrouter-complexity-router-score": "0",
             },
         ),
         (
             {"router_type": "complexity", "tier": "COMPLEX", "cause": "llm_classifier"},
             {
-                "x-litellm-complexity-router-tier": "COMPLEX",
-                "x-litellm-complexity-router-cause": "llm_classifier",
+                "x-embrouter-complexity-router-tier": "COMPLEX",
+                "x-embrouter-complexity-router-cause": "llm_classifier",
             },
         ),
         (
             {"router_type": "complexity", "tier": "REASONING", "cause": "literal_keyword_match"},
             {
-                "x-litellm-complexity-router-tier": "REASONING",
-                "x-litellm-complexity-router-cause": "literal_keyword_match",
+                "x-embrouter-complexity-router-tier": "REASONING",
+                "x-embrouter-complexity-router-cause": "literal_keyword_match",
             },
         ),
         ({"router_type": "quality", "tier": "premium", "cause": "quality_tier"}, {}),
@@ -78,8 +78,8 @@ def test_complexity_router_decision_headers_exposes_only_bounded_fields(
         ({"router_type": "complexity", "score": float("nan")}, {}),
         ({"router_type": "complexity", "score": float("inf")}, {}),
         ({"router_type": "complexity", "tier": "研究", "cause": "bad\r\nX-Injected: true"}, {}),
-        ({"router_type": "complexity", "tier_litellm_params": {"reasoning_effort": 1}}, {}),
-        ({"router_type": "complexity", "tier_litellm_params": "invalid"}, {}),
+        ({"router_type": "complexity", "tier_embrouter_params": {"reasoning_effort": 1}}, {}),
+        ({"router_type": "complexity", "tier_embrouter_params": "invalid"}, {}),
         ([], {}),
         (None, {}),
     ],
@@ -92,12 +92,12 @@ def test_complexity_router_decision_headers_omits_absent_or_invalid_fields(
 
 
 @pytest.mark.parametrize(
-    "litellm_decision, metadata_decision, expected",
+    "embrouter_decision, metadata_decision, expected",
     [
         (
             {"router_type": "complexity", "tier": "SIMPLE", "cause": "heuristic_scorer"},
-            {"router_type": "complexity", "tier": "REASONING", "tier_litellm_params": {"reasoning_effort": "xhigh"}},
-            {"x-litellm-complexity-router-tier": "SIMPLE", "x-litellm-complexity-router-cause": "heuristic_scorer"},
+            {"router_type": "complexity", "tier": "REASONING", "tier_embrouter_params": {"reasoning_effort": "xhigh"}},
+            {"x-embrouter-complexity-router-tier": "SIMPLE", "x-embrouter-complexity-router-cause": "heuristic_scorer"},
         ),
         (
             {"router_type": "quality", "tier": "premium"},
@@ -112,13 +112,13 @@ def test_complexity_router_decision_headers_omits_absent_or_invalid_fields(
     ],
 )
 def test_complexity_router_decision_headers_never_falls_back_from_internal_metadata(
-    litellm_decision: Mapping[str, object],
+    embrouter_decision: Mapping[str, object],
     metadata_decision: Mapping[str, object],
     expected: Mapping[str, str],
 ) -> None:
     headers = complexity_router_decision_headers(
         {
-            "litellm_metadata": {"routing_decision": litellm_decision},
+            "embrouter_metadata": {"routing_decision": embrouter_decision},
             "metadata": {"routing_decision": metadata_decision},
         }
     )
@@ -129,11 +129,11 @@ def test_replace_complexity_router_headers_drops_stale_values() -> None:
     assert replace_complexity_router_headers(
         {
             "x-existing": "keep",
-            "x-litellm-complexity-router-tier": "REASONING",
-            "x-litellm-complexity-router-reasoning-effort": "xhigh",
+            "x-embrouter-complexity-router-tier": "REASONING",
+            "x-embrouter-complexity-router-reasoning-effort": "xhigh",
         },
-        {"x-litellm-complexity-router-tier": "SIMPLE"},
-    ) == {"x-existing": "keep", "x-litellm-complexity-router-tier": "SIMPLE"}
+        {"x-embrouter-complexity-router-tier": "SIMPLE"},
+    ) == {"x-existing": "keep", "x-embrouter-complexity-router-tier": "SIMPLE"}
 
 
 def test_add_fallback_headers_to_streaming_wrapper():
@@ -147,7 +147,7 @@ def test_add_fallback_headers_to_streaming_wrapper():
     assert result is response
     assert response._hidden_params["additional_headers"] == {
         "x-existing": "keep",
-        "x-litellm-attempted-fallbacks": 1,
+        "x-embrouter-attempted-fallbacks": 1,
     }
 
 
@@ -155,7 +155,7 @@ def test_add_fallback_headers_serializes_fallback_errors():
     response = StreamingWrapper()
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "embrouter.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
@@ -170,11 +170,11 @@ def test_add_fallback_headers_serializes_fallback_errors():
 
     assert result is response
     assert response._hidden_params["additional_headers"][
-        "x-litellm-attempted-fallbacks"
+        "x-embrouter-attempted-fallbacks"
     ] == 1
     assert (
         json.loads(
-            response._hidden_params["additional_headers"]["x-litellm-fallback-errors"]
+            response._hidden_params["additional_headers"]["x-embrouter-fallback-errors"]
         )
         == fallback_errors
     )
@@ -192,8 +192,8 @@ def test_add_retry_headers_to_streaming_wrapper():
     assert result is response
     assert response._hidden_params["additional_headers"] == {
         "x-existing": "keep",
-        "x-litellm-attempted-retries": 2,
-        "x-litellm-max-retries": 3,
+        "x-embrouter-attempted-retries": 2,
+        "x-embrouter-max-retries": 3,
     }
 
 
@@ -227,7 +227,7 @@ def test_add_fallback_headers_when_no_existing_additional_headers():
     result = add_fallback_headers_to_response(response=response, attempted_fallbacks=2)
 
     assert result is response
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-fallbacks"] == 2
+    assert response._hidden_params["additional_headers"]["x-embrouter-attempted-fallbacks"] == 2
 
 
 def test_add_fallback_headers_returns_none_when_response_is_none():
@@ -247,13 +247,13 @@ def test_add_fallback_headers_returns_unchanged_when_response_has_no_hidden_para
 
 def test_get_fallback_errors_from_headers_existing_list_passthrough():
     errors = [{"message": "err", "type": "T", "param": None, "code": "400"}]
-    result = get_fallback_errors_from_headers({"x-litellm-fallback-errors": errors})
+    result = get_fallback_errors_from_headers({"x-embrouter-fallback-errors": errors})
     assert result == errors
 
 
 def test_get_fallback_errors_from_headers_invalid_json_returns_empty():
     result = get_fallback_errors_from_headers(
-        {"x-litellm-fallback-errors": "not-valid-json-{"}
+        {"x-embrouter-fallback-errors": "not-valid-json-{"}
     )
     assert result == []
 
@@ -282,4 +282,4 @@ def test_add_fallback_headers_to_dict_response():
     result = add_fallback_headers_to_response(response=response, attempted_fallbacks=1)
 
     assert result is response
-    assert response["_hidden_params"]["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert response["_hidden_params"]["additional_headers"]["x-embrouter-attempted-fallbacks"] == 1

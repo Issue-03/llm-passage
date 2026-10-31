@@ -22,14 +22,14 @@ class JsonFormatter(logging.Formatter):
 
 def _is_json_enabled():
     try:
-        import litellm
+        import embrouter
 
-        return getattr(litellm, "json_logs", False)
+        return getattr(embrouter, "json_logs", False)
     except (ImportError, AttributeError):
         return os.getenv("JSON_LOGS", "false").lower() == "true"
 
 
-logger = logging.getLogger("litellm_proxy_extras")
+logger = logging.getLogger("embrouter_proxy_extras")
 
 if not logger.handlers:
     handler = logging.StreamHandler()
@@ -40,6 +40,6 @@ if not logger.handlers:
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
     logger.addHandler(handler)
-    # Routine migration progress is debug output: set LITELLM_LOG=INFO or DEBUG to see it.
+    # Routine migration progress is debug output: set EMBROUTER_LOG=INFO or DEBUG to see it.
     # Warnings and errors (failed or stuck migrations) always print.
-    logger.setLevel(os.getenv("LITELLM_LOG", "WARNING").upper())
+    logger.setLevel(os.getenv("EMBROUTER_LOG", "WARNING").upper())

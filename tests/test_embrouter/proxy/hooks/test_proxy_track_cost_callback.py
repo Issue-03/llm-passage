@@ -8,26 +8,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.proxy._types import SpendLogsPayload, UserAPIKeyAuth
-from litellm.proxy.collector import SpendEventConsumer
-from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.db.spend_log_tool_index import response_tool_call_names
-from litellm.proxy.hooks.proxy_track_cost_callback import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from embrouter.proxy._types import SpendLogsPayload, UserAPIKeyAuth
+from embrouter.proxy.collector import SpendEventConsumer
+from embrouter.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
+from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from embrouter.proxy.db.spend_log_tool_index import response_tool_call_names
+from embrouter.proxy.hooks.proxy_track_cost_callback import (
     _get_budget_reservation_from_metadata,
     _ProxyDBLogger,
     _should_track_cost_callback,
     _update_database_and_spend_counters,
     run_spend_event,
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.utils import ProxyUpdateSpend
-from litellm.proxy.spend_tracking.spend_event import SpendEventDecodeError, build_spend_event, decode_spend_event
-from litellm.proxy.spend_tracking.spend_event_producer import SpendEventProducer, UnixAddress
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.types.utils import CallTypes, LiteLLMBatch, ModelResponse, Usage
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.proxy.utils import ProxyUpdateSpend
+from embrouter.proxy.spend_tracking.spend_event import SpendEventDecodeError, build_spend_event, decode_spend_event
+from embrouter.proxy.spend_tracking.spend_event_producer import SpendEventProducer, UnixAddress
+from embrouter.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from embrouter.types.utils import CallTypes, EmbRouterBatch, ModelResponse, Usage
 
 
 @pytest.mark.asyncio
@@ -60,7 +60,7 @@ async def test_async_post_call_failure_hook():
 
     # Mock update_database function
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         # Call the method
@@ -84,9 +84,9 @@ async def test_async_post_call_failure_hook():
         assert call_args["completion_response"] == original_exception
 
         # Check that metadata was properly updated
-        assert "litellm_params" in call_args["kwargs"]
-        assert call_args["kwargs"]["litellm_params"]["proxy_server_request"] == {"request_id": "test_request_id"}
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        assert "embrouter_params" in call_args["kwargs"]
+        assert call_args["kwargs"]["embrouter_params"]["proxy_server_request"] == {"request_id": "test_request_id"}
+        metadata = call_args["kwargs"]["embrouter_params"]["metadata"]
         assert metadata["user_api_key"] == "test_api_key"
         assert metadata["status"] == "failure"
         assert "error_information" in metadata
@@ -94,10 +94,10 @@ async def test_async_post_call_failure_hook():
 
 
 @pytest.mark.asyncio
-async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_metadata():
+async def test_async_post_call_failure_hook_carries_guardrail_info_from_embrouter_metadata():
     """
     LIT-5650 regression: on a pre_call guardrail block the unified guardrail
-    layer seeds request_data["litellm_metadata"], so the guardrail hook writes
+    layer seeds request_data["embrouter_metadata"], so the guardrail hook writes
     standard_logging_guardrail_information there, while the failure spend log
     is serialized from request_data["metadata"]. Blocked invocations still
     consume provider usage units, so the info must be carried over or the
@@ -115,12 +115,12 @@ async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {"original_key": "original_value"},
-        "litellm_metadata": {"standard_logging_guardrail_information": guardrail_info},
+        "embrouter_metadata": {"standard_logging_guardrail_information": guardrail_info},
         "proxy_server_request": {"request_id": "test_request_id"},
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -129,7 +129,7 @@ async def test_async_post_call_failure_hook_carries_guardrail_info_from_litellm_
             user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
         )
 
-        metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+        metadata = mock_update_database.call_args[1]["kwargs"]["embrouter_params"]["metadata"]
         assert metadata["standard_logging_guardrail_information"] == guardrail_info
         assert metadata["original_key"] == "original_value"
 
@@ -142,12 +142,12 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {"standard_logging_guardrail_information": metadata_bucket_info},
-        "litellm_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "from-litellm-bucket"}]},
+        "embrouter_metadata": {"standard_logging_guardrail_information": [{"guardrail_name": "from-embrouter-bucket"}]},
         "proxy_server_request": {"request_id": "test_request_id"},
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -156,7 +156,7 @@ async def test_async_post_call_failure_hook_does_not_clobber_guardrail_info_in_m
             user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
         )
 
-        metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+        metadata = mock_update_database.call_args[1]["kwargs"]["embrouter_params"]["metadata"]
         assert metadata["standard_logging_guardrail_information"] == metadata_bucket_info
 
 
@@ -183,7 +183,7 @@ async def test_async_post_call_failure_hook_bills_guardrail_cost_on_blocked_requ
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -212,7 +212,7 @@ async def test_async_post_call_failure_hook_adds_guardrail_cost_to_recovered_str
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -255,7 +255,7 @@ async def test_async_post_call_failure_hook_non_llm_route():
 
     # Mock update_database function
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         # Call the method
@@ -281,11 +281,11 @@ async def test_async_post_call_failure_hook_releases_budget_reservation_before_r
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
     ):
@@ -317,20 +317,20 @@ async def test_should_continue_failure_tracking_when_budget_release_fails():
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("redis unavailable"),
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
+            "embrouter.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
         ) as mock_invalidate_budget_reservation_counters,
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
     ):
         await logger.async_post_call_failure_hook(
@@ -365,7 +365,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_spend_tracki
 
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key_auth": user_api_key_auth,
             },
@@ -378,7 +378,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_spend_tracki
     }
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+        "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
         new_callable=AsyncMock,
     ) as mock_release_budget_reservation:
         await logger._PROXY_track_cost_callback(
@@ -402,7 +402,7 @@ async def test_track_cost_callback_releases_budget_reservation_when_response_cos
     kwargs = {
         "model": "gpt-4",
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key_auth": user_api_key_auth,
             },
@@ -417,10 +417,10 @@ async def test_track_cost_callback_releases_budget_reservation_when_response_cos
 
     with (
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
     ):
@@ -471,7 +471,7 @@ async def test_update_database_and_spend_counters_releases_reservation_when_db_u
     budget_reservation = {"reserved_cost": 0.5, "entries": []}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+        "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
         new_callable=AsyncMock,
     ) as mock_release_budget_reservation:
         with pytest.raises(Exception, match="db unavailable"):
@@ -508,15 +508,15 @@ async def test_update_database_and_spend_counters_preserves_db_exception_when_re
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("release unavailable"),
         ) as mock_release_budget_reservation,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
+            "embrouter.proxy.hooks.proxy_track_cost_callback._invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
             side_effect=RuntimeError("invalidate unavailable"),
         ) as mock_invalidate_budget_reservation_counters,
@@ -605,7 +605,7 @@ async def test_update_database_and_spend_counters_invalidates_reservation_when_c
     }
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+        "embrouter.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
         new_callable=AsyncMock,
     ) as mock_invalidate_budget_reservation_counters:
         with pytest.raises(Exception, match="counter unavailable"):
@@ -646,12 +646,12 @@ async def test_update_database_and_spend_counters_preserves_counter_exception_wh
 
     with (
         patch(
-            "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+            "embrouter.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
             side_effect=RuntimeError("invalidate unavailable"),
         ) as mock_invalidate_budget_reservation_counters,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.verbose_proxy_logger.exception",
         ) as mock_log_exception,
     ):
         with pytest.raises(RuntimeError) as exc_info:
@@ -700,7 +700,7 @@ async def test_update_database_and_spend_counters_reconciles_reservation_before_
         call_order.append("reconcile")
 
     with patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-        "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+        "embrouter.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
         new_callable=AsyncMock,
         side_effect=_reconcile,
     ) as mock_reconcile_budget_reservation:
@@ -742,11 +742,11 @@ async def test_update_database_and_spend_counters_releases_reservation_when_db_u
 
     with (
         patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_reconcile_budget_reservation,
         patch(  # test-quality-ok: _release_budget_reservation imports the release in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation",
             new_callable=AsyncMock,
         ) as mock_release_budget_reservation,
     ):
@@ -793,12 +793,12 @@ async def test_update_database_and_spend_counters_invalidates_reservation_when_e
 
     with (
         patch(  # test-quality-ok: the helper imports reconcile_budget_reservation in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
+            "embrouter.proxy.spend_tracking.budget_reservation.reconcile_budget_reservation",
             new_callable=AsyncMock,
             side_effect=RuntimeError("redis unavailable"),
         ) as mock_reconcile_budget_reservation,
         patch(  # test-quality-ok: _invalidate_budget_reservation_counters imports it in its body, no injection seam
-            "litellm.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
+            "embrouter.proxy.spend_tracking.budget_reservation.invalidate_budget_reservation_counters",
             new_callable=AsyncMock,
         ) as mock_invalidate_budget_reservation_counters,
     ):
@@ -843,13 +843,13 @@ async def test_track_cost_callback_skips_when_no_standard_logging_object():
     kwargs = {
         "call_type": "afile_delete",
         "model": None,
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {},
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {},
         "stream": False,
     }
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -877,15 +877,15 @@ async def test_track_cost_callback_defers_in_progress_background_interaction(): 
     The callback must skip quietly (billing happens later via the background
     poll task) instead of raising 'Cost tracking failed' and alerting.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logger = _ProxyDBLogger()
 
     kwargs = {
         "call_type": "acreate_interaction",
         "model": "gemini/gemini-3-flash-preview",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {},
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {},
         "stream": False,
     }
     in_progress_response = InteractionsAPIResponse(
@@ -895,7 +895,7 @@ async def test_track_cost_callback_defers_in_progress_background_interaction(): 
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -922,17 +922,17 @@ def _batch_retrieve_kwargs(call_type: str, reservation: dict | None = None) -> d
     return {
         "call_type": call_type,
         "model": "gpt-5.6-luna",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": metadata},
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {"metadata": metadata},
         "standard_logging_object": {"response_cost": 0.0, "request_tags": None},
         "stream": False,
     }
 
 
 def _retrieved_batch(status: str, output_file_id: str | None):
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    return LiteLLMBatch(
+    return EmbRouterBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -979,16 +979,16 @@ async def test_track_cost_callback_charges_a_batch_once_and_only_when_final(  # 
 
     with (
         patch(  # test-quality-ok: increment_spend_counters is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as mock_increment_spend_counters,
         patch(  # test-quality-ok: update_cache is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ) as mock_update_cache,
         patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: the release is imported inside the callback's helper, no seam
-            "litellm.proxy.spend_tracking.budget_reservation.release_budget_reservation", new_callable=AsyncMock
+            "embrouter.proxy.spend_tracking.budget_reservation.release_budget_reservation", new_callable=AsyncMock
         ) as mock_release_budget_reservation,
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
@@ -1017,8 +1017,8 @@ def _in_progress_interaction_kwargs(reservation: dict) -> dict:
     return {
         "call_type": "acreate_interaction",
         "model": "gemini/gemini-3-flash-preview",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {"metadata": {"user_api_key_budget_reservation": reservation}},
         "stream": False,
     }
 
@@ -1036,7 +1036,7 @@ async def test_track_cost_callback_keeps_reservation_open_for_in_progress_backgr
     estimate off the spend counters while the interaction is still going to run
     and still going to cost money.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logger = _ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1047,7 +1047,7 @@ async def test_track_cost_callback_keeps_reservation_open_for_in_progress_backgr
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1073,8 +1073,8 @@ async def test_track_cost_callback_releases_reservation_for_in_progress_interact
     reservation, so the callback must release it or the spend counters stay
     pinned at the estimated cost forever.
     """
-    import litellm.proxy.hooks.proxy_track_cost_callback as callback_module
-    from litellm.types.interactions import InteractionsAPIResponse
+    import embrouter.proxy.hooks.proxy_track_cost_callback as callback_module
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     monkeypatch.setattr(callback_module, "BACKGROUND_INTERACTION_COST_POLLING_ENABLED", False)
 
@@ -1087,7 +1087,7 @@ async def test_track_cost_callback_releases_reservation_for_in_progress_interact
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1122,7 +1122,7 @@ async def test_track_cost_callback_releases_reservation_for_unpollable_interacti
     ``failed_tracking_alert``: doing so would flood operators with false alerts
     and mask real cost-tracking failures.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logger = _ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1133,7 +1133,7 @@ async def test_track_cost_callback_releases_reservation_for_unpollable_interacti
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1163,7 +1163,7 @@ async def test_track_cost_callback_alerts_when_an_interaction_that_produced_outp
     The reservation still has to be released, since suppressing the alert was
     never what freed it.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logger = _ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1174,7 +1174,7 @@ async def test_track_cost_callback_alerts_when_an_interaction_that_produced_outp
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1199,7 +1199,7 @@ async def test_track_cost_callback_releases_reservation_for_interaction_without_
     exist, and it must not fire ``failed_tracking_alert`` for what is a
     legitimate no-usage response rather than a cost-tracking failure.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logger = _ProxyDBLogger()
     reservation = {"reserved_cost": 0.05, "entries": [], "finalized": False}
@@ -1210,7 +1210,7 @@ async def test_track_cost_callback_releases_reservation_for_interaction_without_
     )
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1240,8 +1240,8 @@ async def test_callback_handles_every_status_the_interactions_api_can_return():
     Driven off the generated spec enum so a status Google adds later fails here
     instead of quietly leaking reservations in production.
     """
-    from litellm.types.interactions import InteractionsAPIResponse
-    from litellm.types.interactions.generated import Status1
+    from embrouter.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions.generated import Status1
 
     deferred = set()
     released = set()
@@ -1256,7 +1256,7 @@ async def test_callback_handles_every_status_the_interactions_api_can_return():
         )
 
         with patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging:
             mock_proxy_logging.failed_tracking_alert = AsyncMock()
             mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1287,7 +1287,7 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
     """
     When an LLM call fails, the proxy calls post_call_failure_hook with
     request_data that doesn't contain standard_logging_object. But the
-    litellm_logging_obj (set by function_setup) is in request_data and
+    embrouter_logging_obj (set by function_setup) is in request_data and
     holds the standard_logging_object with the correct trace_id.
 
     The failure hook should propagate this so the DB spend log's session_id
@@ -1301,10 +1301,10 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         team_id="test_team_id",
     )
 
-    # Simulate a litellm_logging_obj with model_call_details containing
+    # Simulate a embrouter_logging_obj with model_call_details containing
     # the standard_logging_object (as set by _failure_handler_helper_fn)
     mock_logging_obj = MagicMock()
-    mock_logging_obj.litellm_trace_id = "trace-id-from-logging-obj"
+    mock_logging_obj.embrouter_trace_id = "trace-id-from-logging-obj"
     mock_logging_obj.model_call_details = {
         "standard_logging_object": {
             "trace_id": "trace-id-from-logging-obj",
@@ -1316,13 +1316,13 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
-        "litellm_logging_obj": mock_logging_obj,
-        # Note: no "standard_logging_object" and no "litellm_trace_id"
+        "embrouter_params": {},
+        "embrouter_logging_obj": mock_logging_obj,
+        # Note: no "standard_logging_object" and no "embrouter_trace_id"
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -1337,8 +1337,8 @@ async def test_async_post_call_failure_hook_propagates_trace_id_from_logging_obj
         # standard_logging_object should have been propagated from logging obj
         assert call_kwargs.get("standard_logging_object") is not None
         assert call_kwargs["standard_logging_object"]["trace_id"] == "trace-id-from-logging-obj"
-        # litellm_trace_id should also be propagated as a fallback
-        assert call_kwargs.get("litellm_trace_id") == "trace-id-from-logging-obj"
+        # embrouter_trace_id should also be propagated as a fallback
+        assert call_kwargs.get("embrouter_trace_id") == "trace-id-from-logging-obj"
 
 
 @pytest.mark.asyncio
@@ -1352,7 +1352,7 @@ async def test_enrich_failure_metadata_with_team_alias():
     mock_team_obj.team_alias = "my-team-alias"
 
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+        "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
         new_callable=AsyncMock,
         return_value=mock_team_obj,
     ):
@@ -1385,12 +1385,12 @@ async def test_enrich_failure_metadata_with_full_key_lookup():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ),
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -1421,11 +1421,11 @@ async def test_enrich_failure_metadata_skips_when_team_alias_present():
     """
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team,
     ):
@@ -1448,7 +1448,7 @@ async def test_enrich_failure_metadata_skips_when_no_api_key():
     not perform any lookups.
     """
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+        "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
         new_callable=AsyncMock,
     ) as mock_get_key:
         metadata = {
@@ -1479,12 +1479,12 @@ async def test_enrich_failure_metadata_keeps_captured_identity_when_not_resolvin
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -1520,11 +1520,11 @@ async def test_enrich_failure_metadata_ignores_flag_when_alias_present():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -1572,9 +1572,9 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
     kwargs = {
         "call_type": call_type,
         "model": None,
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "stream": False,
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "hashed_key",
                 "user_api_key_alias": None,
@@ -1587,16 +1587,16 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=MagicMock(team_alias=None),
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1611,7 +1611,7 @@ async def test_track_cost_callback_reads_key_only_for_in_request_logs(call_type,
 
     assert mock_get_key.called is expect_key_read
 
-    written = kwargs["litellm_params"]["metadata"]
+    written = kwargs["embrouter_params"]["metadata"]
     if expect_key_read:
         assert written["user_api_key_user_id"] == "user-assigned-later"
         assert written["user_api_key_team_id"] == "team-assigned-later"
@@ -1640,7 +1640,7 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
         "model": "claude-haiku-4-5",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "embrouter_params": {},
     }
 
     mock_key_obj = MagicMock()
@@ -1654,16 +1654,16 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ),
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -1676,7 +1676,7 @@ async def test_async_post_call_failure_hook_enriches_auth_error_metadata():
 
         mock_update_database.assert_called_once()
         call_args = mock_update_database.call_args[1]
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        metadata = call_args["kwargs"]["embrouter_params"]["metadata"]
         assert metadata["user_api_key_alias"] == "my-key-alias"
         assert metadata["user_api_key_user_id"] == "my-user-id"
         assert metadata["user_api_key_team_id"] == "my-team-id"
@@ -1691,20 +1691,20 @@ async def test_async_post_call_failure_hook_skips_the_key_lookup_when_the_failur
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "embrouter_params": {},
     }
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
         ) as mock_get_key_object,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ) as mock_get_team_object,
     ):
@@ -1717,7 +1717,7 @@ async def test_async_post_call_failure_hook_skips_the_key_lookup_when_the_failur
     mock_get_key_object.assert_not_called()
     mock_get_team_object.assert_not_called()
     mock_update_database.assert_called_once()
-    metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+    metadata = mock_update_database.call_args[1]["kwargs"]["embrouter_params"]["metadata"]
     assert metadata["status"] == "failure"
     assert metadata["user_api_key"] == "hashed_key"
     assert metadata["user_api_key_alias"] is None
@@ -1733,7 +1733,7 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "embrouter_params": {},
     }
 
     mock_key_obj = MagicMock()
@@ -1745,16 +1745,16 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=mock_key_obj,
         ) as mock_get_key_object,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
         ),
     ):
@@ -1765,7 +1765,7 @@ async def test_async_post_call_failure_hook_still_enriches_metadata_for_a_non_st
         )
 
     mock_get_key_object.assert_called_once()
-    metadata = mock_update_database.call_args[1]["kwargs"]["litellm_params"]["metadata"]
+    metadata = mock_update_database.call_args[1]["kwargs"]["embrouter_params"]["metadata"]
     assert metadata["user_api_key_alias"] == "my-key-alias"
 
 
@@ -1790,7 +1790,7 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
-        "litellm_params": {},
+        "embrouter_params": {},
     }
 
     mock_team_obj = MagicMock()
@@ -1798,11 +1798,11 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
 
     with (
         patch(
-            "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+            "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
             new_callable=AsyncMock,
         ) as mock_update_database,
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_team_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_team_object",
             new_callable=AsyncMock,
             return_value=mock_team_obj,
         ),
@@ -1815,7 +1815,7 @@ async def test_async_post_call_failure_hook_enriches_missing_team_alias():
 
         mock_update_database.assert_called_once()
         call_args = mock_update_database.call_args[1]
-        metadata = call_args["kwargs"]["litellm_params"]["metadata"]
+        metadata = call_args["kwargs"]["embrouter_params"]["metadata"]
         assert metadata["user_api_key_team_alias"] == "enriched-team-alias"
         assert metadata["user_api_key_team_id"] == "test_team_id"
 
@@ -1832,12 +1832,12 @@ async def test_track_cost_callback_skips_for_falsy_model_and_no_slo(model_value)
     kwargs = {
         "call_type": "acompletion",
         "model": model_value,
-        "litellm_params": {},
+        "embrouter_params": {},
         "stream": False,
     }
 
     with patch(
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
     ) as mock_proxy_logging:
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
         mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -1880,20 +1880,20 @@ async def test_async_post_call_failure_hook_uses_actual_start_time():
     mock_logging_obj = MagicMock()
     mock_logging_obj.start_time = simulated_start
     mock_logging_obj.model_call_details = {}
-    mock_logging_obj.litellm_trace_id = None
+    mock_logging_obj.embrouter_trace_id = None
 
     request_data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
         "metadata": {},
         "proxy_server_request": {},
-        "litellm_logging_obj": mock_logging_obj,
+        "embrouter_logging_obj": mock_logging_obj,
     }
 
     original_exception = Exception("Timeout error")
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -1942,7 +1942,7 @@ async def _invoke_failure_hook_with_raised_exception():
         original_exception = exc
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -1951,13 +1951,13 @@ async def _invoke_failure_hook_with_raised_exception():
             user_api_key_dict=user_api_key_dict,
         )
         call_args = mock_update_database.call_args[1]
-        return call_args["kwargs"]["litellm_params"]["metadata"]
+        return call_args["kwargs"]["embrouter_params"]["metadata"]
 
 
 @pytest.mark.asyncio
 async def test_failure_hook_keeps_error_information_traceback_by_default(monkeypatch):
     """Without the opt-in env var, the SpendLogs row carries the full traceback."""
-    monkeypatch.delenv("LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS", raising=False)
+    monkeypatch.delenv("EMBROUTER_SUPPRESS_SPEND_LOG_TRACEBACKS", raising=False)
 
     metadata = await _invoke_failure_hook_with_raised_exception()
 
@@ -1978,9 +1978,9 @@ async def test_failure_hook_drops_error_information_traceback_when_env_set(
     error_code) are preserved."""
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from embrouter._logging import verbose_proxy_logger
 
-    monkeypatch.setenv("LITELLM_SUPPRESS_SPEND_LOG_TRACEBACKS", "true")
+    monkeypatch.setenv("EMBROUTER_SUPPRESS_SPEND_LOG_TRACEBACKS", "true")
     original_level = verbose_proxy_logger.level
     verbose_proxy_logger.setLevel(logging.INFO)
     try:
@@ -2001,7 +2001,7 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
     hook must pass it through to update_database so the failure row records the
     real partial spend instead of the hardcoded zero.
     """
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     logger = _ProxyDBLogger()
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key", user_id="u", team_id="t")
@@ -2016,7 +2016,7 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
     }
 
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
+        "embrouter.proxy.db.db_spend_update_writer.DBSpendUpdateWriter.update_database",
         new_callable=AsyncMock,
     ) as mock_update_database:
         await logger.async_post_call_failure_hook(
@@ -2032,7 +2032,7 @@ async def test_async_post_call_failure_hook_records_recovered_partial_spend():
 @pytest.mark.asyncio
 async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
     """MCP tool calls may only carry user_api_key; user/team rollups still need user_id."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     logger = _ProxyDBLogger()
     key_obj = UserAPIKeyAuth(
@@ -2046,7 +2046,7 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
     kwargs = {
         "call_type": "call_mcp_tool",
         "model": "MCP: echo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
             }
@@ -2060,20 +2060,20 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
 
     with (
         patch(
-            "litellm.proxy.hooks.proxy_track_cost_callback.get_key_object",
+            "embrouter.proxy.hooks.proxy_track_cost_callback.get_key_object",
             new_callable=AsyncMock,
             return_value=key_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "embrouter.proxy.proxy_server.increment_spend_counters",
             new_callable=AsyncMock,
         ) as mock_increment,
         patch(
-            "litellm.proxy.proxy_server.update_cache",
+            "embrouter.proxy.proxy_server.update_cache",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -2094,7 +2094,7 @@ async def test_track_cost_callback_enriches_user_id_for_mcp_style_metadata():
         update_kwargs = mock_proxy_logging.db_spend_update_writer.update_database.await_args.kwargs
         assert update_kwargs["user_id"] == "mcp-user@example.com"
         assert update_kwargs["team_id"] == "team-123"
-        assert kwargs["litellm_params"]["metadata"]["user_api_key_user_id"] == "mcp-user@example.com"
+        assert kwargs["embrouter_params"]["metadata"]["user_api_key_user_id"] == "mcp-user@example.com"
 
 
 @pytest.mark.asyncio
@@ -2109,7 +2109,7 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
         "model": "gpt-4o",
         "cache_hit": True,
         "response_cost": 0.0,
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_user_id": "user-1",
@@ -2126,13 +2126,13 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as mock_increment,  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
         patch(
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),  # test-quality-ok: same function-body import, no injection seam
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,  # test-quality-ok: same function-body import, no injection seam
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -2165,15 +2165,15 @@ async def test_track_cost_callback_keeps_guardrail_cost_on_cache_hit():
 def test_should_track_cost_callback_pass_through_without_owner(call_type, expected):
     """Regression for LIT-3782: unauthenticated pass-through requests (auth=false)
     carry no key/user/team/end-user, yet must still be tracked so they land in
-    LiteLLM_SpendLogs. Explicit MCP passthrough calls require the same handling.
+    EmbRouter_SpendLogs. Explicit MCP passthrough calls require the same handling.
     Other call types with no owner stay untracked.
 
     aretrieve_batch is included for the same reason: CheckBatchCost's synthetic
     logging_obj for a completed managed batch only ever carries
-    user_api_key_user_id/user_api_key_team_id from LiteLLM_ManagedObjectTable,
+    user_api_key_user_id/user_api_key_team_id from EmbRouter_ManagedObjectTable,
     both of which are None for a batch created with the master key or a
     team-less key (the table never stores the raw key hash). Before this fix,
-    such a batch's cost silently never reached LiteLLM_SpendLogs."""
+    such a batch's cost silently never reached EmbRouter_SpendLogs."""
     assert (
         _should_track_cost_callback(
             user_api_key=None,
@@ -2227,7 +2227,7 @@ async def test_track_cost_callback_logs_unauthenticated_pass_through_request(cal
     kwargs = {
         "call_type": call_type,
         "model": "unknown",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "standard_logging_object": {
             "response_cost": 0.0,
             "request_tags": None,
@@ -2237,15 +2237,15 @@ async def test_track_cost_callback_logs_unauthenticated_pass_through_request(cal
 
     with (
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "embrouter.proxy.proxy_server.increment_spend_counters",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.update_cache",
+            "embrouter.proxy.proxy_server.update_cache",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
         ) as mock_proxy_logging,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -2280,8 +2280,8 @@ def _model_access_group_kwargs(granted, served_model_id=None):
     return {
         "call_type": "acompletion",
         "model": "premium-haiku",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {"metadata": metadata},
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {"metadata": metadata},
         "stream": False,
         "standard_logging_object": {"response_cost": 0.25, "request_tags": None, "model_id": served_model_id},
     }
@@ -2296,14 +2296,14 @@ async def _groups_charged_by_the_callback(kwargs, deployments=None):
     logger = _ProxyDBLogger()
     with (
         patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: the arguments to this call are the boundary under test
-            "litellm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
+            "embrouter.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
             new=AsyncMock(),
         ) as mock_update,
         patch(  # test-quality-ok: llm_router is a proxy_server global the callback reads lazily, no seam
-            "litellm.proxy.proxy_server.llm_router", new=_FakeDeploymentLookup(deployments or {})
+            "embrouter.proxy.proxy_server.llm_router", new=_FakeDeploymentLookup(deployments or {})
         ),
     ):
         mock_proxy_logging.failed_tracking_alert = AsyncMock()
@@ -2375,7 +2375,7 @@ def _offload_kwargs() -> dict:
     big_prompt = "x" * 10_000
     reservation = {"reserved_cost": 0.5, "entries": [{"counter_key": "key:hash-1", "reserved_cost": 0.5}]}
     return {
-        "litellm_call_id": "call-1",
+        "embrouter_call_id": "call-1",
         "call_type": "acompletion",
         "model": "gpt-4o",
         "custom_llm_provider": "openai",
@@ -2385,7 +2385,7 @@ def _offload_kwargs() -> dict:
         "completion_start_time": datetime(2026, 1, 1, 0, 0, 1),
         "messages": [{"role": "user", "content": big_prompt}],
         "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
-        "litellm_params": {
+        "embrouter_params": {
             "api_base": "https://api.openai.com",
             "preset_cache_key": None,
             "proxy_server_request": {"body": {"messages": [{"role": "user", "content": big_prompt}]}},
@@ -2425,7 +2425,7 @@ def _offload_kwargs() -> dict:
                 "user_api_key_end_user_id": "end-user-1",
                 "usage_object": {"prompt_tokens": 5000, "completion_tokens": 4000, "total_tokens": 9000},
             },
-            "hidden_params": {"litellm_overhead_time_ms": 3},
+            "hidden_params": {"embrouter_overhead_time_ms": 3},
             "model_map_information": {},
             "cost_breakdown": {"input_cost": 0.0125, "output_cost": 0.0},
         },
@@ -2478,10 +2478,10 @@ async def test_async_log_success_event_hands_the_sidecar_a_compact_event_and_ski
 
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as counters,
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -2497,7 +2497,7 @@ async def test_async_log_success_event_hands_the_sidecar_a_compact_event_and_ski
     assert len(handler.lines[0]) < 4_000
     event = decode_spend_event(handler.lines[0])
     assert not isinstance(event, SpendEventDecodeError)
-    assert event.litellm_params["metadata"]["user_api_key_team_id"] == "team-1"
+    assert event.embrouter_params["metadata"]["user_api_key_team_id"] == "team-1"
     assert event.response_cost == 0.0125
 
 
@@ -2512,7 +2512,7 @@ async def test_async_log_success_event_keeps_batch_retrieves_in_process():
     )
     logger = _ProxyDBLogger(producer)
     kwargs = {**_offload_kwargs(), "call_type": CallTypes.aretrieve_batch.value}
-    completed_batch = LiteLLMBatch(
+    completed_batch = EmbRouterBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -2525,13 +2525,13 @@ async def test_async_log_success_event_keeps_batch_retrieves_in_process():
 
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ),
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock(return_value=True)
@@ -2545,13 +2545,13 @@ async def test_async_log_success_event_keeps_batch_retrieves_in_process():
 async def _spend_row_written_by(run) -> tuple[SpendLogsPayload, dict, tuple[str, ...]]:
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.increment_spend_counters", new_callable=AsyncMock
         ) as counters,
         patch(  # test-quality-ok: same function-body import, no injection seam
-            "litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock
+            "embrouter.proxy.proxy_server.update_cache", new_callable=AsyncMock
         ),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock(return_value=True)
@@ -2608,7 +2608,7 @@ async def test_sidecar_writes_the_same_spend_row_and_counters_as_the_in_process_
 async def test_sidecar_ignores_an_undecodable_event():  # test-quality-ok: a discarded event has no observable output other than the DB writer never being reached
     with (
         patch(  # test-quality-ok: the callback imports this from proxy_server inside its body, so there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
@@ -2629,7 +2629,7 @@ async def test_async_post_call_failure_hook_persists_no_raw_model_on_an_unknown_
         user_api_key_dict=UserAPIKeyAuth(api_key="test_api_key"),
     )
 
-    error_information: Final = writer.update_database.call_args.kwargs["kwargs"]["litellm_params"]["metadata"][
+    error_information: Final = writer.update_database.call_args.kwargs["kwargs"]["embrouter_params"]["metadata"][
         "error_information"
     ]
     assert "medical records" not in json.dumps(error_information)
@@ -2651,10 +2651,10 @@ def _spend_write_kwargs_with_metadata_value(metadata_value: object) -> dict:
     return {
         "call_type": "acompletion",
         "model": "gpt-5.4-mini",
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "stream": False,
         "response_cost": 4.725e-05,
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_user_id": "user-1",
@@ -2677,7 +2677,7 @@ async def test_track_cost_callback_failure_alert_never_carries_request_metadata_
     verbose_proxy_logger.addHandler(handler)
     try:
         with patch(  # test-quality-ok: callback imports proxy_logging_obj off proxy_server in its body, no seam
-            "litellm.proxy.proxy_server.proxy_logging_obj"
+            "embrouter.proxy.proxy_server.proxy_logging_obj"
         ) as mock_proxy_logging:
             mock_proxy_logging.failed_tracking_alert = AsyncMock()
             mock_proxy_logging.db_spend_update_writer = MagicMock()
@@ -2723,10 +2723,10 @@ async def test_autonomous_llm_callback_persists_without_human_or_key(identity_fi
         "call_type": "acompletion",
         "model": "test-model",
         "response_cost": 0.01,
-        "litellm_params": {"metadata": {identity_field: "autonomous-agent"}},
+        "embrouter_params": {"metadata": {identity_field: "autonomous-agent"}},
     }
     with patch(
-        "litellm.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
+        "embrouter.proxy.hooks.proxy_track_cost_callback._update_database_and_spend_counters",
         new_callable=AsyncMock,
         return_value=False,
     ) as persist:
@@ -2737,7 +2737,7 @@ async def test_autonomous_llm_callback_persists_without_human_or_key(identity_fi
     assert persist.call_args.kwargs["response_cost"] == 0.01
     assert persist.call_args.kwargs["user_id"] is None
     assert persist.call_args.kwargs["user_api_key"] is None
-    assert persist.call_args.kwargs["kwargs"]["litellm_params"]["metadata"][identity_field] == "autonomous-agent"
+    assert persist.call_args.kwargs["kwargs"]["embrouter_params"]["metadata"][identity_field] == "autonomous-agent"
 
 
 @pytest.mark.parametrize("agent_id,expected", [(None, False), ("autonomous-agent", True)])

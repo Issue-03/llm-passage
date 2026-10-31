@@ -5,8 +5,8 @@ import httpx
 import pytest
 from botocore.credentials import RefreshableCredentials
 
-from litellm.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 
@@ -43,7 +43,7 @@ async def test_handle_count_tokens_request_signs_off_the_event_loop(monkeypatch)
             "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
             "messages": [{"role": "user", "content": "hi"}],
         },
-        litellm_params={"aws_region_name": "us-west-2"},
+        embrouter_params={"aws_region_name": "us-west-2"},
         resolved_model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         client=client,
     )

@@ -3,7 +3,7 @@ Supports using JWT's for authenticating into the proxy.
 
 Currently only supports admin.
 
-JWT token must have 'litellm_proxy_admin' in scope.
+JWT token must have 'embrouter_proxy_admin' in scope.
 """
 
 from __future__ import annotations
@@ -27,23 +27,23 @@ from fastapi import HTTPException, status
 from jwt.api_jwk import PyJWK
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.dot_notation_indexing import get_nested_value
-from litellm.llms.custom_httpx.httpx_handler import HTTPHandler
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.dot_notation_indexing import get_nested_value
+from embrouter.llms.custom_httpx.httpx_handler import HTTPHandler
+from embrouter.proxy._types import (
     DEFAULT_JWKS_STALE_TTL,
     RBAC_ROLES,
     JWKKeyValue,
     JWTAuthBuilderResult,
     JWTIssuerConfig,
     JWTKeyItem,
-    LiteLLM_EndUserTable,
-    LiteLLM_JWTAuth,
-    LiteLLM_OrganizationTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    EmbRouter_EndUserTable,
+    EmbRouter_JWTAuth,
+    EmbRouter_OrganizationTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     Member,
     ProxyErrorTypes,
     ProxyException,
@@ -52,27 +52,27 @@ from litellm.proxy._types import (
     TeamMemberAddRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
-from litellm.proxy.agent_endpoints.identity import has_legacy_identity
-from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore, resolve_managed_agent
-from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
-from litellm.proxy.auth.auth_checks import can_team_access_model
-from litellm.proxy.auth.model_access_denied import (
+from embrouter.proxy.agent_endpoints.auth.managed_authorization import managed_agent_route_allowed
+from embrouter.proxy.agent_endpoints.identity import has_legacy_identity
+from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore, resolve_managed_agent
+from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
+from embrouter.proxy.auth.auth_checks import can_team_access_model
+from embrouter.proxy.auth.model_access_denied import (
     ModelAccessDeniedHTTPException,
     model_access_denied_client_message,
 )
-from litellm.proxy.auth.resolvers.grants import GrantResolver, UserLookup, canonical_user_id
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.auth.team_grants import team_grants, team_model_aliases
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.auth.resolvers.grants import GrantResolver, UserLookup, canonical_user_id
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.auth.team_grants import team_grants, team_model_aliases
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     get_management_object_ttl,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.user_repository import UserRepository
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import AgentIdentityFailure
-from litellm.types.proxy.auth.auth_checks import UserNotFoundError
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.types.agents import AgentResponse
+from embrouter.types.proxy.agent_identity import AgentIdentityFailure
+from embrouter.types.proxy.auth.auth_checks import UserNotFoundError
 
 from .auth_checks import (
     TeamNotFoundError,
@@ -102,9 +102,9 @@ class JWKSUnreachableError(Exception):
 JWKS_FETCH_ATTEMPTS: Final = 3
 JWKS_FETCH_RETRY_BACKOFF_SECONDS: Final = 0.25
 JWKS_UNREACHABLE_BACKOFF_SECONDS: Final = 30
-STALE_CACHE_KEY_PREFIX: Final = "litellm_stale_"
-STALE_WRITTEN_AT_CACHE_KEY_PREFIX: Final = "litellm_stale_written_at_"
-UNREACHABLE_CACHE_KEY_PREFIX: Final = "litellm_jwks_unreachable_"
+STALE_CACHE_KEY_PREFIX: Final = "embrouter_stale_"
+STALE_WRITTEN_AT_CACHE_KEY_PREFIX: Final = "embrouter_stale_written_at_"
+UNREACHABLE_CACHE_KEY_PREFIX: Final = "embrouter_jwks_unreachable_"
 
 _CachedValueT = TypeVar("_CachedValueT", bound=JWKKeyValue | str)
 
@@ -143,7 +143,7 @@ class _UserInfoResponse(Protocol):
 @dataclass(frozen=True, slots=True)
 class JWTIdentity:
     user_id: str | None
-    user_object: LiteLLM_UserTable | None
+    user_object: EmbRouter_UserTable | None
     agent_id: str | None
 
 
@@ -211,7 +211,7 @@ class JWTHandler:
     - treat the sub id passed in as the user id
     - return an error if id making request doesn't exist in proxy user table
     - track spend against the user id
-    - if role="litellm_proxy_user" -> allow making calls + info. Can not edit budgets
+    - if role="embrouter_proxy_user" -> allow making calls + info. Can not edit budgets
     """
 
     prisma_client: PrismaClient | None
@@ -231,21 +231,21 @@ class JWTHandler:
         "ES512",
         "EdDSA",
     ]
-    LITELLM_JWT_ISSUER_CLAIM = "_litellm_jwt_issuer"
-    LITELLM_USER_ID_CLAIM = "_litellm_user_id"
-    LITELLM_USER_EMAIL_CLAIM = "_litellm_user_email"
-    LITELLM_TEAM_ID_CLAIM = "_litellm_team_id"
-    LITELLM_TEAM_IDS_CLAIM = "_litellm_team_ids"
-    LITELLM_ORG_ID_CLAIM = "_litellm_org_id"
-    LITELLM_END_USER_ID_CLAIM = "_litellm_end_user_id"
-    LITELLM_INTERNAL_CLAIMS = (
-        LITELLM_JWT_ISSUER_CLAIM,
-        LITELLM_USER_ID_CLAIM,
-        LITELLM_USER_EMAIL_CLAIM,
-        LITELLM_TEAM_ID_CLAIM,
-        LITELLM_TEAM_IDS_CLAIM,
-        LITELLM_ORG_ID_CLAIM,
-        LITELLM_END_USER_ID_CLAIM,
+    EMBROUTER_JWT_ISSUER_CLAIM = "_embrouter_jwt_issuer"
+    EMBROUTER_USER_ID_CLAIM = "_embrouter_user_id"
+    EMBROUTER_USER_EMAIL_CLAIM = "_embrouter_user_email"
+    EMBROUTER_TEAM_ID_CLAIM = "_embrouter_team_id"
+    EMBROUTER_TEAM_IDS_CLAIM = "_embrouter_team_ids"
+    EMBROUTER_ORG_ID_CLAIM = "_embrouter_org_id"
+    EMBROUTER_END_USER_ID_CLAIM = "_embrouter_end_user_id"
+    EMBROUTER_INTERNAL_CLAIMS = (
+        EMBROUTER_JWT_ISSUER_CLAIM,
+        EMBROUTER_USER_ID_CLAIM,
+        EMBROUTER_USER_EMAIL_CLAIM,
+        EMBROUTER_TEAM_ID_CLAIM,
+        EMBROUTER_TEAM_IDS_CLAIM,
+        EMBROUTER_ORG_ID_CLAIM,
+        EMBROUTER_END_USER_ID_CLAIM,
     )
 
     def __init__(
@@ -264,12 +264,12 @@ class JWTHandler:
         self,
         prisma_client: PrismaClient | None,
         user_api_key_cache: UserApiKeyCache,
-        litellm_jwtauth: LiteLLM_JWTAuth,
+        embrouter_jwtauth: EmbRouter_JWTAuth,
         leeway: int = 0,
     ) -> None:
         self.prisma_client = prisma_client
         self.user_api_key_cache = user_api_key_cache
-        self.litellm_jwtauth = litellm_jwtauth
+        self.embrouter_jwtauth = embrouter_jwtauth
         self.leeway = leeway
 
     @staticmethod
@@ -316,7 +316,7 @@ class JWTHandler:
             The function handles both single string roles and lists of roles from the JWT.
             If multiple mappings match the JWT roles, the first matching mapping is returned.
         """
-        if self.litellm_jwtauth.role_mappings is None:
+        if self.embrouter_jwtauth.role_mappings is None:
             return None
 
         jwt_role: Final = self.get_jwt_role(token=token, default_value=None)
@@ -325,7 +325,7 @@ class JWTHandler:
 
         jwt_role_set: Final = set(jwt_role)
 
-        for role_mapping in self.litellm_jwtauth.role_mappings:
+        for role_mapping in self.embrouter_jwtauth.role_mappings:
             # Check if the mapping role matches any of the JWT roles
             if role_mapping.role in jwt_role_set:
                 return role_mapping.internal_role
@@ -353,40 +353,40 @@ class JWTHandler:
         user_roles: Final = self.get_user_roles(token=token, default_value=None)
 
         if is_admin:
-            return LitellmUserRoles.PROXY_ADMIN
+            return EmbrouterUserRoles.PROXY_ADMIN
         elif self.get_team_id(token=token, default_value=None) is not None:
-            return LitellmUserRoles.TEAM
+            return EmbrouterUserRoles.TEAM
         elif (
             self.get_user_id(token=token, default_value=None) is not None
             or user_roles is not None
             and self.is_allowed_user_role(user_roles=user_roles)
         ):
-            return LitellmUserRoles.INTERNAL_USER
+            return EmbrouterUserRoles.INTERNAL_USER
         elif rbac_role := self._rbac_role_from_role_mapping(token=token):
             return rbac_role
 
         return None
 
     def is_admin(self, scopes: list) -> bool:
-        if self.litellm_jwtauth.admin_jwt_scope in scopes:
+        if self.embrouter_jwtauth.admin_jwt_scope in scopes:
             return True
         return False
 
     def _is_trusted_issuer_normalized_token(self, token: dict) -> bool:
-        issuer: Final = token.get(self.LITELLM_JWT_ISSUER_CLAIM)
+        issuer: Final = token.get(self.EMBROUTER_JWT_ISSUER_CLAIM)
         if not isinstance(issuer, str) or not issuer:
             return False
 
-        litellm_jwtauth: Final = getattr(self, "litellm_jwtauth", None)
-        issuer_configs: Final = getattr(litellm_jwtauth, "issuers", None) or []
+        embrouter_jwtauth: Final = getattr(self, "embrouter_jwtauth", None)
+        issuer_configs: Final = getattr(embrouter_jwtauth, "issuers", None) or []
         return any(issuer_config.issuer == issuer for issuer_config in issuer_configs)
 
     def _has_trusted_issuer_normalized_claim(self, token: dict, claim: str) -> bool:
         return self._is_trusted_issuer_normalized_token(token=token) and claim in token
 
     def get_team_ids_from_jwt(self, token: dict) -> list[str]:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_TEAM_IDS_CLAIM):
-            issuer_team_ids: Final = token.get(self.LITELLM_TEAM_IDS_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_TEAM_IDS_CLAIM):
+            issuer_team_ids: Final = token.get(self.EMBROUTER_TEAM_IDS_CLAIM)
             if isinstance(issuer_team_ids, list):
                 return issuer_team_ids
             if isinstance(issuer_team_ids, str):
@@ -397,10 +397,10 @@ class JWTHandler:
             # would read a semantically unrelated claim on the same token.
             return []
 
-        if self.litellm_jwtauth.team_ids_jwt_field is not None:
+        if self.embrouter_jwtauth.team_ids_jwt_field is not None:
             team_ids: Final[list[str] | None] = get_nested_value(
                 data=token,
-                key_path=self.litellm_jwtauth.team_ids_jwt_field,
+                key_path=self.embrouter_jwtauth.team_ids_jwt_field,
                 default=[],
             )
             return team_ids or []
@@ -426,12 +426,12 @@ class JWTHandler:
         """
         team_ids: Final[list[str]] = list(self.get_team_ids_from_jwt(token))
         singular: Any = None
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_TEAM_ID_CLAIM):
-            singular = token.get(self.LITELLM_TEAM_ID_CLAIM)
-        elif self.litellm_jwtauth.team_id_jwt_field is not None:
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_TEAM_ID_CLAIM):
+            singular = token.get(self.EMBROUTER_TEAM_ID_CLAIM)
+        elif self.embrouter_jwtauth.team_id_jwt_field is not None:
             singular = get_nested_value(
                 data=token,
-                key_path=self.litellm_jwtauth.team_id_jwt_field,
+                key_path=self.embrouter_jwtauth.team_id_jwt_field,
                 default=None,
             )
         if singular is not None:
@@ -447,14 +447,14 @@ class JWTHandler:
         return team_ids
 
     def get_end_user_id(self, token: dict, default_value: str | None) -> str | None:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_END_USER_ID_CLAIM):
-            return token.get(self.LITELLM_END_USER_ID_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_END_USER_ID_CLAIM):
+            return token.get(self.EMBROUTER_END_USER_ID_CLAIM)
 
         try:
-            if self.litellm_jwtauth.end_user_id_jwt_field is not None:
+            if self.embrouter_jwtauth.end_user_id_jwt_field is not None:
                 user_id = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.end_user_id_jwt_field,
+                    key_path=self.embrouter_jwtauth.end_user_id_jwt_field,
                     default=default_value,
                 )
             else:
@@ -470,7 +470,7 @@ class JWTHandler:
         - True: if 'team_id_jwt_field' or 'team_alias_jwt_field' is set
         - False: if neither is set
         """
-        if self.litellm_jwtauth.team_id_jwt_field is None and self.litellm_jwtauth.team_alias_jwt_field is None:
+        if self.embrouter_jwtauth.team_id_jwt_field is None and self.embrouter_jwtauth.team_alias_jwt_field is None:
             return False
         return True
 
@@ -481,32 +481,32 @@ class JWTHandler:
         - False: if 'user_allowed_email_domain' is None
         """
 
-        if self.litellm_jwtauth.user_allowed_email_domain is not None and isinstance(
-            self.litellm_jwtauth.user_allowed_email_domain, str
+        if self.embrouter_jwtauth.user_allowed_email_domain is not None and isinstance(
+            self.embrouter_jwtauth.user_allowed_email_domain, str
         ):
             return True
         return False
 
     def get_team_id(self, token: dict, default_value: str | None) -> str | None:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_TEAM_ID_CLAIM):
-            team_id = token.get(self.LITELLM_TEAM_ID_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_TEAM_ID_CLAIM):
+            team_id = token.get(self.EMBROUTER_TEAM_ID_CLAIM)
             if isinstance(team_id, list):
                 return team_id[0] if team_id else default_value
             return team_id
 
         try:
-            if self.litellm_jwtauth.team_id_jwt_field is not None:
+            if self.embrouter_jwtauth.team_id_jwt_field is not None:
                 # Use a sentinel value to detect if the path actually exists
                 sentinel: Final = object()
                 team_id = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.team_id_jwt_field,
+                    key_path=self.embrouter_jwtauth.team_id_jwt_field,
                     default=sentinel,
                 )
                 if team_id is sentinel:
                     # Path doesn't exist, use team_id_default if available
-                    if self.litellm_jwtauth.team_id_default is not None:
-                        return self.litellm_jwtauth.team_id_default
+                    if self.embrouter_jwtauth.team_id_default is not None:
+                        return self.embrouter_jwtauth.team_id_default
                     else:
                         return default_value
                 # AAD and other IdPs often send roles/groups as a list of strings.
@@ -517,14 +517,14 @@ class JWTHandler:
                         return default_value
                     verbose_proxy_logger.debug(
                         "JWT Auth: team_id_jwt_field '%s' returned a list %s; using first element '%s' automatically.",
-                        self.litellm_jwtauth.team_id_jwt_field,
+                        self.embrouter_jwtauth.team_id_jwt_field,
                         team_id,
                         team_id[0],
                     )
                     team_id = team_id[0]
                 return team_id
-            elif self.litellm_jwtauth.team_id_default is not None:
-                team_id = self.litellm_jwtauth.team_id_default
+            elif self.embrouter_jwtauth.team_id_default is not None:
+                team_id = self.embrouter_jwtauth.team_id_default
             else:
                 team_id = None
         except KeyError:
@@ -543,10 +543,10 @@ class JWTHandler:
             The team alias from the token, or default_value if not found
         """
         try:
-            if self.litellm_jwtauth.team_alias_jwt_field is not None:
+            if self.embrouter_jwtauth.team_alias_jwt_field is not None:
                 team_alias = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.team_alias_jwt_field,
+                    key_path=self.embrouter_jwtauth.team_alias_jwt_field,
                     default=default_value,
                 )
                 return team_alias
@@ -564,17 +564,17 @@ class JWTHandler:
         """
         if valid_user_email is False:
             return False
-        return self.litellm_jwtauth.user_id_upsert
+        return self.embrouter_jwtauth.user_id_upsert
 
     def get_user_id(self, token: dict, default_value: str | None) -> str | None:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_USER_ID_CLAIM):
-            return token.get(self.LITELLM_USER_ID_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_USER_ID_CLAIM):
+            return token.get(self.EMBROUTER_USER_ID_CLAIM)
 
         try:
-            if self.litellm_jwtauth.user_id_jwt_field is not None:
+            if self.embrouter_jwtauth.user_id_jwt_field is not None:
                 user_id = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.user_id_jwt_field,
+                    key_path=self.embrouter_jwtauth.user_id_jwt_field,
                     default=default_value,
                 )
             else:
@@ -590,10 +590,10 @@ class JWTHandler:
         Set via 'user_roles_jwt_field' in the config.
         """
         try:
-            if self.litellm_jwtauth.user_roles_jwt_field is not None:
+            if self.embrouter_jwtauth.user_roles_jwt_field is not None:
                 user_roles = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.user_roles_jwt_field,
+                    key_path=self.embrouter_jwtauth.user_roles_jwt_field,
                     default=default_value,
                 )
             else:
@@ -602,19 +602,19 @@ class JWTHandler:
             user_roles = default_value
         return user_roles
 
-    def map_jwt_role_to_litellm_role(self, token: dict) -> LitellmUserRoles | None:
-        """Map roles from JWT to LiteLLM user roles"""
-        if not self.litellm_jwtauth.jwt_litellm_role_map:
+    def map_jwt_role_to_embrouter_role(self, token: dict) -> EmbrouterUserRoles | None:
+        """Map roles from JWT to EmbRouter user roles"""
+        if not self.embrouter_jwtauth.jwt_embrouter_role_map:
             return None
 
         jwt_roles: Final = self.get_jwt_role(token=token, default_value=[])
         if not jwt_roles:
             return None
 
-        for mapping in self.litellm_jwtauth.jwt_litellm_role_map:
+        for mapping in self.embrouter_jwtauth.jwt_embrouter_role_map:
             for role in jwt_roles:
                 if fnmatch.fnmatch(role, mapping.jwt_role):
-                    return mapping.litellm_role
+                    return mapping.embrouter_role
         return None
 
     def get_jwt_role(self, token: dict, default_value: list[str] | None) -> list[str] | None:
@@ -626,10 +626,10 @@ class JWTHandler:
         Set via 'roles_jwt_field' in the config.
         """
         try:
-            if self.litellm_jwtauth.roles_jwt_field is not None:
+            if self.embrouter_jwtauth.roles_jwt_field is not None:
                 user_roles = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.roles_jwt_field,
+                    key_path=self.embrouter_jwtauth.roles_jwt_field,
                     default=default_value,
                 )
             else:
@@ -646,21 +646,21 @@ class JWTHandler:
         """
         if (
             user_roles is not None
-            and self.litellm_jwtauth.user_allowed_roles is not None
-            and any(role in self.litellm_jwtauth.user_allowed_roles for role in user_roles)
+            and self.embrouter_jwtauth.user_allowed_roles is not None
+            and any(role in self.embrouter_jwtauth.user_allowed_roles for role in user_roles)
         ):
             return True
         return False
 
     def get_user_email(self, token: dict, default_value: str | None) -> str | None:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_USER_EMAIL_CLAIM):
-            return token.get(self.LITELLM_USER_EMAIL_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_USER_EMAIL_CLAIM):
+            return token.get(self.EMBROUTER_USER_EMAIL_CLAIM)
 
         try:
-            if self.litellm_jwtauth.user_email_jwt_field is not None:
+            if self.embrouter_jwtauth.user_email_jwt_field is not None:
                 user_email = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.user_email_jwt_field,
+                    key_path=self.embrouter_jwtauth.user_email_jwt_field,
                     default=default_value,
                 )
             else:
@@ -671,10 +671,10 @@ class JWTHandler:
 
     def get_object_id(self, token: dict, default_value: str | None) -> str | None:
         try:
-            if self.litellm_jwtauth.object_id_jwt_field is not None:
+            if self.embrouter_jwtauth.object_id_jwt_field is not None:
                 object_id = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.object_id_jwt_field,
+                    key_path=self.embrouter_jwtauth.object_id_jwt_field,
                     default=default_value,
                 )
             else:
@@ -684,20 +684,20 @@ class JWTHandler:
         return object_id
 
     def get_agent_claim(self, token: Mapping[str, object]) -> str | None:
-        if self.litellm_jwtauth.agent_id_jwt_field is None:
+        if self.embrouter_jwtauth.agent_id_jwt_field is None:
             return None
-        claim: Final[object] = get_nested_value(data=token, key_path=self.litellm_jwtauth.agent_id_jwt_field)
+        claim: Final[object] = get_nested_value(data=token, key_path=self.embrouter_jwtauth.agent_id_jwt_field)
         return claim if isinstance(claim, str) and claim else None
 
     def get_org_id(self, token: dict, default_value: str | None) -> str | None:
-        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.LITELLM_ORG_ID_CLAIM):
-            return token.get(self.LITELLM_ORG_ID_CLAIM)
+        if self._has_trusted_issuer_normalized_claim(token=token, claim=self.EMBROUTER_ORG_ID_CLAIM):
+            return token.get(self.EMBROUTER_ORG_ID_CLAIM)
 
         try:
-            if self.litellm_jwtauth.org_id_jwt_field is not None:
+            if self.embrouter_jwtauth.org_id_jwt_field is not None:
                 org_id = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.org_id_jwt_field,
+                    key_path=self.embrouter_jwtauth.org_id_jwt_field,
                     default=default_value,
                 )
             else:
@@ -718,10 +718,10 @@ class JWTHandler:
             The organization alias from the token, or default_value if not found
         """
         try:
-            if self.litellm_jwtauth.org_alias_jwt_field is not None:
+            if self.embrouter_jwtauth.org_alias_jwt_field is not None:
                 org_alias = get_nested_value(
                     data=token,
-                    key_path=self.litellm_jwtauth.org_alias_jwt_field,
+                    key_path=self.embrouter_jwtauth.org_alias_jwt_field,
                     default=default_value,
                 )
                 return org_alias
@@ -755,7 +755,7 @@ class JWTHandler:
             return url
 
         return await self._cached_with_stale_fallback(
-            cache_key=f"litellm_oidc_discovery_{url}",
+            cache_key=f"embrouter_oidc_discovery_{url}",
             ttl=self._get_public_key_cache_ttl(),
             refresh=lambda: self._fetch_jwks_uri_from_discovery(url),
             log_context="an OIDC discovery lookup",
@@ -916,16 +916,16 @@ class JWTHandler:
         return jwks_uri
 
     def _get_public_key_cache_ttl(self) -> float:
-        litellm_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "litellm_jwtauth", None)
-        if litellm_jwtauth is None:
+        embrouter_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "embrouter_jwtauth", None)
+        if embrouter_jwtauth is None:
             return 600
-        return litellm_jwtauth.public_key_ttl
+        return embrouter_jwtauth.public_key_ttl
 
     def _get_public_key_stale_ttl(self) -> float:
-        litellm_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "litellm_jwtauth", None)
-        if litellm_jwtauth is None:
+        embrouter_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "embrouter_jwtauth", None)
+        if embrouter_jwtauth is None:
             return DEFAULT_JWKS_STALE_TTL
-        return litellm_jwtauth.public_key_stale_ttl
+        return embrouter_jwtauth.public_key_stale_ttl
 
     async def _fetch_jwks_keys(self, resolved_jwks_url: str) -> JWKKeyValue:
         response: Final = await self._get_with_transient_retries(resolved_jwks_url)
@@ -946,7 +946,7 @@ class JWTHandler:
     async def _get_public_key_from_jwks_url(self, jwks_url: str, kid: str | None) -> dict:
         resolved_jwks_url: Final = await self._resolve_jwks_url(jwks_url)
         keys: Final = await self._cached_with_stale_fallback(
-            cache_key=f"litellm_jwt_auth_keys_{resolved_jwks_url}",
+            cache_key=f"embrouter_jwt_auth_keys_{resolved_jwks_url}",
             ttl=self._get_public_key_cache_ttl(),
             refresh=lambda: self._fetch_jwks_keys(resolved_jwks_url),
             log_context=f"kid={kid}",
@@ -996,11 +996,11 @@ class JWTHandler:
         return public_key
 
     def is_allowed_domain(self, user_email: str) -> bool:
-        if self.litellm_jwtauth.user_allowed_email_domain is None:
+        if self.embrouter_jwtauth.user_allowed_email_domain is None:
             return True
 
         email_domain: Final = user_email.split("@")[-1]  # Extract domain from email
-        if email_domain == self.litellm_jwtauth.user_allowed_email_domain:
+        if email_domain == self.embrouter_jwtauth.user_allowed_email_domain:
             return True
         else:
             return False
@@ -1022,7 +1022,7 @@ class JWTHandler:
         Raises:
             Exception: If UserInfo endpoint is not configured or request fails
         """
-        if not self.litellm_jwtauth.oidc_userinfo_endpoint:
+        if not self.embrouter_jwtauth.oidc_userinfo_endpoint:
             raise Exception("OIDC UserInfo endpoint not configured. Set 'oidc_userinfo_endpoint' in JWT auth config.")
 
         # Check cache first
@@ -1033,12 +1033,12 @@ class JWTHandler:
             verbose_proxy_logger.debug("Returning cached OIDC UserInfo")
             return cached_userinfo
 
-        verbose_proxy_logger.debug("Calling OIDC UserInfo endpoint: %s", self.litellm_jwtauth.oidc_userinfo_endpoint)
+        verbose_proxy_logger.debug("Calling OIDC UserInfo endpoint: %s", self.embrouter_jwtauth.oidc_userinfo_endpoint)
 
         try:
             # Call the UserInfo endpoint with the access token
             response: Final = await self.http_handler.get(
-                url=self.litellm_jwtauth.oidc_userinfo_endpoint,
+                url=self.embrouter_jwtauth.oidc_userinfo_endpoint,
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Accept": "application/json",
@@ -1055,7 +1055,7 @@ class JWTHandler:
             await self.user_api_key_cache.async_set_cache(
                 key=cache_key,
                 value=userinfo,
-                ttl=self.litellm_jwtauth.oidc_userinfo_cache_ttl,
+                ttl=self.embrouter_jwtauth.oidc_userinfo_cache_ttl,
             )
 
             return userinfo
@@ -1077,7 +1077,7 @@ class JWTHandler:
         is preserved for backward compatibility but logged once as a warning.
 
         The warning fires even in mixed deployments that also configure
-        ``LiteLLM_JWTAuth.issuers``: tokens whose ``iss`` does not match any
+        ``EmbRouter_JWTAuth.issuers``: tokens whose ``iss`` does not match any
         configured issuer fall through to this global path, and if env-var
         scoping is absent that fallback is itself unscoped.
         """
@@ -1108,18 +1108,18 @@ class JWTHandler:
     def managed_issuer_is_trusted(self, issuer: object) -> bool:
         if not isinstance(issuer, str):
             return False
-        configured: Final = self.litellm_jwtauth.issuers or ()
+        configured: Final = self.embrouter_jwtauth.issuers or ()
         for item in configured:
             if item.issuer == issuer:
                 return bool(item.audience) and not item.disable_audience_validation
         return issuer == os.getenv("JWT_ISSUER") and bool(os.getenv("JWT_AUDIENCE"))
 
     def _get_configured_issuer(self, token: str) -> JWTIssuerConfig | None:
-        litellm_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "litellm_jwtauth", None)
-        if litellm_jwtauth is None:
+        embrouter_jwtauth: Final[_JWTAuthSettings | None] = getattr(self, "embrouter_jwtauth", None)
+        if embrouter_jwtauth is None:
             return None
 
-        issuer_configs: Final = litellm_jwtauth.issuers
+        issuer_configs: Final = embrouter_jwtauth.issuers
         if not issuer_configs:
             return None
 
@@ -1148,7 +1148,7 @@ class JWTHandler:
         """Resolve a mapped claim from ``token``.
 
         Returns ``None`` when the field is absent or empty so that mapped claims
-        behave like the global ``litellm_jwtauth`` path — present claims override
+        behave like the global ``embrouter_jwtauth`` path — present claims override
         the normalised value, missing ones simply leave it ``None``.
         """
         sentinel: Final = object()
@@ -1162,15 +1162,15 @@ class JWTHandler:
         return claim_value
 
     def _apply_issuer_claim_mappings(self, token: dict, issuer_config: JWTIssuerConfig) -> dict:
-        normalized: Final[dict] = {k: v for k, v in token.items() if k not in self.LITELLM_INTERNAL_CLAIMS}
-        normalized[self.LITELLM_JWT_ISSUER_CLAIM] = issuer_config.issuer
+        normalized: Final[dict] = {k: v for k, v in token.items() if k not in self.EMBROUTER_INTERNAL_CLAIMS}
+        normalized[self.EMBROUTER_JWT_ISSUER_CLAIM] = issuer_config.issuer
         claim_mappings: Final = [
-            (issuer_config.user_id_jwt_field, self.LITELLM_USER_ID_CLAIM),
-            (issuer_config.user_email_jwt_field, self.LITELLM_USER_EMAIL_CLAIM),
-            (issuer_config.team_id_jwt_field, self.LITELLM_TEAM_ID_CLAIM),
-            (issuer_config.team_ids_jwt_field, self.LITELLM_TEAM_IDS_CLAIM),
-            (issuer_config.org_id_jwt_field, self.LITELLM_ORG_ID_CLAIM),
-            (issuer_config.end_user_id_jwt_field, self.LITELLM_END_USER_ID_CLAIM),
+            (issuer_config.user_id_jwt_field, self.EMBROUTER_USER_ID_CLAIM),
+            (issuer_config.user_email_jwt_field, self.EMBROUTER_USER_EMAIL_CLAIM),
+            (issuer_config.team_id_jwt_field, self.EMBROUTER_TEAM_ID_CLAIM),
+            (issuer_config.team_ids_jwt_field, self.EMBROUTER_TEAM_IDS_CLAIM),
+            (issuer_config.org_id_jwt_field, self.EMBROUTER_ORG_ID_CLAIM),
+            (issuer_config.end_user_id_jwt_field, self.EMBROUTER_END_USER_ID_CLAIM),
         ]
 
         for source_claim, normalized_claim in claim_mappings:
@@ -1319,7 +1319,7 @@ class JWTHandler:
                     issuer=decode_kwargs["issuer"],
                     options=decode_kwargs["options"],
                 )
-                return {k: v for k, v in payload.items() if k not in self.LITELLM_INTERNAL_CLAIMS}
+                return {k: v for k, v in payload.items() if k not in self.EMBROUTER_INTERNAL_CLAIMS}
 
             except jwt.ExpiredSignatureError:
                 raise ProxyException(
@@ -1434,7 +1434,7 @@ class JWTAuthManager:
         rbac_role: RBAC_ROLES | None,
     ) -> None:
         """Validate RBAC role and model access permissions"""
-        if jwt_handler.litellm_jwtauth.enforce_rbac is True:
+        if jwt_handler.embrouter_jwtauth.enforce_rbac is True:
             if rbac_role is None:
                 raise HTTPException(
                     status_code=403,
@@ -1468,12 +1468,12 @@ class JWTAuthManager:
             return None
 
         is_allowed: Final = allowed_routes_check(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             user_route=route,
-            litellm_proxy_roles=jwt_handler.litellm_jwtauth,
+            embrouter_proxy_roles=jwt_handler.embrouter_jwtauth,
         )
         if not is_allowed:
-            allowed_routes: Final[list[Any]] = jwt_handler.litellm_jwtauth.admin_allowed_routes
+            allowed_routes: Final[list[Any]] = jwt_handler.embrouter_jwtauth.admin_allowed_routes
             actual_routes: Final = get_actual_routes(allowed_routes=allowed_routes)
             raise Exception(f"Admin not allowed to access this route. Route={route}, Allowed Routes={actual_routes}")
 
@@ -1510,11 +1510,11 @@ class JWTAuthManager:
             agent is None
             or agent.identity_managed
             or agent.identity is not None
-            or has_legacy_identity(agent.litellm_params)
+            or has_legacy_identity(agent.embrouter_params)
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"No registered agent matches JWT claim {jwt_handler.litellm_jwtauth.agent_id_jwt_field}={agent_claim}",
+                detail=f"No registered agent matches JWT claim {jwt_handler.embrouter_jwtauth.agent_id_jwt_field}={agent_claim}",
             )
         return agent.agent_id
 
@@ -1527,7 +1527,7 @@ class JWTAuthManager:
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging,
         team_id_upsert: bool | None = None,
-    ) -> tuple[str | None, LiteLLM_TeamTable | None]:
+    ) -> tuple[str | None, EmbRouter_TeamTable | None]:
         """Find and validate specific team ID from team_id_jwt_field or team_alias_jwt_field"""
         individual_team_id = jwt_handler.get_team_id(token=jwt_valid_token, default_value=None)
         team_alias: Final = jwt_handler.get_team_alias(token=jwt_valid_token, default_value=None)
@@ -1544,7 +1544,7 @@ class JWTAuthManager:
         ):
             individual_team_id = None
 
-        team_object: LiteLLM_TeamTable | None = None
+        team_object: EmbRouter_TeamTable | None = None
 
         if individual_team_id:
             try:
@@ -1554,13 +1554,13 @@ class JWTAuthManager:
                     user_api_key_cache=user_api_key_cache,
                     parent_otel_span=parent_otel_span,
                     proxy_logging_obj=proxy_logging_obj,
-                    team_id_upsert=jwt_handler.litellm_jwtauth.team_id_upsert
+                    team_id_upsert=jwt_handler.embrouter_jwtauth.team_id_upsert
                     if team_id_upsert is None
                     else team_id_upsert,
                 )
                 return individual_team_id, team_object
             except HTTPException as e:
-                if e.status_code != 404 or not jwt_handler.litellm_jwtauth.team_claim_fallback:
+                if e.status_code != 404 or not jwt_handler.embrouter_jwtauth.team_claim_fallback:
                     raise
                 # Claim doesn't map to a known team — defer to fallback.
                 verbose_proxy_logger.debug(
@@ -1588,8 +1588,8 @@ class JWTAuthManager:
 
         # Check if team is required but not found
         if jwt_handler.is_required_team_id() is True:
-            team_id_field: Final = jwt_handler.litellm_jwtauth.team_id_jwt_field
-            team_alias_field: Final = jwt_handler.litellm_jwtauth.team_alias_jwt_field
+            team_id_field: Final = jwt_handler.embrouter_jwtauth.team_id_jwt_field
+            team_alias_field: Final = jwt_handler.embrouter_jwtauth.team_alias_jwt_field
             hint = ""
             if team_id_field:
                 # "roles.0" — dot-notation numeric indexing is not supported
@@ -1599,7 +1599,7 @@ class JWTAuthManager:
                         base_field = parts[0]
                         hint = (
                             f" Hint: dot-notation array indexing (e.g. '{team_id_field}') is not "
-                            f"supported. Use '{base_field}' instead — LiteLLM automatically "
+                            f"supported. Use '{base_field}' instead — EmbRouter automatically "
                             f"uses the first element when the field value is a list."
                         )
                 # "roles[0]" — bracket-notation indexing is also not supported in get_nested_value
@@ -1609,7 +1609,7 @@ class JWTAuthManager:
                         base_field = m.group(1)
                         hint = (
                             f" Hint: array indexing (e.g. '{team_id_field}') is not supported "
-                            f"in team_id_jwt_field. Use '{base_field}' instead — LiteLLM "
+                            f"in team_id_jwt_field. Use '{base_field}' instead — EmbRouter "
                             f"automatically uses the first element when the field value is a list."
                         )
             raise Exception(
@@ -1629,7 +1629,7 @@ class JWTAuthManager:
 
     @staticmethod
     def _team_has_passthrough_route_access(
-        team_object: LiteLLM_TeamTable | None,
+        team_object: EmbRouter_TeamTable | None,
         route: str,
         request_method: str | None = None,
         team_allowed_routes: Collection[str] = (),
@@ -1672,16 +1672,16 @@ class JWTAuthManager:
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging,
         request_method: str | None = None,
-    ) -> tuple[str | None, LiteLLM_TeamTable | None]:
+    ) -> tuple[str | None, EmbRouter_TeamTable | None]:
         """Find first team with access to the requested model"""
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         denied_auth_enforced_pass_through_route = False
 
         if not team_ids:
             if (
-                jwt_handler.litellm_jwtauth.enforce_team_based_model_access
-                and not jwt_handler.litellm_jwtauth.fallback_to_db_teams
+                jwt_handler.embrouter_jwtauth.enforce_team_based_model_access
+                and not jwt_handler.embrouter_jwtauth.fallback_to_db_teams
             ):
                 raise HTTPException(
                     status_code=403,
@@ -1715,15 +1715,15 @@ class JWTAuthManager:
                         )
                     ):
                         is_allowed = allowed_routes_check(
-                            user_role=LitellmUserRoles.TEAM,
+                            user_role=EmbrouterUserRoles.TEAM,
                             user_route=route,
-                            litellm_proxy_roles=jwt_handler.litellm_jwtauth,
+                            embrouter_proxy_roles=jwt_handler.embrouter_jwtauth,
                         )
                         if is_allowed and not JWTAuthManager._team_has_passthrough_route_access(
                             team_object=team_object,
                             route=route,
                             request_method=request_method,
-                            team_allowed_routes=jwt_handler.litellm_jwtauth.team_allowed_routes,
+                            team_allowed_routes=jwt_handler.embrouter_jwtauth.team_allowed_routes,
                         ):
                             is_allowed = False
                             denied_auth_enforced_pass_through_route = True
@@ -1738,7 +1738,7 @@ class JWTAuthManager:
         if denied_auth_enforced_pass_through_route:
             JWTAuthManager._raise_team_passthrough_route_denial(route=route)
 
-        if requested_model and (any_claim_team_resolved or not jwt_handler.litellm_jwtauth.team_claim_fallback):
+        if requested_model and (any_claim_team_resolved or not jwt_handler.embrouter_jwtauth.team_claim_fallback):
             # Claim resolved but no model access, or fallback disabled — deny.
             raise HTTPException(
                 status_code=403,
@@ -1764,7 +1764,7 @@ class JWTAuthManager:
     @staticmethod
     def _canonical_user_id_from_db(
         user_id: str | None,
-        user_object: LiteLLM_UserTable | None,
+        user_object: EmbRouter_UserTable | None,
     ) -> str | None:
         """Id used for spend / team-membership attribution.
 
@@ -1791,10 +1791,10 @@ class JWTAuthManager:
         org_alias: str | None = None,
         user_id_upsert: bool | None = None,
     ) -> tuple[
-        LiteLLM_UserTable | None,
-        LiteLLM_OrganizationTable | None,
-        LiteLLM_EndUserTable | None,
-        LiteLLM_TeamMembership | None,
+        EmbRouter_UserTable | None,
+        EmbRouter_OrganizationTable | None,
+        EmbRouter_EndUserTable | None,
+        EmbRouter_TeamMembership | None,
         str | None,
     ]:
         """Get user, org, end-user, and team-membership objects.
@@ -1804,7 +1804,7 @@ class JWTAuthManager:
         """
 
         # Get org object - first try by ID, then by alias
-        org_object: LiteLLM_OrganizationTable | None = None
+        org_object: EmbRouter_OrganizationTable | None = None
         if org_id:
             org_object = (
                 await get_org_object(
@@ -1834,7 +1834,7 @@ class JWTAuthManager:
         # Check if email domain is allowed before attempting to get/create user
         if valid_user_email is False:
             raise ProxyException(
-                message=f"Email domain not allowed. User email: {user_email}. Allowed domain: {jwt_handler.litellm_jwtauth.user_allowed_email_domain}",
+                message=f"Email domain not allowed. User email: {user_email}. Allowed domain: {jwt_handler.embrouter_jwtauth.user_allowed_email_domain}",
                 type=ProxyErrorTypes.auth_error,
                 param="user_email",
                 code=403,
@@ -1862,7 +1862,7 @@ class JWTAuthManager:
             team_id=team_id,
         )
 
-        end_user_object: LiteLLM_EndUserTable | None = None
+        end_user_object: EmbRouter_EndUserTable | None = None
         if end_user_id:
             end_user_object = (
                 await get_end_user_object(
@@ -1905,14 +1905,14 @@ class JWTAuthManager:
         if not request_headers:
             return None
         normalized_headers: Final = {k.lower(): v for k, v in request_headers.items()}
-        return normalized_headers.get("x-litellm-team-id")
+        return normalized_headers.get("x-embrouter-team-id")
 
     @staticmethod
     def _raise_header_team_not_allowed(header_value: str, allowed_team_ids: set[str]) -> NoReturn:
         raise HTTPException(
             status_code=403,
             detail=(
-                f"x-litellm-team-id '{header_value}' does not resolve to a team id or a unique team alias in your "
+                f"x-embrouter-team-id '{header_value}' does not resolve to a team id or a unique team alias in your "
                 f"JWT's allowed teams. Allowed team ids: {sorted(allowed_team_ids)}"
             ),
         )
@@ -1952,7 +1952,7 @@ class JWTAuthManager:
         proxy_logging_obj: ProxyLogging,
     ) -> HeaderTeam | None:
         """
-        The team named by x-litellm-team-id, which may carry a team id or a team
+        The team named by x-embrouter-team-id, which may carry a team id or a team
         alias. A value that is already an allowed team id never costs a lookup;
         under the DB fallback any other value is accepted provisionally, by id
         or alias, for the membership check auth_builder runs later. Under the
@@ -1972,7 +1972,7 @@ class JWTAuthManager:
             return None
 
         if header_value in allowed_team_ids:
-            verbose_proxy_logger.debug("Using team_id from x-litellm-team-id header: %s", header_value)
+            verbose_proxy_logger.debug("Using team_id from x-embrouter-team-id header: %s", header_value)
             return HeaderTeam(header_value=header_value, team_id=header_value)
 
         if fallback_to_db_teams:
@@ -2001,20 +2001,20 @@ class JWTAuthManager:
         )
         if team_id_by_alias is None or team_id_by_alias not in allowed_team_ids:
             JWTAuthManager._raise_header_team_not_allowed(header_value, allowed_team_ids)
-        verbose_proxy_logger.debug("Using team_id %s for x-litellm-team-id alias: %s", team_id_by_alias, header_value)
+        verbose_proxy_logger.debug("Using team_id %s for x-embrouter-team-id alias: %s", team_id_by_alias, header_value)
         return HeaderTeam(header_value=header_value, team_id=team_id_by_alias)
 
     @staticmethod
     async def map_user_to_teams(
-        user_object: LiteLLM_UserTable | None,
-        team_object: LiteLLM_TeamTable | None,
+        user_object: EmbRouter_UserTable | None,
+        team_object: EmbRouter_TeamTable | None,
     ):
         """
         Map user to teams.
         - If user is not in team, add them to the team
         - If user is in team, do nothing
         """
-        from litellm.proxy.management_endpoints.team_endpoints import team_member_add
+        from embrouter.proxy.management_endpoints.team_endpoints import team_member_add
 
         if not user_object:
             return
@@ -2039,7 +2039,7 @@ class JWTAuthManager:
             await team_member_add(
                 data=data,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN
                 ),  # [TODO]: expose an internal service role, for better tracking
             )
             verbose_proxy_logger.debug(
@@ -2059,7 +2059,7 @@ class JWTAuthManager:
     async def sync_user_role_and_teams(
         jwt_handler: JWTHandler,
         jwt_valid_token: dict,
-        user_object: LiteLLM_UserTable | None,
+        user_object: EmbRouter_UserTable | None,
         prisma_client: PrismaClient | None,
         user_api_key_cache: UserApiKeyCache | None = None,
     ) -> None:
@@ -2067,19 +2067,19 @@ class JWTAuthManager:
         Sync user role and team memberships with JWT claims
 
         The goal of this method is to ensure:
-        1. The user role on LiteLLM DB is in sync with the IDP provider role
+        1. The user role on EmbRouter DB is in sync with the IDP provider role
         2. The user is a member of the teams specified in the JWT token
 
         This method is only called if sync_user_role_and_teams is set to True in the JWT config.
         """
-        if not jwt_handler.litellm_jwtauth.sync_user_role_and_teams:
+        if not jwt_handler.embrouter_jwtauth.sync_user_role_and_teams:
             return
 
         if user_object is None or prisma_client is None:
             return
 
         # Update user role
-        new_role: Final = jwt_handler.map_jwt_role_to_litellm_role(jwt_valid_token)
+        new_role: Final = jwt_handler.map_jwt_role_to_embrouter_role(jwt_valid_token)
         if new_role and user_object.user_role != new_role.value:
             await UserRepository(prisma_client).table.update(
                 where={"user_id": user_object.user_id},
@@ -2090,7 +2090,7 @@ class JWTAuthManager:
                 await user_api_key_cache.async_set_cache(
                     key=user_object.user_id,
                     value=user_object,
-                    model_type=LiteLLM_UserTable,
+                    model_type=EmbRouter_UserTable,
                     ttl=get_management_object_ttl(user_api_key_cache),
                 )
 
@@ -2101,15 +2101,15 @@ class JWTAuthManager:
         # reconciliation so existing deployments are unchanged.
         jwt_team_ids: Final = set(
             jwt_handler.get_all_jwt_team_ids(jwt_valid_token)
-            if jwt_handler.litellm_jwtauth.fallback_to_db_teams
+            if jwt_handler.embrouter_jwtauth.fallback_to_db_teams
             else jwt_handler.get_team_ids_from_jwt(jwt_valid_token)
         )
         existing_teams: Final = set(user_object.teams or [])
         teams_to_add: Final = jwt_team_ids - existing_teams
-        preserve_db_teams_without_claims: Final = jwt_handler.litellm_jwtauth.fallback_to_db_teams and not jwt_team_ids
+        preserve_db_teams_without_claims: Final = jwt_handler.embrouter_jwtauth.fallback_to_db_teams and not jwt_team_ids
         teams_to_remove: Final = set() if preserve_db_teams_without_claims else existing_teams - jwt_team_ids
         if teams_to_add or teams_to_remove:
-            from litellm.proxy.management_endpoints.scim.scim_v2 import (
+            from embrouter.proxy.management_endpoints.scim.scim_v2 import (
                 patch_team_membership,
             )
 
@@ -2123,7 +2123,7 @@ class JWTAuthManager:
                 await user_api_key_cache.async_set_cache(
                     key=user_object.user_id,
                     value=user_object,
-                    model_type=LiteLLM_UserTable,
+                    model_type=EmbRouter_UserTable,
                     ttl=get_management_object_ttl(user_api_key_cache),
                 )
         return
@@ -2140,13 +2140,13 @@ class JWTAuthManager:
         proxy_logging_obj: ProxyLogging,
         team_id_upsert: bool | None = None,
     ) -> None:
-        """Attach team context from x-litellm-team-id to an admin result.
+        """Attach team context from x-embrouter-team-id to an admin result.
 
         Only applies on LLM API routes so team TPM/RPM limits and attribution
         are enforced when admins act on behalf of a team. Admin management
         routes ignore the header to preserve pre-existing bypass behavior.
         """
-        header_team_id: Final = request_headers.get("x-litellm-team-id") if request_headers else None
+        header_team_id: Final = request_headers.get("x-embrouter-team-id") if request_headers else None
         if not header_team_id or not RouteChecks.is_llm_api_route(route=route):
             return
         try:
@@ -2156,14 +2156,14 @@ class JWTAuthManager:
                 user_api_key_cache=user_api_key_cache,
                 parent_otel_span=parent_otel_span,
                 proxy_logging_obj=proxy_logging_obj,
-                team_id_upsert=jwt_handler.litellm_jwtauth.team_id_upsert if team_id_upsert is None else team_id_upsert,
+                team_id_upsert=jwt_handler.embrouter_jwtauth.team_id_upsert if team_id_upsert is None else team_id_upsert,
             )
         except Exception as e:
             # Fall back to pre-PR admin behavior: honor the admin's
             # authorization but skip team attribution/limits for this
             # request. Log so operators can find the misconfigured caller.
             verbose_proxy_logger.warning(
-                "admin x-litellm-team-id=%r on route=%s could not be resolved (%s); "
+                "admin x-embrouter-team-id=%r on route=%s could not be resolved (%s); "
                 "proceeding with admin access, team context NOT attached.",
                 header_team_id,
                 route,
@@ -2175,17 +2175,17 @@ class JWTAuthManager:
 
     @staticmethod
     async def _resolve_single_team_fallback(
-        user_object: LiteLLM_UserTable | None,
+        user_object: EmbRouter_UserTable | None,
         user_id: str | None,
         prisma_client: PrismaClient | None,
         user_api_key_cache: UserApiKeyCache,
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging,
         team_id_upsert: bool | None,
-    ) -> tuple[str | None, LiteLLM_TeamTable | None, LiteLLM_TeamMembership | None]:
+    ) -> tuple[str | None, EmbRouter_TeamTable | None, EmbRouter_TeamMembership | None]:
         """
         If JWT did not resolve team_id, but the user belongs to exactly one team
-        in LiteLLM, load that team (and membership when user_id is set) so that
+        in EmbRouter, load that team (and membership when user_id is set) so that
         spend / metadata can be attributed correctly.
 
         Returns (team_id, team_object, team_membership_object).
@@ -2233,7 +2233,7 @@ class JWTAuthManager:
 
     @staticmethod
     async def _resolve_db_team_fallback(
-        user_object: LiteLLM_UserTable | None,
+        user_object: EmbRouter_UserTable | None,
         user_id: str | None,
         requested_model: str | None,
         route: str,
@@ -2245,7 +2245,7 @@ class JWTAuthManager:
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging,
         request_method: str | None = None,
-    ) -> tuple[str | None, LiteLLM_TeamTable | None, LiteLLM_TeamMembership | None]:
+    ) -> tuple[str | None, EmbRouter_TeamTable | None, EmbRouter_TeamMembership | None]:
         """
         Resolve a team for a user whose JWT carries no team claims by selecting
         the first DB team membership that loads successfully and, when a model is
@@ -2266,7 +2266,7 @@ class JWTAuthManager:
         Raises HTTP 403 when the user has no usable DB team membership and
         `enforce_team_based_model_access` is set; otherwise returns (None, None, None).
         """
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         user_team_ids: Final = user_object.teams if user_object else []
         team_route_allowed: Final = JWTAuthManager._is_team_route_allowed(
@@ -2329,7 +2329,7 @@ class JWTAuthManager:
                 )
             raise HTTPException(
                 status_code=403,
-                detail=("User is not a member of any team. Add the user to a team via the LiteLLM UI or API."),
+                detail=("User is not a member of any team. Add the user to a team via the EmbRouter UI or API."),
             )
         return None, None, None
 
@@ -2348,15 +2348,15 @@ class JWTAuthManager:
         return RouteChecks.is_auth_enforced_pass_through_route(
             route=route, method=normalized_method
         ) or allowed_routes_check(
-            user_role=LitellmUserRoles.TEAM,
+            user_role=EmbrouterUserRoles.TEAM,
             user_route=route,
-            litellm_proxy_roles=jwt_handler.litellm_jwtauth,
+            embrouter_proxy_roles=jwt_handler.embrouter_jwtauth,
         )
 
     @staticmethod
     def _raise_header_team_membership_denial(header_value: str) -> NoReturn:
         """
-        The single denial shape for a provisional x-litellm-team-id header,
+        The single denial shape for a provisional x-embrouter-team-id header,
         raised identically for nonexistent teams and for teams the user is not
         a member of, and naming only the value the caller sent, so the response
         reveals neither whether a team exists nor which id an alias maps to.
@@ -2364,7 +2364,7 @@ class JWTAuthManager:
         raise HTTPException(
             status_code=403,
             detail=(
-                f"x-litellm-team-id '{header_value}' does not resolve to a team id or a unique team alias among your "
+                f"x-embrouter-team-id '{header_value}' does not resolve to a team id or a unique team alias among your "
                 "team memberships."
             ),
         )
@@ -2372,11 +2372,11 @@ class JWTAuthManager:
     @staticmethod
     def _validate_header_team_in_db_membership(
         team_id: str,
-        user_object: LiteLLM_UserTable | None,
+        user_object: EmbRouter_UserTable | None,
         header_value: str,
     ) -> None:
         """
-        A provisional team_id from the x-litellm-team-id header (accepted under
+        A provisional team_id from the x-embrouter-team-id header (accepted under
         fallback_to_db_teams because it is outside the JWT's teams) must exist in
         the user's DB team memberships before it becomes request context. The denial
         names `header_value`, the id or alias the caller sent, not `team_id`.
@@ -2413,8 +2413,8 @@ class JWTAuthManager:
             request_headers=request_headers,
             request_method=request_method,
             provisioning=_JWTProvisioning(
-                user_id_upsert=jwt_handler.litellm_jwtauth.user_id_upsert,
-                team_id_upsert=jwt_handler.litellm_jwtauth.team_id_upsert,
+                user_id_upsert=jwt_handler.embrouter_jwtauth.user_id_upsert,
+                team_id_upsert=jwt_handler.embrouter_jwtauth.team_id_upsert,
             ),
         )
 
@@ -2422,10 +2422,10 @@ class JWTAuthManager:
     async def authenticate_jwt(api_key: str, jwt_handler: JWTHandler) -> dict[str, object]:
         claims: Final = (
             await jwt_handler.get_oidc_userinfo(token=api_key)
-            if jwt_handler.litellm_jwtauth.oidc_userinfo_enabled and not jwt_handler.is_jwt(token=api_key)
+            if jwt_handler.embrouter_jwtauth.oidc_userinfo_enabled and not jwt_handler.is_jwt(token=api_key)
             else await jwt_handler.auth_jwt(token=api_key)
         )
-        validate: Final = jwt_handler.litellm_jwtauth.custom_validate
+        validate: Final = jwt_handler.embrouter_jwtauth.custom_validate
         if validate is not None and not validate(claims):
             raise HTTPException(status_code=403, detail="Invalid JWT token")
         return claims
@@ -2456,7 +2456,7 @@ class JWTAuthManager:
         claim_user_id, user_email, valid_user_email = await JWTAuthManager.get_user_info(jwt_handler, claims)
         user_id: Final = (
             jwt_handler.get_object_id(token=claims, default_value=None) or claim_user_id
-            if jwt_handler.get_rbac_role(token=claims) == LitellmUserRoles.INTERNAL_USER
+            if jwt_handler.get_rbac_role(token=claims) == EmbrouterUserRoles.INTERNAL_USER
             else claim_user_id
         )
         agent_id: Final = JWTAuthManager.resolve_agent_id(jwt_handler, claims, jwt_handler.agent_lookup)
@@ -2538,9 +2538,9 @@ class JWTAuthManager:
 
         # Check Scope Based Access
         scopes: Final = handler.get_scopes(token=jwt_valid_token)
-        if handler.litellm_jwtauth.enforce_scope_based_access and handler.litellm_jwtauth.scope_mappings:
+        if handler.embrouter_jwtauth.enforce_scope_based_access and handler.embrouter_jwtauth.scope_mappings:
             JWTAuthManager.check_scope_based_access(
-                scope_mappings=handler.litellm_jwtauth.scope_mappings,
+                scope_mappings=handler.embrouter_jwtauth.scope_mappings,
                 scopes=scopes,
                 request_data=request_data,
                 general_settings=general_settings,
@@ -2559,13 +2559,13 @@ class JWTAuthManager:
         org_id: Final = handler.get_org_id(token=jwt_valid_token, default_value=None)
         end_user_id: Final = handler.get_end_user_id(token=jwt_valid_token, default_value=None)
         team_id: str | None = None
-        team_object: LiteLLM_TeamTable | None = None
+        team_object: EmbRouter_TeamTable | None = None
         object_id = handler.get_object_id(token=jwt_valid_token, default_value=None)
 
         if rbac_role and object_id:
-            if rbac_role == LitellmUserRoles.TEAM:
+            if rbac_role == EmbrouterUserRoles.TEAM:
                 team_id = object_id
-            elif rbac_role == LitellmUserRoles.INTERNAL_USER:
+            elif rbac_role == EmbrouterUserRoles.INTERNAL_USER:
                 user_id = object_id
 
         agent_id: Final = (
@@ -2629,7 +2629,7 @@ class JWTAuthManager:
             return {**admin_result, "user_object": admin_user}
 
         # Get team with model access
-        ## Check if team_id is specified via x-litellm-team-id header
+        ## Check if team_id is specified via x-embrouter-team-id header
         all_team_ids: Final = JWTAuthManager.get_all_team_ids(handler, jwt_valid_token)
         specific_team_id: Final = handler.get_team_id(token=jwt_valid_token, default_value=None)
 
@@ -2639,9 +2639,9 @@ class JWTAuthManager:
         # alias-only tokens so the alias still resolves via
         # `find_and_validate_specific_team_id`, and `team_id is None` excludes
         # the RBAC team-role path (which already set `team_id`); otherwise a
-        # provisional x-litellm-team-id header could override an RBAC-asserted team.
+        # provisional x-embrouter-team-id header could override an RBAC-asserted team.
         db_team_fallback: Final = (
-            handler.litellm_jwtauth.fallback_to_db_teams
+            handler.embrouter_jwtauth.fallback_to_db_teams
             and not handler.get_all_jwt_team_ids(token=jwt_valid_token)
             and not handler.get_team_alias(token=jwt_valid_token, default_value=None)
             and team_id is None
@@ -2649,7 +2649,7 @@ class JWTAuthManager:
         if specific_team_id and not db_team_fallback:
             all_team_ids.add(specific_team_id)
 
-        header_db_fallback: Final = handler.litellm_jwtauth.fallback_to_db_teams and team_id is None
+        header_db_fallback: Final = handler.embrouter_jwtauth.fallback_to_db_teams and team_id is None
 
         header_team: Final = await JWTAuthManager.resolve_team_from_header(
             request_headers=request_headers,
@@ -2670,7 +2670,7 @@ class JWTAuthManager:
             # A provisional header team (accepted because it is outside the
             # JWT's teams under fallback_to_db_teams) is validated against DB
             # membership further down; never upsert it here or an
-            # attacker-supplied x-litellm-team-id would create an orphaned team
+            # attacker-supplied x-embrouter-team-id would create an orphaned team
             # row before that check runs. A genuine membership team already
             # exists, so suppressing the upsert in that case costs nothing.
             try:
@@ -2735,7 +2735,7 @@ class JWTAuthManager:
                 team_id_upsert=team_id_upsert,
             )
 
-        from litellm.proxy.agent_endpoints.auth.agent_permission_handler import resolve_delegated_agent_team
+        from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import resolve_delegated_agent_team
 
         claimed_teams: Final[frozenset[str]] = (
             frozenset(handler.get_all_jwt_team_ids(jwt_valid_token)) if managed is not None else frozenset()
@@ -2751,7 +2751,7 @@ class JWTAuthManager:
                 managed.agent_id,
                 team_id,
                 explicit_team=header_team is not None,
-                allowed_team_ids=None if handler.litellm_jwtauth.fallback_to_db_teams else scoped_teams,
+                allowed_team_ids=None if handler.embrouter_jwtauth.fallback_to_db_teams else scoped_teams,
             )
             if managed is not None
             else team_id
@@ -2761,7 +2761,7 @@ class JWTAuthManager:
                 raise HTTPException(403, "The granting team is not allowed to access this route")
 
         selected_team_id: Final[str | None] = granting_team if granting_team is not None else team_id
-        selected_team_object: Final[LiteLLM_TeamTable | None] = (
+        selected_team_object: Final[EmbRouter_TeamTable | None] = (
             await get_team_object(
                 team_id=selected_team_id,
                 prisma_client=prisma_client,
@@ -2778,7 +2778,7 @@ class JWTAuthManager:
             team_object=selected_team_object,
             route=route,
             request_method=request_method,
-            team_allowed_routes=handler.litellm_jwtauth.team_allowed_routes,
+            team_allowed_routes=handler.embrouter_jwtauth.team_allowed_routes,
         ):
             JWTAuthManager._raise_team_passthrough_route_denial(route=route)
 
@@ -2833,7 +2833,7 @@ class JWTAuthManager:
                 requested_model=requested_model,
                 route=route,
                 jwt_handler=handler,
-                enforce_team_based_model_access=handler.litellm_jwtauth.enforce_team_based_model_access,
+                enforce_team_based_model_access=handler.embrouter_jwtauth.enforce_team_based_model_access,
                 team_id_upsert=team_id_upsert,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -2848,7 +2848,7 @@ class JWTAuthManager:
                 team_object=team_object,
                 route=route,
                 request_method=request_method,
-                team_allowed_routes=handler.litellm_jwtauth.team_allowed_routes,
+                team_allowed_routes=handler.embrouter_jwtauth.team_allowed_routes,
             ):
                 JWTAuthManager._raise_team_passthrough_route_denial(route=route)
         elif selected_team_id is None:
@@ -2879,13 +2879,13 @@ class JWTAuthManager:
                 raise HTTPException(
                     status_code=403,
                     detail=(
-                        f"Team '{provisional_header_team.header_value}' (from x-litellm-team-id header) "
+                        f"Team '{provisional_header_team.header_value}' (from x-embrouter-team-id header) "
                         f"is not allowed to access route '{route}'."
                     ),
                 )
 
         authorized_team_id: Final[str | None] = selected_team_id if selected_team_id is not None else team_id
-        authorized_team_object: Final[LiteLLM_TeamTable | None] = (
+        authorized_team_object: Final[EmbRouter_TeamTable | None] = (
             selected_team_object if selected_team_id is not None else team_object
         )
 
@@ -2906,7 +2906,7 @@ class JWTAuthManager:
 
         # check if user is proxy admin
         is_proxy_admin: Final = managed is None and bool(
-            user_object and user_object.user_role == LitellmUserRoles.PROXY_ADMIN
+            user_object and user_object.user_role == EmbrouterUserRoles.PROXY_ADMIN
         )
 
         return JWTAuthBuilderResult(
@@ -2938,13 +2938,13 @@ class JWTAuthManager:
         auth: Final = UserAPIKeyAuth(
             api_key=None,
             user_role=(
-                LitellmUserRoles.PROXY_ADMIN
+                EmbrouterUserRoles.PROXY_ADMIN
                 if admin
-                else LitellmUserRoles.INTERNAL_USER
+                else EmbrouterUserRoles.INTERNAL_USER
                 if result.get("managed_agent_context") is not None
-                else LitellmUserRoles(user.user_role)
+                else EmbrouterUserRoles(user.user_role)
                 if user is not None and user.user_role is not None
-                else LitellmUserRoles.INTERNAL_USER
+                else EmbrouterUserRoles.INTERNAL_USER
             ),
             user_id=result["user_id"],
             user_email=result["user_email"],

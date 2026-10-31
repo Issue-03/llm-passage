@@ -7,8 +7,8 @@ import re
 from re import Match
 from typing import Final
 
-from litellm._logging import verbose_router_logger
-from litellm.litellm_core_utils.get_llm_provider_logic import inferred_provider
+from embrouter._logging import verbose_router_logger
+from embrouter.embrouter_core_utils.get_llm_provider_logic import inferred_provider
 
 
 class PatternUtils:
@@ -114,9 +114,9 @@ class PatternMatchRouter:
         new_deployments: Final = []
         for deployment in deployments:
             new_deployment = copy.deepcopy(deployment)
-            new_deployment["litellm_params"]["model"] = PatternMatchRouter.set_deployment_model_name(
+            new_deployment["embrouter_params"]["model"] = PatternMatchRouter.set_deployment_model_name(
                 matched_pattern=matched_pattern,
-                litellm_deployment_litellm_model=deployment["litellm_params"]["model"],
+                embrouter_deployment_embrouter_model=deployment["embrouter_params"]["model"],
             )
             new_deployments.append(new_deployment)
 
@@ -161,7 +161,7 @@ class PatternMatchRouter:
     @staticmethod
     def set_deployment_model_name(
         matched_pattern: Match,
-        litellm_deployment_litellm_model: str,
+        embrouter_deployment_embrouter_model: str,
     ) -> str:
         """
         Set the model name for the matched pattern llm deployment
@@ -170,42 +170,42 @@ class PatternMatchRouter:
 
         Case 1:
         model_name: llmengine/* (can be any regex pattern or wildcard pattern)
-        litellm_params:
+        embrouter_params:
             model: openai/*
 
         if model_name = "llmengine/foo" -> model = "openai/foo"
 
         Case 2:
         model_name: llmengine/fo::*::static::*
-        litellm_params:
+        embrouter_params:
             model: openai/fo::*::static::*
 
         if model_name = "llmengine/foo::bar::static::baz" -> model = "openai/foo::bar::static::baz"
 
         Case 3:
         model_name: *meta.llama3*
-        litellm_params:
+        embrouter_params:
             model: bedrock/meta.llama3*
 
         if model_name = "hello-world-meta.llama3-70b" -> model = "bedrock/meta.llama3-70b"
         """
 
         ## BASE CASE: if the deployment model name does not contain a wildcard, return the deployment model name
-        if "*" not in litellm_deployment_litellm_model:
-            return litellm_deployment_litellm_model
+        if "*" not in embrouter_deployment_embrouter_model:
+            return embrouter_deployment_embrouter_model
 
-        wildcard_count: Final = litellm_deployment_litellm_model.count("*")
+        wildcard_count: Final = embrouter_deployment_embrouter_model.count("*")
 
         # Extract all dynamic segments from the request
         dynamic_segments: Final = matched_pattern.groups()
 
         if len(dynamic_segments) > wildcard_count:
             return matched_pattern.string  # default to the user input, if unable to map based on wildcards.
-        # Replace the corresponding wildcards in the litellm model pattern with extracted segments
+        # Replace the corresponding wildcards in the embrouter model pattern with extracted segments
         for segment in dynamic_segments:
-            litellm_deployment_litellm_model = litellm_deployment_litellm_model.replace("*", segment, 1)
+            embrouter_deployment_embrouter_model = embrouter_deployment_embrouter_model.replace("*", segment, 1)
 
-        return litellm_deployment_litellm_model
+        return embrouter_deployment_embrouter_model
 
     def get_pattern(self, model: str | None, custom_llm_provider: str | None = None) -> list[dict] | None:
         """

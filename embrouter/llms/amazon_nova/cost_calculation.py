@@ -5,10 +5,10 @@ Helper util for handling amazon nova cost calculation
 
 from typing import TYPE_CHECKING
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
 
 if TYPE_CHECKING:
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
 
 def cost_per_token(model: str, usage: "Usage") -> tuple[float, float]:

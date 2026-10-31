@@ -7,27 +7,27 @@ import pytest
 from fastapi import FastAPI, Request
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import inherit_message_logging_privacy
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
-from litellm.proxy import common_request_processing, proxy_server
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import can_key_call_model
-from litellm.proxy._types import ProxyException
-from litellm.proxy.hooks.parallel_request_limiter_v3 import get_or_create_request_stash, get_request_stash
-from litellm.proxy.native_compaction import with_proxy_compaction_executor
-from litellm.router import Router
-from litellm.router_strategy.complexity_router.context_compaction import compaction_executor, reject_recursive_compactor
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import inherit_message_logging_privacy
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
+from embrouter.proxy import common_request_processing, proxy_server
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import can_key_call_model
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import get_or_create_request_stash, get_request_stash
+from embrouter.proxy.native_compaction import with_proxy_compaction_executor
+from embrouter.router import Router
+from embrouter.router_strategy.complexity_router.context_compaction import compaction_executor, reject_recursive_compactor
+from embrouter.types.utils import ModelResponse
 
 _HEADERS: Final = (
     (b"authorization", b"Bearer sk-compaction-fixture"), (b"cookie", b"session=fixture"),
-    (b"content-length", b"99999"), (b"x-litellm-call-id", b"parent"),
-    (b"litellm-disable-message-redaction", b"true"), (b"x-litellm-num-retries", b"8"),
-    (b"X-LiteLLM-Timeout", b"600"), (b"x-litellm-stream-timeout", b"500"),
+    (b"content-length", b"99999"), (b"x-embrouter-call-id", b"parent"),
+    (b"embrouter-disable-message-redaction", b"true"), (b"x-embrouter-num-retries", b"8"),
+    (b"X-EmbRouter-Timeout", b"600"), (b"x-embrouter-stream-timeout", b"500"),
 )
 
 
@@ -42,7 +42,7 @@ async def _child(
         b'"metadata":{"turn_off_message_logging":true}}'
     )
     return await executor(protocol, MappingProxyType({
-        "litellm_metadata" if protocol == "messages" and key == "metadata" else key: value
+        "embrouter_metadata" if protocol == "messages" and key == "metadata" else key: value
         for key, value in payload.items() if forged or key != "metadata"
     }), parent_model)
 
@@ -67,8 +67,8 @@ async def test_child_preserves_credentials_and_isolates_context(protocol: Litera
         assert request.client == ("192.0.2.1", 4321) and request.url.scheme == "https"
         assert request.scope["root_path"] == "/gateway" and request.cookies["session"] == "fixture"
         assert request.headers["authorization"] == "Bearer sk-compaction-fixture" and not request.query_params
-        assert "x-litellm-call-id" not in request.headers
-        assert "litellm-disable-message-redaction" not in request.headers
+        assert "x-embrouter-call-id" not in request.headers
+        assert "embrouter-disable-message-redaction" not in request.headers
         assert int(request.headers["content-length"]) == len(await request.body())
         with pytest.raises(BadRequestError, match="regular model group"):
             reject_recursive_compactor("auto-router")
@@ -105,18 +105,18 @@ async def test_real_proxy_child_auth_privacy_and_body_policy(
                 await can_key_call_model("unrelated-compactor", None, auth, None)
         assert (data["num_retries"], data["timeout"], data["stream_timeout"]) == (0, 7, 7)
         assert data["disable_fallbacks"] is True and data["stream"] is False
-        logging: Final = data["litellm_logging_obj"]
+        logging: Final = data["embrouter_logging_obj"]
         assert isinstance(logging, Logging)
         assert logging.standard_callback_dynamic_params.get("turn_off_message_logging") is True
         assert should_redact_message_logging(TypeAdapter(dict[str, object]).validate_python(MappingProxyType({
-            "litellm_params": data, "standard_callback_dynamic_params": logging.standard_callback_dynamic_params,
+            "embrouter_params": data, "standard_callback_dynamic_params": logging.standard_callback_dynamic_params,
         })))
         return asyncio.sleep(0, result=ModelResponse(id="private-summary", model="compactor"))
 
-    monkeypatch.setattr(litellm, "max_budget", 0)
+    monkeypatch.setattr(embrouter, "max_budget", 0)
     monkeypatch.setattr(proxy_server.app, "dependency_overrides", {})
     monkeypatch.setattr(proxy_server, "master_key", "sk-master-fixture")
-    monkeypatch.setattr(litellm, "max_budget", 0.0)
+    monkeypatch.setattr(embrouter, "max_budget", 0.0)
     monkeypatch.setattr(proxy_server, "prisma_client", object())
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
     monkeypatch.setattr(proxy_server, "llm_router", None)

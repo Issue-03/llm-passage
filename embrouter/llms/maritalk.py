@@ -2,8 +2,8 @@ from typing import Final
 
 from httpx._models import Headers
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 
 
 class MaritalkError(BaseLLMException):

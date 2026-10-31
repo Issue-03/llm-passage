@@ -17,9 +17,9 @@ from aiohttp.client import ClientResponse, ClientSession
 from pydantic import BaseModel, TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.secret_managers.main import str_to_bool
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.secret_managers.main import str_to_bool
 
 
 class HttpxTimeoutExtension(BaseModel):
@@ -163,9 +163,9 @@ class AiohttpTransport(httpx.AsyncBaseTransport):
             await self.client.close()
 
 
-class LiteLLMAiohttpTransport(AiohttpTransport):
+class EmbRouterAiohttpTransport(AiohttpTransport):
     """
-    LiteLLM wrapper around AiohttpTransport to handle %-encodings in URLs
+    EmbRouter wrapper around AiohttpTransport to handle %-encodings in URLs
     and event loop lifecycle issues in CI/CD environments
 
     Credit to: https://github.com/karpetrosyan/httpx-aiohttp for this implementation
@@ -462,7 +462,7 @@ class LiteLLMAiohttpTransport(AiohttpTransport):
 
     async def _get_proxy_settings(self, request: httpx.Request):
         proxy = None
-        if not (litellm.disable_aiohttp_trust_env or str_to_bool(os.getenv("DISABLE_AIOHTTP_TRUST_ENV", "False"))):
+        if not (embrouter.disable_aiohttp_trust_env or str_to_bool(os.getenv("DISABLE_AIOHTTP_TRUST_ENV", "False"))):
             try:
                 proxy = self._proxy_from_env(request.url)
             except Exception as e:  # pragma: no cover - best effort

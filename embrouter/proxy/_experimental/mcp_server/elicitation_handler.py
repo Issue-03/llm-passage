@@ -11,7 +11,7 @@ MCP Spec Reference:
 
 from typing import TYPE_CHECKING, Final, Protocol, Union
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 if TYPE_CHECKING:
     from mcp.types import (

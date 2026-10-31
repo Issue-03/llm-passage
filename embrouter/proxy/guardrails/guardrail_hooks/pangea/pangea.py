@@ -1,25 +1,25 @@
-# litellm/proxy/guardrails/guardrail_hooks/pangea.py
+# embrouter/proxy/guardrails/guardrail_hooks/pangea.py
 import os
 from typing import TYPE_CHECKING, Final
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     Choices,
     LLMResponseTypes,
     ModelResponse,
@@ -27,7 +27,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class PangeaGuardrailMissingSecrets(Exception):
@@ -79,7 +79,7 @@ class PangeaHandler(CustomGuardrail):
         self.api_key = api_key or os.environ.get("PANGEA_API_KEY")
         if not self.api_key:
             raise PangeaGuardrailMissingSecrets(
-                "Pangea API Key not found. Set PANGEA_API_KEY environment variable or pass it in litellm_params."
+                "Pangea API Key not found. Set PANGEA_API_KEY environment variable or pass it in embrouter_params."
             )
 
         # Default Pangea base URL if not provided
@@ -308,7 +308,7 @@ class PangeaHandler(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.pangea import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.pangea import (
             PangeaGuardrailConfigModel,
         )
 

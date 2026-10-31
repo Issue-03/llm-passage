@@ -12,14 +12,14 @@ from mcp.types import Tool as MCPTool
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.proxy._experimental.mcp_server.utils import logging_safe_mcp_headers, strip_known_server_prefix
-from litellm.types.mcp import MCPPreCallRequestObject
-from litellm.types.mcp_server.mcp_server_manager import MCPServer, PinnedMCPTool
-from litellm.types.utils import CallTypes
+from embrouter.proxy._experimental.mcp_server.utils import logging_safe_mcp_headers, strip_known_server_prefix
+from embrouter.types.mcp import MCPPreCallRequestObject
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer, PinnedMCPTool
+from embrouter.types.utils import CallTypes
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
 
 
 class _ServedCatalogEntry(TypedDict, total=False):

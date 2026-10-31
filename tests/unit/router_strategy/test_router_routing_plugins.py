@@ -6,8 +6,8 @@ before the routing decision is made, narrowing the candidate deployment pool.
 
 import pytest
 
-from litellm import Router
-from litellm.types.router import RoutingContext
+from embrouter import Router
+from embrouter.types.router import RoutingContext
 
 
 class LanguageDetector:
@@ -71,22 +71,22 @@ def _smart_router_model_list():
     return [
         {
             "model_name": "smart-router",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "mock_response": "cheap openai"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini", "mock_response": "cheap openai"},
             "model_info": {"tags": ["openai"]},
         },
         {
             "model_name": "smart-router",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "mock_response": "anthropic"},
+            "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "mock_response": "anthropic"},
             "model_info": {"tags": ["anthropic"]},
         },
         {
             "model_name": "smart-router",
-            "litellm_params": {"model": "openai/gpt-5.1", "mock_response": "expensive openai"},
+            "embrouter_params": {"model": "openai/gpt-5.1", "mock_response": "expensive openai"},
             "model_info": {"tags": ["openai"]},
         },
         {
             "model_name": "smart-router",
-            "litellm_params": {"model": "ollama/llama-3-70b", "mock_response": "self hosted"},
+            "embrouter_params": {"model": "ollama/llama-3-70b", "mock_response": "self hosted"},
             "model_info": {"tags": ["self-hosted"]},
         },
     ]
@@ -112,8 +112,8 @@ async def test_routing_plugin_pipeline_matches_jeann2013_e2e_scenario():
         metadata={"tenant": "acme-corp"},
     )
 
-    # response.model is the bare model name (litellm strips the provider/ prefix
-    # on the response), so compare against bare names rather than litellm_params.model
+    # response.model is the bare model name (embrouter strips the provider/ prefix
+    # on the response), so compare against bare names rather than embrouter_params.model
     routed_model = response.model
 
     assert routed_model in {"gpt-4o-mini", "claude-haiku-4-5"}
@@ -187,7 +187,7 @@ async def test_prompt_management_model_still_runs_the_plugin_pipeline():
         model_list=[
             {
                 "model_name": "cached-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic_cache_control_hook/claude-sonnet-5",
                     "prompt_id": "cache-points",
                 },
@@ -201,7 +201,7 @@ async def test_prompt_management_model_still_runs_the_plugin_pipeline():
         await router.acompletion(
             model="cached-claude",
             messages=[{"role": "user", "content": "hi"}],
-            litellm_call_id="lit-7039",
+            embrouter_call_id="lit-7039",
         )
 
 
@@ -219,7 +219,7 @@ async def test_prompt_management_plugins_see_the_callers_own_messages():
         model_list=[
             {
                 "model_name": "cached-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic_cache_control_hook/claude-sonnet-5",
                     "prompt_id": "cache-points",
                 },
@@ -234,7 +234,7 @@ async def test_prompt_management_plugins_see_the_callers_own_messages():
         await router.acompletion(
             model="cached-claude",
             messages=messages,
-            litellm_call_id="lit-7039",
+            embrouter_call_id="lit-7039",
         )
 
     assert recorder.seen == [messages]
@@ -247,7 +247,7 @@ async def test_router_without_plugins_is_unaffected():
         model_list=[
             {
                 "model_name": "smart-router",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "mock_response": "hi"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "mock_response": "hi"},
             },
         ],
     )
@@ -287,7 +287,7 @@ def test_filter_by_routing_plugin_candidates_narrows_and_raises_when_empty():
         healthy_deployments=healthy_deployments,
         request_kwargs={"metadata": {"_routing_plugin_candidate_models": ["openai/gpt-4o-mini"]}},
     )
-    assert [d["litellm_params"]["model"] for d in narrowed] == ["openai/gpt-4o-mini"]
+    assert [d["embrouter_params"]["model"] for d in narrowed] == ["openai/gpt-4o-mini"]
 
     with pytest.raises(ValueError, match="No deployments left after routing-plugin filtering"):
         router._filter_by_routing_plugin_candidates(
@@ -301,24 +301,24 @@ def test_json_default_stable_id_is_stable_across_instances():
     memory address (e.g. plain str() on an object with no custom __repr__ falls back
     to object.__repr__'s `<module.Class object at 0x...>`) -- that would make the
     deployment id churn on every process restart for any deployment whose
-    litellm_params contain a live plugin instance."""
+    embrouter_params contain a live plugin instance."""
     router = Router(model_list=_smart_router_model_list())
 
     assert router._json_default_stable_id(LanguageDetector()) == router._json_default_stable_id(LanguageDetector())
     assert router._json_default_stable_id(LanguageDetector()) != router._json_default_stable_id(TenantPolicy())
 
 
-def testgenerate_model_id_is_stable_when_litellm_params_contain_a_plugin_instance():
-    """End-to-end: a deployment id built from litellm_params containing a routing
+def testgenerate_model_id_is_stable_when_embrouter_params_contain_a_plugin_instance():
+    """End-to-end: a deployment id built from embrouter_params containing a routing
     plugin instance (e.g. complexity_router_config.plugins) must be identical across
     separate calls, not just non-crashing."""
     router = Router(model_list=_smart_router_model_list())
-    litellm_params = {
+    embrouter_params = {
         "model": "auto_router/complexity_router",
         "complexity_router_config": {"plugins": [LanguageDetector()]},
     }
 
-    id1 = router.generate_model_id("smart-router", litellm_params)
+    id1 = router.generate_model_id("smart-router", embrouter_params)
     id2 = router.generate_model_id(
         "smart-router",
         {

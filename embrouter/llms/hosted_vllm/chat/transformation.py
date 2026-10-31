@@ -6,15 +6,15 @@ import json
 from collections.abc import Coroutine
 from typing import Final, Literal, cast, overload
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _get_image_mime_type_from_url,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import _parse_mime_type
-from litellm.litellm_core_utils.reasoning_effort_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import _parse_mime_type
+from embrouter.embrouter_core_utils.reasoning_effort_utils import (
     reasoning_effort_from_thinking_budget,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantToolCall,
     ChatCompletionFileObject,

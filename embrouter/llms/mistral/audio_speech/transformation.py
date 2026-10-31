@@ -12,16 +12,16 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.text_to_speech.transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
 
 class MistralTextToSpeechException(BaseLLMException):
@@ -113,7 +113,7 @@ class MistralTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         configured_base: Final = (api_base or self.TTS_BASE_URL).rstrip("/")
         versioned_base: Final = configured_base if configured_base.endswith("/v1") else f"{configured_base}/v1"
@@ -125,7 +125,7 @@ class MistralTextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | None,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         headers: Mapping[str, str],
     ) -> TextToSpeechRequestData:
         response_format: Final = optional_params.get("response_format")
@@ -153,9 +153,9 @@ class MistralTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         try:
             response_json: Final = raw_response.json()

@@ -1,15 +1,15 @@
-"""Rubrik guardrail integration for LiteLLM."""
+"""Rubrik guardrail integration for EmbRouter."""
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.integrations.rubrik import RubrikLogger
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.integrations.rubrik import RubrikLogger
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail") -> RubrikLogger:
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail") -> RubrikLogger:
     """Create and register a RubrikLogger instance.
 
     The ``mode`` field in the guardrail config controls which surfaces are
@@ -22,17 +22,17 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
     Both hooks are active when ``mode`` covers both ``pre_call`` and
     ``post_call``.
     """
-    import litellm
+    import embrouter
 
     rubrik_callback: Final = RubrikLogger(
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
         guardrail_name=guardrail.get("guardrail_name", ""),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(rubrik_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(rubrik_callback)
     return rubrik_callback
 
 

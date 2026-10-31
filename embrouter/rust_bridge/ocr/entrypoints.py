@@ -6,12 +6,12 @@ from typing import Final, Protocol, cast  # noqa: TID251  # validates dynamicall
 
 import httpx
 
-from litellm.llms.base_llm.ocr.transformation import DocumentType, OCRResponse
-from litellm.rust_bridge.bindings import NativeBinding
+from embrouter.llms.base_llm.ocr.transformation import DocumentType, OCRResponse
+from embrouter.rust_bridge.bindings import NativeBinding
 
 
 @dataclass(frozen=True, slots=True)
-class LiteLLMOcrRequest:
+class EmbRouterOcrRequest:
     model: str
     document: Mapping[str, object]
     api_key: str | None
@@ -26,7 +26,7 @@ class LiteLLMOcrRequest:
 class NativeOcr(Protocol):
     def __call__(
         self,
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse: ...
@@ -35,7 +35,7 @@ class NativeOcr(Protocol):
 class NativeAocr(Protocol):
     def __call__(
         self,
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> Awaitable[OCRResponse]: ...

@@ -16,7 +16,7 @@ served the turn. Updates are batched in-memory and flushed to Postgres every
 ```yaml
 model_list:
   - model_name: gpt-4o
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-4o
     model_info:
       input_cost_per_token: 0.0000025
@@ -25,7 +25,7 @@ model_list:
         strengths: ["code_generation", "analytical_reasoning"]
 
   - model_name: gpt-4o-mini
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-4o-mini
     model_info:
       input_cost_per_token: 0.00000015
@@ -34,7 +34,7 @@ model_list:
         strengths: ["general", "factual_lookup"]
 
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/adaptive_router
       adaptive_router_default_model: gpt-4o-mini
       adaptive_router_config:
@@ -44,7 +44,7 @@ model_list:
           cost: 0.3
 ```
 
-Callers may pass header `x-litellm-min-quality-tier: 3` (or metadata key
+Callers may pass header `x-embrouter-min-quality-tier: 3` (or metadata key
 `min_quality_tier: 3`) to force selection from tier-3-or-higher models only.
 
 ## Behavior summary
@@ -60,7 +60,7 @@ Callers may pass header `x-litellm-min-quality-tier: 3` (or metadata key
   message is attributed to the model that produced the previous response, while
   response signals are attributed to the current model. Contexts expire after
   24 hours and the in-memory cache is capped at 1,024 sessions. Conversation identity is the
-  client-supplied `litellm_session_id` if present, otherwise a sha256 over
+  client-supplied `embrouter_session_id` if present, otherwise a sha256 over
   caller identity (api key hash, team, user, end-user) + the first message.
 - **Per-turn updates.** `satisfaction → +α`. `misalignment, stagnation,
   disengagement, failure → +β` (each). `loop → +0.5β`. `exhaustion → 0`
@@ -78,7 +78,7 @@ Callers may pass header `x-litellm-min-quality-tier: 3` (or metadata key
 - **Signals are regex + tool-call only.** No LLM-judge, no embedding similarity,
   no exemplar storage. Signals are best-effort and biased toward English.
 - **One AdaptiveRouter per `Router`.** Multiple `adaptive_router/*` deployments
-  on the same `litellm.Router` raise at init.
+  on the same `embrouter.Router` raise at init.
 - **Bandit-delta mapping is unvalidated.** `_compute_bandit_delta` is a v0
   guess; expect to retune after the first ~1000 sessions of real traffic.
 - **`request_type` is classified per turn from the latest user message.** For

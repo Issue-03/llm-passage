@@ -29,8 +29,8 @@ describe("getGlobalTopKeys", () => {
     const top = getGlobalTopKeys(
       [
         day({
-          litellm_proxy_master_key: keyEntry(9),
-          "litellm-internal-health-check": keyEntry(8),
+          embrouter_proxy_master_key: keyEntry(9),
+          "embrouter-internal-health-check": keyEntry(8),
           "sk-hash-1": keyEntry(1, "real-key"),
         }),
       ],

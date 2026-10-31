@@ -14,14 +14,14 @@ from typing import Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import ORJSONResponse
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.container_endpoints.ownership import (
+from embrouter.proxy.container_endpoints.ownership import (
     assert_user_can_access_container,
     get_container_forwarding_params,
 )
@@ -43,11 +43,11 @@ def get_all_route_types() -> list[str]:
 def _get_container_provider_config(custom_llm_provider: str):
     """Get the container provider config for the given provider."""
     if custom_llm_provider == "openai":
-        from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+        from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
 
         return OpenAIContainerConfig()
     elif custom_llm_provider in ("azure", "azure_text"):
-        from litellm.llms.azure.containers.transformation import AzureContainerConfig
+        from embrouter.llms.azure.containers.transformation import AzureContainerConfig
 
         return AzureContainerConfig()
     raise ValueError(f"Container API not supported for provider: {custom_llm_provider}")
@@ -175,7 +175,7 @@ async def _process_binary_request(
     the standard proxy/router pipeline. This handler only adapts the byte
     response to FastAPI.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -276,11 +276,11 @@ async def _process_multipart_upload_request(
     container_id: str,
 ) -> object:
     """Process multipart file upload requests."""
-    from litellm.proxy.common_utils.http_parsing_utils import (
+    from embrouter.proxy.common_utils.http_parsing_utils import (
         convert_upload_files_to_file_data,
         get_form_data,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -370,7 +370,7 @@ async def _process_request(
     query_param_names: Sequence[str] = (),
 ) -> object:
     """Common request processing logic."""
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,

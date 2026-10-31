@@ -1,6 +1,6 @@
 """
 Tests for AnthropicResponsesStreamWrapper
-(litellm/llms/anthropic/pass_through/responses_adapters/streaming_iterator.py)
+(embrouter/llms/anthropic/pass_through/responses_adapters/streaming_iterator.py)
 """
 
 import asyncio
@@ -13,16 +13,16 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.pass_through.messages.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
-from litellm.llms.anthropic.pass_through.responses_adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.messages.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
+from embrouter.llms.anthropic.pass_through.responses_adapters.streaming_iterator import (
     AnthropicResponsesStreamWrapper,
 )
-from litellm.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse
 
 
 def _process_all(events: list) -> list:
@@ -257,7 +257,7 @@ class TestToolUseBlockClosedExactlyOnce:
     """Regression test.
 
     With ``custom_llm_provider: openai`` + ``use_chat_completions_api: true``,
-    ``/v1/messages`` streams through ``LiteLLMCompletionStreamingIterator``,
+    ``/v1/messages`` streams through ``EmbRouterCompletionStreamingIterator``,
     which ends a tool-call turn with two ``response.output_item.done`` events:
     one for the function_call item (id = call_id) and one for a synthetic
     message item whose id is the upstream chatcmpl id and was never opened as a
@@ -390,7 +390,7 @@ class TestResponseCompletedUsage:
     input rate."""
 
     def test_response_completed_usage_carries_cache_tokens(self):
-        from litellm.types.llms.openai import ResponseAPIUsage
+        from embrouter.types.llms.openai import ResponseAPIUsage
 
         response = SimpleNamespace(
             status="completed",
@@ -508,7 +508,7 @@ class TestUpstreamFailureEndsStreamWithErrorEvent:
         }
 
     def test_raised_mid_stream_fallback_error_is_unwrapped_to_the_provider_failure(self):
-        rate_limit = litellm.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
+        rate_limit = embrouter.RateLimitError(message="You have no credits remaining.", llm_provider="openai", model="m")
         wrapped = MidStreamFallbackError(
             message=str(rate_limit),
             model="m",
@@ -556,7 +556,7 @@ class TestUpstreamFailureEndsStreamWithErrorEvent:
         [
             (
                 MidStreamFallbackError(message="boom", model="m", llm_provider="openai"),
-                {"type": "api_error", "message": "litellm.MidStreamFallbackError: boom"},
+                {"type": "api_error", "message": "embrouter.MidStreamFallbackError: boom"},
             ),
             (
                 type("StringStatusError", (Exception,), {"status_code": "429"})("throttled"),

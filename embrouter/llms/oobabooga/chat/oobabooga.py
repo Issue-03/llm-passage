@@ -2,15 +2,15 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Final
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
-from litellm.utils import EmbeddingResponse, ModelResponse, Usage
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter.utils import EmbeddingResponse, ModelResponse, Usage
 
 from ..common_utils import OobaboogaError
 from .transformation import OobaboogaConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 oobabooga_config: Final = OobaboogaConfig()
 
@@ -25,7 +25,7 @@ def completion(
     api_key,
     logging_obj,
     optional_params: dict,
-    litellm_params: dict,
+    embrouter_params: dict,
     custom_prompt_dict={},
     logger_fn=None,
     default_max_tokens_to_sample=None,
@@ -36,7 +36,7 @@ def completion(
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
     if model.startswith(("http://", "https://")):
         completion_url = model
@@ -54,7 +54,7 @@ def completion(
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
     )
     ## LOGGING
@@ -84,7 +84,7 @@ def completion(
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
         )
 
@@ -95,7 +95,7 @@ def embedding(
     model_response: EmbeddingResponse,
     api_key: str | None,
     api_base: str | None,
-    logging_obj: "LiteLLMLoggingObj",
+    logging_obj: "EmbRouterLoggingObj",
     optional_params: dict,
     encoding=None,
 ):
@@ -126,9 +126,9 @@ def embedding(
         model=model,
         messages=[],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
     )
-    response: Final = litellm.module_level_client.post(embeddings_url, headers=headers, json=data)
+    response: Final = embrouter.module_level_client.post(embeddings_url, headers=headers, json=data)
     completion_response: Final = response.json()
 
     # Check for errors in response

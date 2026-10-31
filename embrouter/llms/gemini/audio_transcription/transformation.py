@@ -4,29 +4,29 @@ from typing import Final
 
 from httpx import Headers, Response
 
-from litellm.litellm_core_utils.audio_utils.subtitle_utils import SUBTITLE_RESPONSE_FORMATS
-from litellm.litellm_core_utils.audio_utils.utils import (
+from embrouter.embrouter_core_utils.audio_utils.subtitle_utils import SUBTITLE_RESPONSE_FORMATS
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     normalize_transcription_language_to_bcp47,
     process_audio_file,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.gemini.common_utils import GeminiError, GeminiModelInfo
-from litellm.types.llms.gemini_audio_transcription import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.gemini.common_utils import GeminiError, GeminiModelInfo
+from embrouter.types.llms.gemini_audio_transcription import (
     GeminiTranscriptionAudioInput,
     GeminiTranscriptionConfig,
     GeminiTranscriptionInteractionRequest,
     GeminiTranscriptionInteractionResponse,
     GeminiTranscriptionWordAnnotation,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     FileTypes,
     TranscriptionResponse,
     TranscriptionUsageInputTokenDetailsObject,
@@ -78,7 +78,7 @@ class GeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:  # mutable-ok: BaseAudioTranscriptionConfig signature
@@ -101,7 +101,7 @@ class GeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         stream: bool | None = None,
     ) -> str:
         resolved_api_base: Final = GeminiModelInfo.get_api_base(api_base)
@@ -112,7 +112,7 @@ class GeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> AudioTranscriptionRequestData:
         processed_audio: Final = process_audio_file(audio_file)
         audio_input: Final = GeminiTranscriptionAudioInput(

@@ -15,7 +15,7 @@ import type { ComplexityTiers } from "./ComplexityRouterConfig";
 
 // The backend types a tier as `str | list[str]` and widens with
 // `models if isinstance(models, list) else [models]`
-// (litellm/router_strategy/complexity_router/config.py:255, :441). These cases assert the
+// (embrouter/router_strategy/complexity_router/config.py:255, :441). These cases assert the
 // expected verdict per input rather than just agreement between call sites, so the test still
 // has teeth if every reader were changed at once.
 describe("normalizeTierModels", () => {
@@ -80,13 +80,13 @@ describe("resolveComplexityDefaultModel", () => {
   });
 });
 
-// The backend also accepts `{model_name, litellm_params}` entries and splits them into the
+// The backend also accepts `{model_name, embrouter_params}` entries and splits them into the
 // sibling tier_model_configs key at validation (config.py `_normalize_tier_model_configs`).
 // Before this widening, an object entry was silently dropped here, so opening the edit modal on
 // a yaml-authored config rendered the tier empty and the next save destroyed it.
 describe("normalizeTierModels object entries", () => {
   it("reads model_name from an object entry the way the backend does", () => {
-    expect(normalizeTierModels([{ model_name: "opus", litellm_params: { reasoning_effort: "high" } }, "mini"])).toEqual(
+    expect(normalizeTierModels([{ model_name: "opus", embrouter_params: { reasoning_effort: "high" } }, "mini"])).toEqual(
       ["opus", "mini"],
     );
   });
@@ -96,7 +96,7 @@ describe("normalizeTierModels object entries", () => {
   });
 
   it("drops an object without a model_name", () => {
-    expect(normalizeTierModels([{ litellm_params: { reasoning_effort: "high" } }])).toEqual([]);
+    expect(normalizeTierModels([{ embrouter_params: { reasoning_effort: "high" } }])).toEqual([]);
   });
 });
 
@@ -105,7 +105,7 @@ describe("hydrateTierModelParams", () => {
     expect(
       hydrateTierModelParams(
         { MEDIUM: ["opus"] },
-        { MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }] },
+        { MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }] },
       ),
     ).toEqual({ MEDIUM: { opus: { reasoning_effort: "medium" } } });
   });
@@ -113,7 +113,7 @@ describe("hydrateTierModelParams", () => {
   it("reads inline object entries out of tiers", () => {
     expect(
       hydrateTierModelParams(
-        { COMPLEX: [{ model_name: "opus", litellm_params: { reasoning_effort: "high" } }] },
+        { COMPLEX: [{ model_name: "opus", embrouter_params: { reasoning_effort: "high" } }] },
         undefined,
       ),
     ).toEqual({ COMPLEX: { opus: { reasoning_effort: "high" } } });
@@ -124,15 +124,15 @@ describe("hydrateTierModelParams", () => {
   it("lets tier_model_configs beat an inline entry for the same tier and model", () => {
     expect(
       hydrateTierModelParams(
-        { MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "low" } }] },
-        { MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }] },
+        { MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "low" } }] },
+        { MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }] },
       ),
     ).toEqual({ MEDIUM: { opus: { reasoning_effort: "medium" } } });
   });
 
   it("hydrates to undefined when nothing carries params, so an untouched save stays byte-identical", () => {
     expect(
-      hydrateTierModelParams({ SIMPLE: ["mini"], MEDIUM: [{ model_name: "opus", litellm_params: {} }] }, undefined),
+      hydrateTierModelParams({ SIMPLE: ["mini"], MEDIUM: [{ model_name: "opus", embrouter_params: {} }] }, undefined),
     ).toBeUndefined();
   });
 });
@@ -147,8 +147,8 @@ describe("serializeTierModelConfigs", () => {
         COMPLEX: { opus: { reasoning_effort: "high" } },
       }),
     ).toEqual({
-      MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }],
-      COMPLEX: [{ model_name: "opus", litellm_params: { reasoning_effort: "high" } }],
+      MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }],
+      COMPLEX: [{ model_name: "opus", embrouter_params: { reasoning_effort: "high" } }],
     });
   });
 
@@ -163,7 +163,7 @@ describe("serializeTierModelConfigs", () => {
     expect(
       serializeTierModelConfigs(tiers, { MEDIUM: { opus: { reasoning_effort: "medium", max_tokens: 512 } } }),
     ).toEqual({
-      MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium", max_tokens: 512 } }],
+      MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium", max_tokens: 512 } }],
     });
   });
 
@@ -171,12 +171,12 @@ describe("serializeTierModelConfigs", () => {
   // must pass through rather than being dropped the moment the key became managed.
   it("passes tiers this editor does not render through untouched", () => {
     expect(serializeTierModelConfigs(tiers, { DEEP_RESEARCH: { opus: { reasoning_effort: "xhigh" } } })).toEqual({
-      DEEP_RESEARCH: [{ model_name: "opus", litellm_params: { reasoning_effort: "xhigh" } }],
+      DEEP_RESEARCH: [{ model_name: "opus", embrouter_params: { reasoning_effort: "xhigh" } }],
     });
   });
 
   it("round-trips what hydration produced", () => {
-    const stored = { MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }] };
+    const stored = { MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }] };
     expect(serializeTierModelConfigs(tiers, hydrateTierModelParams(tiers, stored))).toEqual(stored);
   });
 

@@ -1,5 +1,5 @@
 #### What this tests ####
-# This tests litellm router
+# This tests embrouter router
 
 
 import logging
@@ -7,12 +7,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_logger
+import embrouter
+from embrouter._logging import verbose_logger
 
 
 async def _routed_model_ids(
-    router: litellm.Router, tags: list[str], remaining: frozenset[str], attempts: int = 100
+    router: embrouter.Router, tags: list[str], remaining: frozenset[str], attempts: int = 100
 ) -> frozenset[str]:
     if not remaining or attempts == 0:
         return frozenset()
@@ -29,11 +29,11 @@ async def test_router_free_paid_tier():
     Pass list of orgs in 1 model definition,
     expect a unique deployment for each to be created
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["free"],
@@ -42,7 +42,7 @@ async def test_router_free_paid_tier():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -86,11 +86,11 @@ async def test_router_free_paid_tier_embeddings():
     Pass list of orgs in 1 model definition,
     expect a unique deployment for each to be created
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["free"],
@@ -100,7 +100,7 @@ async def test_router_free_paid_tier_embeddings():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -110,7 +110,7 @@ async def test_router_free_paid_tier_embeddings():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default"],
@@ -156,11 +156,11 @@ async def test_default_tagged_deployments():
     - if a request has tag "default", use default deployment
     """
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default"],
@@ -169,7 +169,7 @@ async def test_default_tagged_deployments():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                 },
@@ -177,7 +177,7 @@ async def test_default_tagged_deployments():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -233,11 +233,11 @@ async def test_error_from_tag_routing():
     Tests the correct error raised when no deployments found for tag
     """
     verbose_logger.setLevel(logging.DEBUG)
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                 },
@@ -245,7 +245,7 @@ async def test_error_from_tag_routing():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                 },
@@ -253,7 +253,7 @@ async def test_error_from_tag_routing():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -264,7 +264,7 @@ async def test_error_from_tag_routing():
         enable_tag_filtering=True,
     )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     with pytest.raises(
         Exception, match=RouterErrors.no_deployments_with_tag_routing.value
@@ -281,7 +281,7 @@ def test_tag_routing_with_list_of_tags():
     """
     Test that the router can handle a list of tags with match_any behavior
     """
-    from litellm.router_strategy.tag_based_routing import is_valid_deployment_tag
+    from embrouter.router_strategy.tag_based_routing import is_valid_deployment_tag
 
     assert is_valid_deployment_tag(["teamA", "teamB"], ["teamA"])
     assert is_valid_deployment_tag(["teamA", "teamB"], ["teamA", "teamB"])
@@ -296,7 +296,7 @@ def test_tag_routing_with_list_of_tags_match_all():
     """
     Test that the router can handle a list of tags with match_all behavior
     """
-    from litellm.router_strategy.tag_based_routing import is_valid_deployment_tag
+    from embrouter.router_strategy.tag_based_routing import is_valid_deployment_tag
 
     assert is_valid_deployment_tag(["teamA", "teamB"], ["teamA"], match_any=False)
     assert is_valid_deployment_tag(["teamA", "teamB"], ["teamA", "teamB"], match_any=False)
@@ -313,11 +313,11 @@ def test_strict_tag_routing_without_request_tags_blocks_header_regex_fallback():
     those request tags before header regex can match. A spoofed User-Agent must
     not route to a tagged deployment when the request has no tags.
     """
-    from litellm.router_strategy.tag_based_routing import _match_deployment
+    from embrouter.router_strategy.tag_based_routing import _match_deployment
 
     deployment = {
         "model_name": "restricted-model",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "gpt-4o",
             "tags": ["internal"],
             "tag_regex": ["^User-Agent: internal-tool"],
@@ -341,11 +341,11 @@ async def test_router_free_paid_tier_with_responses_api():
     Pass list of orgs in 1 model definition,
     expect a unique deployment for each to be created
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["free"],
@@ -354,7 +354,7 @@ async def test_router_free_paid_tier_with_responses_api():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -370,7 +370,7 @@ async def test_router_free_paid_tier_with_responses_api():
         response = await router.aresponses(
             model="gpt-4",
             input="Tell me a joke.",
-            litellm_metadata={"tags": ["free"]},
+            embrouter_metadata={"tags": ["free"]},
             mock_response="Tell me a joke.",
         )
 
@@ -383,7 +383,7 @@ async def test_router_free_paid_tier_with_responses_api():
         response = await router.aresponses(
             model="gpt-4",
             input="Tell me a joke.",
-            litellm_metadata={"tags": ["paid"]},
+            embrouter_metadata={"tags": ["paid"]},
             mock_response="Tell me a joke.",
         )
 
@@ -393,14 +393,14 @@ async def test_router_free_paid_tier_with_responses_api():
 
 
 def test_get_tags_from_request_kwargs_none():
-    from litellm.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
+    from embrouter.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
 
     # None request kwargs should safely return empty list
     assert _get_tags_from_request_kwargs(None) == []
 
 
 def test_get_tags_from_request_kwargs_various_inputs():
-    from litellm.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
+    from embrouter.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
 
     # Direct "metadata" path
     assert _get_tags_from_request_kwargs({"metadata": {"tags": ["free"]}}) == ["free"]
@@ -409,19 +409,19 @@ def test_get_tags_from_request_kwargs_various_inputs():
     assert _get_tags_from_request_kwargs({"metadata": {}}) == []
     assert _get_tags_from_request_kwargs({"metadata": None}) == []
 
-    # Indirect via "litellm_params" - metadata inside
-    assert _get_tags_from_request_kwargs({"litellm_params": {"metadata": {"tags": ["paid"]}}}) == ["paid"]
-    assert _get_tags_from_request_kwargs({"litellm_params": {"metadata": None}}) == []
-    assert _get_tags_from_request_kwargs({"litellm_params": {}}) == []
+    # Indirect via "embrouter_params" - metadata inside
+    assert _get_tags_from_request_kwargs({"embrouter_params": {"metadata": {"tags": ["paid"]}}}) == ["paid"]
+    assert _get_tags_from_request_kwargs({"embrouter_params": {"metadata": None}}) == []
+    assert _get_tags_from_request_kwargs({"embrouter_params": {}}) == []
 
-    # Alternate metadata variable name: "litellm_metadata"
+    # Alternate metadata variable name: "embrouter_metadata"
     assert _get_tags_from_request_kwargs(
-        {"litellm_metadata": {"tags": ["alt"]}},
-        metadata_variable_name="litellm_metadata",
+        {"embrouter_metadata": {"tags": ["alt"]}},
+        metadata_variable_name="embrouter_metadata",
     ) == ["alt"]
     assert _get_tags_from_request_kwargs(
-        {"litellm_params": {"litellm_metadata": {"tags": ["nested-alt"]}}},
-        metadata_variable_name="litellm_metadata",
+        {"embrouter_params": {"embrouter_metadata": {"tags": ["nested-alt"]}}},
+        metadata_variable_name="embrouter_metadata",
     ) == ["nested-alt"]
 
     # No relevant keys present
@@ -432,10 +432,10 @@ def test_get_tags_from_request_kwargs_various_inputs():
     "request_kwargs",
     [
         {"metadata": "not-a-dict"},
-        {"litellm_metadata": "not-a-dict"},
-        {"litellm_metadata": ["not", "a", "dict"]},
-        {"litellm_params": "not-a-dict"},
-        {"litellm_params": {"metadata": "not-a-dict"}},
+        {"embrouter_metadata": "not-a-dict"},
+        {"embrouter_metadata": ["not", "a", "dict"]},
+        {"embrouter_params": "not-a-dict"},
+        {"embrouter_params": {"metadata": "not-a-dict"}},
         {"metadata": {"tags": "free"}},
         {"metadata": {"tags": {"free": "paid"}}},
     ],
@@ -444,13 +444,13 @@ def test_get_tags_from_request_kwargs_reads_no_tags_from_a_non_dict_shape(reques
     """Metadata and `tags` are request-controlled, so a client can send either as a
     string, a list or null. Every shape that cannot hold string tags reads as untagged
     instead of raising, because callers run on the hot request path."""
-    from litellm.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
+    from embrouter.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
 
     assert _get_tags_from_request_kwargs(request_kwargs) == []
 
 
 def test_get_tags_from_request_kwargs_keeps_only_string_tags():
-    from litellm.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
+    from embrouter.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
 
     assert _get_tags_from_request_kwargs({"metadata": {"tags": ["free", 7, None, "paid"]}}) == ["free", "paid"]
 
@@ -459,7 +459,7 @@ def test_get_tags_from_request_kwargs_keeps_only_string_tags():
 
 
 def test_split_tags_positive_only():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     required, positive, excluded = _split_tags(["paid", "teamA"])
     assert required == ()
@@ -468,7 +468,7 @@ def test_split_tags_positive_only():
 
 
 def test_split_tags_negation_only():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     required, positive, excluded = _split_tags(["!provider:anthropic"])
     assert required == ()
@@ -477,7 +477,7 @@ def test_split_tags_negation_only():
 
 
 def test_split_tags_required_only():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     required, positive, excluded = _split_tags(["&reasoning_type:high", "&provider:anthropic"])
     assert required == ("reasoning_type:high", "provider:anthropic")
@@ -486,7 +486,7 @@ def test_split_tags_required_only():
 
 
 def test_split_tags_mixed():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     required, positive, excluded = _split_tags(
         ["paid", "!provider:anthropic", "!inference:cerebras", "&reasoning_type:high"]
@@ -497,7 +497,7 @@ def test_split_tags_mixed():
 
 
 def test_split_tags_bare_bang_and_amp_skipped():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     # A bare "!" or "&" with nothing after it is not a valid tag; skip it
     required, positive, excluded = _split_tags(["paid", "!", "&"])
@@ -507,7 +507,7 @@ def test_split_tags_bare_bang_and_amp_skipped():
 
 
 def test_split_tags_empty():
-    from litellm.router_strategy.tag_based_routing import _split_tags
+    from embrouter.router_strategy.tag_based_routing import _split_tags
 
     required, positive, excluded = _split_tags([])
     assert required == ()
@@ -520,11 +520,11 @@ def test_split_tags_empty():
 
 @pytest.mark.asyncio()
 async def test_negation_excludes_matching_deployments():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "model:claude-sonnet-4-6"],
@@ -533,7 +533,7 @@ async def test_negation_excludes_matching_deployments():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai", "model:gpt-4o"],
@@ -556,11 +556,11 @@ async def test_negation_excludes_matching_deployments():
 
 @pytest.mark.asyncio()
 async def test_negation_multiple_tags_exclude_multiple_providers():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -569,7 +569,7 @@ async def test_negation_multiple_tags_exclude_multiple_providers():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai"],
@@ -578,7 +578,7 @@ async def test_negation_multiple_tags_exclude_multiple_providers():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:vertex"],
@@ -601,11 +601,11 @@ async def test_negation_multiple_tags_exclude_multiple_providers():
 
 @pytest.mark.asyncio()
 async def test_negation_with_positive_tag():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid", "provider:anthropic"],
@@ -614,7 +614,7 @@ async def test_negation_with_positive_tag():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid", "provider:openai"],
@@ -623,7 +623,7 @@ async def test_negation_with_positive_tag():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["free", "provider:openai"],
@@ -646,12 +646,12 @@ async def test_negation_with_positive_tag():
 
 @pytest.mark.asyncio()
 async def test_negation_all_excluded_raises():
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -670,7 +670,7 @@ async def test_negation_all_excluded_raises():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -678,11 +678,11 @@ async def test_negation_all_excluded_raises():
 @pytest.mark.asyncio()
 async def test_negation_ban_only_cannot_escape_default_pool():
     # A ban-only request must not route to tagged deployments outside the default pool.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default"],
@@ -691,7 +691,7 @@ async def test_negation_ban_only_cannot_escape_default_pool():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -713,7 +713,7 @@ async def test_negation_ban_only_cannot_escape_default_pool():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -722,11 +722,11 @@ async def test_negation_ban_only_cannot_escape_default_pool():
 async def test_negation_ban_only_respects_default_pool():
     # A ban-only request stays within the default pool; non-default deployments
     # remain unreachable even when the negation tag is unrelated to the default.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default"],
@@ -735,7 +735,7 @@ async def test_negation_ban_only_respects_default_pool():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -760,11 +760,11 @@ async def test_negation_ban_only_respects_default_pool():
 
 @pytest.mark.asyncio()
 async def test_negation_untagged_deployment_kept():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -773,7 +773,7 @@ async def test_negation_untagged_deployment_kept():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                 },
@@ -795,11 +795,11 @@ async def test_negation_untagged_deployment_kept():
 
 @pytest.mark.asyncio()
 async def test_negation_literal_only_no_partial_match():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic-haiku"],
@@ -808,7 +808,7 @@ async def test_negation_literal_only_no_partial_match():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai"],
@@ -837,11 +837,11 @@ async def test_negation_literal_only_no_partial_match():
 async def test_negation_regex_pattern_treated_as_literal():
     # "!provider:(anthropic|openai)" looks like a regex but is treated as a literal string.
     # It does NOT exclude deployments tagged "provider:anthropic" or "provider:openai".
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -850,7 +850,7 @@ async def test_negation_regex_pattern_treated_as_literal():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai"],
@@ -871,11 +871,11 @@ async def test_negation_regex_pattern_treated_as_literal():
 
 @pytest.mark.asyncio()
 async def test_positive_tags_unchanged_by_negation():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["free"],
@@ -884,7 +884,7 @@ async def test_positive_tags_unchanged_by_negation():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["paid"],
@@ -907,12 +907,12 @@ async def test_positive_tags_unchanged_by_negation():
 
 @pytest.mark.asyncio()
 async def test_negation_skips_banned_group_and_uses_fallback():
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -921,7 +921,7 @@ async def test_negation_skips_banned_group_and_uses_fallback():
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai"],
@@ -944,12 +944,12 @@ async def test_negation_skips_banned_group_and_uses_fallback():
 
 @pytest.mark.asyncio()
 async def test_negation_exhausts_entire_fallback_chain():
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -958,7 +958,7 @@ async def test_negation_exhausts_entire_fallback_chain():
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -978,7 +978,7 @@ async def test_negation_exhausts_entire_fallback_chain():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -987,11 +987,11 @@ async def test_negation_exhausts_entire_fallback_chain():
 async def test_tag_regex_survives_when_negation_removes_other_deployment():
     # Negation removes a plain-tagged deployment; the surviving tag_regex deployment
     # is still matched by User-Agent and selected.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tag_regex": ["^User-Agent: claude-code\\/"],
@@ -1000,7 +1000,7 @@ async def test_tag_regex_survives_when_negation_removes_other_deployment():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -1027,11 +1027,11 @@ async def test_negation_removes_tag_regex_deployment_falls_to_ban_only():
     # When a negation tag removes the only tag_regex deployment, no regex deployments
     # remain in the candidate pool. has_tag_filter becomes False, ban_only fires,
     # and the remaining plain-tagged deployment is returned via the ban-only path.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tag_regex": ["^User-Agent: claude-code\\/"],
@@ -1041,7 +1041,7 @@ async def test_negation_removes_tag_regex_deployment_falls_to_ban_only():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai"],
@@ -1073,11 +1073,11 @@ async def test_request_level_enable_tag_filtering_applies_when_global_off():
     is off. Without this, a team's "Enable Tag Filtering" toggle saved in the UI
     is silently ignored at request time.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -1086,7 +1086,7 @@ async def test_request_level_enable_tag_filtering_applies_when_global_off():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamB"],
@@ -1126,11 +1126,11 @@ async def test_request_level_enable_tag_filtering_false_cannot_disable_global():
     deployments a caller may reach, so per-request settings may only scope
     down, never escape the global policy.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -1139,7 +1139,7 @@ async def test_request_level_enable_tag_filtering_false_cannot_disable_global():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamB"],
@@ -1173,7 +1173,7 @@ class _FakeRouterForChainOverride:
 
 
 def test_chain_tag_filtering_override_reads_any_member():
-    from litellm.router_strategy.tag_based_routing import _chain_tag_filtering_override
+    from embrouter.router_strategy.tag_based_routing import _chain_tag_filtering_override
 
     deployments = [
         {"model_info": {}},
@@ -1184,7 +1184,7 @@ def test_chain_tag_filtering_override_reads_any_member():
 
 
 def test_chain_tag_filtering_override_none_when_unset_anywhere():
-    from litellm.router_strategy.tag_based_routing import _chain_tag_filtering_override
+    from embrouter.router_strategy.tag_based_routing import _chain_tag_filtering_override
 
     deployments = [{"model_info": {}}, {}]
     router = _FakeRouterForChainOverride(deployments)
@@ -1197,7 +1197,7 @@ def test_chain_tag_filtering_override_survives_the_overriding_member_going_unhea
     # filtering. async_get_healthy_deployments filters cooldowns before calling
     # into get_deployments_for_tag, so healthy_deployments alone can be missing
     # the one deployment that carries the group's only explicit override.
-    from litellm.router_strategy.tag_based_routing import _chain_tag_filtering_override
+    from embrouter.router_strategy.tag_based_routing import _chain_tag_filtering_override
 
     all_deployments = [
         {"model_info": {"enable_tag_filtering": True}},
@@ -1212,7 +1212,7 @@ def test_chain_tag_filtering_override_survives_the_overriding_member_going_unhea
 
 
 def test_chain_tag_filtering_override_falls_back_to_healthy_deployments_on_lookup_error():
-    from litellm.router_strategy.tag_based_routing import _chain_tag_filtering_override
+    from embrouter.router_strategy.tag_based_routing import _chain_tag_filtering_override
 
     class _BrokenRouter:
         def _get_all_deployments(self, model_name):
@@ -1226,11 +1226,11 @@ def test_chain_tag_filtering_override_falls_back_to_healthy_deployments_on_looku
 async def test_chain_enable_tag_filtering_true_overrides_router_level_false():
     # Router-wide tag filtering is off; this model group opts in on its own via
     # model_info.enable_tag_filtering, so tags still apply to requests for it.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -1239,7 +1239,7 @@ async def test_chain_enable_tag_filtering_true_overrides_router_level_false():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamB"],
@@ -1265,11 +1265,11 @@ async def test_chain_enable_tag_filtering_false_overrides_router_level_true():
     # Router-wide tag filtering is on, but this model group opts itself out via
     # model_info.enable_tag_filtering: tags are ignored for requests to this group,
     # so an untagged-style request just gets ordinary load-balanced routing.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -1278,7 +1278,7 @@ async def test_chain_enable_tag_filtering_false_overrides_router_level_true():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamB"],
@@ -1300,11 +1300,11 @@ async def test_request_level_enable_tag_filtering_still_wins_over_chain_level_fa
     # A key/team's own request-level enable_tag_filtering=True must still win over
     # a chain that opted itself out, exactly as it already wins over the router
     # default: request-level escalation is the highest-precedence layer.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamA"],
@@ -1313,7 +1313,7 @@ async def test_request_level_enable_tag_filtering_still_wins_over_chain_level_fa
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["teamB"],
@@ -1339,18 +1339,18 @@ async def test_request_level_enable_tag_filtering_still_wins_over_chain_level_fa
 
 
 def test_require_all_tags_empty_required_set_is_noop():
-    from litellm.router_strategy.tag_based_routing import _require_all_tags
+    from embrouter.router_strategy.tag_based_routing import _require_all_tags
 
-    deployments = [{"litellm_params": {"tags": ["a"]}}, {"litellm_params": {"tags": []}}]
+    deployments = [{"embrouter_params": {"tags": ["a"]}}, {"embrouter_params": {"tags": []}}]
     assert _require_all_tags(deployments, frozenset()) == tuple(deployments)
 
 
 def test_require_all_tags_keeps_only_deployments_with_every_required_tag():
-    from litellm.router_strategy.tag_based_routing import _require_all_tags
+    from embrouter.router_strategy.tag_based_routing import _require_all_tags
 
-    has_both = {"litellm_params": {"tags": ["reasoning_type:high", "provider:anthropic"]}}
-    has_one = {"litellm_params": {"tags": ["reasoning_type:high"]}}
-    has_neither = {"litellm_params": {"tags": ["provider:openai"]}}
+    has_both = {"embrouter_params": {"tags": ["reasoning_type:high", "provider:anthropic"]}}
+    has_one = {"embrouter_params": {"tags": ["reasoning_type:high"]}}
+    has_neither = {"embrouter_params": {"tags": ["provider:openai"]}}
 
     result = _require_all_tags(
         [has_both, has_one, has_neither], frozenset({"reasoning_type:high", "provider:anthropic"})
@@ -1359,17 +1359,17 @@ def test_require_all_tags_keeps_only_deployments_with_every_required_tag():
 
 
 def test_chain_allows_fail_open_true_when_any_member_sets_flag():
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [
-        {"model_info": {}, "litellm_params": {"tags": ["provider:anthropic"]}},
-        {"model_info": {"allow_fail_open": True}, "litellm_params": {"tags": ["provider:openai"]}},
+        {"model_info": {}, "embrouter_params": {"tags": ["provider:anthropic"]}},
+        {"model_info": {"allow_fail_open": True}, "embrouter_params": {"tags": ["provider:openai"]}},
     ]
     assert _chain_allows_fail_open(deployments, frozenset(), frozenset({"provider:anthropic"}), frozenset()) is True
 
 
 def test_chain_allows_fail_open_false_by_default():
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [{"model_info": {}}, {}]
     assert _chain_allows_fail_open(deployments, frozenset(), frozenset(), frozenset()) is False
@@ -1379,25 +1379,25 @@ def test_chain_allows_fail_open_true_when_no_required_tag_is_known_at_all():
     # An entirely-invented required tag with nothing else known to compare against
     # has no narrower answer to hide; a single-deployment catch-all fallback is a
     # legitimate use of allow_fail_open, not something to deny.
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [
-        {"model_info": {"allow_fail_open": True}, "litellm_params": {"tags": ["default", "reasoning_type:low"]}},
+        {"model_info": {"allow_fail_open": True}, "embrouter_params": {"tags": ["default", "reasoning_type:low"]}},
     ]
     assert _chain_allows_fail_open(deployments, frozenset(), frozenset({"reasoning_type:high"}), frozenset()) is True
 
 
 def test_unknown_required_tag_hides_an_answer_denies_fail_open():
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [
         {
             "model_info": {},
-            "litellm_params": {"tags": ["provider:anthropic", "region:us-east"]},
+            "embrouter_params": {"tags": ["provider:anthropic", "region:us-east"]},
         },
         {
             "model_info": {"allow_fail_open": True},
-            "litellm_params": {"tags": ["default", "provider:openai"]},
+            "embrouter_params": {"tags": ["default", "provider:openai"]},
         },
     ]
     # region:us-east is real and satisfiable on the first deployment; the invented tag
@@ -1412,20 +1412,20 @@ def test_unknown_required_tag_hides_an_answer_denies_fail_open():
 
 
 def test_unknown_required_tag_allows_fail_open_when_no_answer_is_hidden():
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [
         {
             "model_info": {"allow_fail_open": True},
-            "litellm_params": {"tags": ["provider:anthropic", "region:us-east"]},
+            "embrouter_params": {"tags": ["provider:anthropic", "region:us-east"]},
         },
         {
             "model_info": {"allow_fail_open": True},
-            "litellm_params": {"tags": ["provider:eu", "region:eu"]},
+            "embrouter_params": {"tags": ["provider:eu", "region:eu"]},
         },
         {
             "model_info": {"allow_fail_open": True},
-            "litellm_params": {"tags": ["default", "provider:openai"]},
+            "embrouter_params": {"tags": ["default", "provider:openai"]},
         },
     ]
     # region:us-east and region:eu are both real, known tags; no single deployment
@@ -1441,7 +1441,7 @@ def test_unknown_required_tag_allows_fail_open_when_no_answer_is_hidden():
 
 
 def test_strip_routing_prefix_empty_prefix_is_noop():
-    from litellm.router_strategy.tag_based_routing import _strip_routing_prefix
+    from embrouter.router_strategy.tag_based_routing import _strip_routing_prefix
 
     tags = ["provider:anthropic", "&region:eu", "!region:us"]
     rewritten, confirmed = _strip_routing_prefix(tags, "")
@@ -1450,7 +1450,7 @@ def test_strip_routing_prefix_empty_prefix_is_noop():
 
 
 def test_strip_routing_prefix_splits_routed_from_other():
-    from litellm.router_strategy.tag_based_routing import _strip_routing_prefix
+    from embrouter.router_strategy.tag_based_routing import _strip_routing_prefix
 
     rewritten, confirmed = _strip_routing_prefix(["feature:demo", "route:!provider:openai"], "route:")
     assert rewritten == ("feature:demo", "!provider:openai")
@@ -1463,14 +1463,14 @@ def test_strip_routing_prefix_confirmed_matches_bare_required_and_excluded_value
     # left the "&"/"!" marker in `confirmed`, so `required_set & routing_confirmed`
     # never intersected for any prefixed "&"/"!" tag -- the entire "trusted,
     # caller-declared required/excluded tag" mechanism silently no-opped.
-    from litellm.router_strategy.tag_based_routing import _strip_routing_prefix
+    from embrouter.router_strategy.tag_based_routing import _strip_routing_prefix
 
     _, confirmed = _strip_routing_prefix(["route:&provider:anthropic", "route:!region:eu"], "route:")
     assert confirmed == frozenset({"provider:anthropic", "region:eu"})
 
 
 def test_strip_routing_prefix_lone_marker_confirms_nothing():
-    from litellm.router_strategy.tag_based_routing import _strip_routing_prefix
+    from embrouter.router_strategy.tag_based_routing import _strip_routing_prefix
 
     # A lone "&"/"!" with nothing after it parses to nothing in required_set,
     # excluded_set, or positive_tags (see test_split_tags_bare_bang_and_amp_skipped);
@@ -1485,12 +1485,12 @@ def test_chain_allows_fail_open_true_when_prefixed_unknown_required_tag_is_confi
     # test_unknown_required_tag_hides_an_answer_denies_fail_open) -- but once the
     # caller has explicitly marked it via the routing prefix, it counts as a known,
     # honest ask, and fail-open must proceed rather than get denied.
-    from litellm.router_strategy.tag_based_routing import _chain_allows_fail_open
+    from embrouter.router_strategy.tag_based_routing import _chain_allows_fail_open
 
     deployments = [
         {
             "model_info": {"allow_fail_open": True},
-            "litellm_params": {"tags": ["default", "provider:anthropic"]},
+            "embrouter_params": {"tags": ["default", "provider:anthropic"]},
         },
     ]
     required_set = frozenset({"provider:anthropic", "typo-tag"})
@@ -1503,11 +1503,11 @@ def test_chain_allows_fail_open_true_when_prefixed_unknown_required_tag_is_confi
 
 @pytest.mark.asyncio()
 async def test_required_and_matches_deployment_with_all_tags():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -1516,7 +1516,7 @@ async def test_required_and_matches_deployment_with_all_tags():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:openai"],
@@ -1539,11 +1539,11 @@ async def test_required_and_matches_deployment_with_all_tags():
 
 @pytest.mark.asyncio()
 async def test_required_and_excludes_deployment_missing_one_tag():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -1552,7 +1552,7 @@ async def test_required_and_excludes_deployment_missing_one_tag():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low", "provider:anthropic"],
@@ -1578,11 +1578,11 @@ async def test_required_and_composes_with_negation():
     # &reasoning_type:high requires the tag; !provider:anthropic bans that provider.
     # Negation applies first, so the anthropic deployment is excluded even though
     # it satisfies the required tag.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -1591,7 +1591,7 @@ async def test_required_and_composes_with_negation():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:openai"],
@@ -1616,11 +1616,11 @@ async def test_required_and_composes_with_negation():
 async def test_required_and_combines_with_positive_or_preference():
     # &reasoning_type:high is a hard requirement; provider:anthropic/provider:openai
     # is a preference (OR) applied on top of the survivors.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -1629,7 +1629,7 @@ async def test_required_and_combines_with_positive_or_preference():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:vertex"],
@@ -1638,7 +1638,7 @@ async def test_required_and_combines_with_positive_or_preference():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low", "provider:anthropic"],
@@ -1661,11 +1661,11 @@ async def test_required_and_combines_with_positive_or_preference():
 
 @pytest.mark.asyncio()
 async def test_required_and_single_tag_matches_trivially():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -1674,7 +1674,7 @@ async def test_required_and_single_tag_matches_trivially():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low"],
@@ -1698,12 +1698,12 @@ async def test_required_and_single_tag_matches_trivially():
 @pytest.mark.asyncio()
 async def test_required_and_unmatched_raises_by_default():
     # allow_fail_open unset -> unmatched required-AND raises, same as today's "!" behavior.
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low"],
@@ -1722,7 +1722,7 @@ async def test_required_and_unmatched_raises_by_default():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -1731,12 +1731,12 @@ async def test_required_and_unmatched_raises_by_default():
 async def test_required_and_combined_with_positive_unmatched_raises_by_default():
     # &A eliminates every candidate before the positive-tag preference even runs;
     # this must be gated by allow_fail_open too, not just the required-AND-only path.
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low", "provider:anthropic"],
@@ -1755,7 +1755,7 @@ async def test_required_and_combined_with_positive_unmatched_raises_by_default()
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -1765,11 +1765,11 @@ async def test_required_and_combined_with_positive_unmatched_raises_by_default()
 
 @pytest.mark.asyncio()
 async def test_allow_fail_open_required_and_unmatched_falls_back_to_default_pool():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "reasoning_type:low"],
@@ -1797,11 +1797,11 @@ async def test_allow_fail_open_negation_eliminates_everything_includes_banned_de
     # pool, INCLUDING the deployment the request tried to ban. This must never
     # silently disappear (still raise) nor silently reappear on chains without
     # the flag set (see test_negation_all_excluded_raises).
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -1824,11 +1824,11 @@ async def test_allow_fail_open_negation_eliminates_everything_includes_banned_de
 
 @pytest.mark.asyncio()
 async def test_allow_fail_open_prefers_default_tagged_deployment_on_fallback():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic"],
@@ -1837,7 +1837,7 @@ async def test_allow_fail_open_prefers_default_tagged_deployment_on_fallback():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "default"],
@@ -1862,12 +1862,12 @@ async def test_allow_fail_open_prefers_default_tagged_deployment_on_fallback():
 async def test_allow_fail_open_per_hop_across_fallback_chain():
     # required-AND fail-open must be re-evaluated fresh on every hop, the same
     # per-hop guarantee the negation feature already established.
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low"],
@@ -1876,7 +1876,7 @@ async def test_allow_fail_open_per_hop_across_fallback_chain():
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "reasoning_type:low"],
@@ -1907,11 +1907,11 @@ async def test_allow_fail_open_resolves_locally_without_triggering_external_fall
     # configured. A fallback deployment that would trivially satisfy the request
     # tag if it were ever consulted makes this a meaningful negative assertion,
     # not a vacuous one.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -1920,7 +1920,7 @@ async def test_allow_fail_open_resolves_locally_without_triggering_external_fall
             },
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "reasoning_type:low"],
@@ -1929,7 +1929,7 @@ async def test_allow_fail_open_resolves_locally_without_triggering_external_fall
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["region:eu"],
@@ -1955,12 +1955,12 @@ async def test_allow_fail_open_resolves_locally_without_triggering_external_fall
 
 @pytest.mark.asyncio()
 async def test_negation_combined_with_positive_unmatched_raises_by_default():
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "paid"],
@@ -1979,18 +1979,18 @@ async def test_negation_combined_with_positive_unmatched_raises_by_default():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
 
 @pytest.mark.asyncio()
 async def test_negation_combined_with_positive_unmatched_falls_open_when_allowed():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "paid", "default"],
@@ -2021,11 +2021,11 @@ async def test_required_and_only_returns_every_matching_deployment_despite_regex
     # but has no tag_regex at all. A required-AND-only request (no plain positive tags)
     # must be free to route to either survivor, not be narrowed down to only the one
     # that happens to match the incidental regex/header preference.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -2035,7 +2035,7 @@ async def test_required_and_only_returns_every_matching_deployment_despite_regex
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -2064,11 +2064,11 @@ async def test_required_and_only_excludes_regex_deployment_missing_the_required_
     # The tag_regex deployment matches the caller's User-Agent but does NOT carry the
     # required tag; a required-AND-only request must not let it through on the strength
     # of the regex/header match alone.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low"],
@@ -2078,7 +2078,7 @@ async def test_required_and_only_excludes_regex_deployment_missing_the_required_
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -2105,11 +2105,11 @@ async def test_required_and_only_excludes_regex_deployment_missing_the_required_
 
 @pytest.mark.asyncio()
 async def test_mixed_constraint_survivor_unmatched_by_positive_tag_raises_by_default():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -2118,7 +2118,7 @@ async def test_mixed_constraint_survivor_unmatched_by_positive_tag_raises_by_def
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "reasoning_type:low"],
@@ -2137,7 +2137,7 @@ async def test_mixed_constraint_survivor_unmatched_by_positive_tag_raises_by_def
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2151,11 +2151,11 @@ async def test_mixed_constraint_survivor_unmatched_by_positive_tag_falls_open_wh
     # flagged this exact path as bypassing allow_fail_open by raising unconditionally;
     # it must instead fall back to the group's actual default-tagged deployment, which
     # is a different deployment than the one &reasoning_type:high matched.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high", "provider:anthropic"],
@@ -2164,7 +2164,7 @@ async def test_mixed_constraint_survivor_unmatched_by_positive_tag_falls_open_wh
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "reasoning_type:low"],
@@ -2198,11 +2198,11 @@ async def test_allow_fail_open_denied_when_request_includes_unknown_tag():
     # is set on the default deployment, but must not fire here: none of the *other*
     # deployments carry the invented tag either, so it is unknown to the chain, and
     # falling back would silently discard the still-satisfiable region:us-east ask.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "region:us-east"],
@@ -2211,7 +2211,7 @@ async def test_allow_fail_open_denied_when_request_includes_unknown_tag():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "provider:openai"],
@@ -2230,7 +2230,7 @@ async def test_allow_fail_open_denied_when_request_includes_unknown_tag():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2240,11 +2240,11 @@ async def test_allow_fail_open_still_fires_when_every_requested_tag_is_known():
     # region:us-east and region:eu are both real tags this chain uses; no single
     # deployment carries both, so the combination is genuinely unsatisfiable, not
     # invented. allow_fail_open must still fall back normally in this case.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "region:us-east"],
@@ -2253,7 +2253,7 @@ async def test_allow_fail_open_still_fires_when_every_requested_tag_is_known():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:eu", "region:eu"],
@@ -2262,7 +2262,7 @@ async def test_allow_fail_open_still_fires_when_every_requested_tag_is_known():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "provider:openai"],
@@ -2293,12 +2293,12 @@ async def test_required_and_exhausts_primary_group_falls_through_to_fallback_gro
     # negation's own fallback-chain behavior), so the router advances to "fallback"
     # where the tag is satisfiable. No allow_fail_open involved; this is the plain
     # fallback-chain mechanics already established for "!" extended to "&".
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:low"],
@@ -2307,7 +2307,7 @@ async def test_required_and_exhausts_primary_group_falls_through_to_fallback_gro
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["reasoning_type:high"],
@@ -2339,12 +2339,12 @@ async def test_required_and_negation_and_allow_fail_open_combine_across_three_mo
     #   "!provider:anthropic" also bans; the tag is known to the chain but its only
     #   carrier is legitimately excluded, not hidden behind an invented tag, so the
     #   opted-in allow_fail_open falls back to the group's own default deployment.
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "reasoning_type:high"],
@@ -2353,7 +2353,7 @@ async def test_required_and_negation_and_allow_fail_open_combine_across_three_mo
             },
             {
                 "model_name": "secondary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:openai", "reasoning_type:low"],
@@ -2362,7 +2362,7 @@ async def test_required_and_negation_and_allow_fail_open_combine_across_three_mo
             },
             {
                 "model_name": "tertiary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "reasoning_type:high", "region:eu"],
@@ -2371,7 +2371,7 @@ async def test_required_and_negation_and_allow_fail_open_combine_across_three_mo
             },
             {
                 "model_name": "tertiary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "provider:openai", "reasoning_type:low"],
@@ -2401,12 +2401,12 @@ async def test_unknown_tag_denial_is_scoped_per_hop_not_leaked_across_fallback_g
     # invented tag to hide -> falls open normally. Each hop must independently
     # discover what its own group knows; a deny decision from a prior hop's group
     # must not leak forward and block a later hop that has no relevant knowledge.
-    router = litellm.Router(
+    router = embrouter.Router(
         num_retries=0,
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["region:us-east"],
@@ -2415,7 +2415,7 @@ async def test_unknown_tag_denial_is_scoped_per_hop_not_leaked_across_fallback_g
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "provider:openai"],
@@ -2442,11 +2442,11 @@ async def test_required_and_only_finds_compliant_non_default_deployment_over_non
     # group, not just the one tagged "default". A compliant, healthy deployment that
     # simply isn't the operator's default must win over routing to a noncompliant
     # default just because allow_fail_open happened to be set.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["provider:anthropic", "region:us-east"],
@@ -2455,7 +2455,7 @@ async def test_required_and_only_finds_compliant_non_default_deployment_over_non
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "provider:openai"],
@@ -2481,11 +2481,11 @@ async def test_required_and_only_finds_compliant_non_default_deployment_over_non
 
 
 def _quality_high_cost_low_router():
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "quality:high"],
@@ -2494,7 +2494,7 @@ def _quality_high_cost_low_router():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "quality:high"],
@@ -2503,7 +2503,7 @@ def _quality_high_cost_low_router():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "cost:low"],
@@ -2512,7 +2512,7 @@ def _quality_high_cost_low_router():
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["default", "cost:low"],
@@ -2536,7 +2536,7 @@ async def test_plain_tag_exhaustion_with_universal_default_tag_raises_by_default
     router = _quality_high_cost_low_router()
 
     with patch(
-        "litellm.router._async_get_cooldown_deployments",
+        "embrouter.router._async_get_cooldown_deployments",
         new=AsyncMock(return_value=["quality-high-1", "quality-high-2"]),
     ):
         with pytest.raises(Exception, match='Not allowed to access model due to tags configuration\\.') as exc_info:
@@ -2547,7 +2547,7 @@ async def test_plain_tag_exhaustion_with_universal_default_tag_raises_by_default
                 mock_response="hi",
             )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2561,7 +2561,7 @@ async def test_plain_tag_exhaustion_with_universal_default_tag_falls_open_when_a
     from unittest.mock import AsyncMock, patch
 
     with patch(
-        "litellm.router._async_get_cooldown_deployments",
+        "embrouter.router._async_get_cooldown_deployments",
         new=AsyncMock(return_value=["quality-high-1", "quality-high-2"]),
     ):
         response = await router.acompletion(
@@ -2600,27 +2600,27 @@ async def test_plain_tag_unknown_to_group_still_falls_back_silently_unconditiona
 
 
 def test_tag_known_to_group_true_for_real_tag():
-    from litellm.router_strategy.tag_based_routing import _tag_known_to_group
+    from embrouter.router_strategy.tag_based_routing import _tag_known_to_group
 
     router = _quality_high_cost_low_router()
     assert _tag_known_to_group(router, "gpt-4", ["quality:high"], frozenset()) is True
 
 
 def test_tag_known_to_group_false_for_foreign_tag():
-    from litellm.router_strategy.tag_based_routing import _tag_known_to_group
+    from embrouter.router_strategy.tag_based_routing import _tag_known_to_group
 
     router = _quality_high_cost_low_router()
     assert _tag_known_to_group(router, "gpt-4", ["llm-preference-include:unrelated"], frozenset()) is False
 
 
 def test_inherited_constraint_sets_none_when_inherited_tags_absent():
-    from litellm.router_strategy.tag_based_routing import _inherited_constraint_sets
+    from embrouter.router_strategy.tag_based_routing import _inherited_constraint_sets
 
     assert _inherited_constraint_sets(None, "") == (None, None)
 
 
 def test_inherited_constraint_sets_splits_required_and_excluded():
-    from litellm.router_strategy.tag_based_routing import _inherited_constraint_sets
+    from embrouter.router_strategy.tag_based_routing import _inherited_constraint_sets
 
     inherited_required_set, inherited_excluded_set = _inherited_constraint_sets(
         ["&region:eu", "!region:us", "plain"], ""
@@ -2630,7 +2630,7 @@ def test_inherited_constraint_sets_splits_required_and_excluded():
 
 
 def test_inherited_constraint_sets_none_for_non_sequence_value():
-    from litellm.router_strategy.tag_based_routing import _inherited_constraint_sets
+    from embrouter.router_strategy.tag_based_routing import _inherited_constraint_sets
 
     # A malformed/unexpected inherited_tags value (anything but a list/tuple) must
     # be treated the same as "no origin information", never as "nothing is
@@ -2639,19 +2639,19 @@ def test_inherited_constraint_sets_none_for_non_sequence_value():
 
 
 def test_trusted_only_pool_discards_everything_when_inherited_sets_are_none():
-    from litellm.router_strategy.tag_based_routing import _trusted_only_pool
+    from embrouter.router_strategy.tag_based_routing import _trusted_only_pool
 
-    deployments = ({"litellm_params": {"tags": ["region:us"]}},)
+    deployments = ({"embrouter_params": {"tags": ["region:us"]}},)
     # No origin info at all -> reproduce the pre-provenance unconditional
     # fall-open: the trusted-only pool ignores excluded_set/required_set entirely.
     assert _trusted_only_pool(deployments, frozenset({"region:eu"}), frozenset({"region:apac"}), None, None) == deployments
 
 
 def test_trusted_only_pool_keeps_constraint_backed_by_inherited_tags():
-    from litellm.router_strategy.tag_based_routing import _trusted_only_pool
+    from embrouter.router_strategy.tag_based_routing import _trusted_only_pool
 
-    eu = {"litellm_params": {"tags": ["region:eu"]}}
-    us = {"litellm_params": {"tags": ["region:us"]}}
+    eu = {"embrouter_params": {"tags": ["region:eu"]}}
+    us = {"embrouter_params": {"tags": ["region:us"]}}
     # required_set={"region:eu"} IS in inherited_required_set -> protected, kept.
     result = _trusted_only_pool(
         (eu, us), frozenset(), frozenset({"region:eu"}), frozenset(), frozenset({"region:eu"})
@@ -2668,10 +2668,10 @@ def test_trusted_only_pool_discards_a_value_with_no_inherited_backing_even_if_th
     # keyed off presence in inherited_required_set, never absence from a
     # caller-supplied set (see the router-level regression below for the full
     # bypass this replaces).
-    from litellm.router_strategy.tag_based_routing import _trusted_only_pool
+    from embrouter.router_strategy.tag_based_routing import _trusted_only_pool
 
-    eu = {"litellm_params": {"tags": ["region:eu"]}}
-    us = {"litellm_params": {"tags": ["region:us"]}}
+    eu = {"embrouter_params": {"tags": ["region:eu"]}}
+    us = {"embrouter_params": {"tags": ["region:us"]}}
     result = _trusted_only_pool((eu, us), frozenset(), frozenset({"region:eu"}), frozenset(), frozenset())
     assert result == (eu, us)
 
@@ -2682,11 +2682,11 @@ def _eu_region_router():
     # single, deterministic deployment id in every scenario below, regardless of
     # which of the two candidate pools (trusted-only vs fully-unconstrained) a
     # given code path resolves to.
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "chat",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["region:eu"],
@@ -2695,7 +2695,7 @@ def _eu_region_router():
             },
             {
                 "model_name": "chat",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o-mini",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                     "tags": ["region:us", "default"],
@@ -2780,7 +2780,7 @@ async def test_allow_fail_open_raises_when_inherited_constraint_alone_is_unsatis
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2788,7 +2788,7 @@ async def test_allow_fail_open_raises_when_inherited_constraint_alone_is_unsatis
 @pytest.mark.asyncio()
 async def test_allow_fail_open_unconditional_discard_when_inherited_tags_key_absent():
     # No "inherited_tags" key at all (e.g. a direct SDK Router call that never
-    # went through the proxy's litellm_pre_call_utils.py) must reproduce the exact
+    # went through the proxy's embrouter_pre_call_utils.py) must reproduce the exact
     # pre-provenance behavior: unconditional fall-open to the default pool, even
     # though region:eu here would otherwise look like an inherited requirement.
     router = _eu_region_router()
@@ -2813,7 +2813,7 @@ def test_router_update_settings_applies_tag_routing_prefix():
     # _allowed_settings, so an operator configuring it via the DB-backed
     # router_settings path (proxy_server.py's _add_router_settings_from_db_config,
     # which calls update_settings directly) had the value silently ignored.
-    router = litellm.Router(model_list=[{"model_name": "x", "litellm_params": {"model": "openai/gpt-4o-mini"}}])
+    router = embrouter.Router(model_list=[{"model_name": "x", "embrouter_params": {"model": "openai/gpt-4o-mini"}}])
     assert router.tag_routing_prefix == ""
 
     router.update_settings(tag_routing_prefix="route:")
@@ -2822,7 +2822,7 @@ def test_router_update_settings_applies_tag_routing_prefix():
 
 
 def test_router_get_settings_includes_tag_routing_prefix():
-    router = litellm.Router(model_list=[{"model_name": "x", "litellm_params": {"model": "openai/gpt-4o-mini"}}])
+    router = embrouter.Router(model_list=[{"model_name": "x", "embrouter_params": {"model": "openai/gpt-4o-mini"}}])
     router.update_settings(tag_routing_prefix="route:")
 
     assert router.get_settings()["tag_routing_prefix"] == "route:"
@@ -2834,7 +2834,7 @@ def test_update_router_config_schema_includes_tag_routing_prefix():
     # causes model_dump(exclude_none=True) to silently drop it before
     # update_settings is ever called -- the same bug shape LIT-3152 fixed for
     # retry_policy (see tests/unit/test_router_retry_policy_update.py).
-    from litellm.types.router import UpdateRouterConfig
+    from embrouter.types.router import UpdateRouterConfig
 
     config = UpdateRouterConfig(tag_routing_prefix="route:")
     assert config.model_dump(exclude_none=True)["tag_routing_prefix"] == "route:"
@@ -2853,27 +2853,27 @@ class _RewriteToTierStrategy:
     async def async_pre_routing_hook(
         self, model, request_kwargs, messages=None, input=None, specific_deployment=False
     ):
-        from litellm.types.router import PreRoutingHookResponse
+        from embrouter.types.router import PreRoutingHookResponse
 
         return PreRoutingHookResponse(model=self.rewrite_to, messages=messages)
 
 
 def _tagged_marker_router(tier_tags=None):
-    from litellm.types.router import TaggedPreRoutingStrategy
+    from embrouter.types.router import TaggedPreRoutingStrategy
 
     tier_params = {"model": "gemini/gemini-3.6-flash"}
     if tier_tags is not None:
         tier_params["tags"] = tier_tags
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": "plain-gpt4o"},
             },
             {
                 "model_name": "gemini-flash",
-                "litellm_params": tier_params,
+                "embrouter_params": tier_params,
                 "model_info": {"id": "tier-gemini-flash"},
             },
         ],
@@ -2904,15 +2904,15 @@ async def test_router_selecting_tag_is_not_reapplied_to_the_routed_tier():
 
 
 @pytest.mark.asyncio()
-async def test_router_selecting_tag_is_consumed_on_litellm_metadata_shaped_requests():
-    # /v1/messages (and other litellm_metadata endpoints) store proxy metadata,
-    # including x-litellm-tags header tags, under "litellm_metadata"; consumption
+async def test_router_selecting_tag_is_consumed_on_embrouter_metadata_shaped_requests():
+    # /v1/messages (and other embrouter_metadata endpoints) store proxy metadata,
+    # including x-embrouter-tags header tags, under "embrouter_metadata"; consumption
     # must read and stamp that same bucket instead of only "metadata".
     router = _tagged_marker_router()
 
     deployment = await router.async_get_available_deployment(
         model="gpt4o",
-        request_kwargs={"litellm_metadata": {"tags": ["route"], "inherited_tags": []}},
+        request_kwargs={"embrouter_metadata": {"tags": ["route"], "inherited_tags": []}},
         messages=[{"role": "user", "content": "What is the capital of France?"}],
     )
 
@@ -2920,7 +2920,7 @@ async def test_router_selecting_tag_is_consumed_on_litellm_metadata_shaped_reque
 
 
 def test_consumed_request_tags_stamp_names_the_routed_group_and_spent_tags_only_on_a_tag_match():
-    from litellm.types.router import ConsumedRequestTagsStamp, PreRoutingHookResponse
+    from embrouter.types.router import ConsumedRequestTagsStamp, PreRoutingHookResponse
 
     router = _tagged_marker_router()
     strategy = router.auto_routers["gpt4o"][0]
@@ -2951,7 +2951,7 @@ async def test_tagged_request_direct_to_plain_group_still_rejected():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2976,7 +2976,7 @@ async def test_caller_forged_consumption_stamp_is_neutralized_by_the_hook():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -2994,7 +2994,7 @@ async def test_inherited_constraint_still_applies_to_the_routed_tier():
             mock_response="hi",
         )
 
-    from litellm.types.router import RouterErrors
+    from embrouter.types.router import RouterErrors
 
     assert RouterErrors.no_deployments_with_tag_routing.value in str(exc_info.value)
 
@@ -3010,9 +3010,9 @@ async def test_inherited_constraint_still_applies_to_the_routed_tier():
 
 
 def test_request_tags_after_router_consumption_scopes_to_the_stamped_group():
-    from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-    from litellm.router_strategy.tag_based_routing import _request_tags_after_router_consumption
-    from litellm.types.router import ConsumedRequestTagsStamp
+    from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+    from embrouter.router_strategy.tag_based_routing import _request_tags_after_router_consumption
+    from embrouter.types.router import ConsumedRequestTagsStamp
 
     metadata = {
         "tags": ["route", "&region:eu"],
@@ -3024,9 +3024,9 @@ def test_request_tags_after_router_consumption_scopes_to_the_stamped_group():
 
 
 def test_request_tags_after_router_consumption_drops_only_the_consumed_tags():
-    from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-    from litellm.router_strategy.tag_based_routing import _request_tags_after_router_consumption
-    from litellm.types.router import ConsumedRequestTagsStamp
+    from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+    from embrouter.router_strategy.tag_based_routing import _request_tags_after_router_consumption
+    from embrouter.types.router import ConsumedRequestTagsStamp
 
     fully_consumed = {
         "tags": ["route"],
@@ -3043,9 +3043,9 @@ def test_request_tags_after_router_consumption_drops_only_the_consumed_tags():
 
 
 def test_request_tags_after_router_consumption_ignores_tags_merged_from_prior_deployments():
-    from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY, ROUTING_REQUEST_TAGS_METADATA_KEY
-    from litellm.router_strategy.tag_based_routing import _request_tags_after_router_consumption
-    from litellm.types.router import ConsumedRequestTagsStamp
+    from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY, ROUTING_REQUEST_TAGS_METADATA_KEY
+    from embrouter.router_strategy.tag_based_routing import _request_tags_after_router_consumption
+    from embrouter.types.router import ConsumedRequestTagsStamp
 
     metadata = {
         "tags": ["route", "&region:eu", "free"],
@@ -3062,23 +3062,23 @@ async def test_non_router_tags_still_pick_the_matching_tier_deployment():
     # tags=["route", "deploy:us"]: "route" picks the router and is spent there,
     # but "deploy:us" must keep constraining deployment choice inside the routed
     # group instead of being dropped with it.
-    from litellm.types.router import TaggedPreRoutingStrategy
+    from embrouter.types.router import TaggedPreRoutingStrategy
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": "plain-gpt4o"},
             },
             {
                 "model_name": "gemini-flash",
-                "litellm_params": {"model": "gemini/gemini-3.6-flash", "tags": ["deploy:us"]},
+                "embrouter_params": {"model": "gemini/gemini-3.6-flash", "tags": ["deploy:us"]},
                 "model_info": {"id": "tier-gemini-flash-us"},
             },
             {
                 "model_name": "gemini-flash",
-                "litellm_params": {"model": "gemini/gemini-3.6-flash", "tags": ["deploy:eu"]},
+                "embrouter_params": {"model": "gemini/gemini-3.6-flash", "tags": ["deploy:eu"]},
                 "model_info": {"id": "tier-gemini-flash-eu"},
             },
         ],
@@ -3116,16 +3116,16 @@ def _chat_completions_request_mock():
 
 
 def _team_a_and_default_router():
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock", "tags": ["team-a"]},
+                "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "mock", "tags": ["team-a"]},
                 "model_info": {"id": "team-a-deployment"},
             },
             {
                 "model_name": "gpt-5.4-mini",
-                "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "mock", "tags": ["default"]},
+                "embrouter_params": {"model": "openai/gpt-5.4-nano", "api_key": "mock", "tags": ["default"]},
                 "model_info": {"id": "default-deployment"},
             },
         ],
@@ -3142,21 +3142,21 @@ def _team_a_and_default_router():
     ],
     ids=["team-tags", "body-tags"],
 )
-async def test_chat_request_carrying_litellm_metadata_still_routes_on_proxy_merged_tags(team_metadata, body_extra):
+async def test_chat_request_carrying_embrouter_metadata_still_routes_on_proxy_merged_tags(team_metadata, body_extra):
     from unittest.mock import MagicMock
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     router = _team_a_and_default_router()
     data = {
         "model": "gpt-5.4-mini",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_metadata": {"trace_id": "abc"},
+        "embrouter_metadata": {"trace_id": "abc"},
         **body_extra,
     }
 
-    request_kwargs = await add_litellm_data_to_request(
+    request_kwargs = await add_embrouter_data_to_request(
         data=data,
         request=_chat_completions_request_mock(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", metadata={}, team_metadata=team_metadata),

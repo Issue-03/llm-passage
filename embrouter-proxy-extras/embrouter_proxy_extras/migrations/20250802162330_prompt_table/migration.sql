@@ -1,15 +1,15 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_PromptTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_PromptTable" (
     "id" TEXT NOT NULL,
     "prompt_id" TEXT NOT NULL,
-    "litellm_params" JSONB NOT NULL,
+    "embrouter_params" JSONB NOT NULL,
     "prompt_info" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_PromptTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_PromptTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_PromptTable_prompt_id_key" ON "LiteLLM_PromptTable"("prompt_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_PromptTable_prompt_id_key" ON "EmbRouter_PromptTable"("prompt_id");
 

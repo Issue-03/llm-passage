@@ -10,9 +10,9 @@ Covers:
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
     _build_part_for_input,
     _is_multimodal_input,
     process_embed_content_response,
@@ -20,8 +20,8 @@ from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation
     transform_openai_input_gemini_content,
     transform_openai_input_gemini_embed_content,
 )
-from litellm.types.llms.vertex_ai import VertexAIBatchEmbeddingsResponseObject
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.llms.vertex_ai import VertexAIBatchEmbeddingsResponseObject
+from embrouter.types.utils import EmbeddingResponse
 
 IMAGE_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII"
 GCS_URL = "gs://my-bucket/image.png"
@@ -29,11 +29,11 @@ GCS_URL = "gs://my-bucket/image.png"
 
 @pytest.fixture(autouse=True)
 def _local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
 
 class TestIsMultimodalInput:

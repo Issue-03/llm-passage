@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any, Final, NoReturn, Protocol, runtime_checka
 import httpx
 from pydantic import TypeAdapter
 
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.types.vector_stores import (
     VECTOR_STORE_OPENAI_PARAMS,
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
@@ -22,15 +22,15 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.router import Router
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.router import Router
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -42,22 +42,22 @@ class VectorStoreEmbeddingExecutor(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class LiteLLMVectorStoreEmbeddingExecutor:
+class EmbRouterVectorStoreEmbeddingExecutor:
     def embed(self, model: str, query: str, configuration: Mapping[str, object]) -> EmbeddingResponse:
-        import litellm
+        import embrouter
 
-        return litellm.embedding(  # pyright: ignore[reportCallIssue, reportUnknownMemberType, reportUnknownVariableType]  # provider kwargs are intentionally dynamic
+        return embrouter.embedding(  # pyright: ignore[reportCallIssue, reportUnknownMemberType, reportUnknownVariableType]  # provider kwargs are intentionally dynamic
             model=model,
-            input=[query],  # mutable-ok: LiteLLM embedding requires a mutable input list
+            input=[query],  # mutable-ok: EmbRouter embedding requires a mutable input list
             **dict(configuration),  # pyright: ignore[reportArgumentType]  # provider-specific embedding config is validated downstream  # mutable-ok: kwargs require a concrete dict
         )
 
     async def aembed(self, model: str, query: str, configuration: Mapping[str, object]) -> EmbeddingResponse:
-        import litellm
+        import embrouter
 
-        return await litellm.aembedding(  # pyright: ignore[reportUnknownMemberType]  # provider kwargs are intentionally dynamic
+        return await embrouter.aembedding(  # pyright: ignore[reportUnknownMemberType]  # provider kwargs are intentionally dynamic
             model=model,
-            input=[query],  # mutable-ok: LiteLLM embedding requires a mutable input list
+            input=[query],  # mutable-ok: EmbRouter embedding requires a mutable input list
             **dict(configuration),  # pyright: ignore[reportArgumentType]  # provider-specific embedding config is validated downstream  # mutable-ok: kwargs require a concrete dict
         )
 
@@ -66,9 +66,9 @@ _REQUEST_METADATA: Final = TypeAdapter(dict[str, object])
 
 
 def vector_store_request_metadata(kwargs: Mapping[str, object]) -> Mapping[str, object]:
-    litellm_metadata: Final = kwargs.get("litellm_metadata")
-    if isinstance(litellm_metadata, dict):
-        return _REQUEST_METADATA.validate_python(litellm_metadata)
+    embrouter_metadata: Final = kwargs.get("embrouter_metadata")
+    if isinstance(embrouter_metadata, dict):
+        return _REQUEST_METADATA.validate_python(embrouter_metadata)
     metadata: Final = kwargs.get("metadata")
     if isinstance(metadata, dict):
         return _REQUEST_METADATA.validate_python(metadata)
@@ -93,16 +93,16 @@ class RouterVectorStoreEmbeddingExecutor:
 
     def _router_serves(self, model: str) -> bool:
         team_id: Final = self.metadata.get("user_api_key_team_id")
-        resolved: Final = self.router.resolved_litellm_models(model, team_id if isinstance(team_id, str) else None)
+        resolved: Final = self.router.resolved_embrouter_models(model, team_id if isinstance(team_id, str) else None)
         deployment_models: Final = (
-            deployment.get("litellm_params", {}).get("model") for deployment in self.router.get_model_list() or ()
+            deployment.get("embrouter_params", {}).get("model") for deployment in self.router.get_model_list() or ()
         )
         return bool(resolved) or model in deployment_models
 
     def embed(self, model: str, query: str, configuration: Mapping[str, object]) -> EmbeddingResponse:
         embedding_kwargs: Final = self._embedding_kwargs(configuration)
         if not self._router_serves(model):
-            return LiteLLMVectorStoreEmbeddingExecutor().embed(model, query, embedding_kwargs)
+            return EmbRouterVectorStoreEmbeddingExecutor().embed(model, query, embedding_kwargs)
         return self.router.embedding(  # pyright: ignore[reportUnknownMemberType]  # Router embedding input retains a legacy untyped list
             model=model,
             input=[query],  # mutable-ok: Router embedding requires a mutable input list
@@ -112,7 +112,7 @@ class RouterVectorStoreEmbeddingExecutor:
     async def aembed(self, model: str, query: str, configuration: Mapping[str, object]) -> EmbeddingResponse:
         embedding_kwargs: Final = self._embedding_kwargs(configuration)
         if not self._router_serves(model):
-            return await LiteLLMVectorStoreEmbeddingExecutor().aembed(model, query, embedding_kwargs)
+            return await EmbRouterVectorStoreEmbeddingExecutor().aembed(model, query, embedding_kwargs)
         return await self.router.aembedding(  # pyright: ignore[reportUnknownMemberType]  # Router embedding input retains a legacy untyped list
             model=model,
             input=[query],  # mutable-ok: Router embedding requires a mutable input list
@@ -136,7 +136,7 @@ class BaseVectorStoreConfig:
         return optional_params
 
     @abstractmethod
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
         pass
 
     @abstractmethod
@@ -150,8 +150,8 @@ class BaseVectorStoreConfig:
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: dict[str, Any] | None = None,
     ) -> tuple[str, dict]:
         pass
@@ -162,8 +162,8 @@ class BaseVectorStoreConfig:
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: dict[str, Any] | None = None,
     ) -> tuple[str, dict]:
         """
@@ -177,14 +177,14 @@ class BaseVectorStoreConfig:
             query=query,
             vector_store_search_optional_params=vector_store_search_optional_params,
             api_base=api_base,
-            litellm_logging_obj=litellm_logging_obj,
-            litellm_params=litellm_params,
+            embrouter_logging_obj=embrouter_logging_obj,
+            embrouter_params=embrouter_params,
             extra_body=extra_body,
         )
 
     @abstractmethod
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         pass
 
@@ -201,14 +201,14 @@ class BaseVectorStoreConfig:
         pass
 
     @abstractmethod
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         return {}
 
     @abstractmethod
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         OPTIONAL
@@ -265,8 +265,8 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
@@ -278,8 +278,8 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
@@ -288,8 +288,8 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
             query=query,
             vector_store_search_optional_params=vector_store_search_optional_params,
             api_base=api_base,
-            litellm_logging_obj=litellm_logging_obj,
-            litellm_params=litellm_params,
+            embrouter_logging_obj=embrouter_logging_obj,
+            embrouter_params=embrouter_params,
             extra_body=extra_body,
             embedding_executor=embedding_executor,
         )
@@ -299,20 +299,20 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
         return query if isinstance(query, str) else " ".join(query)
 
     @staticmethod
-    def query_embedding_model(litellm_params: Mapping[str, object]) -> str:
-        embedding_model: Final = litellm_params.get("litellm_embedding_model")
+    def query_embedding_model(embrouter_params: Mapping[str, object]) -> str:
+        embedding_model: Final = embrouter_params.get("embrouter_embedding_model")
         if isinstance(embedding_model, str) and embedding_model:
             return embedding_model
         raise ValueError(
-            "litellm_embedding_model is required in litellm_params for this vector store. "
-            "Example: litellm_params['litellm_embedding_model'] = 'openai/text-embedding-3-small'"
+            "embrouter_embedding_model is required in embrouter_params for this vector store. "
+            "Example: embrouter_params['embrouter_embedding_model'] = 'openai/text-embedding-3-small'"
         )
 
     @staticmethod
-    def query_embedding_configuration(litellm_params: Mapping[str, object]) -> Mapping[str, object]:
-        configuration: Final = litellm_params.get("litellm_embedding_config")
+    def query_embedding_configuration(embrouter_params: Mapping[str, object]) -> Mapping[str, object]:
+        configuration: Final = embrouter_params.get("embrouter_embedding_config")
         if isinstance(configuration, Mapping):
-            return {str(key): value for key, value in configuration.items()}  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]  # litellm_params is an untyped dict, keys are re-validated as str here
+            return {str(key): value for key, value in configuration.items()}  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]  # embrouter_params is an untyped dict, keys are re-validated as str here
         return _EMPTY_EMBEDDING_CONFIGURATION
 
     @staticmethod
@@ -325,16 +325,16 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
             return embedding_executor
         if router is not None:
             return RouterVectorStoreEmbeddingExecutor(router=router, metadata=request_metadata)
-        return LiteLLMVectorStoreEmbeddingExecutor()
+        return EmbRouterVectorStoreEmbeddingExecutor()
 
     def embed_query(
         self,
         query_text: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None,
     ) -> Sequence[float]:
-        model: Final = self.query_embedding_model(litellm_params)
-        configuration: Final = self.query_embedding_configuration(litellm_params)
+        model: Final = self.query_embedding_model(embrouter_params)
+        configuration: Final = self.query_embedding_configuration(embrouter_params)
         executor: Final = self.query_embedding_executor(embedding_executor, None)
         try:
             response: Final = executor.embed(model, query_text, configuration)
@@ -345,11 +345,11 @@ class BaseQueryEmbeddingVectorStoreConfig(BaseVectorStoreConfig):
     async def aembed_query(
         self,
         query_text: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None,
     ) -> Sequence[float]:
-        model: Final = self.query_embedding_model(litellm_params)
-        configuration: Final = self.query_embedding_configuration(litellm_params)
+        model: Final = self.query_embedding_model(embrouter_params)
+        configuration: Final = self.query_embedding_configuration(embrouter_params)
         executor: Final = self.query_embedding_executor(embedding_executor, None)
         try:
             response: Final = await executor.aembed(model, query_text, configuration)
@@ -371,8 +371,8 @@ class BaseDirectVectorStoreConfig(BaseVectorStoreConfig):
         vector_store_id: str,
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> VectorStoreSearchResponse:
@@ -384,8 +384,8 @@ class BaseDirectVectorStoreConfig(BaseVectorStoreConfig):
         vector_store_id: str,
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> VectorStoreSearchResponse:
@@ -397,14 +397,14 @@ class BaseDirectVectorStoreConfig(BaseVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
     ) -> NoReturn:
         raise NotImplementedError("Direct vector store providers execute the search themselves; no HTTP request shape")
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> NoReturn:
         raise NotImplementedError("Direct vector store providers execute the search themselves; no HTTP response shape")
 
@@ -421,11 +421,11 @@ class BaseDirectVectorStoreConfig(BaseVectorStoreConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         return api_base or ""
 
-    def get_auth_credentials(self, litellm_params: Mapping[str, object]) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: Mapping[str, object]) -> BaseVectorStoreAuthCredentials:
         return BaseVectorStoreAuthCredentials()
 
     def get_vector_store_endpoints_by_type(self) -> VectorStoreIndexEndpoints:

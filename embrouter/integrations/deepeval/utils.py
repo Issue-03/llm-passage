@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Final
 
-from litellm.integrations.deepeval.types import Environment
+from embrouter.integrations.deepeval.types import Environment
 
 
 def to_zod_compatible_iso(dt: datetime) -> str:

@@ -7,10 +7,10 @@ from typing import Final
 import orjson
 from fastapi import APIRouter, Depends, Request, Response
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.types.llms.openai_evals import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.types.llms.openai_evals import (
     CancelEvalResponse,
     CancelRunResponse,
     DeleteEvalResponse,
@@ -40,7 +40,7 @@ async def create_eval(
     Create a new evaluation.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -58,7 +58,7 @@ async def create_eval(
 
     Returns: Eval object with id, status, timestamps, etc.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -78,7 +78,7 @@ async def create_eval(
 
     # Extract model for routing (header > query > body)
     # When using extra_body={"model": "..."}, the OpenAI SDK merges it into the body
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -136,7 +136,7 @@ async def list_evals(
     List evaluations with pagination.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -148,7 +148,7 @@ async def list_evals(
 
     Returns: ListEvalsResponse with list of evaluations
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -179,7 +179,7 @@ async def list_evals(
         data["order_by"] = order_by
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -233,7 +233,7 @@ async def get_eval(
     Get a specific evaluation by ID.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -245,7 +245,7 @@ async def get_eval(
 
     Returns: Eval object
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -267,7 +267,7 @@ async def get_eval(
     data["eval_id"] = eval_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -321,7 +321,7 @@ async def update_eval(
     Update an evaluation.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -335,7 +335,7 @@ async def update_eval(
 
     Returns: Updated Eval object
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -357,7 +357,7 @@ async def update_eval(
     data["eval_id"] = eval_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -411,7 +411,7 @@ async def delete_eval(
     Delete an evaluation.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -423,7 +423,7 @@ async def delete_eval(
 
     Returns: DeleteEvalResponse with deletion confirmation
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -445,7 +445,7 @@ async def delete_eval(
     data["eval_id"] = eval_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -499,7 +499,7 @@ async def cancel_eval(
     Cancel a running evaluation.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
 
@@ -511,7 +511,7 @@ async def cancel_eval(
 
     Returns: CancelEvalResponse with cancellation confirmation
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -533,7 +533,7 @@ async def cancel_eval(
     data["eval_id"] = eval_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -592,7 +592,7 @@ async def create_run(
     Create a new run for an evaluation.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
     - Pass model via body: `{"model": "gpt-4-account-1"}`
     - Pass model via completion.model: `{"completion": {"model": "gpt-4-account-1"}}`
@@ -610,7 +610,7 @@ async def create_run(
 
     Returns: Run object with id, status, timestamps, etc.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -633,7 +633,7 @@ async def create_run(
 
     # Extract model for routing (header > query > body > completion.model)
     model: Final = (
-        request.headers.get("x-litellm-model")
+        request.headers.get("x-embrouter-model")
         or request.query_params.get("model")
         or data.get("model")
         or (data.get("completion", {}).get("model") if isinstance(data.get("completion"), dict) else None)
@@ -695,7 +695,7 @@ async def list_runs(
     List all runs for an evaluation with pagination.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
 
     Example usage:
@@ -706,7 +706,7 @@ async def list_runs(
 
     Returns: ListRunsResponse with list of runs
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -730,7 +730,7 @@ async def list_runs(
     }
 
     # Extract model for routing (header > query)
-    model: Final = request.headers.get("x-litellm-model") or request.query_params.get("model")
+    model: Final = request.headers.get("x-embrouter-model") or request.query_params.get("model")
     if model:
         data["model"] = model
 
@@ -785,7 +785,7 @@ async def get_run(
     Get a specific run by ID.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
 
     Example usage:
@@ -796,7 +796,7 @@ async def get_run(
 
     Returns: Run object with full details
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -817,7 +817,7 @@ async def get_run(
     }
 
     # Extract model for routing (header > query)
-    model: Final = request.headers.get("x-litellm-model") or request.query_params.get("model")
+    model: Final = request.headers.get("x-embrouter-model") or request.query_params.get("model")
     if model:
         data["model"] = model
 
@@ -872,7 +872,7 @@ async def cancel_run(
     Cancel a running run.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
 
     Example usage:
@@ -883,7 +883,7 @@ async def cancel_run(
 
     Returns: CancelRunResponse with cancellation confirmation
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -906,7 +906,7 @@ async def cancel_run(
     data["run_id"] = run_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -961,7 +961,7 @@ async def delete_run(
     Delete a run.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: gpt-4-account-1`
+    - Pass model via header: `x-embrouter-model: gpt-4-account-1`
     - Pass model via query: `?model=gpt-4-account-1`
 
     Example usage:
@@ -972,7 +972,7 @@ async def delete_run(
 
     Returns: RunDeleteResponse with deletion confirmation
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -995,7 +995,7 @@ async def delete_run(
     data["run_id"] = run_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 

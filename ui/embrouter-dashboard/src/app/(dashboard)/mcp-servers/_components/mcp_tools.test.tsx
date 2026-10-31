@@ -40,7 +40,7 @@ const renderViewer = (props: Record<string, unknown>) =>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MCPToolsViewer
         serverId="srv-1"
-        accessToken="litellm-key"
+        accessToken="embrouter-key"
         userRole="admin"
         userID="user@example.com"
         serverAlias="slack"
@@ -108,7 +108,7 @@ describe("MCPToolsViewer auth gate routing", () => {
 
     await waitFor(() =>
       expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith(
-        "litellm-key",
+        "embrouter-key",
         "srv-1",
         expect.objectContaining({ "x-mcp-slack-authorization": "Bearer slack-tok" }),
       ),
@@ -138,7 +138,7 @@ describe("MCPToolsViewer auth gate routing", () => {
 
       await waitFor(() =>
         expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith(
-          "litellm-key",
+          "embrouter-key",
           "srv-1",
           expect.objectContaining({ "x-mcp-slack-authorization": "Bearer upstream-tok" }),
         ),
@@ -150,7 +150,7 @@ describe("MCPToolsViewer auth gate routing", () => {
   it("lists tools for an OBO server when the user has a DB credential, with no x-mcp header", async () => {
     renderViewer({ oauth2_flow: null, delegate_auth_to_upstream: false });
 
-    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("litellm-key", "srv-1", undefined));
+    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("embrouter-key", "srv-1", undefined));
     expect(screen.queryByText(GATE_TEXT)).not.toBeInTheDocument();
   });
 
@@ -183,7 +183,7 @@ describe("MCPToolsViewer auth gate routing", () => {
 
     renderViewer({ oauth2_flow: null, delegate_auth_to_upstream: false });
 
-    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("litellm-key", "srv-1", undefined));
+    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("embrouter-key", "srv-1", undefined));
     expect(screen.queryByText(GATE_TEXT)).not.toBeInTheDocument();
   });
 
@@ -209,7 +209,7 @@ describe("MCPToolsViewer auth gate routing", () => {
   it("does not gate an M2M server; lists with the EmbRouter key", async () => {
     renderViewer({ oauth2_flow: "client_credentials", delegate_auth_to_upstream: false });
 
-    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("litellm-key", "srv-1", undefined));
+    await waitFor(() => expect(vi.mocked(listMCPTools)).toHaveBeenCalledWith("embrouter-key", "srv-1", undefined));
     expect(screen.queryByText(GATE_TEXT)).not.toBeInTheDocument();
     // M2M uses the backend service token, not a per-user DB credential.
     expect(vi.mocked(getMCPOAuthUserCredentialStatus)).not.toHaveBeenCalled();

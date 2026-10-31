@@ -12,13 +12,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.mcp_security import initialize_guardrail
-from litellm.proxy.guardrails.guardrail_hooks.mcp_security.mcp_security_guardrail import (
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.mcp_security import initialize_guardrail
+from embrouter.proxy.guardrails.guardrail_hooks.mcp_security.mcp_security_guardrail import (
     MCPSecurityGuardrail,
 )
-from litellm.types.guardrails import Guardrail, GuardrailEventHooks, LitellmParams
+from embrouter.types.guardrails import Guardrail, GuardrailEventHooks, EmbrouterParams
 
 
 @pytest.fixture
@@ -32,10 +32,10 @@ def guardrail():
 
 
 class TestExtractMCPServerNames:
-    def test_extracts_litellm_proxy_mcp_servers(self):
+    def test_extracts_embrouter_proxy_mcp_servers(self):
         tools = [
-            {"type": "mcp", "server_url": "litellm_proxy/mcp/zapier"},
-            {"type": "mcp", "server_url": "litellm_proxy/mcp/github"},
+            {"type": "mcp", "server_url": "embrouter_proxy/mcp/zapier"},
+            {"type": "mcp", "server_url": "embrouter_proxy/mcp/github"},
             {"type": "function", "function": {"name": "get_weather"}},
         ]
         names = MCPSecurityGuardrail._extract_mcp_server_names_from_tools(tools)
@@ -63,7 +63,7 @@ class TestExtractMCPServerNames:
 class TestMCPSecurityGuardrailPreCall:
     @pytest.mark.asyncio
     @patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
     )
     async def test_blocks_unregistered_server_chat_completions(
         self, mock_manager, guardrail
@@ -73,8 +73,8 @@ class TestMCPSecurityGuardrailPreCall:
 
         data = {
             "tools": [
-                {"type": "mcp", "server_url": "litellm_proxy/mcp/zapier"},
-                {"type": "mcp", "server_url": "litellm_proxy/mcp/evil_server"},
+                {"type": "mcp", "server_url": "embrouter_proxy/mcp/zapier"},
+                {"type": "mcp", "server_url": "embrouter_proxy/mcp/evil_server"},
             ],
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "hi"}],
@@ -93,7 +93,7 @@ class TestMCPSecurityGuardrailPreCall:
 
     @pytest.mark.asyncio
     @patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
     )
     async def test_blocks_unregistered_server_responses_api(
         self, mock_manager, guardrail
@@ -103,7 +103,7 @@ class TestMCPSecurityGuardrailPreCall:
 
         data = {
             "tools": [
-                {"type": "mcp", "server_url": "litellm_proxy/mcp/unknown_server"},
+                {"type": "mcp", "server_url": "embrouter_proxy/mcp/unknown_server"},
             ],
             "model": "gpt-4o",
             "input": "What can you do?",
@@ -122,7 +122,7 @@ class TestMCPSecurityGuardrailPreCall:
 
     @pytest.mark.asyncio
     @patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager"
     )
     async def test_allows_registered_servers(self, mock_manager, guardrail):
         """All MCP servers are registered - request passes through."""
@@ -133,8 +133,8 @@ class TestMCPSecurityGuardrailPreCall:
 
         data = {
             "tools": [
-                {"type": "mcp", "server_url": "litellm_proxy/mcp/zapier"},
-                {"type": "mcp", "server_url": "litellm_proxy/mcp/github"},
+                {"type": "mcp", "server_url": "embrouter_proxy/mcp/zapier"},
+                {"type": "mcp", "server_url": "embrouter_proxy/mcp/github"},
             ],
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "hi"}],
@@ -192,16 +192,16 @@ class TestInitializeGuardrail:
         "configured,expected",
         [("block", "block"), ("alert", "alert"), (None, "alert"), ("warn", "alert"), ("end_session", "alert")],
     )
-    def test_on_violation_from_litellm_params(
+    def test_on_violation_from_embrouter_params(
         self,
         configured: Literal["block", "alert", "warn", "end_session"] | None,
         expected: Literal["block", "alert"],
     ):
-        litellm_params = LitellmParams(guardrail="mcp_security", mode="pre_call", on_violation=configured)
-        guardrail = Guardrail(guardrail_name="mcp-security-block", litellm_params=litellm_params)
+        embrouter_params = EmbrouterParams(guardrail="mcp_security", mode="pre_call", on_violation=configured)
+        guardrail = Guardrail(guardrail_name="mcp-security-block", embrouter_params=embrouter_params)
 
-        result = initialize_guardrail(litellm_params=litellm_params, guardrail=guardrail)
+        result = initialize_guardrail(embrouter_params=embrouter_params, guardrail=guardrail)
 
         assert isinstance(result, MCPSecurityGuardrail)
         assert result.on_violation == expected
-        assert result in litellm.callbacks
+        assert result in embrouter.callbacks

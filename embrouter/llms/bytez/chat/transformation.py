@@ -6,30 +6,30 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.url_utils import encode_url_path_segments
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.exception_mapping_utils import exception_type
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segments
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
     version,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import LlmProviders
-from litellm.utils import CustomStreamWrapper, ModelResponse, Usage
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import CustomStreamWrapper, ModelResponse, Usage
 
 from ..common_utils import API_BASE, BytezError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 # 5 minute timeout (models may need to load)
@@ -121,7 +121,7 @@ class BytezChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -129,7 +129,7 @@ class BytezChatConfig(BaseConfig):
             {
                 "content-type": "application/json",
                 "Authorization": f"Key {api_key}",
-                "user-agent": f"litellm/{version}",
+                "user-agent": f"embrouter/{version}",
             }
         )
 
@@ -147,7 +147,7 @@ class BytezChatConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         encoded_model: Final = encode_url_path_segments(model, field_name="model")
@@ -158,7 +158,7 @@ class BytezChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         stream: Final = optional_params.get("stream", False)
@@ -182,11 +182,11 @@ class BytezChatConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -251,7 +251,7 @@ class BytezChatConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -260,7 +260,7 @@ class BytezChatConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "BytezCustomStreamWrapper":
         if client is None or isinstance(client, AsyncHTTPHandler):
             client = _get_httpx_client(params={})
@@ -295,7 +295,7 @@ class BytezChatConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -304,7 +304,7 @@ class BytezChatConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "BytezCustomStreamWrapper":
         if client is None or isinstance(client, HTTPHandler):
             client = get_async_httpx_client(llm_provider=LlmProviders.BYTEZ, params={})
@@ -370,7 +370,7 @@ class BytezCustomStreamWrapper(CustomStreamWrapper):
             )
 
 
-# litellm/types/llms/openai.py is a good reference for what is supported
+# embrouter/types/llms/openai.py is a good reference for what is supported
 open_ai_to_bytez_content_item_map: Final = {
     "text": {"type": "text", "value_name": "text"},
     "image_url": {"type": "image", "value_name": "url"},

@@ -8,16 +8,16 @@ import asyncio
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.exceptions import ContextWindowExceededError
-from litellm.litellm_core_utils.exception_mapping_utils import ExceptionCheckers
-from litellm.proxy._experimental.mcp_server.faults import iter_exception_tree
-from litellm.proxy._experimental.mcp_server.utils import MCP_TOOL_PREFIX_SEPARATOR
+from embrouter._logging import verbose_logger
+from embrouter.exceptions import ContextWindowExceededError
+from embrouter.embrouter_core_utils.exception_mapping_utils import ExceptionCheckers
+from embrouter.proxy._experimental.mcp_server.faults import iter_exception_tree
+from embrouter.proxy._experimental.mcp_server.utils import MCP_TOOL_PREFIX_SEPARATOR
 
 if TYPE_CHECKING:
     from semantic_router.routers import SemanticRouter
 
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 class SemanticToolFilterContextWindowError(Exception):
@@ -53,7 +53,7 @@ class SemanticMCPToolFilter:
     def __init__(
         self,
         embedding_model: str,
-        litellm_router_instance: "Router",
+        embrouter_router_instance: "Router",
         top_k: int = 10,
         similarity_threshold: float = 0.3,
         enabled: bool = True,
@@ -63,7 +63,7 @@ class SemanticMCPToolFilter:
 
         Args:
             embedding_model: Model to use for embeddings (e.g., "text-embedding-3-small")
-            litellm_router_instance: Router instance for embedding generation
+            embrouter_router_instance: Router instance for embedding generation
             top_k: Maximum number of tools to return
             similarity_threshold: Minimum similarity score for filtering
             enabled: Whether filtering is enabled
@@ -72,7 +72,7 @@ class SemanticMCPToolFilter:
         self.top_k = top_k
         self.similarity_threshold = similarity_threshold
         self.embedding_model = embedding_model
-        self.router_instance = litellm_router_instance
+        self.router_instance = embrouter_router_instance
         self.tool_router: SemanticRouter | None = None
         self.context_window_error: str | None = None
         self._tool_map: dict[str, object] = {}  # MCPTool objects or OpenAI function dicts
@@ -80,7 +80,7 @@ class SemanticMCPToolFilter:
 
     async def build_router_from_mcp_registry(self) -> None:
         """Build semantic router from all MCP tools in the registry (no auth checks)."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -136,8 +136,8 @@ class SemanticMCPToolFilter:
         from semantic_router.routers import SemanticRouter
         from semantic_router.routers.base import Route
 
-        from litellm.router_strategy.auto_router.litellm_encoder import (
-            LiteLLMRouterEncoder,
+        from embrouter.router_strategy.auto_router.embrouter_encoder import (
+            EmbRouterRouterEncoder,
         )
 
         if not tools:
@@ -165,8 +165,8 @@ class SemanticMCPToolFilter:
 
             self.tool_router = SemanticRouter(
                 routes=routes,
-                encoder=LiteLLMRouterEncoder(
-                    litellm_router_instance=self.router_instance,
+                encoder=EmbRouterRouterEncoder(
+                    embrouter_router_instance=self.router_instance,
                     model_name=self.embedding_model,
                     score_threshold=self.similarity_threshold,
                 ),
@@ -214,8 +214,8 @@ class SemanticMCPToolFilter:
         from semantic_router.routers import SemanticRouter
         from semantic_router.routers.base import Route
 
-        from litellm.router_strategy.auto_router.litellm_encoder import (
-            LiteLLMRouterEncoder,
+        from embrouter.router_strategy.auto_router.embrouter_encoder import (
+            EmbRouterRouterEncoder,
         )
 
         if not self._has_tools_missing_from_index(available_tools):
@@ -240,8 +240,8 @@ class SemanticMCPToolFilter:
             if self.tool_router is None:
                 router: Final = SemanticRouter(
                     routes=[],
-                    encoder=LiteLLMRouterEncoder(
-                        litellm_router_instance=self.router_instance,
+                    encoder=EmbRouterRouterEncoder(
+                        embrouter_router_instance=self.router_instance,
                         model_name=self.embedding_model,
                         score_threshold=self.similarity_threshold,
                     ),

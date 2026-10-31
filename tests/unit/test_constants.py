@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 
 import importlib
 
-import litellm
-from litellm import constants
+import embrouter
+from embrouter import constants
 
 
 def _build_constant_env_var_map() -> dict[str, str]:
@@ -20,7 +20,7 @@ def _build_constant_env_var_map() -> dict[str, str]:
     Build a mapping of CONSTANT_NAME -> ENV_VAR_NAME by parsing constants.py.
 
     This keeps the test resilient when a constant name and env var name differ
-    (e.g., aliases like LITELLM_* env vars).
+    (e.g., aliases like EMBROUTER_* env vars).
     """
     env_var_map: dict[str, str] = {}
     constants_source = inspect.getsource(constants)

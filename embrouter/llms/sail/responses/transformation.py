@@ -1,16 +1,16 @@
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.llms.openai_like.dynamic_config import create_responses_config_class
-from litellm.llms.sail.common_utils import (
+from embrouter.llms.openai_like.dynamic_config import create_responses_config_class
+from embrouter.llms.sail.common_utils import (
     extra_body_for_sail,
     json_body,
     responses_params_with_completion_window,
     sail_provider_config,
     without_keys,
 )
-from litellm.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class SailResponsesAPIConfig(create_responses_config_class(sail_provider_config())):
@@ -34,14 +34,14 @@ class SailResponsesAPIConfig(create_responses_config_class(sail_provider_config(
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,  # mutable-ok: signature fixed by the base interface
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: signature fixed by the base interface
     ) -> dict:  # mutable-ok: return type fixed by the base interface
         request: Final[Mapping[str, object]] = super().transform_responses_api_request(
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         return json_body(without_keys(request, frozenset({"service_tier"})))
@@ -51,8 +51,8 @@ class SailResponsesAPIConfig(create_responses_config_class(sail_provider_config(
         extra_body: Mapping[str, object],
         request: Mapping[str, object],
         model: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
     ) -> Mapping[str, object]:
         return extra_body_for_sail(
-            extra_body, request.get("metadata"), model=model, drop_params=bool(litellm_params.drop_params)
+            extra_body, request.get("metadata"), model=model, drop_params=bool(embrouter_params.drop_params)
         )

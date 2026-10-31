@@ -1,4 +1,4 @@
-"""OCR module for LiteLLM."""
+"""OCR module for EmbRouter."""
 
 from .dispatch import aocr, ocr
 

@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
 
 def test_lists_are_preserved_not_converted_to_strings():
@@ -36,7 +36,7 @@ def test_excluded_keys_exact_match():
 
     data = {
         "api_key": "sk-1234567890abcdef",
-        "litellm_credentials_name": "my-credential-name",
+        "embrouter_credentials_name": "my-credential-name",
         "access_token": "token-12345",
         "port": 6379,
     }
@@ -48,10 +48,10 @@ def test_excluded_keys_exact_match():
     assert masked["access_token"] != "token-12345"
     assert "*" in masked["access_token"]
 
-    # With excluded_keys, litellm_credentials_name should NOT be masked (exact match)
+    # With excluded_keys, embrouter_credentials_name should NOT be masked (exact match)
     # This ensures that even if pattern matching logic changes, excluded keys won't be masked
-    masked = masker.mask_dict(data, excluded_keys={"litellm_credentials_name"})
-    assert masked["litellm_credentials_name"] == "my-credential-name"
+    masked = masker.mask_dict(data, excluded_keys={"embrouter_credentials_name"})
+    assert masked["embrouter_credentials_name"] == "my-credential-name"
 
     # Other sensitive keys should still be masked
     assert masked["api_key"] != "sk-1234567890abcdef"
@@ -66,9 +66,9 @@ def test_excluded_keys_exact_match():
     # uppercase variant must NOT exclude the lowercase key, so the field falls
     # back to pattern matching ("credentials" is in the sensitive pattern set)
     # and is masked.
-    masked = masker.mask_dict(data, excluded_keys={"LITELLM_CREDENTIALS_NAME"})
-    assert masked["litellm_credentials_name"] != "my-credential-name"
-    assert "*" in masked["litellm_credentials_name"]
+    masked = masker.mask_dict(data, excluded_keys={"EMBROUTER_CREDENTIALS_NAME"})
+    assert masked["embrouter_credentials_name"] != "my-credential-name"
+    assert "*" in masked["embrouter_credentials_name"]
 
     # Test with api_key in excluded_keys to verify it works for keys that would be masked
     masked = masker.mask_dict(data, excluded_keys={"api_key"})
@@ -84,7 +84,7 @@ def test_extra_headers_are_masked_recursively():
     masker = SensitiveDataMasker()
 
     data = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-4",
             "extra_headers": {
                 "rits_api_key": "sk-secret-12345-very-sensitive",
@@ -94,7 +94,7 @@ def test_extra_headers_are_masked_recursively():
     }
 
     masked = masker.mask_dict(data)
-    extra_headers = masked["litellm_params"]["extra_headers"]
+    extra_headers = masked["embrouter_params"]["extra_headers"]
 
     assert extra_headers["rits_api_key"] != "sk-secret-12345-very-sensitive"
     assert "*" in extra_headers["rits_api_key"]
@@ -197,7 +197,7 @@ def test_cost_per_token_fields_not_masked():
 def test_mask_sensitive_structure_passes_through_plain_topology_names():
     """Fallback groups are usually lists of model-group name strings; those
     carry no secrets and must survive verbatim so opt-in debug output stays useful."""
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_structure
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_structure
 
     assert mask_sensitive_structure(["gpt-4", "claude-3-haiku"]) == ["gpt-4", "claude-3-haiku"]
     assert mask_sensitive_structure([{"gpt-3.5-turbo": ["claude-3-haiku"]}]) == [{"gpt-3.5-turbo": ["claude-3-haiku"]}]
@@ -207,7 +207,7 @@ def test_mask_sensitive_structure_passes_through_plain_topology_names():
 def test_mask_sensitive_structure_masks_credentials_in_inline_fallback_dicts():
     """An inline-dict fallback can carry provider credentials; those values must be
     masked before the structure is embedded in a client-facing error message."""
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_structure
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_structure
 
     secret = "sk-INLINEFALLBACKSECRET1234567890"
     aws_secret = "wJalrXUtnFEMIK7MDENGbPxRfiCYSECRETKEY"
@@ -226,7 +226,7 @@ def test_mask_sensitive_structure_masks_credentials_in_inline_fallback_dicts():
 
 def test_mask_sensitive_structure_masks_credentials_nested_in_config_shape():
     """Credentials nested inside the {group: [fallbacks]} config shape must also be masked."""
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_structure
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_structure
 
     secret = "sk-NESTEDINLINESECRET0987654321"
     masked = mask_sensitive_structure([{"primary-group": [{"model": "gpt-4o", "api_key": secret}]}])
@@ -237,7 +237,7 @@ def test_mask_credentials_in_payload_preserves_none_and_scalars():
     """The payload variant does not distort JSON-shaped values: None stays None,
     ints/floats/bools stay themselves, lists stay lists. This is what makes it
     safe for logging pipelines that persist the record verbatim."""
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     result = mask_credentials_in_payload(
         {
@@ -266,7 +266,7 @@ def test_mask_credentials_in_payload_masks_inside_pydantic_models():
     logging pipeline unmasked once JSON serialization flattens it."""
     from pydantic import BaseModel
 
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     class Auth(BaseModel):
         token: str = "1b01552f6e52e0d41963dd6a185bd6b074624e330999534ca7ff5adfdf622dfc"
@@ -283,7 +283,7 @@ def test_mask_credentials_in_payload_masks_inside_pydantic_models():
 def test_mask_credentials_in_payload_masks_only_sensitive_string_leaves():
     """Sensitive-named string leaves get masked; sibling non-string values
     (including None) under the same key stay verbatim."""
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     plaintext = "lsv2_pt_abcdef1234567890"
     result = mask_credentials_in_payload(
@@ -318,7 +318,7 @@ def _nested_under_levels(leaf: object, levels: int) -> object:
 
 
 def test_mask_credentials_in_payload_keeps_a_shared_dict_shared():
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     shared: Final = {"api_key": "sk-shared-1234567890abcdef", "model": "gpt-4o-mini"}
     result: Final = mask_credentials_in_payload({"first": shared, "second": shared})
@@ -329,7 +329,7 @@ def test_mask_credentials_in_payload_keeps_a_shared_dict_shared():
 
 
 def test_mask_credentials_in_payload_walks_each_dag_node_once():
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     root: Final = reduce(
         lambda inner, _: {"a": inner, "b": inner, "c": inner}, range(8), {"api_key": "sk-leaf-1234567890abcdef"}
@@ -343,8 +343,8 @@ def test_mask_credentials_in_payload_walks_each_dag_node_once():
 
 
 def test_mask_credentials_in_payload_cuts_a_cycle_at_its_first_back_edge():
-    from litellm.litellm_core_utils.secret_redaction import REDACTED
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.secret_redaction import REDACTED
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     node: Final[dict[str, object]] = {"api_key": "sk-cycle-1234567890abcdef"}
     node["kids"] = [node] * 3
@@ -357,7 +357,7 @@ def test_mask_credentials_in_payload_cuts_a_cycle_at_its_first_back_edge():
 
 
 def test_mask_credentials_in_payload_masks_a_shared_list_only_under_a_sensitive_key():
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     shared: Final = ["sk-list-1234567890abcdef"]
 
@@ -373,7 +373,7 @@ def test_mask_credentials_in_payload_masks_a_shared_list_only_under_a_sensitive_
 def test_mask_credentials_in_payload_masks_a_shared_root_model_list_only_under_a_sensitive_key():
     from pydantic import RootModel
 
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     shared: Final = RootModel[list[str]](["sk-root-1234567890abcdef"])
 
@@ -389,7 +389,7 @@ def test_mask_credentials_in_payload_masks_a_shared_root_model_list_only_under_a
 def test_mask_credentials_in_payload_masks_a_root_model_string_as_one_string():
     from pydantic import RootModel
 
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     result: Final = mask_credentials_in_payload(
         {"api_key": RootModel[str]("sk-root-1234567890abcdef"), "model": RootModel[str]("gpt-5.4-mini")}
@@ -401,9 +401,9 @@ def test_mask_credentials_in_payload_masks_a_root_model_string_as_one_string():
 
 
 def test_mask_credentials_in_payload_hides_containers_past_the_depth_cap():
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
-    from litellm.litellm_core_utils.secret_redaction import REDACTED
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
+    from embrouter.embrouter_core_utils.secret_redaction import REDACTED
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     secret: Final = "sk-deep-1234567890abcdef"
     cap: Final = DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
@@ -416,8 +416,8 @@ def test_mask_credentials_in_payload_hides_containers_past_the_depth_cap():
 
 
 def test_mask_credentials_in_payload_treats_strings_at_the_depth_cap_per_key():
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     secret: Final = "sk-deep-1234567890abcdef"
     cap: Final = DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
@@ -436,7 +436,7 @@ def test_mask_credentials_in_payload_keeps_sibling_models_apart():
     """CPython reuses a freed temporary's id, so an id-keyed memo has to pin what it keys."""
     from pydantic import BaseModel
 
-    from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
 
     class Inner(BaseModel):
         label: str
@@ -459,7 +459,7 @@ def test_mask_credentials_in_payload_keeps_sibling_models_apart():
 
 
 def test_extra_sensitive_patterns_add_to_the_defaults():
-    from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+    from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
     masker = SensitiveDataMasker(extra_sensitive_patterns={"connection"})
 
@@ -470,7 +470,7 @@ def test_extra_sensitive_patterns_add_to_the_defaults():
 
 
 def test_extra_sensitive_patterns_do_not_leak_into_other_maskers():
-    from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+    from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
     SensitiveDataMasker(extra_sensitive_patterns={"connection"})
 
@@ -481,7 +481,7 @@ def test_the_second_positional_argument_is_still_the_override_set():
     """SensitiveDataMasker is public SDK surface, so adding a keyword must not shift what an
     existing positional call means. Putting extra_sensitive_patterns second would silently turn
     an override set into an extra sensitive set and start masking the caller's pricing fields."""
-    from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+    from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
     masker = SensitiveDataMasker({"token"}, {"session"})
 
@@ -493,7 +493,7 @@ def test_redact_credentials_in_payload_leaves_no_fragment_of_the_secret():
     """A payload rendered straight to stdout cannot afford the partial reveal
     mask_credentials_in_payload leaves, so every credential-named value is replaced
     whole, nested header dicts included, while ordinary params survive verbatim."""
-    from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
 
     fake_key = "sk-fake-lit6823-0000000000000000"
     fake_token = "fake-azure-ad-token-0000"
@@ -536,7 +536,7 @@ def test_redact_credentials_in_payload_reaches_credentials_nested_in_sequences()
     """Free-form kwargs like extra_body and metadata routinely carry lists of dicts, so a
     credential hiding one level inside a list or tuple must be replaced too, while the
     surrounding container keeps its type and every ordinary element stays verbatim."""
-    from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
 
     result = redact_credentials_in_payload(
         {
@@ -562,8 +562,8 @@ def test_redact_credentials_in_payload_hides_containers_at_the_recursion_limit(w
     buries a credential deeper than the limit must get the container hidden rather than handed
     back verbatim. Nesting through lists costs depth twice as fast as nesting through mappings,
     so both shapes are pushed well past the limit here."""
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-    from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
 
     fake_key = "sk-fake-lit6835-past-the-limit"
     node = {"api_key": fake_key}
@@ -581,7 +581,7 @@ def test_redact_credentials_in_payload_leaves_a_realistic_tool_schema_intact():
     """The bound must not eat ordinary payloads: a tool whose JSON schema nests an array of
     objects inside a nested object is what agent traffic looks like, and the verbose line is
     useless if those leaves come back as REDACTED."""
-    from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
+    from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
 
     tool = {
         "type": "function",

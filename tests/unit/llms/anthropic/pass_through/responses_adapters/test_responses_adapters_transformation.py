@@ -1,6 +1,6 @@
 """
-Tests for LiteLLMAnthropicToResponsesAPIAdapter
-(litellm/llms/anthropic/pass_through/responses_adapters/transformation.py)
+Tests for EmbRouterAnthropicToResponsesAPIAdapter
+(embrouter/llms/anthropic/pass_through/responses_adapters/transformation.py)
 """
 
 import json
@@ -11,24 +11,24 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.constants import (
+from embrouter.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     TOOL_RESULT_IMAGE_BOUNDARY,
     TOOL_RESULT_IMAGE_PLACEHOLDER,
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.pass_through.responses_adapters.transformation import (
-    LiteLLMAnthropicToResponsesAPIAdapter,
+from embrouter.llms.anthropic.pass_through.responses_adapters.transformation import (
+    EmbRouterAnthropicToResponsesAPIAdapter,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     AllAnthropicToolsValues,
     AnthropicMessagesRequest,
 )
-from litellm.types.llms.openai import ResponseAPIUsage
+from embrouter.types.llms.openai import ResponseAPIUsage
 
 
 def _make_request(**overrides) -> AnthropicMessagesRequest:
@@ -41,7 +41,7 @@ def _make_request(**overrides) -> AnthropicMessagesRequest:
     return AnthropicMessagesRequest(**base)
 
 
-_ADAPTER = LiteLLMAnthropicToResponsesAPIAdapter()
+_ADAPTER = EmbRouterAnthropicToResponsesAPIAdapter()
 
 
 # ---------------------------------------------------------------------------
@@ -1017,24 +1017,24 @@ class TestTranslateThinkingToReasoning:
 
     def test_summary_added_when_auto_summary_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is included."""
-        import litellm
+        import embrouter
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            embrouter.reasoning_auto_summary = True
             result = _ADAPTER.translate_thinking_to_reasoning({"type": "enabled", "budget_tokens": 10000})
             assert result == {"effort": "high", "summary": "detailed"}
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_summary_added_when_env_var_set(self, monkeypatch):
-        """When LITELLM_REASONING_AUTO_SUMMARY env var is true, summary is included."""
-        import litellm
+        """When EMBROUTER_REASONING_AUTO_SUMMARY env var is true, summary is included."""
+        import embrouter
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
-            monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+            embrouter.reasoning_auto_summary = False
+            monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", "true")
             result = _ADAPTER.translate_thinking_to_reasoning(
                 {
                     "type": "enabled",
@@ -1043,8 +1043,8 @@ class TestTranslateThinkingToReasoning:
             )
             assert result == {"effort": "medium", "summary": "detailed"}
         finally:
-            litellm.reasoning_auto_summary = original
-            os.environ.pop("LITELLM_REASONING_AUTO_SUMMARY", None)
+            embrouter.reasoning_auto_summary = original
+            os.environ.pop("EMBROUTER_REASONING_AUTO_SUMMARY", None)
 
 
 # ---------------------------------------------------------------------------
@@ -1571,7 +1571,7 @@ class TestTranslateResponse:
     )
     def test_thinking_blocks_are_dropped_when_replayed_to_anthropic(self, summaries, encrypted_content):
         """Replaying this turn to an Anthropic model must not send a signature it cannot verify."""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             _drop_unsignable_thinking_blocks,
         )
 
@@ -1614,7 +1614,7 @@ class TestTranslateResponse:
 
     def test_missing_usage_maps_to_zero_tokens(self):
         """A response without a usage object must map to zeroed Anthropic usage."""
-        assert LiteLLMAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(None) == {
+        assert EmbRouterAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(None) == {
             "input_tokens": 0,
             "output_tokens": 0,
         }
@@ -2184,7 +2184,7 @@ class TestPromptCacheBreakpointToResponses:
         assert not _contains_key(items, "prompt_cache_breakpoint")
 
     def test_prompt_cache_options_forwarded_to_responses_kwargs(self):
-        from litellm.llms.anthropic.pass_through.responses_adapters.handler import (
+        from embrouter.llms.anthropic.pass_through.responses_adapters.handler import (
             _build_responses_kwargs,
         )
 

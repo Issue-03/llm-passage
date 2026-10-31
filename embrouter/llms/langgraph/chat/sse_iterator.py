@@ -10,8 +10,8 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
 
 class LangGraphSSEStreamIterator:

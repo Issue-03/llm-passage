@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/interactions/agents/utils.py and main.py
+Unit tests for embrouter/interactions/agents/utils.py and main.py
 focused on the managed agents SDK surface added in the
 "Gemini managed agents support" PR.
 
@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.interactions.agents import (
+import embrouter
+from embrouter.interactions.agents import (
     acreate,
     adelete,
     aget,
@@ -27,16 +27,16 @@ from litellm.interactions.agents import (
     list as list_agents,
     list_versions,
 )
-from litellm.interactions.agents.main import (
+from embrouter.interactions.agents.main import (
     _get_agents_api_config,
     _make_logging_obj,
 )
-from litellm.interactions.agents.utils import get_provider_agents_api_config
-from litellm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
-from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+from embrouter.interactions.agents.utils import get_provider_agents_api_config
+from embrouter.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
+from embrouter.llms.gemini.agents.transformation import GeminiAgentsConfig
 
 
-_HANDLER_PATH = "litellm.interactions.agents.main.agents_http_handler"
+_HANDLER_PATH = "embrouter.interactions.agents.main.agents_http_handler"
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ class TestGetAgentsApiConfig:
         assert isinstance(cfg, GeminiAgentsConfig)
 
     def test_raises_bad_request_for_unsupported_provider(self):
-        with pytest.raises(litellm.BadRequestError) as excinfo:
+        with pytest.raises(embrouter.BadRequestError) as excinfo:
             _get_agents_api_config("openai")
         assert "does not have a native" in str(excinfo.value)
 
@@ -84,7 +84,7 @@ class TestGetAgentsApiConfig:
 class TestMakeLoggingObj:
     def test_calls_update_from_kwargs_and_returns_same_obj(self):
         logging_obj = MagicMock()
-        kwargs = {"litellm_logging_obj": logging_obj, "litellm_call_id": "abc-123"}
+        kwargs = {"embrouter_logging_obj": logging_obj, "embrouter_call_id": "abc-123"}
 
         returned = _make_logging_obj(
             kwargs=kwargs,
@@ -100,7 +100,7 @@ class TestMakeLoggingObj:
         assert kwargs_call["model"] == "my-agent"
         assert kwargs_call["optional_params"] == {"foo": "bar"}
         assert kwargs_call["custom_llm_provider"] == "gemini"
-        assert kwargs_call["litellm_params"]["litellm_call_id"] == "abc-123"
+        assert kwargs_call["embrouter_params"]["embrouter_call_id"] == "abc-123"
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ class TestSyncEntryPoints:
         assert isinstance(cfg, GeminiAgentsConfig)
 
     def test_create_raises_for_unsupported_provider(self):
-        with pytest.raises(litellm.exceptions.BadRequestError):
+        with pytest.raises(embrouter.exceptions.BadRequestError):
             create(name="agent-x", custom_llm_provider="openai", api_key="sk-x")
 
     def test_list_passes_args_to_handler(self):
@@ -303,7 +303,7 @@ class TestAsyncEntryPoints:
 
 class TestAsyncErrorWrapping:
     """If the underlying handler raises, async entry points re-raise via
-    litellm.exception_type so users get a normalised provider error."""
+    embrouter.exception_type so users get a normalised provider error."""
 
     @pytest.mark.asyncio
     async def test_acreate_wraps_exception(self):
@@ -311,7 +311,7 @@ class TestAsyncErrorWrapping:
         handler.create_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 await acreate(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -320,7 +320,7 @@ class TestAsyncErrorWrapping:
         handler.get_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 await aget(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -329,7 +329,7 @@ class TestAsyncErrorWrapping:
         handler.list_agents.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 await alist(api_key="AIza")
 
     @pytest.mark.asyncio
@@ -338,7 +338,7 @@ class TestAsyncErrorWrapping:
         handler.delete_agent.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 await adelete(name="waverunner", api_key="AIza")
 
     @pytest.mark.asyncio
@@ -347,5 +347,5 @@ class TestAsyncErrorWrapping:
         handler.list_agent_versions.side_effect = RuntimeError("kaboom")
 
         with patch(_HANDLER_PATH, handler):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 await alist_versions(name="waverunner", api_key="AIza")

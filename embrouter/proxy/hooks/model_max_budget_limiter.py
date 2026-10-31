@@ -8,17 +8,17 @@ from typing import Final
 
 from openai.types import Batch
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import Span
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.llms.bedrock.common_utils import get_bedrock_base_model
-from litellm.proxy._types import Litellm_EntityType, UserAPIKeyAuth
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import BudgetConfig, StandardLoggingPayload
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import Span
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.llms.bedrock.common_utils import get_bedrock_base_model
+from embrouter.proxy._types import Embrouter_EntityType, UserAPIKeyAuth
+from embrouter.router_strategy.budget_limiter import RouterBudgetLimiting
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import BudgetConfig, StandardLoggingPayload
 
 VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX: Final = "virtual_key_spend"
 END_USER_SPEND_CACHE_KEY_PREFIX: Final = "end_user_model_spend"
@@ -27,23 +27,23 @@ TEAM_SPEND_CACHE_KEY_PREFIX: Final = "team_model_spend"
 
 _SPEND_CACHE_KEY_PREFIXES: Final = MappingProxyType(
     {
-        Litellm_EntityType.KEY: VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
-        Litellm_EntityType.USER: USER_SPEND_CACHE_KEY_PREFIX,
-        Litellm_EntityType.END_USER: END_USER_SPEND_CACHE_KEY_PREFIX,
-        Litellm_EntityType.TEAM: TEAM_SPEND_CACHE_KEY_PREFIX,
+        Embrouter_EntityType.KEY: VIRTUAL_KEY_SPEND_CACHE_KEY_PREFIX,
+        Embrouter_EntityType.USER: USER_SPEND_CACHE_KEY_PREFIX,
+        Embrouter_EntityType.END_USER: END_USER_SPEND_CACHE_KEY_PREFIX,
+        Embrouter_EntityType.TEAM: TEAM_SPEND_CACHE_KEY_PREFIX,
     }
 )
 
-_LEGACY_REQUEST_MODEL_SCOPES: Final = frozenset({Litellm_EntityType.KEY, Litellm_EntityType.END_USER})
+_LEGACY_REQUEST_MODEL_SCOPES: Final = frozenset({Embrouter_EntityType.KEY, Embrouter_EntityType.END_USER})
 
 _PROCESS_STARTED_AT: Final = time.monotonic()
 
 _BUDGET_START_TIME_KEY_PREFIXES: Final = MappingProxyType(
     {
-        Litellm_EntityType.KEY: "virtual_key_budget_start_time",
-        Litellm_EntityType.USER: "user_model_budget_start_time",
-        Litellm_EntityType.END_USER: "end_user_budget_start_time",
-        Litellm_EntityType.TEAM: "team_model_budget_start_time",
+        Embrouter_EntityType.KEY: "virtual_key_budget_start_time",
+        Embrouter_EntityType.USER: "user_model_budget_start_time",
+        Embrouter_EntityType.END_USER: "end_user_budget_start_time",
+        Embrouter_EntityType.TEAM: "team_model_budget_start_time",
     }
 )
 
@@ -63,7 +63,7 @@ class ResolvedModelBudget:
 
 
 def model_budget_spend_cache_key(
-    entity_type: Litellm_EntityType,
+    entity_type: Embrouter_EntityType,
     entity_id: str | None,
     budget_model: str,
     budget_duration: str | None,
@@ -73,7 +73,7 @@ def model_budget_spend_cache_key(
 
 
 def _legacy_request_model_spend_cache_key(
-    entity_type: Litellm_EntityType,
+    entity_type: Embrouter_EntityType,
     entity_id: str | None,
     model: str,
     resolved: ResolvedModelBudget,
@@ -107,7 +107,7 @@ def _legacy_request_model_spend_cache_key(
 
 
 def model_budget_start_time_cache_key(
-    entity_type: Litellm_EntityType,
+    entity_type: Embrouter_EntityType,
     entity_id: str | None,
     budget_model: str,
     budget_duration: str | None,
@@ -182,7 +182,7 @@ def _budget_model_candidates(model: str) -> tuple[str, ...]:
 
 
 def _bedrock_candidates(model: str) -> tuple[str, ...]:
-    """Bedrock-only candidates, empty unless litellm prices `model` as a Bedrock model.
+    """Bedrock-only candidates, empty unless embrouter prices `model` as a Bedrock model.
 
     Gating on the cost map rather than on a vendor allowlist is what makes
     splitting the leading dotted segment safe: most dotted model ids are not
@@ -190,15 +190,15 @@ def _bedrock_candidates(model: str) -> tuple[str, ...]:
     of those would produce a garbage candidate.
     """
     base_model: Final = get_bedrock_base_model(model)
-    cost_entry: Final = litellm.model_cost.get(base_model)
-    if not isinstance(cost_entry, dict) or not str(cost_entry.get("litellm_provider", "")).startswith("bedrock"):
+    cost_entry: Final = embrouter.model_cost.get(base_model)
+    if not isinstance(cost_entry, dict) or not str(cost_entry.get("embrouter_provider", "")).startswith("bedrock"):
         return ()
     _, _, without_vendor = base_model.partition(".")
     return (base_model, without_vendor) if without_vendor else (base_model,)
 
 
 async def build_model_max_budget_usage(
-    entity_type: Litellm_EntityType,
+    entity_type: Embrouter_EntityType,
     entity_id: str | None,
     model_max_budget: Mapping[str, object] | None,
     cache: DualCache | None,
@@ -276,8 +276,8 @@ def _as_spend(current_spend: object) -> float:
 
 def _resolve_entity_model_budgets(
     model: str,
-    entity_budgets: Iterable[tuple[Litellm_EntityType, str | None, object]],
-) -> tuple[tuple[Litellm_EntityType, str, ResolvedModelBudget], ...]:
+    entity_budgets: Iterable[tuple[Embrouter_EntityType, str | None, object]],
+) -> tuple[tuple[Embrouter_EntityType, str, ResolvedModelBudget], ...]:
     """Drop the scopes that do not budget `model`, keeping only what can be incremented."""
     return tuple(
         (entity_type, entity_id, resolved)
@@ -315,12 +315,12 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             BudgetExceededError: If the user_api_key_dict has exceeded the model budget
         """
         return await self._is_entity_within_model_budget(
-            entity_type=Litellm_EntityType.KEY,
+            entity_type=Embrouter_EntityType.KEY,
             entity_id=user_api_key_dict.token,
             model_max_budget=user_api_key_dict.model_max_budget,
             model=model,
             exceeded_message=(
-                f"LiteLLM Virtual Key: {user_api_key_dict.token}, key_alias: {user_api_key_dict.key_alias}, "
+                f"EmbRouter Virtual Key: {user_api_key_dict.token}, key_alias: {user_api_key_dict.key_alias}, "
                 f"exceeded budget for model={model}"
             ),
         )
@@ -335,7 +335,7 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             try:
                 await self.is_key_within_model_budget(user_api_key_dict=user_api_key_dict, model=fallback_model)
                 return fallback_model
-            except litellm.BudgetExceededError:
+            except embrouter.BudgetExceededError:
                 continue
         return None
 
@@ -352,11 +352,11 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             BudgetExceededError: If the user has exceeded the model budget
         """
         return await self._is_entity_within_model_budget(
-            entity_type=Litellm_EntityType.USER,
+            entity_type=Embrouter_EntityType.USER,
             entity_id=user_id,
             model_max_budget=user_model_max_budget,
             model=model,
-            exceeded_message=f"LiteLLM User: {user_id}, exceeded budget for model={model}",
+            exceeded_message=f"EmbRouter User: {user_id}, exceeded budget for model={model}",
         )
 
     async def is_end_user_within_model_budget(
@@ -372,11 +372,11 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             BudgetExceededError: If the end_user has exceeded the model budget
         """
         return await self._is_entity_within_model_budget(
-            entity_type=Litellm_EntityType.END_USER,
+            entity_type=Embrouter_EntityType.END_USER,
             entity_id=end_user_id,
             model_max_budget=end_user_model_max_budget,
             model=model,
-            exceeded_message=f"LiteLLM End User: {end_user_id}, exceeded budget for model={model}",
+            exceeded_message=f"EmbRouter End User: {end_user_id}, exceeded budget for model={model}",
         )
 
     async def is_team_within_model_budget(
@@ -396,16 +396,16 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
         if not team_model_budget_applies(model=model, key_model_max_budget=key_model_max_budget):
             return True
         return await self._is_entity_within_model_budget(
-            entity_type=Litellm_EntityType.TEAM,
+            entity_type=Embrouter_EntityType.TEAM,
             entity_id=team_id,
             model_max_budget=team_model_max_budget,
             model=model,
-            exceeded_message=f"LiteLLM Team: {team_id}, exceeded budget for model={model}",
+            exceeded_message=f"EmbRouter Team: {team_id}, exceeded budget for model={model}",
         )
 
     async def _is_entity_within_model_budget(
         self,
-        entity_type: Litellm_EntityType,
+        entity_type: Embrouter_EntityType,
         entity_id: str | None,
         model_max_budget: Mapping[str, object] | None,
         model: str,
@@ -429,7 +429,7 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             resolved=resolved,
         )
         if current_spend >= max_budget:
-            raise litellm.BudgetExceededError(
+            raise embrouter.BudgetExceededError(
                 message=exceeded_message,
                 current_cost=current_spend,
                 max_budget=max_budget,
@@ -440,7 +440,7 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
 
     async def _get_spend_for_model_budget(
         self,
-        entity_type: Litellm_EntityType,
+        entity_type: Embrouter_EntityType,
         entity_id: str | None,
         model: str,
         resolved: ResolvedModelBudget,
@@ -498,8 +498,8 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
             )
             return
 
-        _litellm_params: Final[dict] = kwargs.get("litellm_params", {}) or {}
-        _metadata: Final[dict] = _litellm_params.get("metadata", {}) or {}
+        _embrouter_params: Final[dict] = kwargs.get("embrouter_params", {}) or {}
+        _metadata: Final[dict] = _embrouter_params.get("metadata", {}) or {}
         payload_metadata: Final = standard_logging_payload.get("metadata") or {}
 
         # Use model_group (the user-facing model alias, e.g. "gpt-4o") when
@@ -516,12 +516,12 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
         key_model_max_budget: Final = _metadata.get("user_api_key_model_max_budget")
         entity_budgets: Final = (
             (
-                Litellm_EntityType.KEY,
+                Embrouter_EntityType.KEY,
                 payload_metadata.get("user_api_key_hash"),
                 key_model_max_budget,
             ),
             (
-                Litellm_EntityType.TEAM,
+                Embrouter_EntityType.TEAM,
                 payload_metadata.get("user_api_key_team_id"),
                 (
                     _metadata.get("user_api_key_team_model_max_budget")
@@ -535,12 +535,12 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
                 ),
             ),
             (
-                Litellm_EntityType.USER,
+                Embrouter_EntityType.USER,
                 payload_metadata.get("user_api_key_user_id"),
                 _metadata.get("user_api_key_user_model_max_budget"),
             ),
             (
-                Litellm_EntityType.END_USER,
+                Embrouter_EntityType.END_USER,
                 standard_logging_payload.get("end_user") or payload_metadata.get("user_api_key_end_user_id"),
                 _metadata.get("user_api_key_end_user_model_max_budget"),
             ),
@@ -579,7 +579,7 @@ class _PROXY_VirtualKeyModelMaxBudgetLimiter(RouterBudgetLimiting):
 
     async def _charge_entity(
         self,
-        entity_type: Litellm_EntityType,
+        entity_type: Embrouter_EntityType,
         entity_id: str | None,
         resolved: ResolvedModelBudget,
         response_cost: float,

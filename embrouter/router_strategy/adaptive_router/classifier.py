@@ -11,7 +11,7 @@ import re
 from re import Pattern
 from typing import Final
 
-from litellm.types.router import RequestType
+from embrouter.types.router import RequestType
 
 _RULES: Final[list[tuple[Pattern[str], RequestType]]] = [
     (

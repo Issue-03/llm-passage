@@ -43,7 +43,7 @@ export interface AgentBuilderViewProps {
   disabledPersonalKeyCreation?: boolean;
   proxySettings?: {
     PROXY_BASE_URL?: string;
-    LITELLM_UI_API_DOC_BASE_URL?: string | null;
+    EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   };
   apiKey?: string;
   customProxyBaseUrl?: string;
@@ -57,7 +57,7 @@ function getConnectTabBaseUrl(
   proxySettings: AgentBuilderViewProps["proxySettings"],
   customProxyBaseUrl?: string,
 ): string {
-  const customDocBaseUrl = proxySettings?.LITELLM_UI_API_DOC_BASE_URL;
+  const customDocBaseUrl = proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL;
   if (customDocBaseUrl && customDocBaseUrl.trim()) return customDocBaseUrl;
   if (proxySettings?.PROXY_BASE_URL) return proxySettings.PROXY_BASE_URL;
   if (customProxyBaseUrl?.trim()) return customProxyBaseUrl;
@@ -92,7 +92,7 @@ function ConnectTabContent({
       : `Bearer ${createdKeyValue}`
     : "Bearer <your-master-key>";
   const curlExample = `curl -L -X POST '${baseUrl}/v1/chat/completions' \\
--H 'x-litellm-api-key: ${apiKeyForCurl}' \\
+-H 'x-embrouter-api-key: ${apiKeyForCurl}' \\
 -d '{
   "model": "${agentName}",
   "stream": true,
@@ -153,12 +153,12 @@ function getAgentSelectionKey(agent: AgentModel): string {
   return getAgentModelId(agent) ?? agent.model_name;
 }
 
-function parseUnderlyingModel(litellmModel: string | undefined): string | undefined {
-  if (!litellmModel || !litellmModel.startsWith("litellm_agent/")) return undefined;
-  return litellmModel.slice("litellm_agent/".length) || undefined;
+function parseUnderlyingModel(embrouterModel: string | undefined): string | undefined {
+  if (!embrouterModel || !embrouterModel.startsWith("embrouter_agent/")) return undefined;
+  return embrouterModel.slice("embrouter_agent/".length) || undefined;
 }
 
-const MCP_TOOLS_PREFIX = "litellm_proxy/mcp/";
+const MCP_TOOLS_PREFIX = "embrouter_proxy/mcp/";
 
 function buildToolsFromServerIds(serverIds: string[], servers: MCPServer[]): MCPToolEntry[] {
   return serverIds.map((serverId) => {
@@ -166,7 +166,7 @@ function buildToolsFromServerIds(serverIds: string[], servers: MCPServer[]): MCP
     const serverName = server?.alias || server?.server_name || serverId;
     return {
       type: "mcp",
-      server_label: "litellm",
+      server_label: "embrouter",
       server_url: `${MCP_TOOLS_PREFIX}${serverName}`,
       require_approval: "never",
     };
@@ -294,13 +294,13 @@ export default function AgentBuilderView({
   useEffect(() => {
     if (selectedAgent && !isNewAgent) {
       setDraftName(selectedAgent.model_name);
-      setDraftSystemPrompt(selectedAgent.litellm_params?.litellm_system_prompt ?? "");
-      const underlying = parseUnderlyingModel(selectedAgent.litellm_params?.model);
+      setDraftSystemPrompt(selectedAgent.embrouter_params?.embrouter_system_prompt ?? "");
+      const underlying = parseUnderlyingModel(selectedAgent.embrouter_params?.model);
       setDraftUnderlyingModel(underlying ?? modelGroups[0]?.model_group);
-      const p = selectedAgent.litellm_params as { temperature?: number; max_tokens?: number } | undefined;
+      const p = selectedAgent.embrouter_params as { temperature?: number; max_tokens?: number } | undefined;
       setDraftTemperature(typeof p?.temperature === "number" ? p.temperature : 0.7);
       setDraftMaxTokens(typeof p?.max_tokens === "number" ? p.max_tokens : 4096);
-      const rawTools = selectedAgent.litellm_params?.tools;
+      const rawTools = selectedAgent.embrouter_params?.tools;
       const tools: MCPToolEntry[] = Array.isArray(rawTools)
         ? rawTools.filter(
             (t): t is MCPToolEntry =>
@@ -312,7 +312,7 @@ export default function AgentBuilderView({
         : [];
       setDraftTools(tools);
     }
-  }, [selectedId, isNewAgent, selectedAgent?.model_name, selectedAgent?.litellm_params?.tools]);
+  }, [selectedId, isNewAgent, selectedAgent?.model_name, selectedAgent?.embrouter_params?.tools]);
 
   const selectedMCPServerIds = getServerIdsFromTools(draftTools, mcpServers);
 
@@ -340,9 +340,9 @@ export default function AgentBuilderView({
     try {
       const response = await modelCreateCall(accessToken, {
         model_name: draftName.trim(),
-        litellm_params: {
-          model: `litellm_agent/${draftUnderlyingModel}`,
-          litellm_system_prompt: draftSystemPrompt.trim() || undefined,
+        embrouter_params: {
+          model: `embrouter_agent/${draftUnderlyingModel}`,
+          embrouter_system_prompt: draftSystemPrompt.trim() || undefined,
           temperature: draftTemperature,
           max_tokens: draftMaxTokens,
           tools: draftTools,
@@ -377,9 +377,9 @@ export default function AgentBuilderView({
         accessToken,
         {
           model_name: draftName.trim(),
-          litellm_params: {
-            model: `litellm_agent/${draftUnderlyingModel}`,
-            litellm_system_prompt: draftSystemPrompt.trim() || undefined,
+          embrouter_params: {
+            model: `embrouter_agent/${draftUnderlyingModel}`,
+            embrouter_system_prompt: draftSystemPrompt.trim() || undefined,
             temperature: draftTemperature,
             max_tokens: draftMaxTokens,
             tools: draftTools,
@@ -508,7 +508,7 @@ export default function AgentBuilderView({
                       }`}
                     >
                       <div className="font-medium truncate">{agent.model_name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">litellm_agent</div>
+                      <div className="text-[10px] text-muted-foreground truncate">embrouter_agent</div>
                     </button>
                   );
                 })}

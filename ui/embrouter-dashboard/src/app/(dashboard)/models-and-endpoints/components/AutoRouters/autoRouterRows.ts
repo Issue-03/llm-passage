@@ -104,7 +104,7 @@ export const toAutoRouterRow = (
   actor: AutoRouterActor,
   teams: Team[] | null,
 ): AutoRouterRow => {
-  const params = deployment.litellm_params ?? {};
+  const params = deployment.embrouter_params ?? {};
   const info = deployment.model_info ?? {};
   const name = deployment.model_name ?? "";
   const strategy = autoRouterStrategy(params);

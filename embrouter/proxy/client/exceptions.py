@@ -1,6 +1,6 @@
 import requests
 
-from litellm.litellm_core_utils.secret_redaction import redact_string
+from embrouter.embrouter_core_utils.secret_redaction import redact_string
 
 
 def _redact_orig_exception(

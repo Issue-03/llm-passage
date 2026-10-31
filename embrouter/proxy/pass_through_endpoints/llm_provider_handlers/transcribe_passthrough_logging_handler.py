@@ -17,9 +17,9 @@ import soundfile
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     TRANSCRIBE_JOB_MAX_POLLING_ATTEMPTS,
     TRANSCRIBE_JOB_POLLING_INTERVAL_SECONDS,
     TRANSCRIBE_MAX_MEDIA_BYTES,
@@ -29,24 +29,24 @@ from litellm.constants import (
     TRANSCRIBE_MEDIA_FETCH_ATTEMPTS,
     TRANSCRIBE_MEDIA_LAST_MODIFIED_TOLERANCE_SECONDS,
 )
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._types import (
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._types import (
     PassThroughEndpointLoggingResultValues,
     PassThroughEndpointLoggingTypedDict,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.resource_ownership import (
+from embrouter.proxy.common_utils.resource_ownership import (
     get_primary_resource_owner_scope,
     is_proxy_admin,
     user_can_access_resource_owner,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 TRANSCRIBE_TARGET_PREFIX: Final = "Transcribe"
 TRANSCRIBE_CUSTOM_LLM_PROVIDER: Final = "transcribe"
@@ -58,7 +58,7 @@ TRANSCRIBE_UNPRICED_OPERATIONS: Final = frozenset(
 TRANSCRIBE_SURCHARGE_MEMBERS: Final = ("ContentRedaction", "ToxicityDetection")
 TRANSCRIBE_TERMINAL_JOB_STATUSES: Final = frozenset({"COMPLETED", "FAILED"})
 TRANSCRIBE_MISSING_JOB_ERRORS: Final = frozenset({"BadRequestException", "NotFoundException"})
-TRANSCRIBE_OWNER_TAG: Final = "litellm-owner"
+TRANSCRIBE_OWNER_TAG: Final = "embrouter-owner"
 TRANSCRIBE_OWNED_JOB_OPERATIONS: Final = frozenset({"GetTranscriptionJob", "DeleteTranscriptionJob"})
 TRANSCRIBE_MEDIA_BUCKETS_SETTING: Final = "transcribe_media_buckets"
 TRANSCRIBE_ROLE_MEMBERS: Final = ("DataAccessRoleArn", "JobExecutionSettings")
@@ -125,7 +125,7 @@ class PassThroughLogDispatch(Protocol):
     def __call__(
         self,
         *,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         standard_logging_response_object: PassThroughEndpointLoggingResultValues | None,
         result: str,
         start_time: datetime,
@@ -148,7 +148,7 @@ def transcribe_supported_operations() -> frozenset[str]:
 
 def transcribe_cost_per_second() -> float | None:
     try:
-        return _PricedCostMapEntry.model_validate(litellm.model_cost.get(TRANSCRIBE_PRICED_MODEL)).input_cost_per_second
+        return _PricedCostMapEntry.model_validate(embrouter.model_cost.get(TRANSCRIBE_PRICED_MODEL)).input_cost_per_second
     except ValidationError:
         return None
 
@@ -160,14 +160,14 @@ def transcribe_unpriceable_request_reason(
 ) -> str | None:
     if operation in TRANSCRIBE_UNPRICED_OPERATIONS:
         return (
-            f"{operation} is billed per second of audio at a rate LiteLLM does not price yet, so it cannot be"
+            f"{operation} is billed per second of audio at a rate EmbRouter does not price yet, so it cannot be"
             f" submitted through this route; only {TRANSCRIBE_PRICED_OPERATION} is priced and budgeted"
         )
     if operation != TRANSCRIBE_PRICED_OPERATION:
         return None
     if cost_per_second is None:
         return (
-            f"{TRANSCRIBE_PRICED_MODEL} has no input_cost_per_second in the LiteLLM model cost map, so billable"
+            f"{TRANSCRIBE_PRICED_MODEL} has no input_cost_per_second in the EmbRouter model cost map, so billable"
             " transcription jobs cannot be submitted through this route"
         )
     surcharges: Final = tuple(m for m in TRANSCRIBE_SURCHARGE_MEMBERS if m in request_body) + tuple(
@@ -175,12 +175,12 @@ def transcribe_unpriceable_request_reason(
     )
     if surcharges:
         return (
-            f"{TRANSCRIBE_PRICED_OPERATION} with {', '.join(surcharges)} adds a per-second surcharge LiteLLM does not"
+            f"{TRANSCRIBE_PRICED_OPERATION} with {', '.join(surcharges)} adds a per-second surcharge EmbRouter does not"
             " price yet; remove it to submit the job through this route"
         )
     if requested_media_format(request_body) not in TRANSCRIBE_MEASURABLE_MEDIA_FORMATS:
         return (
-            "LiteLLM bills a transcription job by reading the length of the media file, which it can only do for"
+            "EmbRouter bills a transcription job by reading the length of the media file, which it can only do for"
             f" {', '.join(sorted(TRANSCRIBE_MEASURABLE_MEDIA_FORMATS))}; set MediaFormat to one of those or point"
             " Media.MediaFileUri at a file with that extension"
         )
@@ -309,7 +309,7 @@ def transcribe_owned_start_request(
         return TranscribeRefusal(400, "Tags must be a list of objects with Key and Value members")
     if any(tag.get("Key") == TRANSCRIBE_OWNER_TAG for tag in tags):
         return TranscribeRefusal(
-            400, f"The {TRANSCRIBE_OWNER_TAG} tag is assigned by LiteLLM and cannot be supplied by the caller"
+            400, f"The {TRANSCRIBE_OWNER_TAG} tag is assigned by EmbRouter and cannot be supplied by the caller"
         )
     owner_tag: Final = _JobTag(Key=TRANSCRIBE_OWNER_TAG, Value=owner).model_dump()
     return {**request_body, "Tags": (*tags, owner_tag)}  # mutable-ok: json.dumps and the body state key take a dict
@@ -445,7 +445,7 @@ def _as_json_object(response: httpx.Response) -> Mapping[str, object]:
 
 
 def transcribe_job_lookup(aws_region_name: str) -> JobLookup:
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing, sign_aws_json_post
 
     url: Final = f"https://transcribe.{aws_region_name}.{get_aws_dns_suffix(aws_region_name)}/"
     headers: Final = MappingProxyType(
@@ -522,7 +522,7 @@ def transcribe_media_duration_probe(aws_region_name: str, download_slots: asynci
     from botocore.auth import S3SigV4Auth
     from botocore.awsrequest import AWSRequest
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
 
     def sign_s3_get(url: str) -> dict[str, str]:  # mutable-ok: httpx request headers take a dict
         aws_request: Final = AWSRequest(method="GET", url=url)
@@ -604,7 +604,7 @@ class TranscribePassthroughLoggingHandler:
         self,
         httpx_response: httpx.Response,
         response_body: Mapping[str, object] | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -637,7 +637,7 @@ class TranscribePassthroughLoggingHandler:
         self,
         httpx_response: httpx.Response,
         started_job: TranscriptionJobRecord | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -684,7 +684,7 @@ class TranscribePassthroughLoggingHandler:
     @staticmethod
     def transcribe_passthrough_handler(
         httpx_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Final, Optional
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.proxy._experimental.mcp_server import operations as mcp_operations
+from embrouter.proxy._experimental.mcp_server import operations as mcp_operations
 
 if sys.version_info < (3, 11):  # BaseExceptionGroup is a builtin only from 3.11
     from exceptiongroup import BaseExceptionGroup
@@ -17,19 +17,19 @@ from fastapi import HTTPException
 from mcp.types import CallToolResult, TextContent
 from starlette.requests import Request
 
-from litellm.constants import MCP_TOOL_LISTING_TIMEOUT
-from litellm.proxy._experimental.mcp_server import rest_endpoints
-from litellm.proxy._experimental.mcp_server.auth import (
+from embrouter.constants import MCP_TOOL_LISTING_TIMEOUT
+from embrouter.proxy._experimental.mcp_server import rest_endpoints
+from embrouter.proxy._experimental.mcp_server.auth import (
     user_api_key_auth_mcp as auth_mcp,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     NewMCPServerRequest,
     UpdateMCPServerRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.mcp import MCPAuth, MCPTransport, MCPUpstreamProtocol
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.types.mcp import MCPAuth, MCPTransport, MCPUpstreamProtocol
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 _OK_TOOL_RESULT: Final = CallToolResult(content=[TextContent(type="text", text='{"result": "ok"}')], is_error=False)
 
@@ -114,9 +114,9 @@ class TestExecuteWithMcpClient:
     ) -> None:
         from starlette.datastructures import Headers
 
-        from litellm.experimental_mcp_client.client import MCPClient
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-        from litellm.proxy.management_endpoints import mcp_management_endpoints
+        from embrouter.experimental_mcp_client.client import MCPClient
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+        from embrouter.proxy.management_endpoints import mcp_management_endpoints
 
         saved: Final = MCPServer(
             server_id="saved-preview-server",
@@ -184,8 +184,8 @@ class TestExecuteWithMcpClient:
     ) -> None:
         from starlette.datastructures import Headers
 
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-        from litellm.proxy.management_endpoints import mcp_management_endpoints
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+        from embrouter.proxy.management_endpoints import mcp_management_endpoints
 
         saved: Final = MCPServer(
             server_id="saved-preview-server",
@@ -479,7 +479,7 @@ class TestExecuteWithMcpClient:
     @pytest.mark.asyncio
     async def test_m2m_drops_incoming_oauth2_headers(self, monkeypatch):
         """For M2M OAuth servers the incoming Authorization header (which carries
-        the litellm API key) must NOT be forwarded as extra_headers — otherwise
+        the embrouter API key) must NOT be forwarded as extra_headers — otherwise
         it overwrites the auto-fetched M2M token."""
         captured: dict = {}
 
@@ -517,7 +517,7 @@ class TestExecuteWithMcpClient:
             },
         )
 
-        incoming_oauth2 = {"Authorization": "Bearer sk-litellm-api-key"}
+        incoming_oauth2 = {"Authorization": "Bearer sk-embrouter-api-key"}
         result = await rest_endpoints._execute_with_mcp_client(
             payload,
             ok_operation,
@@ -625,7 +625,7 @@ class TestExecuteWithMcpClient:
         result = await rest_endpoints._execute_with_mcp_client(
             payload,
             ok_operation,
-            oauth2_headers={"Authorization": "Bearer sk-litellm-api-key"},
+            oauth2_headers={"Authorization": "Bearer sk-embrouter-api-key"},
         )
 
         assert result["status"] == "ok"
@@ -762,18 +762,18 @@ class TestTestConnection:
         """The just-authorized upstream token rides the request's Authorization header, exactly
         as /test/tools/list receives it; dropping it makes every authorization_code server fail
         the connection test that its tools preview passes."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         captured = self._capture_execute(monkeypatch)
         request = _build_request(
-            {"x-litellm-api-key": "sk-admin-session", "authorization": "Bearer upstream-oauth-token"},
+            {"x-embrouter-api-key": "sk-admin-session", "authorization": "Bearer upstream-oauth-token"},
             path="/mcp-rest/test/connection",
         )
 
         result = await rest_endpoints.test_connection(
             request,
             self._oauth2_authorization_code_payload(),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result == {"status": "ok"}
@@ -782,10 +782,10 @@ class TestTestConnection:
 
     @pytest.mark.asyncio
     async def test_forwards_staged_auth_value(self, monkeypatch):
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         captured = self._capture_execute(monkeypatch)
-        request = _build_request({"x-litellm-api-key": "sk-admin-session"}, path="/mcp-rest/test/connection")
+        request = _build_request({"x-embrouter-api-key": "sk-admin-session"}, path="/mcp-rest/test/connection")
         payload = NewMCPServerRequest(
             server_name="example",
             url="https://example.com/mcp",
@@ -796,7 +796,7 @@ class TestTestConnection:
         result = await rest_endpoints.test_connection(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result == {"status": "ok"}
@@ -807,11 +807,11 @@ class TestTestConnection:
     async def test_inherits_stored_credentials_of_saved_server(self, monkeypatch):
         """The edit form resends a saved server without its masked credential; the stored one
         must be used, as /test/tools/list already does."""
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.types.mcp_server.mcp_server_manager import MCPServer
+        from embrouter.proxy._types import EmbrouterUserRoles
+        from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-        from litellm.proxy.management_endpoints import mcp_management_endpoints
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+        from embrouter.proxy.management_endpoints import mcp_management_endpoints
 
         manager = MCPServerManager()
         monkeypatch.setattr(rest_endpoints, "global_mcp_server_manager", manager)
@@ -830,7 +830,7 @@ class TestTestConnection:
             "get_mcp_server_by_id",
             lambda server_id: saved if server_id == "saved-server-id" else None,
         )
-        request = _build_request({"x-litellm-api-key": "sk-admin-session"}, path="/mcp-rest/test/connection")
+        request = _build_request({"x-embrouter-api-key": "sk-admin-session"}, path="/mcp-rest/test/connection")
         payload = NewMCPServerRequest(
             server_id="saved-server-id",
             server_name="example",
@@ -841,7 +841,7 @@ class TestTestConnection:
         result = await rest_endpoints.test_connection(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result == {"status": "ok"}
@@ -850,17 +850,17 @@ class TestTestConnection:
 
     @pytest.mark.asyncio
     async def test_does_not_forward_authorization_that_satisfied_admission(self, monkeypatch):
-        """With no x-litellm-api-key, the Authorization value is the caller's LiteLLM key and
+        """With no x-embrouter-api-key, the Authorization value is the caller's EmbRouter key and
         must never reach the upstream."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         captured = self._capture_execute(monkeypatch)
-        request = _build_request({"authorization": "Bearer sk-litellm-admission-key"}, path="/mcp-rest/test/connection")
+        request = _build_request({"authorization": "Bearer sk-embrouter-admission-key"}, path="/mcp-rest/test/connection")
 
         result = await rest_endpoints.test_connection(
             request,
             self._oauth2_authorization_code_payload(),
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result == {"status": "ok"}
@@ -913,12 +913,12 @@ class TestTestToolsList:
             credentials={"auth_value": "secret-key"},
         )
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["message"] == "Successfully retrieved tools"
@@ -948,7 +948,7 @@ class TestTestToolsList:
 
         monkeypatch.setattr(rest_endpoints, "_execute_with_mcp_client", fake_execute, raising=False)
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         request = _build_request()
         payload = NewMCPServerRequest(
@@ -961,7 +961,7 @@ class TestTestToolsList:
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["status"] == "error"
@@ -987,7 +987,7 @@ class TestTestToolsList:
 
         monkeypatch.setattr(rest_endpoints, "_execute_with_mcp_client", fake_execute, raising=False)
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         request = _build_request()
         payload = NewMCPServerRequest(
@@ -1000,7 +1000,7 @@ class TestTestToolsList:
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["error"] is None
@@ -1032,7 +1032,7 @@ class TestTestToolsList:
 
         monkeypatch.setattr(rest_endpoints, "_execute_with_mcp_client", fake_execute, raising=False)
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         request = _build_request()
         payload = NewMCPServerRequest(
@@ -1045,7 +1045,7 @@ class TestTestToolsList:
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["error"] is None
@@ -1087,19 +1087,19 @@ class TestTestToolsList:
             raising=False,
         )
 
-        request = _build_request({"authorization": "Bearer incoming", "x-litellm-api-key": "sk-admission"})
+        request = _build_request({"authorization": "Bearer incoming", "x-embrouter-api-key": "sk-admission"})
         payload = NewMCPServerRequest(
             server_name="example",
             url="https://example.com",
             auth_type=MCPAuth.oauth2,
         )
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["message"] == "Successfully retrieved tools"
@@ -1141,19 +1141,19 @@ class TestTestToolsList:
             raising=False,
         )
 
-        request = _build_request({"authorization": "Bearer upstream-token", "x-litellm-api-key": "sk-admission"})
+        request = _build_request({"authorization": "Bearer upstream-token", "x-embrouter-api-key": "sk-admission"})
         payload = NewMCPServerRequest(
             server_name="example",
             url="https://example.com",
             auth_type=auth_type,
         )
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["message"] == "Successfully retrieved tools"
@@ -1162,8 +1162,8 @@ class TestTestToolsList:
 
     @pytest.mark.parametrize("auth_type", [MCPAuth.oauth2, MCPAuth.true_passthrough, MCPAuth.oauth_delegate])
     async def test_does_not_forward_authorization_that_satisfied_admission(self, monkeypatch, auth_type):
-        """Authorization is also the admission fallback: with no x-litellm-api-key on the request,
-        the Authorization value is the caller's LiteLLM key, so forwarding it would send the
+        """Authorization is also the admission fallback: with no x-embrouter-api-key on the request,
+        the Authorization value is the caller's EmbRouter key, so forwarding it would send the
         admission credential to the upstream."""
 
         captured: dict = {}
@@ -1184,19 +1184,19 @@ class TestTestToolsList:
 
         monkeypatch.setattr(rest_endpoints, "_execute_with_mcp_client", fake_execute, raising=False)
 
-        request = _build_request({"authorization": "Bearer sk-litellm-admission-key"})
+        request = _build_request({"authorization": "Bearer sk-embrouter-admission-key"})
         payload = NewMCPServerRequest(
             server_name="example",
             url="https://example.com",
             auth_type=auth_type,
         )
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result["message"] == "Successfully retrieved tools"
@@ -1312,7 +1312,7 @@ class TestListToolsRestAPI:
         """LIT-4861: a non-admin dashboard session must act as the admitted subject on this
         route, so server reachability AND tool ceilings bind to the user's grants exactly as
         they do for a gateway session, never to the bare session key."""
-        from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+        from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
 
         session_auth = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="grant-user", user_role="internal_user")
         admitted_auth = UserAPIKeyAuth(user_id="grant-user", org_id="admitted-org")
@@ -1323,7 +1323,7 @@ class TestListToolsRestAPI:
             return admitted_auth
 
         monkeypatch.setattr(
-            "litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+            "embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
             fake_reload,
         )
 
@@ -1393,12 +1393,12 @@ class TestListToolsRestAPI:
         carries none of the caller's own object_permission, so a toolset narrowing layered on top
         would evaporate on every team-granted server. A toolset-scoped request therefore stays on
         the caller's own credential, exactly as it did before the acting-as-user swap."""
-        from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
 
         session_auth = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="grant-user", user_role="internal_user")
         scoped_auth = UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="toolset-scope",
                 mcp_servers=["toolset-server-1"],
             )
@@ -1438,11 +1438,11 @@ class TestListToolsRestAPI:
             return ["toolset-tool-1"]
 
         monkeypatch.setattr(
-            "litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
+            "embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler.reload_admitted_user",
             record_reload,
         )
         monkeypatch.setattr(
-            "litellm.proxy.utils.get_prisma_client_or_throw",
+            "embrouter.proxy.utils.get_prisma_client_or_throw",
             lambda *args, **kwargs: MagicMock(),
         )
         monkeypatch.setattr(
@@ -1486,10 +1486,10 @@ class TestListToolsRestAPI:
         from mcp.types import Implementation, InitializeResult, ListToolsResult, PaginatedRequestParams, ServerCapabilities
         from mcp.types import Tool as MCPTool
 
-        import litellm.experimental_mcp_client.client as mcp_client_module
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        import embrouter.experimental_mcp_client.client as mcp_client_module
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         monkeypatch.setattr(rest_endpoints, "global_mcp_server_manager", MCPServerManager())
 
@@ -1606,7 +1606,7 @@ class TestListToolsRestAPI:
         """include_disabled_tools skips the allowlist filter only for PROXY_ADMIN;
         a non-admin passing it stays filtered so the REST endpoint can't be used
         to enumerate deliberately-disabled tools."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         async def fake_contexts(user_api_key_auth):
             return [user_api_key_auth]
@@ -1660,7 +1660,7 @@ class TestListToolsRestAPI:
             request,
             server_id="server-1",
             include_disabled_tools=True,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert captured["apply_tool_filters"] is False
 
@@ -1677,7 +1677,7 @@ class TestListToolsRestAPI:
         """A single-server pass-through request whose upstream rejects the token
         must surface the upstream status (401 or 403) plus its WWW-Authenticate
         challenge, not collapse into a 200 ``unexpected_error`` body."""
-        from litellm.proxy._experimental.mcp_server.exceptions import (
+        from embrouter.proxy._experimental.mcp_server.exceptions import (
             MCPUpstreamAuthError,
         )
 
@@ -1746,10 +1746,10 @@ class TestListToolsRestAPI:
         """A single-server listing whose upstream breaks (5xx, timeout, unreachable) must answer
         with the truthful gateway status instead of masking the failure as an empty-success
         {"tools": [], "error": null} body a caller cannot distinguish from a toolless server."""
-        from litellm.proxy._experimental.mcp_server.exceptions import (
+        from embrouter.proxy._experimental.mcp_server.exceptions import (
             MCPServerListError,
         )
-        from litellm.proxy._experimental.mcp_server.faults.list_outcomes import (
+        from embrouter.proxy._experimental.mcp_server.faults.list_outcomes import (
             ServerListFault,
         )
 
@@ -1808,7 +1808,7 @@ class TestListToolsRestAPI:
         caller can tell "needs upstream auth" apart from "has no tools"."""
         from pydantic import TypeAdapter
 
-        from litellm.proxy._experimental.mcp_server.exceptions import (
+        from embrouter.proxy._experimental.mcp_server.exceptions import (
             MCPUpstreamAuthError,
         )
 
@@ -1882,8 +1882,8 @@ class TestListToolsRestAPI:
     async def test_name_resolution_finds_server_by_uuid(self, monkeypatch):
         """When server_id is a name string, it should be resolved to its UUID
         and used for the tools lookup when the UUID is in allowed_server_ids."""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="uuid-abc-123",
@@ -1964,8 +1964,8 @@ class TestListToolsRestAPI:
     async def test_name_not_in_allowed_returns_access_denied(self, monkeypatch):
         """When name resolves to a server whose UUID is NOT in allowed_server_ids,
         the result should be an access_denied error (not a crash or silent pass)."""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="uuid-xyz-999",
@@ -2020,8 +2020,8 @@ class TestListToolsRestAPI:
     async def test_mcp_server_name_query_param_resolves_to_server(self, monkeypatch):
         """mcp_server_name is a name-based alias for server_id: it should
         resolve to the matching server and scope the response to it."""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="uuid-abc-123",
@@ -2100,9 +2100,9 @@ class TestListToolsRestAPI:
         assert result["error"] is None
 
     async def test_mcp_server_name_filter_uses_real_catalog_with_tool_search(self, monkeypatch):
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="uuid-search-123",
@@ -2115,7 +2115,7 @@ class TestListToolsRestAPI:
         stub_server.allowed_tools = None
         stub_server.mcp_info = {"server_name": "search-server"}
         user_api_key_dict = UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="search-scope",
                 mcp_tool_search_enabled=True,
                 mcp_servers=["uuid-search-123"],
@@ -2185,10 +2185,10 @@ class TestListToolsRestAPI:
         """toolset_name should resolve the toolset, apply its scope to the
         caller's UserAPIKeyAuth via _apply_toolset_scope, and only list tools
         from servers the scoped auth is allowed to see."""
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
 
         scoped_auth = UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="toolset-scope",
                 mcp_tool_search_enabled=True,
                 mcp_servers=["toolset-server-1"],
@@ -2227,7 +2227,7 @@ class TestListToolsRestAPI:
             return ["toolset-tool-1"]
 
         monkeypatch.setattr(
-            "litellm.proxy.utils.get_prisma_client_or_throw",
+            "embrouter.proxy.utils.get_prisma_client_or_throw",
             lambda *args, **kwargs: MagicMock(),
         )
         monkeypatch.setattr(
@@ -2283,7 +2283,7 @@ class TestListToolsRestAPI:
             return None
 
         monkeypatch.setattr(
-            "litellm.proxy.utils.get_prisma_client_or_throw",
+            "embrouter.proxy.utils.get_prisma_client_or_throw",
             lambda *args, **kwargs: MagicMock(),
         )
         monkeypatch.setattr(
@@ -2308,8 +2308,8 @@ class TestListToolsRestAPI:
     async def test_oauth2_user_token_injected_for_single_server(self, monkeypatch):
         """For a single-server OAuth2 request, _get_user_oauth_extra_headers is called
         and the returned headers are forwarded to _get_tools_for_single_server."""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="oauth-server-id",
@@ -2401,7 +2401,7 @@ class TestCallToolRestAPI:
         async def fake_get_allowed_mcp_servers(*args, **kwargs):
             return []
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         monkeypatch.setattr(
@@ -2417,8 +2417,8 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            fake_add_litellm_data_to_request,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            fake_add_embrouter_data_to_request,
             raising=False,
         )
 
@@ -2497,7 +2497,7 @@ class TestCallToolRestAPI:
 
         stub_server = StubServer()
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         captured = {}
@@ -2525,12 +2525,12 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            fake_add_litellm_data_to_request,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            fake_add_embrouter_data_to_request,
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.proxy_config",
+            "embrouter.proxy.proxy_server.proxy_config",
             {},
             raising=False,
         )
@@ -2603,7 +2603,7 @@ class TestCallToolRestAPI:
 
         stub_server = StubServer()
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def fake_execute_mcp_tool(**kwargs):
@@ -2626,9 +2626,9 @@ class TestCallToolRestAPI:
             lambda server_id: stub_server if server_id == "server-1" else None,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
         monkeypatch.setattr(rest_endpoints, "execute_mcp_tool", fake_execute_mcp_tool, raising=False)
         monkeypatch.setattr(rest_endpoints, "_fire_mcp_tool_call_logging", fake_fire_logging, raising=False)
 
@@ -2680,7 +2680,7 @@ class TestCallToolRestAPI:
         stub_server = StubServer()
         stub_server.auth_type = auth_type
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def fake_get_user_oauth_extra_headers(server, user_api_key_dict, prefetched_creds=None):
@@ -2700,8 +2700,8 @@ class TestCallToolRestAPI:
             "get_mcp_server_by_id",
             lambda server_id: stub_server if server_id == "server-1" else None,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
         monkeypatch.setattr(rest_endpoints, "_get_user_oauth_extra_headers", fake_get_user_oauth_extra_headers)
         monkeypatch.setattr(rest_endpoints, "execute_mcp_tool", fake_execute_mcp_tool)
         monkeypatch.setattr(
@@ -2709,7 +2709,7 @@ class TestCallToolRestAPI:
         )
 
         request = _build_request(
-            {"x-litellm-api-key": "sk-admission-key", "authorization": "Bearer user-subject-token"},
+            {"x-embrouter-api-key": "sk-admission-key", "authorization": "Bearer user-subject-token"},
             path="/mcp-rest/tools/call",
             method="POST",
             json_body={"server_id": "server-1", "name": "demo-tool", "arguments": {}},
@@ -2743,7 +2743,7 @@ class TestCallToolRestAPI:
 
         stub_server = StubServer()
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def fake_execute_mcp_tool(**kwargs):
@@ -2763,11 +2763,11 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            fake_add_litellm_data_to_request,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            fake_add_embrouter_data_to_request,
             raising=False,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
         monkeypatch.setattr(rest_endpoints, "execute_mcp_tool", fake_execute_mcp_tool, raising=False)
         masked_result = CallToolResult(content=[TextContent(type="text", text="<EMAIL_ADDRESS>")], is_error=False)
         monkeypatch.setattr(
@@ -2790,7 +2790,7 @@ class TestCallToolRestAPI:
     async def test_success_logging_start_time_excludes_pre_call_processing(self, monkeypatch):
         """Pre-call hook latency (guardrails, header resolution) must not inflate the tool call's
         logged duration on success."""
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         async def fake_contexts(user_api_key_auth):
             return [user_api_key_auth]
@@ -2810,7 +2810,7 @@ class TestCallToolRestAPI:
 
         stub_server = StubServer()
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         pre_call_finished_at = {}
@@ -2841,7 +2841,7 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            proxy_server, "add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            proxy_server, "add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
         monkeypatch.setattr(proxy_server, "proxy_config", {}, raising=False)
         monkeypatch.setattr(proxy_server.proxy_logging_obj, "pre_call_hook", slow_pre_call_hook)
@@ -2863,7 +2863,7 @@ class TestCallToolRestAPI:
     async def test_success_logging_guardrail_rejection_propagates(self, monkeypatch):
         """A guardrail rejecting the tool result must not be swallowed as a logging failure,
         otherwise the unguarded result would still be returned to the caller."""
-        from litellm.exceptions import BlockedPiiEntityError
+        from embrouter.exceptions import BlockedPiiEntityError
 
         fire_logging = AsyncMock(
             side_effect=BlockedPiiEntityError(entity_type="EMAIL_ADDRESS", guardrail_name="presidio-mcp")
@@ -2883,7 +2883,7 @@ class TestCallToolRestAPI:
         MCPUpstreamAuthError) must reach the REST caller as that status with the upstream
         WWW-Authenticate preserved, so an MCP client can run the upstream OAuth flow, instead of the
         generic 500 the catch-all would otherwise produce."""
-        from litellm.proxy._experimental.mcp_server.exceptions import MCPUpstreamAuthError
+        from embrouter.proxy._experimental.mcp_server.exceptions import MCPUpstreamAuthError
 
         async def fake_contexts(user_api_key_auth):
             return [user_api_key_auth]
@@ -2903,7 +2903,7 @@ class TestCallToolRestAPI:
 
         stub_server = StubServer()
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         challenge = 'Bearer resource_metadata="https://gw.example.com/.well-known/oauth-protected-resource/mcp/stub"'
@@ -2929,11 +2929,11 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            fake_add_litellm_data_to_request,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            fake_add_embrouter_data_to_request,
             raising=False,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
         monkeypatch.setattr(rest_endpoints, "execute_mcp_tool", fake_execute_mcp_tool, raising=False)
 
         mock_logger = MagicMock()
@@ -2988,7 +2988,7 @@ class TestCallToolRestAPI:
             available_on_public_internet = True
             auth_type = None
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def fake_execute_mcp_tool(**kwargs):
@@ -3008,9 +3008,9 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
         monkeypatch.setattr(rest_endpoints, "execute_mcp_tool", fake_execute_mcp_tool, raising=False)
         mock_logger = MagicMock()
         monkeypatch.setattr(rest_endpoints, "verbose_logger", mock_logger, raising=False)
@@ -3039,7 +3039,7 @@ class TestCallToolRestAPI:
         execute_mcp_tool, must reach proxy_logging_obj.post_call_failure_hook (the only path that
         writes the failure spend-log row) with the logging object's failure payload already built,
         and the REST caller must still get the same 400 it got before."""
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         async def fake_contexts(user_api_key_auth):
             return [user_api_key_auth]
@@ -3057,7 +3057,7 @@ class TestCallToolRestAPI:
             available_on_public_internet = True
             auth_type = None
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         guardrail_error = HTTPException(
@@ -3096,7 +3096,7 @@ class TestCallToolRestAPI:
             raising=False,
         )
         monkeypatch.setattr(
-            proxy_server, "add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            proxy_server, "add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
         monkeypatch.setattr(proxy_server, "proxy_config", {}, raising=False)
         monkeypatch.setattr(
@@ -3142,16 +3142,16 @@ class TestCallToolRestAPI:
         request_data = hook_kwargs["request_data"]
         assert "raw_headers" not in request_data
         assert "mcp_server_auth_headers" not in request_data
-        standard_logging_object = request_data["litellm_logging_obj"].model_call_details["standard_logging_object"]
+        standard_logging_object = request_data["embrouter_logging_obj"].model_call_details["standard_logging_object"]
         assert standard_logging_object["status"] == "failure"
         assert standard_logging_object["error_str"] == str(guardrail_error)
 
     async def test_failure_logging_error_does_not_replace_guardrail_error(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         guardrail_error = HTTPException(status_code=400, detail={"error": "Content blocked"})
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def blocking_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -3159,7 +3159,7 @@ class TestCallToolRestAPI:
 
         failure_logging = AsyncMock(side_effect=RuntimeError("spend log db down"))
         monkeypatch.setattr(
-            proxy_server, "add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            proxy_server, "add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
         monkeypatch.setattr(proxy_server, "proxy_config", {}, raising=False)
         monkeypatch.setattr(proxy_server.proxy_logging_obj, "pre_call_hook", blocking_pre_call_hook)
@@ -3201,9 +3201,9 @@ class TestCallToolRestAPI:
         without the direct branch's relay wrapper, so an MCPUpstreamAuthError from it must be relayed
         by the endpoint-level handler (a real 401/403 + WWW-Authenticate) rather than falling through
         the catch-all into a generic 500."""
-        import litellm.proxy._experimental.mcp_server.tool_search as tool_search_mod
-        from litellm.proxy._experimental.mcp_server.exceptions import MCPUpstreamAuthError
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        import embrouter.proxy._experimental.mcp_server.tool_search as tool_search_mod
+        from embrouter.proxy._experimental.mcp_server.exceptions import MCPUpstreamAuthError
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
 
         challenge = 'Bearer resource_metadata="https://gw.example.com/.well-known/oauth-protected-resource"'
 
@@ -3223,15 +3223,15 @@ class TestCallToolRestAPI:
         monkeypatch.setattr(rest_endpoints, "build_effective_auth_contexts", fake_contexts, raising=False)
         monkeypatch.setattr(tool_search_mod, "handle_mcp_tool_call", fake_handle_mcp_tool_call, raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+            "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
             _FakePreCall,
             raising=False,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.proxy_config", {}, raising=False)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_config", {}, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {}, raising=False)
 
         user_api_key_dict = UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="search-scope",
                 mcp_tool_search_enabled=True,
             )
@@ -3252,15 +3252,15 @@ class TestCallToolRestAPI:
     async def test_virtual_mcp_tool_call_guardrail_block_runs_failure_logging(self, monkeypatch):
         """A pre_mcp_call guardrail block on the virtual mcp_tool_call branch must write a failure
         spend log, same as the direct tool call branch, and still raise the original error."""
-        from litellm.proxy import proxy_server
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
 
         guardrail_error = HTTPException(status_code=400, detail={"error": "Content blocked"})
 
         async def fake_contexts(user_api_key_auth):
             return [user_api_key_auth]
 
-        async def fake_add_litellm_data_to_request(**kwargs):
+        async def fake_add_embrouter_data_to_request(**kwargs):
             return kwargs.get("data", {})
 
         async def blocking_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -3269,7 +3269,7 @@ class TestCallToolRestAPI:
         failure_logging = AsyncMock()
         monkeypatch.setattr(rest_endpoints, "build_effective_auth_contexts", fake_contexts, raising=False)
         monkeypatch.setattr(
-            proxy_server, "add_litellm_data_to_request", fake_add_litellm_data_to_request, raising=False
+            proxy_server, "add_embrouter_data_to_request", fake_add_embrouter_data_to_request, raising=False
         )
         monkeypatch.setattr(proxy_server, "proxy_config", {}, raising=False)
         monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
@@ -3279,7 +3279,7 @@ class TestCallToolRestAPI:
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
             request_route="/mcp-rest/tools/call",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="search-scope",
                 mcp_tool_search_enabled=True,
             ),
@@ -3298,7 +3298,7 @@ class TestCallToolRestAPI:
         logging_obj, exception, _start_time, user_api_key_auth, request_data = failure_logging.await_args.args
         assert exception is guardrail_error
         assert user_api_key_auth is user_api_key_dict
-        assert logging_obj is request_data.get("litellm_logging_obj")
+        assert logging_obj is request_data.get("embrouter_logging_obj")
         assert logging_obj is not None
 
 
@@ -3312,13 +3312,13 @@ async def test_request_selected_tool_specific_guardrail_applies_to_virtual_execu
     selected: bool,
     action: str,
 ) -> None:
-    import litellm
-    from litellm.caching.caching import DualCache
-    from litellm.proxy import proxy_server
-    from litellm.proxy._experimental.mcp_server import mcp_server_manager, server, tool_registry
-    from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-    from litellm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeGuardrail
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy._experimental.mcp_server import mcp_server_manager, server, tool_registry
+    from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+    from embrouter.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeGuardrail
+    from embrouter.proxy.utils import ProxyLogging
 
     guardrail: Final = CustomCodeGuardrail(
         guardrail_name="block-resolved-tool",
@@ -3348,7 +3348,7 @@ async def test_request_selected_tool_specific_guardrail_applies_to_virtual_execu
     async def passthrough_request_data(data: dict[str, object], **kwargs: object) -> dict[str, object]:
         return data
 
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
     monkeypatch.setattr(tool_registry, "global_mcp_tool_registry", registry)
     monkeypatch.setattr(mcp_server_manager, "global_mcp_server_manager", manager)
     monkeypatch.setattr(mcp_operations, "global_mcp_tool_registry", registry)
@@ -3356,13 +3356,13 @@ async def test_request_selected_tool_specific_guardrail_applies_to_virtual_execu
     monkeypatch.setattr(rest_endpoints, "global_mcp_server_manager", manager)
     monkeypatch.setattr(mcp_operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[managed_server]))
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", ProxyLogging(user_api_key_cache=DualCache()))
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", passthrough_request_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", passthrough_request_data)
     monkeypatch.setattr(proxy_server, "proxy_config", {})
     monkeypatch.setattr(proxy_server, "general_settings", {})
     caller: Final = UserAPIKeyAuth(
         api_key="hashed-key",
         request_route="/mcp-rest/tools/call",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="virtual-test",
             mcp_servers=["observer"],
             mcp_tool_search_enabled=True,
@@ -3400,9 +3400,9 @@ class TestGetToolsForSingleServer:
 
     async def test_filters_tools_by_object_permission_mcp_tool_permissions(self, monkeypatch):
         """Test that tools are filtered by user_api_key_auth.object_permission.mcp_tool_permissions"""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.types.mcp import MCPTransport
 
         # Create mock tools
         class MockTool:
@@ -3437,7 +3437,7 @@ class TestGetToolsForSingleServer:
         )
 
         # Create UserAPIKeyAuth with object_permission
-        object_permission = LiteLLM_ObjectPermissionTable(
+        object_permission = EmbRouter_ObjectPermissionTable(
             object_permission_id="test-permission-id",
             mcp_tool_permissions={"test-server-id": ["tool1", "tool3"]},
         )
@@ -3463,8 +3463,8 @@ class TestGetToolsForSingleServer:
 
     async def test_no_filtering_when_object_permission_is_none(self, monkeypatch):
         """Test that all tools are returned when object_permission is None"""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         class MockTool:
             def __init__(self, name, description):
@@ -3510,9 +3510,9 @@ class TestGetToolsForSingleServer:
 
     async def test_no_filtering_when_mcp_tool_permissions_is_none(self, monkeypatch):
         """Test that all tools are returned when mcp_tool_permissions is None"""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.types.mcp import MCPTransport
 
         class MockTool:
             def __init__(self, name, description):
@@ -3542,7 +3542,7 @@ class TestGetToolsForSingleServer:
             allowed_tools=None,
         )
 
-        object_permission = LiteLLM_ObjectPermissionTable(
+        object_permission = EmbRouter_ObjectPermissionTable(
             object_permission_id="test-permission-id",
             mcp_tool_permissions=None,  # No tool permissions set
         )
@@ -3563,9 +3563,9 @@ class TestGetToolsForSingleServer:
 
     async def test_no_filtering_when_server_not_in_mcp_tool_permissions(self, monkeypatch):
         """Test that all tools are returned when server is not in mcp_tool_permissions"""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.types.mcp import MCPTransport
 
         class MockTool:
             def __init__(self, name, description):
@@ -3595,7 +3595,7 @@ class TestGetToolsForSingleServer:
             allowed_tools=None,
         )
 
-        object_permission = LiteLLM_ObjectPermissionTable(
+        object_permission = EmbRouter_ObjectPermissionTable(
             object_permission_id="test-permission-id",
             mcp_tool_permissions={"other-server-id": ["tool1"]},  # Different server
         )
@@ -3616,9 +3616,9 @@ class TestGetToolsForSingleServer:
 
     async def test_combines_server_allowed_tools_and_object_permission_filters(self, monkeypatch):
         """Test that both server.allowed_tools and object_permission.mcp_tool_permissions filters are applied"""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.types.mcp import MCPTransport
 
         class MockTool:
             def __init__(self, name, description):
@@ -3652,7 +3652,7 @@ class TestGetToolsForSingleServer:
         )
 
         # Object permission allows tool2, tool3, tool4
-        object_permission = LiteLLM_ObjectPermissionTable(
+        object_permission = EmbRouter_ObjectPermissionTable(
             object_permission_id="test-permission-id",
             mcp_tool_permissions={"test-server-id": ["tool2", "tool3", "tool4"]},
         )
@@ -3679,8 +3679,8 @@ class TestGetToolsForSingleServer:
     async def test_apply_tool_filters_false_returns_full_catalog(self, monkeypatch):
         """apply_tool_filters=False returns the raw catalog without the server
         allowed_tools gate, so the config UI can render disabled tools as off."""
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         class MockTool:
             def __init__(self, name):
@@ -3832,7 +3832,7 @@ class TestEndpointRoleChecks:
     @pytest.mark.asyncio
     async def test_test_connection_rejects_non_admin(self):
         """Non-admin users should get 403 from test_connection."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         payload = NewMCPServerRequest(
             server_name="test",
@@ -3840,7 +3840,7 @@ class TestEndpointRoleChecks:
             auth_type=MCPAuth.none,
         )
         user_key = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=EmbrouterUserRoles.INTERNAL_USER,
             user_id="non_admin",
             api_key="sk-test",
         )
@@ -3857,7 +3857,7 @@ class TestEndpointRoleChecks:
     @pytest.mark.asyncio
     async def test_test_tools_list_rejects_non_admin(self):
         """Non-admin users should get 403 from test_tools_list."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         payload = NewMCPServerRequest(
             server_name="test",
@@ -3865,7 +3865,7 @@ class TestEndpointRoleChecks:
             auth_type=MCPAuth.none,
         )
         user_key = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=EmbrouterUserRoles.INTERNAL_USER,
             user_id="non_admin",
             api_key="sk-test",
         )
@@ -3882,7 +3882,7 @@ class TestEndpointRoleChecks:
     @pytest.mark.asyncio
     async def test_test_connection_allows_admin(self, monkeypatch):
         """PROXY_ADMIN should pass the role check."""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         async def fake_execute(*args, **kwargs):
             return {"status": "ok"}
@@ -3899,7 +3899,7 @@ class TestEndpointRoleChecks:
             auth_type=MCPAuth.none,
         )
         user_key = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             user_id="admin",
             api_key="sk-admin",
         )
@@ -3945,7 +3945,7 @@ class TestPreviewOpenAPITools:
                 }
             }
 
-        from litellm.proxy._experimental.mcp_server import (
+        from embrouter.proxy._experimental.mcp_server import (
             openapi_to_mcp_generator,
         )
 
@@ -3963,12 +3963,12 @@ class TestPreviewOpenAPITools:
         )
         request = _build_request()
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
 
         assert result.get("error") is None, result
@@ -3985,7 +3985,7 @@ class TestPreviewOpenAPITools:
         suffixes (_2, _3, ...) get assigned to different operations and the
         dashboard shows names that differ from what's actually registered.
         """
-        from litellm.proxy._experimental.mcp_server import (
+        from embrouter.proxy._experimental.mcp_server import (
             openapi_to_mcp_generator,
         )
 
@@ -4020,12 +4020,12 @@ class TestPreviewOpenAPITools:
             transport="http",
         )
         request = _build_request()
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         result = await rest_endpoints.test_tools_list(
             request,
             payload,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert result.get("error") is None, result
         preview_summary_to_name = {t["description"]: t["name"] for t in result["tools"]}
@@ -4334,8 +4334,8 @@ class TestToolResponseMcpInfoEnrichment:
     def test_enriches_mcp_info_with_alias_and_server_id(self):
         from mcp.types import Tool as MCPTool
 
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         server = MCPServer(
             server_id="a1b2c3d4",
@@ -4370,8 +4370,8 @@ class TestToolResponseMcpInfoEnrichment:
     def test_alias_none_is_explicit_in_mcp_info(self):
         from mcp.types import Tool as MCPTool
 
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         server = MCPServer(
             server_id="server-uuid",
@@ -4409,11 +4409,11 @@ class TestRestListToolsetFiltering:
 
         from mcp.types import Tool as MCPTool
 
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         stub_server = MCPServer(
             server_id="server-a",
@@ -4453,7 +4453,7 @@ class TestRestListToolsetFiltering:
             patch.object(MCPRequestHandler, "_get_key_object_permission", return_value=key_object_permission),
             patch.object(MCPRequestHandler, "_get_team_object_permission", AsyncMock(return_value=None)),
             patch(
-                "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 mock_manager,
             ),
         ):
@@ -4478,8 +4478,8 @@ class TestV1ResolvedOauth2Gate:
 
     @staticmethod
     def _oauth2_server(*, delegate_auth_to_upstream: bool) -> Any:
-        from litellm.proxy._experimental.mcp_server.server import MCPServer
-        from litellm.types.mcp import MCPTransport
+        from embrouter.proxy._experimental.mcp_server.server import MCPServer
+        from embrouter.types.mcp import MCPTransport
 
         return MCPServer(
             server_id="oauth2-srv",
@@ -4501,7 +4501,7 @@ class TestV1ResolvedOauth2Gate:
     async def test_user_oauth_headers_skip_v2_owned_servers(
         self, delegate_auth_to_upstream, expected_headers, expected_lookups, monkeypatch
     ):
-        from litellm.proxy._experimental.mcp_server import db as mcp_db
+        from embrouter.proxy._experimental.mcp_server import db as mcp_db
 
         server = self._oauth2_server(delegate_auth_to_upstream=delegate_auth_to_upstream)
         resolve_token = AsyncMock(return_value={"access_token": "stored-token"})
@@ -4534,7 +4534,7 @@ class TestV1ResolvedOauth2Gate:
 
 _CLIENT_ALLOWLIST_SETTINGS: Final[dict[str, object]] = {
     "mcp_allowed_clients": [{"alias": "Antigravity CLI", "value": "antigravity-cli"}],
-    "litellm_jwtauth": {"mcp_client_id_jwt_field": "azp"},
+    "embrouter_jwtauth": {"mcp_client_id_jwt_field": "azp"},
     "mcp_client_id_header": "x-mcp-client",
 }
 
@@ -4560,7 +4560,7 @@ class TestClientAllowlistOnRestRoutes:
         ) -> list[str]:
             return []
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", _CLIENT_ALLOWLIST_SETTINGS, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", _CLIENT_ALLOWLIST_SETTINGS, raising=False)
         monkeypatch.setattr(rest_endpoints, "build_effective_auth_contexts", fake_contexts, raising=False)
         monkeypatch.setattr(
             rest_endpoints.global_mcp_server_manager,
@@ -4623,7 +4623,7 @@ class TestClientAllowlistOnRestRoutes:
     async def test_dashboard_session_is_not_treated_as_a_client_application(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+        from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
 
         listed_for: Final = self._stub_listing(monkeypatch)
         session: Final = UserAPIKeyAuth(team_id=UI_SESSION_TOKEN_TEAM_ID, user_id="admin-user", user_role="proxy_admin")
@@ -4639,7 +4639,7 @@ class TestClientAllowlistOnRestRoutes:
     async def test_tools_call_rejects_unlisted_clients_before_reading_the_body(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", _CLIENT_ALLOWLIST_SETTINGS, raising=False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", _CLIENT_ALLOWLIST_SETTINGS, raising=False)
         acting: Final = AsyncMock()
         monkeypatch.setattr(rest_endpoints, "acting_user_auth", acting, raising=False)
         request: Final = _build_request(
@@ -4663,7 +4663,7 @@ class TestClientAllowlistOnRestRoutes:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("revision", ("auto", "2024-11-05", "2025-06-18"))
 async def test_preview_client_honors_protocol_metadata(revision: MCPUpstreamProtocol) -> None:
-    from litellm.experimental_mcp_client.client import MCPClient
+    from embrouter.experimental_mcp_client.client import MCPClient
 
     payload: Final = NewMCPServerRequest(
         server_name="preview", url="http://127.0.0.1:9/mcp", transport="http",
@@ -4696,9 +4696,9 @@ async def test_saved_preview_protocol_omission_and_explicit_edits(
 ) -> None:
     from starlette.datastructures import Headers
 
-    from litellm.experimental_mcp_client.client import MCPClient
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-    from litellm.proxy.management_endpoints import mcp_management_endpoints
+    from embrouter.experimental_mcp_client.client import MCPClient
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+    from embrouter.proxy.management_endpoints import mcp_management_endpoints
 
     saved: Final = MCPServer(
         server_id="saved-preview", name="preview", url="https://example.com/mcp",
@@ -4716,7 +4716,7 @@ async def test_saved_preview_protocol_omission_and_explicit_edits(
         authorization_url=saved.authorization_url, token_url=saved.token_url,
     )
     staged: Final = rest_endpoints._stage_server_test(
-        payload, Headers({"x-litellm-api-key": "sk-admin", "authorization": "Bearer preview-token"})
+        payload, Headers({"x-embrouter-api-key": "sk-admin", "authorization": "Bearer preview-token"})
     )
 
     async def inspect_client(client: MCPClient) -> dict[str, str]:

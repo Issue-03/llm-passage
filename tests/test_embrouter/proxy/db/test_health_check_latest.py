@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.db.health_check_latest import (
+from embrouter.proxy.db.health_check_latest import (
     LATEST_HEALTH_CHECKS_FOR_MODELS_SQL,
     LATEST_HEALTH_CHECKS_SQL,
     fetch_latest_health_checks,

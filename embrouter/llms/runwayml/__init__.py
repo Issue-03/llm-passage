@@ -1,4 +1,4 @@
-# RunwayML integration for LiteLLM
+# RunwayML integration for EmbRouter
 
 from .cost_calculator import cost_calculator
 from .videos.transformation import RunwayMLVideoConfig

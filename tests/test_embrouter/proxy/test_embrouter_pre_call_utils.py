@@ -15,11 +15,11 @@ from opentelemetry.trace import INVALID_SPAN, NonRecordingSpan, SpanContext
 from pydantic import ValidationError as PydanticValidationError
 from starlette.datastructures import Headers
 
-import litellm
-from litellm.proxy._types import AddTeamCallback, ProxyException, TeamCallbackMetadata, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import (
+import embrouter
+from embrouter.proxy._types import AddTeamCallback, ProxyException, TeamCallbackMetadata, UserAPIKeyAuth
+from embrouter.proxy.embrouter_pre_call_utils import (
     KeyAndTeamLoggingSettings,
-    LiteLLMProxyRequestSetup,
+    EmbRouterProxyRequestSetup,
     _apply_credential_overrides_from_model_config,
     _extract_credential_from_entry,
     _get_dynamic_logging_metadata,
@@ -31,29 +31,29 @@ from litellm.proxy.litellm_pre_call_utils import (
     _resolve_provider_from_deployment,
     _update_model_if_key_alias_exists,
     add_guardrails_from_policy_engine,
-    add_litellm_data_to_request,
+    add_embrouter_data_to_request,
     add_provider_specific_headers_to_request,
     check_if_token_is_service_account,
     clean_headers,
     move_guardrails_to_metadata,
 )
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.litellm_core_utils.redact_messages import _get_turn_off_message_logging_from_dynamic_params
-from litellm.litellm_core_utils.get_provider_specific_headers import (
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
+from embrouter.embrouter_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from embrouter.embrouter_core_utils.redact_messages import _get_turn_off_message_logging_from_dynamic_params
+from embrouter.embrouter_core_utils.get_provider_specific_headers import (
     ProviderSpecificHeaderUtils,
 )
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     TRUSTED_CALLBACK_VARS_FIELD,
 )
-from litellm.constants import (
+from embrouter.constants import (
     ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
     SESSION_ID_OMITTED_METADATA_KEY,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.fireworks_ai.common_utils import get_fireworks_session_id
-from litellm.types.utils import CredentialItem
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.fireworks_ai.common_utils import get_fireworks_session_id
+from embrouter.types.utils import CredentialItem
 
 
 def test_check_if_token_is_service_account():
@@ -81,25 +81,25 @@ class TestGetMetadataVariableName:
         request.url.path = path
         return request
 
-    def test_returns_litellm_metadata_for_thread_routes(self):
+    def test_returns_embrouter_metadata_for_thread_routes(self):
         request = self._make_request("/v1/threads/thread_123/messages")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
-    def test_returns_litellm_metadata_for_assistant_routes(self):
+    def test_returns_embrouter_metadata_for_assistant_routes(self):
         request = self._make_request("/v1/assistants/asst_123")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
-    def test_returns_litellm_metadata_for_batches_route(self):
+    def test_returns_embrouter_metadata_for_batches_route(self):
         request = self._make_request("/v1/batches")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
-    def test_returns_litellm_metadata_for_messages_route(self):
+    def test_returns_embrouter_metadata_for_messages_route(self):
         request = self._make_request("/v1/messages")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
-    def test_returns_litellm_metadata_for_files_route(self):
+    def test_returns_embrouter_metadata_for_files_route(self):
         request = self._make_request("/v1/files")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
     def test_returns_metadata_for_chat_completions(self):
         request = self._make_request("/chat/completions")
@@ -113,15 +113,15 @@ class TestGetMetadataVariableName:
         request = self._make_request("/v1/embeddings")
         assert _get_metadata_variable_name(request) == "metadata"
 
-    def test_returns_litellm_metadata_for_bedrock_invoke(self):
-        # GH#30629: bedrock passthrough must use litellm_metadata
+    def test_returns_embrouter_metadata_for_bedrock_invoke(self):
+        # GH#30629: bedrock passthrough must use embrouter_metadata
         # to prevent key-level tags from leaking into provider body
         request = self._make_request("/bedrock/model/us.anthropic.claude-sonnet-4-6/invoke")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
-    def test_returns_litellm_metadata_for_bedrock_converse(self):
+    def test_returns_embrouter_metadata_for_bedrock_converse(self):
         request = self._make_request("/bedrock/model/us.anthropic.claude-sonnet-4-6/converse")
-        assert _get_metadata_variable_name(request) == "litellm_metadata"
+        assert _get_metadata_variable_name(request) == "embrouter_metadata"
 
 
 def test_get_enforced_params_for_service_account_settings():
@@ -178,15 +178,15 @@ def test_get_enforced_params_for_service_account_settings():
     ],
 )
 def test_get_enforced_params(general_settings, user_api_key_dict, expected_enforced_params):
-    from litellm.proxy.litellm_pre_call_utils import _get_enforced_params
+    from embrouter.proxy.embrouter_pre_call_utils import _get_enforced_params
 
     enforced_params = _get_enforced_params(general_settings, user_api_key_dict)
     assert enforced_params == expected_enforced_params
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_parses_string_metadata():
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+async def test_add_embrouter_data_to_request_parses_string_metadata():
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup
     request_mock = MagicMock(spec=Request)
@@ -215,7 +215,7 @@ async def test_add_litellm_data_to_request_parses_string_metadata():
     )
 
     # Call
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -225,14 +225,14 @@ async def test_add_litellm_data_to_request_parses_string_metadata():
     )
 
     # Assert
-    litellm_metadata = updated_data.get("metadata", {})
-    assert isinstance(litellm_metadata, dict)
+    embrouter_metadata = updated_data.get("metadata", {})
+    assert isinstance(embrouter_metadata, dict)
     assert updated_data["metadata"]["generation_name"] == "gen123"
 
 
 @pytest.mark.asyncio
 async def test_key_otel_service_name_outranks_team_metadata_merge():
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -250,7 +250,7 @@ async def test_key_otel_service_name_outranks_team_metadata_merge():
         team_metadata={"otel_service_name": "team-svc", "other_setting": "team-val"},
     )
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-3.5-turbo"},
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -271,7 +271,7 @@ async def test_stamped_auth_object_reflects_header_derived_identity():
     so it only carries header-derived identity if the stamp still runs after those fields are
     resolved. Moving the stamp earlier would silently misattribute spend.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -285,7 +285,7 @@ async def test_stamped_auth_object_reflects_header_derived_identity():
 
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key", metadata={}, team_metadata={})
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-3.5-turbo"},
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -302,12 +302,12 @@ async def test_stamped_auth_object_reflects_header_derived_identity():
 
 
 @pytest.mark.asyncio
-async def test_arrival_time_prefers_litellm_received_at_over_time_time():
+async def test_arrival_time_prefers_embrouter_received_at_over_time_time():
     """LIT-6012: by the time this function runs, auth has already completed, so
     time.time() here would silently exclude the whole auth phase from the
-    queue-time window. request.state.litellm_received_at (stamped at the top of
+    queue-time window. request.state.embrouter_received_at (stamped at the top of
     user_api_key_auth, before auth work) must win when present."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -319,11 +319,11 @@ async def test_arrival_time_prefers_litellm_received_at_over_time_time():
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
     received_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    request_mock.state = SimpleNamespace(litellm_received_at=received_at)
+    request_mock.state = SimpleNamespace(embrouter_received_at=received_at)
 
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key", metadata={}, team_metadata={})
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-3.5-turbo"},
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -346,11 +346,11 @@ async def test_proxy_clears_client_supplied_timing_windows():
     request_mock.headers = {"Content-Type": "application/json"}
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
-    request_mock.state = SimpleNamespace(litellm_received_at=datetime.now(timezone.utc))
+    request_mock.state = SimpleNamespace(embrouter_received_at=datetime.now(timezone.utc))
 
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key", metadata={}, team_metadata={})
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={
             "model": "gpt-3.5-turbo",
             "metadata": {"llm_api_timing_windows": ((0.0, 1.0),)},
@@ -366,10 +366,10 @@ async def test_proxy_clears_client_supplied_timing_windows():
 
 
 @pytest.mark.asyncio
-async def test_arrival_time_falls_back_to_time_time_without_litellm_received_at():
+async def test_arrival_time_falls_back_to_time_time_without_embrouter_received_at():
     """Callers that never went through user_api_key_auth (no stamp on request.state)
     must still get a usable arrival_time instead of erroring."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -380,12 +380,12 @@ async def test_arrival_time_falls_back_to_time_time_without_litellm_received_at(
     request_mock.headers = {"Content-Type": "application/json"}
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
-    request_mock.state = SimpleNamespace()  # no litellm_received_at attribute
+    request_mock.state = SimpleNamespace()  # no embrouter_received_at attribute
 
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key", metadata={}, team_metadata={})
 
     before = time.time()
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-3.5-turbo"},
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -401,14 +401,14 @@ async def test_arrival_time_falls_back_to_time_time_without_litellm_received_at(
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_admin_injection_slots():
+async def test_add_embrouter_data_to_request_strips_admin_injection_slots():
     """User-supplied user_api_key_metadata / user_api_key_team_metadata /
     _pipeline_managed_guardrails must be stripped from both metadata keys
     before the proxy writes its own admin-populated values. Otherwise a
     caller can shadow admin config via the non-`_metadata_variable_name`
-    metadata key (e.g. litellm_metadata while the proxy writes to metadata).
+    metadata key (e.g. embrouter_metadata while the proxy writes to metadata).
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -429,7 +429,7 @@ async def test_add_litellm_data_to_request_strips_admin_injection_slots():
             "user_api_key_team_metadata": attacker_admin_payload,
             "_pipeline_managed_guardrails": ["evaded"],
         },
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "user_api_key_metadata": attacker_admin_payload,
             "user_api_key_team_metadata": attacker_admin_payload,
             "_pipeline_managed_guardrails": ["evaded"],
@@ -448,7 +448,7 @@ async def test_add_litellm_data_to_request_strips_admin_injection_slots():
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -465,20 +465,20 @@ async def test_add_litellm_data_to_request_strips_admin_injection_slots():
     assert populated["user_api_key_team_metadata"] == real_admin_metadata
     assert "_pipeline_managed_guardrails" not in populated or populated["_pipeline_managed_guardrails"] != ["evaded"]
 
-    other = updated.get("litellm_metadata") or {}
+    other = updated.get("embrouter_metadata") or {}
     assert other.get("user_api_key_metadata") in (None, {}, real_admin_metadata)
     assert other.get("user_api_key_team_metadata") in (None, {}, real_admin_metadata)
     assert "_pipeline_managed_guardrails" not in other
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_all_user_api_key_prefix_keys():
+async def test_add_embrouter_data_to_request_strips_all_user_api_key_prefix_keys():
     """Strip must cover the full user_api_key_* family, not a hand-maintained
     list of 2-3 names. Proxy writes a dozen such fields (user_id, alias,
     spend, team_id, request_route, …) and an attacker populating any of them
     in the non-authoritative metadata key would otherwise forge identity /
     spend in audit logs and guardrails."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -502,7 +502,7 @@ async def test_add_litellm_data_to_request_strips_all_user_api_key_prefix_keys()
     data = {
         "model": "gpt-3.5-turbo",
         "metadata": {**attacker_injected},
-        "litellm_metadata": {**attacker_injected},
+        "embrouter_metadata": {**attacker_injected},
     }
 
     user_api_key_dict = UserAPIKeyAuth(
@@ -517,7 +517,7 @@ async def test_add_litellm_data_to_request_strips_all_user_api_key_prefix_keys()
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -528,20 +528,20 @@ async def test_add_litellm_data_to_request_strips_all_user_api_key_prefix_keys()
 
     # The non-authoritative metadata dict must not retain ANY attacker-injected
     # user_api_key_* key.
-    other = updated.get("litellm_metadata") or {}
+    other = updated.get("embrouter_metadata") or {}
     attacker_leaks = [k for k in other if k.startswith("user_api_key_")]
     assert attacker_leaks == [], f"Unexpected leaked keys: {attacker_leaks}"
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_string_metadata_does_not_crash():
+async def test_add_embrouter_data_to_request_string_metadata_does_not_crash():
     """Regression: pre-strip code that pre-populated data['metadata'][k]=v
     before the string-to-dict parse would crash on JSON-string metadata.
     The snapshot / strip / admin-population pipeline must survive metadata
     arriving as a string."""
     import json as _json
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -570,7 +570,7 @@ async def test_add_litellm_data_to_request_string_metadata_does_not_crash():
     )
 
     # Must not raise TypeError / AttributeError.
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -605,21 +605,21 @@ def _batches_request_mock() -> MagicMock:
     "field,value,received_type",
     [
         ("metadata", "abc", "a string"),
-        ("litellm_metadata", "abc", "a string"),
+        ("embrouter_metadata", "abc", "a string"),
         ("metadata", 42, "an integer"),
-        ("litellm_metadata", [1, 2], "an array"),
+        ("embrouter_metadata", [1, 2], "an array"),
         ("metadata", True, "a boolean"),
     ],
 )
-async def test_add_litellm_data_to_request_rejects_non_object_metadata(field, value, received_type):
+async def test_add_embrouter_data_to_request_rejects_non_object_metadata(field, value, received_type):
     """Regression test.
     non-object metadata was silently dropped with a 200, and a non-object
-    litellm_metadata crashed later with a 500 ('str' object has no attribute
+    embrouter_metadata crashed later with a 500 ('str' object has no attribute
     'update'). Both must be a 400 naming the field, like OpenAI returns."""
     data = {"input_file_id": "file-abc", "endpoint": "/v1/chat/completions", field: value}
 
     with pytest.raises(ProxyException) as exc_info:
-        await add_litellm_data_to_request(
+        await add_embrouter_data_to_request(
             data=data,
             request=_batches_request_mock(),
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -635,14 +635,14 @@ async def test_add_litellm_data_to_request_rejects_non_object_metadata(field, va
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_removes_every_invalid_metadata_field_before_raising():
+async def test_add_embrouter_data_to_request_removes_every_invalid_metadata_field_before_raising():
     """When both fields are invalid, the raise for the first must not leave the
     second invalid value in data, or failure-logging hooks that inspect the body
     can crash on it and mask the 400 as a 500."""
-    data = {"input_file_id": "file-abc", "metadata": "abc", "litellm_metadata": "xyz"}
+    data = {"input_file_id": "file-abc", "metadata": "abc", "embrouter_metadata": "xyz"}
 
     with pytest.raises(ProxyException) as exc_info:
-        await add_litellm_data_to_request(
+        await add_embrouter_data_to_request(
             data=data,
             request=_batches_request_mock(),
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -653,14 +653,14 @@ async def test_add_litellm_data_to_request_removes_every_invalid_metadata_field_
 
     assert exc_info.value.param == "metadata"
     assert "metadata" not in data
-    assert "litellm_metadata" not in data
+    assert "embrouter_metadata" not in data
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_parses_json_object_string_litellm_metadata():
-    data = {"input_file_id": "file-abc", "litellm_metadata": json.dumps({"cost_centre": "research"})}
+async def test_add_embrouter_data_to_request_parses_json_object_string_embrouter_metadata():
+    data = {"input_file_id": "file-abc", "embrouter_metadata": json.dumps({"cost_centre": "research"})}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_batches_request_mock(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -669,15 +669,15 @@ async def test_add_litellm_data_to_request_parses_json_object_string_litellm_met
         version="test-version",
     )
 
-    assert updated["litellm_metadata"]["cost_centre"] == "research"
+    assert updated["embrouter_metadata"]["cost_centre"] == "research"
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_proxy_server_request_body_is_post_strip():
+async def test_add_embrouter_data_to_request_proxy_server_request_body_is_post_strip():
     """Regression: proxy_server_request['body'] used to be snapshotted before
     the admin-slot strip, so standard_logging_object and spend-tracking
     readers saw attacker-injected payload. Snapshot must now be post-strip."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -706,7 +706,7 @@ async def test_add_litellm_data_to_request_proxy_server_request_body_is_post_str
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -722,7 +722,7 @@ async def test_add_litellm_data_to_request_proxy_server_request_body_is_post_str
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_body_snapshot_excludes_secret_fields():
+async def test_add_embrouter_data_to_request_body_snapshot_excludes_secret_fields():
     """Security: proxy_server_request['body'] must never contain secret_fields
     because that dict holds raw HTTP headers including Authorization Bearer
     tokens. The body snapshot is persisted in spend logs and other audit trails,
@@ -731,7 +731,7 @@ async def test_add_litellm_data_to_request_body_snapshot_excludes_secret_fields(
     secret_fields must still be available on the live ``data`` dict for
     downstream consumers (MCP, Responses API) that legitimately need raw headers.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -763,7 +763,7 @@ async def test_add_litellm_data_to_request_body_snapshot_excludes_secret_fields(
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -785,14 +785,14 @@ async def test_add_litellm_data_to_request_body_snapshot_excludes_secret_fields(
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_body_snapshot_excludes_proxy_server_request():
+async def test_add_embrouter_data_to_request_body_snapshot_excludes_proxy_server_request():
     """Regression: the body snapshot used to include the proxy_server_request
     key itself, producing the path
     ``proxy_server_request.body.proxy_server_request.body == body``. Custom
     loggers and audit consumers must not see the self-referencing structure
     (independent of redaction — fires on every successful call).
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -825,7 +825,7 @@ async def test_add_litellm_data_to_request_body_snapshot_excludes_proxy_server_r
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -844,13 +844,13 @@ async def test_add_litellm_data_to_request_body_snapshot_excludes_proxy_server_r
 
 
 def test_initial_snapshot_refresh_clears_a_previous_guardrail_checkpoint() -> None:
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.litellm_pre_call_utils import refresh_proxy_server_request_body_snapshot
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy.embrouter_pre_call_utils import refresh_proxy_server_request_body_snapshot
 
     logging_obj: Final = Logging(
         model="test-model", messages=[], stream=False, call_type="acompletion",
-        start_time=datetime.now(), litellm_call_id="new-request", function_id="new-request",
+        start_time=datetime.now(), embrouter_call_id="new-request", function_id="new-request",
     )
     logging_obj.shadow_eval_request_snapshot = GuardrailRequestSnapshot.capture(
         {"messages": [{"role": "user", "content": "previous request"}]},
@@ -861,7 +861,7 @@ def test_initial_snapshot_refresh_clears_a_previous_guardrail_checkpoint() -> No
     data: Final = {
         "messages": [{"role": "user", "content": "new request"}],
         "proxy_server_request": proxy_request,
-        "litellm_logging_obj": logging_obj,
+        "embrouter_logging_obj": logging_obj,
     }
 
     refresh_proxy_server_request_body_snapshot(data)
@@ -871,8 +871,8 @@ def test_initial_snapshot_refresh_clears_a_previous_guardrail_checkpoint() -> No
 
 
 def test_body_snapshot_excludes_team_callback_credentials() -> None:
-    from litellm.proxy.litellm_pre_call_utils import refresh_proxy_server_request_body_snapshot
-    from litellm.types.litellm_params import TRUSTED_CALLBACK_VARS_FIELD
+    from embrouter.proxy.embrouter_pre_call_utils import refresh_proxy_server_request_body_snapshot
+    from embrouter.types.embrouter_params import TRUSTED_CALLBACK_VARS_FIELD
 
     callback_vars: Final = {
         "langfuse_public_key": "pk-lf-team",
@@ -900,10 +900,10 @@ def test_body_snapshot_excludes_team_callback_credentials() -> None:
 async def test_post_guardrail_snapshot_preserves_logging_only_masking_in_spend_logs(
     monkeypatch: pytest.MonkeyPatch, pre_call_ran: bool
 ) -> None:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import _OPTIONAL_PresidioPIIMasking
-    from litellm.proxy.litellm_pre_call_utils import refresh_proxy_server_request_body_snapshot
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_proxy_server_request_for_spend_logs_payload
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy.guardrails.guardrail_hooks.presidio import _OPTIONAL_PresidioPIIMasking
+    from embrouter.proxy.embrouter_pre_call_utils import refresh_proxy_server_request_body_snapshot
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_proxy_server_request_for_spend_logs_payload
 
     monkeypatch.setenv("STORE_PROMPTS_IN_SPEND_LOGS", "true")
     messages: Final = [{"role": "user", "content": "email probe@example.invalid"}]
@@ -913,9 +913,9 @@ async def test_post_guardrail_snapshot_preserves_logging_only_masking_in_spend_l
     data: Final = {"messages": messages, "metadata": metadata, "proxy_server_request": {}}
     logging_obj: Final = Logging(
         model="test-model", messages=messages, stream=False, call_type="acompletion",
-        start_time=datetime.now(), litellm_call_id="mask-spend", function_id="mask-spend", kwargs=data,
+        start_time=datetime.now(), embrouter_call_id="mask-spend", function_id="mask-spend", kwargs=data,
     )
-    data["litellm_logging_obj"] = logging_obj
+    data["embrouter_logging_obj"] = logging_obj
     refresh_proxy_server_request_body_snapshot(data, guardrails_applied=True)
     logging_obj.update_messages(messages)
     snapshot: Final = logging_obj.shadow_eval_request_snapshot
@@ -928,7 +928,7 @@ async def test_post_guardrail_snapshot_preserves_logging_only_masking_in_spend_l
         kwargs=logging_obj.model_call_details, result=None, call_type="acompletion"
     )
     stored: Final = json.loads(_get_proxy_server_request_for_spend_logs_payload(
-        metadata={}, litellm_params=kwargs["litellm_params"], kwargs=kwargs,
+        metadata={}, embrouter_params=kwargs["embrouter_params"], kwargs=kwargs,
     ))
 
     assert kwargs["messages"] == [{"role": "user", "content": "email [EMAIL]"}]
@@ -941,25 +941,25 @@ async def test_post_guardrail_snapshot_preserves_logging_only_masking_in_spend_l
 def test_refresh_proxy_server_request_body_snapshot_picks_up_guardrail_masking():
     """
     Regression: proxy_server_request['body'] is snapshotted by
-    add_litellm_data_to_request BEFORE guardrails (e.g. Presidio PII masking) run
+    add_embrouter_data_to_request BEFORE guardrails (e.g. Presidio PII masking) run
     in pre_call_hook. Without a refresh after pre_call_hook, the persisted body
     silently bypasses whatever masking the guardrail applied, so raw PII/PCI
     lands in SpendLogs when store_prompts_in_spend_logs is enabled.
     """
-    from litellm.proxy.litellm_pre_call_utils import (
+    from embrouter.proxy.embrouter_pre_call_utils import (
         refresh_proxy_server_request_body_snapshot,
     )
 
     class _FakeLoggingObj:
         """Stands in for the live, non-JSON-serializable Logging instance that
-        litellm.utils.function_setup stamps onto `data` between the initial
+        embrouter.utils.function_setup stamps onto `data` between the initial
         snapshot and pre_call_hook."""
 
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "my ssn is 123-45-6789"}],
         "secret_fields": {"raw_headers": {"authorization": "Bearer sk-secret"}},
-        "litellm_logging_obj": _FakeLoggingObj(),
+        "embrouter_logging_obj": _FakeLoggingObj(),
         "proxy_server_request": {
             "url": "http://localhost/v1/chat/completions",
             "method": "POST",
@@ -982,17 +982,17 @@ def test_refresh_proxy_server_request_body_snapshot_picks_up_guardrail_masking()
     # the initial snapshot -- and proves the persisted body stays JSON-serializable.
     assert "secret_fields" not in refreshed_body
     assert "proxy_server_request" not in refreshed_body
-    assert "litellm_logging_obj" not in refreshed_body
+    assert "embrouter_logging_obj" not in refreshed_body
     assert "123-45-6789" not in json.dumps(refreshed_body)
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_string_encoded_admin_injection():
+async def test_add_embrouter_data_to_request_strips_string_encoded_admin_injection():
     """Regression: metadata arriving as a JSON string (multipart/form-data or
     extra_body) must not bypass the admin-injection strip. The parse happens
     AFTER receipt, so the strip has to run after the parse, not before.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1013,7 +1013,7 @@ async def test_add_litellm_data_to_request_strips_string_encoded_admin_injection
     data = {
         "model": "gpt-3.5-turbo",
         "metadata": json.dumps(attacker_payload),
-        "litellm_metadata": json.dumps(attacker_payload),
+        "embrouter_metadata": json.dumps(attacker_payload),
     }
 
     real_admin_metadata = {"admin_flag": "from_proxy"}
@@ -1028,7 +1028,7 @@ async def test_add_litellm_data_to_request_strips_string_encoded_admin_injection
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1043,15 +1043,15 @@ async def test_add_litellm_data_to_request_strips_string_encoded_admin_injection
     assert populated["user_api_key_team_metadata"] == real_admin_metadata
     assert populated.get("_pipeline_managed_guardrails") != ["evaded"]
 
-    other = updated.get("litellm_metadata") or {}
-    # After the strip, litellm_metadata has no admin-injection slots.
+    other = updated.get("embrouter_metadata") or {}
+    # After the strip, embrouter_metadata has no admin-injection slots.
     assert "user_api_key_metadata" not in other
     assert "user_api_key_team_metadata" not in other
     assert "_pipeline_managed_guardrails" not in other
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_user_control_fields():
+async def test_add_embrouter_data_to_request_strips_user_control_fields():
     """Strip untrusted proxy-control fields before guardrails, logging, and headers read metadata."""
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1076,7 +1076,7 @@ async def test_add_litellm_data_to_request_strips_user_control_fields():
         "applied_policies": ["spoofed-policy"],
         "policy_sources": {"spoofed-policy": "request"},
         "routing_decision": {"cause": "forged", "routed_model": "spoofed"},
-        "litellm_gateway_injected_cache": "forged-deployment-id",
+        "embrouter_gateway_injected_cache": "forged-deployment-id",
         "_session_deployment_affinity_ttl": 999999,
         "internal_call_origin": "autorouter_classifier",
         "_guardrail_pipelines": [{"name": "spoofed"}],
@@ -1091,14 +1091,14 @@ async def test_add_litellm_data_to_request_strips_user_control_fields():
         "disable_global_guardrails": True,
         "enable_prompt_caching": True,
         "routing_decision": {"cause": "forged", "routed_model": "spoofed"},
-        "litellm_gateway_injected_cache": "forged-deployment-id",
+        "embrouter_gateway_injected_cache": "forged-deployment-id",
         "metadata": copy.deepcopy(malicious_metadata),
-        "litellm_metadata": copy.deepcopy(malicious_metadata),
+        "embrouter_metadata": copy.deepcopy(malicious_metadata),
         "weights": {"gpt-3.5-turbo": {"forged-deployment-id": 100}},
         "_router_weights": {"gpt-3.5-turbo": {"forged-deployment-id": 100}},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -1112,7 +1112,7 @@ async def test_add_litellm_data_to_request_strips_user_control_fields():
     assert "disable_global_guardrails" not in updated
     assert "enable_prompt_caching" not in updated
     assert "routing_decision" not in updated
-    assert "litellm_gateway_injected_cache" not in updated
+    assert "embrouter_gateway_injected_cache" not in updated
     assert "weights" not in updated
     assert "_router_weights" not in updated
     assert "weights" not in updated["proxy_server_request"]["body"]
@@ -1131,13 +1131,13 @@ async def test_add_litellm_data_to_request_strips_user_control_fields():
         "applied_policies",
         "policy_sources",
         "routing_decision",
-        "litellm_gateway_injected_cache",
+        "embrouter_gateway_injected_cache",
         "_session_deployment_affinity_ttl",
         "internal_call_origin",
         "_guardrail_pipelines",
         "_pipeline_managed_guardrails",
     }
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     for stripped_key in stripped_keys:
         assert stripped_key not in updated["metadata"]
     assert updated["metadata"]["safe_user_metadata"] == "kept"
@@ -1176,7 +1176,7 @@ async def test_key_metadata_enable_prompt_caching_promoted_to_request_root(key_v
     }
     key_metadata = {} if key_value is None else {"enable_prompt_caching": key_value}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", metadata=key_metadata),
@@ -1195,7 +1195,7 @@ async def test_key_metadata_enable_prompt_caching_promoted_to_request_root(key_v
         "callbacks",
         "service_callback",
         "logger_fn",
-        "litellm_disabled_callbacks",
+        "embrouter_disabled_callbacks",
         "_agentic_loop_depth",
         "_agentic_loop_fingerprints",
         "_code_interpreter_interception_active",
@@ -1205,14 +1205,14 @@ async def test_key_metadata_enable_prompt_caching_promoted_to_request_root(key_v
         "max_agentic_loops",
     ],
 )
-async def test_add_litellm_data_to_request_strips_callback_control_fields(
+async def test_add_embrouter_data_to_request_strips_callback_control_fields(
     control_field,
 ):
     """``callbacks`` / ``service_callback`` / ``logger_fn`` get appended to
-    the worker-wide ``litellm.{input,success,failure,_async_*,service}_callback``
-    lists and ``litellm.user_logger_fn`` from inside ``function_setup`` —
+    the worker-wide ``embrouter.{input,success,failure,_async_*,service}_callback``
+    lists and ``embrouter.user_logger_fn`` from inside ``function_setup`` —
     one request poisons every subsequent caller in that worker.
-    ``litellm_disabled_callbacks`` is the inverse: a request-body value
+    ``embrouter_disabled_callbacks`` is the inverse: a request-body value
     silently disables admin-configured audit/observability for the call.
     None has a documented per-request use, so all four are stripped at
     the proxy boundary alongside the existing internal-only fields."""
@@ -1229,7 +1229,7 @@ async def test_add_litellm_data_to_request_strips_callback_control_fields(
     sample_values = {
         "callbacks": ["langfuse"],
         "service_callback": ["langfuse"],
-        "litellm_disabled_callbacks": ["langfuse"],
+        "embrouter_disabled_callbacks": ["langfuse"],
         "logger_fn": "module.func",
         "_agentic_loop_depth": 5,
         "_agentic_loop_fingerprints": ["forged"],
@@ -1241,7 +1241,7 @@ async def test_add_litellm_data_to_request_strips_callback_control_fields(
     }
     sample_value = sample_values[control_field]
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "hi"}],
@@ -1263,7 +1263,7 @@ async def test_add_litellm_data_to_request_strips_callback_control_fields(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("timeout_field", ["timeout", "request_timeout", "stream_timeout"])
-async def test_add_litellm_data_to_request_marks_body_timeout_as_client_side(timeout_field):
+async def test_add_embrouter_data_to_request_marks_body_timeout_as_client_side(timeout_field):
     """Router._get_timeout resolves the effective timeout from any of kwargs["timeout"],
     kwargs["request_timeout"], or kwargs["stream_timeout"], all settable directly in the
     request body. Without recognizing all three, a caller could force a 408 on every
@@ -1279,7 +1279,7 @@ async def test_add_litellm_data_to_request_marks_body_timeout_as_client_side(tim
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "hi"}],
@@ -1296,7 +1296,7 @@ async def test_add_litellm_data_to_request_marks_body_timeout_as_client_side(tim
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_ignores_forged_client_side_timeout():
+async def test_add_embrouter_data_to_request_ignores_forged_client_side_timeout():
     """The client_side_timeout marker itself must never be trusted verbatim from the
     request body: a caller forging client_side_timeout=True without a real timeout
     override could dodge cooldown protection on an actual deployment failure."""
@@ -1310,7 +1310,7 @@ async def test_add_litellm_data_to_request_ignores_forged_client_side_timeout():
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "hi"}],
@@ -1333,7 +1333,7 @@ async def test_client_side_timeout_marker_never_reaches_the_provider():
     into the provider payload: unregistered kwargs are swept into extra_body /
     additionalModelRequestFields, so Bedrock rejects the whole call with
     `client_side_timeout: Extra inputs are not permitted`."""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1345,7 +1345,7 @@ async def test_client_side_timeout_marker_never_reaches_the_provider():
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "bedrock/us.anthropic.claude-sonnet-5",
             "messages": [{"role": "user", "content": "hi"}],
@@ -1371,7 +1371,7 @@ async def test_client_side_timeout_marker_never_reaches_the_provider():
     converse_response.text = json.dumps(converse_response.json.return_value)
     client = AsyncHTTPHandler()
     with patch.object(client, "post", return_value=converse_response) as mock_post:
-        await litellm.acompletion(
+        await embrouter.acompletion(
             **updated,
             aws_access_key_id="fake-access-key",
             aws_secret_access_key="fake-secret-key",
@@ -1386,7 +1386,7 @@ async def test_client_side_timeout_marker_never_reaches_the_provider():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_allows_client_mock_response_with_admin_opt_in():
+async def test_add_embrouter_data_to_request_allows_client_mock_response_with_admin_opt_in():
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
     request_mock.url = MagicMock()
@@ -1397,7 +1397,7 @@ async def test_add_litellm_data_to_request_allows_client_mock_response_with_admi
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "hello"}],
@@ -1419,7 +1419,7 @@ async def test_add_litellm_data_to_request_allows_client_mock_response_with_admi
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_client_redaction_bypass_controls():
+async def test_add_embrouter_data_to_request_strips_client_redaction_bypass_controls():
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
     request_mock.url = MagicMock()
@@ -1428,30 +1428,30 @@ async def test_add_litellm_data_to_request_strips_client_redaction_bypass_contro
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "litellm-disable-message-redaction": "true",
+        "embrouter-disable-message-redaction": "true",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    original_turn_off_message_logging = litellm.turn_off_message_logging
-    litellm.turn_off_message_logging = True
+    original_turn_off_message_logging = embrouter.turn_off_message_logging
+    embrouter.turn_off_message_logging = True
     try:
-        updated = await add_litellm_data_to_request(
+        updated = await add_embrouter_data_to_request(
             data={
                 "model": "gpt-3.5-turbo",
                 "messages": [{"role": "user", "content": "hello"}],
                 "turn_off_message_logging": False,
                 "metadata": {
-                    "headers": {"litellm-disable-message-redaction": "true"},
+                    "headers": {"embrouter-disable-message-redaction": "true"},
                     "turn_off_message_logging": False,
                 },
-                "litellm_metadata": json.dumps(
+                "embrouter_metadata": json.dumps(
                     {
-                        "headers": {"LiteLLM-Disable-Message-Redaction": "true"},
+                        "headers": {"EmbRouter-Disable-Message-Redaction": "true"},
                         "turn_off_message_logging": "false",
                     }
                 ),
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {"turn_off_message_logging": False},
                 },
             },
@@ -1462,24 +1462,24 @@ async def test_add_litellm_data_to_request_strips_client_redaction_bypass_contro
             version="test-version",
         )
     finally:
-        litellm.turn_off_message_logging = original_turn_off_message_logging
+        embrouter.turn_off_message_logging = original_turn_off_message_logging
 
     assert "turn_off_message_logging" not in updated
-    assert "turn_off_message_logging" not in (updated.get("litellm_params") or {}).get("metadata", {})
+    assert "turn_off_message_logging" not in (updated.get("embrouter_params") or {}).get("metadata", {})
     assert "turn_off_message_logging" not in updated["metadata"]
-    assert "turn_off_message_logging" not in (updated.get("litellm_metadata") or {})
-    assert "litellm-disable-message-redaction" not in {header.lower() for header in updated["metadata"]["headers"]}
-    assert "litellm-disable-message-redaction" not in {
+    assert "turn_off_message_logging" not in (updated.get("embrouter_metadata") or {})
+    assert "embrouter-disable-message-redaction" not in {header.lower() for header in updated["metadata"]["headers"]}
+    assert "embrouter-disable-message-redaction" not in {
         header.lower() for header in updated["metadata"]["requester_metadata"].get("headers", {})
     }
-    assert "litellm-disable-message-redaction" not in {
+    assert "embrouter-disable-message-redaction" not in {
         header.lower() for header in updated["proxy_server_request"]["headers"]
     }
-    assert "litellm-disable-message-redaction" not in {
+    assert "embrouter-disable-message-redaction" not in {
         header.lower() for header in updated["proxy_server_request"]["body"]["metadata"]["headers"]
     }
-    assert "litellm-disable-message-redaction" not in {
-        header.lower() for header in (updated.get("litellm_metadata") or {}).get("headers", {})
+    assert "embrouter-disable-message-redaction" not in {
+        header.lower() for header in (updated.get("embrouter_metadata") or {}).get("headers", {})
     }
 
 
@@ -1511,13 +1511,13 @@ async def test_add_litellm_data_to_request_strips_client_redaction_bypass_contro
     ],
 )
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_logging_overrides_global(
+async def test_add_embrouter_data_to_request_admin_callback_vars_turn_off_message_logging_overrides_global(
     admin_metadata_kwargs,
 ):
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         initialize_standard_callback_dynamic_params,
     )
-    from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
+    from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1529,10 +1529,10 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    original_turn_off_message_logging = litellm.turn_off_message_logging
-    litellm.turn_off_message_logging = True
+    original_turn_off_message_logging = embrouter.turn_off_message_logging
+    embrouter.turn_off_message_logging = True
     try:
-        updated = await add_litellm_data_to_request(
+        updated = await add_embrouter_data_to_request(
             data={
                 "model": "gpt-3.5-turbo",
                 "messages": [{"role": "user", "content": "hello"}],
@@ -1551,7 +1551,7 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
 
         assert should_redact_message_logging({"standard_callback_dynamic_params": dynamic_params}) is False
     finally:
-        litellm.turn_off_message_logging = original_turn_off_message_logging
+        embrouter.turn_off_message_logging = original_turn_off_message_logging
 
 
 @pytest.mark.parametrize(
@@ -1582,13 +1582,13 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
     ],
 )
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_logging_enables_redaction_when_global_off(
+async def test_add_embrouter_data_to_request_admin_callback_vars_turn_off_message_logging_enables_redaction_when_global_off(
     admin_metadata_kwargs,
 ):
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         initialize_standard_callback_dynamic_params,
     )
-    from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
+    from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1600,10 +1600,10 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    original_turn_off_message_logging = litellm.turn_off_message_logging
-    litellm.turn_off_message_logging = False
+    original_turn_off_message_logging = embrouter.turn_off_message_logging
+    embrouter.turn_off_message_logging = False
     try:
-        updated = await add_litellm_data_to_request(
+        updated = await add_embrouter_data_to_request(
             data={
                 "model": "gpt-3.5-turbo",
                 "messages": [{"role": "user", "content": "hello"}],
@@ -1622,7 +1622,7 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
 
         assert should_redact_message_logging({"standard_callback_dynamic_params": dynamic_params}) is True
     finally:
-        litellm.turn_off_message_logging = original_turn_off_message_logging
+        embrouter.turn_off_message_logging = original_turn_off_message_logging
 
 
 @pytest.mark.parametrize(
@@ -1633,7 +1633,7 @@ async def test_add_litellm_data_to_request_admin_callback_vars_turn_off_message_
     ],
 )
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_allows_redaction_opt_out_with_admin_opt_in(
+async def test_add_embrouter_data_to_request_allows_redaction_opt_out_with_admin_opt_in(
     auth_kwargs,
 ):
     request_mock = MagicMock(spec=Request)
@@ -1644,24 +1644,24 @@ async def test_add_litellm_data_to_request_allows_redaction_opt_out_with_admin_o
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "litellm-disable-message-redaction": "true",
+        "embrouter-disable-message-redaction": "true",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
-    original_turn_off_message_logging = litellm.turn_off_message_logging
-    litellm.turn_off_message_logging = True
+    original_turn_off_message_logging = embrouter.turn_off_message_logging
+    embrouter.turn_off_message_logging = True
     try:
-        updated = await add_litellm_data_to_request(
+        updated = await add_embrouter_data_to_request(
             data={
                 "model": "gpt-3.5-turbo",
                 "messages": [{"role": "user", "content": "hello"}],
                 "turn_off_message_logging": False,
                 "metadata": {
-                    "headers": {"litellm-disable-message-redaction": "true"},
+                    "headers": {"embrouter-disable-message-redaction": "true"},
                     "turn_off_message_logging": False,
                 },
-                "litellm_metadata": json.dumps({"headers": {"LiteLLM-Disable-Message-Redaction": "true"}}),
+                "embrouter_metadata": json.dumps({"headers": {"EmbRouter-Disable-Message-Redaction": "true"}}),
             },
             request=request_mock,
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", **auth_kwargs),
@@ -1670,27 +1670,27 @@ async def test_add_litellm_data_to_request_allows_redaction_opt_out_with_admin_o
             version="test-version",
         )
     finally:
-        litellm.turn_off_message_logging = original_turn_off_message_logging
+        embrouter.turn_off_message_logging = original_turn_off_message_logging
 
     assert updated["turn_off_message_logging"] is False
     assert updated["metadata"]["turn_off_message_logging"] is False
-    assert "litellm-disable-message-redaction" in {header.lower() for header in updated["metadata"]["headers"]}
-    assert "litellm-disable-message-redaction" in {
+    assert "embrouter-disable-message-redaction" in {header.lower() for header in updated["metadata"]["headers"]}
+    assert "embrouter-disable-message-redaction" in {
         header.lower() for header in updated["metadata"]["requester_metadata"].get("headers", {})
     }
-    assert "litellm-disable-message-redaction" in {
+    assert "embrouter-disable-message-redaction" in {
         header.lower() for header in updated["proxy_server_request"]["headers"]
     }
-    assert "litellm-disable-message-redaction" in {
+    assert "embrouter-disable-message-redaction" in {
         header.lower() for header in updated["proxy_server_request"]["body"]["metadata"]["headers"]
     }
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_honors_header_tags():
+async def test_add_embrouter_data_to_request_honors_header_tags():
     """Header-supplied tags flow through to request metadata."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1700,7 +1700,7 @@ async def test_add_litellm_data_to_request_honors_header_tags():
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "x-litellm-tags": "production,ab-test",
+        "x-embrouter-tags": "production,ab-test",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
@@ -1718,7 +1718,7 @@ async def test_add_litellm_data_to_request_honors_header_tags():
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1731,9 +1731,9 @@ async def test_add_litellm_data_to_request_honors_header_tags():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_preserves_caller_metadata_tags():
+async def test_add_embrouter_data_to_request_preserves_caller_metadata_tags():
     """Caller-supplied metadata.tags are preserved and reach the router."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1761,7 +1761,7 @@ async def test_add_litellm_data_to_request_preserves_caller_metadata_tags():
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1774,10 +1774,10 @@ async def test_add_litellm_data_to_request_preserves_caller_metadata_tags():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static_key_tags():
-    """Caller-supplied `x-litellm-tags` must union with static key-level
+async def test_add_embrouter_data_to_request_unions_caller_header_tags_with_static_key_tags():
+    """Caller-supplied `x-embrouter-tags` must union with static key-level
     tags, not overwrite them."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1787,7 +1787,7 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "x-litellm-tags": "tenant:1681",
+        "x-embrouter-tags": "tenant:1681",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
@@ -1805,7 +1805,7 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1821,9 +1821,9 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static_team_tags():
+async def test_add_embrouter_data_to_request_unions_caller_header_tags_with_static_team_tags():
     """Same union behavior must hold for team-level static tags."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1833,7 +1833,7 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "x-litellm-tags": "tenant:42",
+        "x-embrouter-tags": "tenant:42",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
@@ -1851,7 +1851,7 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1867,10 +1867,10 @@ async def test_add_litellm_data_to_request_unions_caller_header_tags_with_static
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_unions_dedups_overlapping_caller_and_static_tags():
+async def test_add_embrouter_data_to_request_unions_dedups_overlapping_caller_and_static_tags():
     """A tag that appears in both the static set and the caller header
     must show up exactly once in the merged list."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -1880,7 +1880,7 @@ async def test_add_litellm_data_to_request_unions_dedups_overlapping_caller_and_
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "x-litellm-tags": "env:prod,tenant:7",
+        "x-embrouter-tags": "env:prod,tenant:7",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
@@ -1898,7 +1898,7 @@ async def test_add_litellm_data_to_request_unions_dedups_overlapping_caller_and_
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1914,8 +1914,8 @@ async def test_add_litellm_data_to_request_unions_dedups_overlapping_caller_and_
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_user_spend_and_budget():
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+async def test_add_embrouter_data_to_request_user_spend_and_budget():
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/completions"
@@ -1940,7 +1940,7 @@ async def test_add_litellm_data_to_request_user_spend_and_budget():
         user_max_budget=500.0,
     )
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -1955,8 +1955,8 @@ async def test_add_litellm_data_to_request_user_spend_and_budget():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_audio_transcription_multipart():
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+async def test_add_embrouter_data_to_request_audio_transcription_multipart():
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup request mock for /v1/audio/transcriptions
     request_mock = MagicMock(spec=Request)
@@ -1993,7 +1993,7 @@ async def test_add_litellm_data_to_request_audio_transcription_multipart():
         team_max_budget=200.0,
     )
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -2004,7 +2004,7 @@ async def test_add_litellm_data_to_request_audio_transcription_multipart():
 
     # Assert metadata was parsed correctly
     metadata_field = updated_data.get("metadata", {})
-    litellm_metadata = updated_data.get("litellm_metadata", {})
+    embrouter_metadata = updated_data.get("embrouter_metadata", {})
 
     assert isinstance(metadata_field, dict)
     assert "tags" in metadata_field
@@ -2015,11 +2015,11 @@ async def test_add_litellm_data_to_request_audio_transcription_multipart():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_disabled_callbacks():
+async def test_add_embrouter_data_to_request_disabled_callbacks():
     """
-    Test that litellm_disabled_callbacks from key metadata is properly added to the request data.
+    Test that embrouter_disabled_callbacks from key metadata is properly added to the request data.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request
     request_mock = MagicMock(spec=Request)
@@ -2037,7 +2037,7 @@ async def test_add_litellm_data_to_request_disabled_callbacks():
         api_key="test_api_key",
         user_id="test_user_id",
         org_id="test_org_id",
-        metadata={"litellm_disabled_callbacks": ["langfuse", "langsmith", "datadog"]},
+        metadata={"embrouter_disabled_callbacks": ["langfuse", "langsmith", "datadog"]},
     )
 
     # Setup request data
@@ -2049,17 +2049,17 @@ async def test_add_litellm_data_to_request_disabled_callbacks():
     # Setup proxy config
     proxy_config = MagicMock()
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
         proxy_config=proxy_config,
     )
 
-    # Verify that litellm_disabled_callbacks was added to the request data
-    assert "litellm_disabled_callbacks" in result
-    assert result["litellm_disabled_callbacks"] == ["langfuse", "langsmith", "datadog"]
+    # Verify that embrouter_disabled_callbacks was added to the request data
+    assert "embrouter_disabled_callbacks" in result
+    assert result["embrouter_disabled_callbacks"] == ["langfuse", "langsmith", "datadog"]
 
     # Verify that other data is still present
     assert "model" in result
@@ -2068,11 +2068,11 @@ async def test_add_litellm_data_to_request_disabled_callbacks():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_disabled_callbacks_empty():
+async def test_add_embrouter_data_to_request_disabled_callbacks_empty():
     """
-    Test that litellm_disabled_callbacks is not added when it's empty.
+    Test that embrouter_disabled_callbacks is not added when it's empty.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request
     request_mock = MagicMock(spec=Request)
@@ -2090,7 +2090,7 @@ async def test_add_litellm_data_to_request_disabled_callbacks_empty():
         api_key="test_api_key",
         user_id="test_user_id",
         org_id="test_org_id",
-        metadata={"litellm_disabled_callbacks": []},
+        metadata={"embrouter_disabled_callbacks": []},
     )
 
     # Setup request data
@@ -2102,16 +2102,16 @@ async def test_add_litellm_data_to_request_disabled_callbacks_empty():
     # Setup proxy config
     proxy_config = MagicMock()
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
         proxy_config=proxy_config,
     )
 
-    # Verify that litellm_disabled_callbacks is not added when empty
-    assert "litellm_disabled_callbacks" not in result
+    # Verify that embrouter_disabled_callbacks is not added when empty
+    assert "embrouter_disabled_callbacks" not in result
 
     # Verify that other data is still present
     assert "model" in result
@@ -2120,11 +2120,11 @@ async def test_add_litellm_data_to_request_disabled_callbacks_empty():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_disabled_callbacks_not_present():
+async def test_add_embrouter_data_to_request_disabled_callbacks_not_present():
     """
-    Test that litellm_disabled_callbacks is not added when it's not present in metadata.
+    Test that embrouter_disabled_callbacks is not added when it's not present in metadata.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request
     request_mock = MagicMock(spec=Request)
@@ -2142,7 +2142,7 @@ async def test_add_litellm_data_to_request_disabled_callbacks_not_present():
         api_key="test_api_key",
         user_id="test_user_id",
         org_id="test_org_id",
-        metadata={},  # No litellm_disabled_callbacks
+        metadata={},  # No embrouter_disabled_callbacks
     )
 
     # Setup request data
@@ -2154,16 +2154,16 @@ async def test_add_litellm_data_to_request_disabled_callbacks_not_present():
     # Setup proxy config
     proxy_config = MagicMock()
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
         proxy_config=proxy_config,
     )
 
-    # Verify that litellm_disabled_callbacks is not added when not present
-    assert "litellm_disabled_callbacks" not in result
+    # Verify that embrouter_disabled_callbacks is not added when not present
+    assert "embrouter_disabled_callbacks" not in result
 
     # Verify that other data is still present
     assert "model" in result
@@ -2172,11 +2172,11 @@ async def test_add_litellm_data_to_request_disabled_callbacks_not_present():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_disabled_callbacks_invalid_type():
+async def test_add_embrouter_data_to_request_disabled_callbacks_invalid_type():
     """
-    Test that litellm_disabled_callbacks is not added when it's not a list.
+    Test that embrouter_disabled_callbacks is not added when it's not a list.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request
     request_mock = MagicMock(spec=Request)
@@ -2194,7 +2194,7 @@ async def test_add_litellm_data_to_request_disabled_callbacks_invalid_type():
         api_key="test_api_key",
         user_id="test_user_id",
         org_id="test_org_id",
-        metadata={"litellm_disabled_callbacks": "not_a_list"},  # Should be a list
+        metadata={"embrouter_disabled_callbacks": "not_a_list"},  # Should be a list
     )
 
     # Setup request data
@@ -2206,16 +2206,16 @@ async def test_add_litellm_data_to_request_disabled_callbacks_invalid_type():
     # Setup proxy config
     proxy_config = MagicMock()
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
         proxy_config=proxy_config,
     )
 
-    # Verify that litellm_disabled_callbacks is not added when invalid type
-    assert "litellm_disabled_callbacks" not in result
+    # Verify that embrouter_disabled_callbacks is not added when invalid type
+    assert "embrouter_disabled_callbacks" not in result
 
     # Verify that other data is still present
     assert "model" in result
@@ -2224,11 +2224,11 @@ async def test_add_litellm_data_to_request_disabled_callbacks_invalid_type():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_disabled_callbacks_with_logging_settings():
+async def test_add_embrouter_data_to_request_disabled_callbacks_with_logging_settings():
     """
-    Test that litellm_disabled_callbacks works correctly alongside logging settings.
+    Test that embrouter_disabled_callbacks works correctly alongside logging settings.
     """
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request
     request_mock = MagicMock(spec=Request)
@@ -2254,7 +2254,7 @@ async def test_add_litellm_data_to_request_disabled_callbacks_with_logging_setti
                     "callback_vars": {},
                 }
             ],
-            "litellm_disabled_callbacks": ["langsmith", "datadog"],
+            "embrouter_disabled_callbacks": ["langsmith", "datadog"],
         },
     )
 
@@ -2267,8 +2267,8 @@ async def test_add_litellm_data_to_request_disabled_callbacks_with_logging_setti
     # Setup proxy config
     proxy_config = MagicMock()
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -2276,8 +2276,8 @@ async def test_add_litellm_data_to_request_disabled_callbacks_with_logging_setti
     )
 
     # Verify that both logging settings and disabled callbacks are handled correctly
-    assert "litellm_disabled_callbacks" in result
-    assert result["litellm_disabled_callbacks"] == ["langsmith", "datadog"]
+    assert "embrouter_disabled_callbacks" in result
+    assert result["embrouter_disabled_callbacks"] == ["langsmith", "datadog"]
 
     # Verify that other data is still present
     assert "model" in result
@@ -2343,9 +2343,9 @@ def test_team_dynamic_logging_settings():
 
 def test_key_dynamic_logging_settings_decrypts_callback_vars(monkeypatch):
     """Encrypted callback_vars on the key are decrypted before downstream use."""
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     encrypted_metadata = encrypt_callback_vars(
         {
             "logging": [
@@ -2372,9 +2372,9 @@ def test_key_dynamic_logging_settings_decrypts_callback_vars(monkeypatch):
 
 def test_team_dynamic_logging_settings_decrypts_callback_vars(monkeypatch):
     """Encrypted callback_vars on the team are decrypted before downstream use."""
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-salt-32-bytes-aaaaaaaaaaaaaa")
     encrypted_team = encrypt_callback_vars(
         {
             "logging": [
@@ -2445,7 +2445,7 @@ def test_get_dynamic_logging_metadata_ignores_env_reference_from_key_metadata(
 ):
     monkeypatch.setenv("LANGFUSE_SECRET_KEY_TEMP", "server-side-secret")
     monkeypatch.setattr(
-        litellm.utils,
+        embrouter.utils,
         "get_secret",
         lambda *args, **kwargs: pytest.fail("get_secret should not be called"),
     )
@@ -2472,93 +2472,93 @@ def test_get_dynamic_logging_metadata_ignores_env_reference_from_key_metadata(
 
 def test_get_num_retries_from_request():
     """
-    Test LiteLLMProxyRequestSetup._get_num_retries_from_request method
+    Test EmbRouterProxyRequestSetup._get_num_retries_from_request method
     """
     # Test case 1: Header is present with valid integer string
-    headers_with_retries = {"x-litellm-num-retries": "3"}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_retries)
+    headers_with_retries = {"x-embrouter-num-retries": "3"}
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_retries)
     assert result == 3
 
     # Test case 2: Header is not present
     headers_without_retries = {"Content-Type": "application/json"}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_without_retries)
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_without_retries)
     assert result is None
 
     # Test case 3: Empty headers dictionary
     empty_headers = {}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(empty_headers)
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(empty_headers)
     assert result is None
 
     # Test case 4: Header present with zero value
-    headers_with_zero = {"x-litellm-num-retries": "0"}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_zero)
+    headers_with_zero = {"x-embrouter-num-retries": "0"}
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_zero)
     assert result == 0
 
     # Test case 5: Header present with large number
-    headers_with_large_number = {"x-litellm-num-retries": "100"}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_large_number)
+    headers_with_large_number = {"x-embrouter-num-retries": "100"}
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_large_number)
     assert result == 100
 
     # Test case 6: Multiple headers with num retries header
     headers_multiple = {
         "Content-Type": "application/json",
-        "x-litellm-num-retries": "5",
+        "x-embrouter-num-retries": "5",
         "Authorization": "Bearer token",
     }
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_multiple)
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_multiple)
     assert result == 5
 
     # Test case 7: Header present with invalid value (should raise ValueError when int() is called)
-    headers_with_invalid = {"x-litellm-num-retries": "invalid"}
+    headers_with_invalid = {"x-embrouter-num-retries": "invalid"}
     with pytest.raises(ValueError, match="invalid literal for int\\(\\) with base"):
-        LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_invalid)
+        EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_invalid)
 
     # Test case 8: Header present with float string (should raise ValueError when int() is called)
-    headers_with_float = {"x-litellm-num-retries": "3.5"}
+    headers_with_float = {"x-embrouter-num-retries": "3.5"}
     with pytest.raises(ValueError, match="invalid literal for int\\(\\) with base"):
-        LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_float)
+        EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_float)
 
     # Test case 9: Header present with negative number
-    headers_with_negative = {"x-litellm-num-retries": "-1"}
-    result = LiteLLMProxyRequestSetup._get_num_retries_from_request(headers_with_negative)
+    headers_with_negative = {"x-embrouter-num-retries": "-1"}
+    result = EmbRouterProxyRequestSetup._get_num_retries_from_request(headers_with_negative)
     assert result == -1
 
 
 def test_get_keepalive_seconds_from_request():
     """
-    Test LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request method
+    Test EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request method
     """
     # Header present with valid float string
-    headers_with_keepalive = {"x-litellm-keepalive-seconds": "15"}
-    result = LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request(headers_with_keepalive)
+    headers_with_keepalive = {"x-embrouter-keepalive-seconds": "15"}
+    result = EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request(headers_with_keepalive)
     assert result == 15.0
 
     # Header not present
-    result = LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request({"Content-Type": "application/json"})
+    result = EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request({"Content-Type": "application/json"})
     assert result is None
 
     # Empty headers dictionary
-    result = LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request({})
+    result = EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request({})
     assert result is None
 
     # Header present with a fractional value
-    result = LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request({"x-litellm-keepalive-seconds": "1.5"})
+    result = EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request({"x-embrouter-keepalive-seconds": "1.5"})
     assert result == 1.5
 
     # Header present with invalid value raises ValueError, matching the other
-    # x-litellm-* numeric header helpers (_get_timeout_from_request, etc.)
+    # x-embrouter-* numeric header helpers (_get_timeout_from_request, etc.)
     with pytest.raises(ValueError, match="could not convert string to float: 'not-a-number"):
-        LiteLLMProxyRequestSetup._get_keepalive_seconds_from_request({"x-litellm-keepalive-seconds": "not-a-number"})
+        EmbRouterProxyRequestSetup._get_keepalive_seconds_from_request({"x-embrouter-keepalive-seconds": "not-a-number"})
 
 
-def test_add_litellm_data_for_backend_llm_call_merges_keepalive_seconds_header():
+def test_add_embrouter_data_for_backend_llm_call_merges_keepalive_seconds_header():
     """
-    The x-litellm-keepalive-seconds header must be merged into the data dict
-    that add_litellm_data_to_request later data.update()s onto the request body,
-    the same way x-litellm-timeout/x-litellm-num-retries already are.
+    The x-embrouter-keepalive-seconds header must be merged into the data dict
+    that add_embrouter_data_to_request later data.update()s onto the request body,
+    the same way x-embrouter-timeout/x-embrouter-num-retries already are.
     """
-    result = LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
-        headers={"x-litellm-keepalive-seconds": "20"},
+    result = EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
+        headers={"x-embrouter-keepalive-seconds": "20"},
         request_data={},
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
     )
@@ -2573,7 +2573,7 @@ def test_add_user_api_key_auth_to_request_metadata():
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "Hello"}],
-        "litellm_metadata": {},  # This will be the metadata variable name
+        "embrouter_metadata": {},  # This will be the metadata variable name
     }
 
     user_api_key_dict = UserAPIKeyAuth(
@@ -2589,10 +2589,10 @@ def test_add_user_api_key_auth_to_request_metadata():
         end_user_max_budget=500.0,
     )
 
-    metadata_variable_name = "litellm_metadata"
+    metadata_variable_name = "embrouter_metadata"
 
     # Call the function
-    result = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    result = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data=data,
         user_api_key_dict=user_api_key_dict,
         _metadata_variable_name=metadata_variable_name,
@@ -2659,15 +2659,15 @@ def test_stamped_auth_object_carries_no_callback_credentials():
     user_api_key_dict.parent_otel_span = otel_span
     user_api_key_dict.budget_reservation = {"amount": 1.0}
     user_api_key_dict.via_virtual_key = True
-    data = {"litellm_metadata": {}}
+    data = {"embrouter_metadata": {}}
 
-    result = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    result = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data=data,
         user_api_key_dict=user_api_key_dict,
-        _metadata_variable_name="litellm_metadata",
+        _metadata_variable_name="embrouter_metadata",
     )
 
-    stamped = result["litellm_metadata"]["user_api_key_auth"]
+    stamped = result["embrouter_metadata"]["user_api_key_auth"]
     emitted = json.dumps(
         {
             "metadata": stamped.metadata,
@@ -2710,10 +2710,10 @@ def test_stamping_does_not_mutate_the_cached_auth_object():
     metadata_before = copy.deepcopy(user_api_key_dict.metadata)
     team_metadata_before = copy.deepcopy(user_api_key_dict.team_metadata)
 
-    LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
-        data={"litellm_metadata": {}},
+    EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        data={"embrouter_metadata": {}},
         user_api_key_dict=user_api_key_dict,
-        _metadata_variable_name="litellm_metadata",
+        _metadata_variable_name="embrouter_metadata",
     )
 
     assert user_api_key_dict.metadata == metadata_before
@@ -2725,9 +2725,9 @@ def test_management_endpoint_metadata_drops_callback_credentials():
     Regression (LIT-5487): user_api_key_auth_metadata is part of StandardLoggingPayload, so a
     callback_settings-shaped team must not push credentials into it.
     """
-    data = {"litellm_metadata": {}}
+    data = {"embrouter_metadata": {}}
 
-    result = LiteLLMProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
+    result = EmbRouterProxyRequestSetup.add_management_endpoint_metadata_to_request_metadata(
         data=data,
         management_endpoint_metadata={
             "callback_settings": {"langfuse": {"callback_vars": {"langfuse_secret_key": "sk-TEAM-CANARY"}}},
@@ -2735,10 +2735,10 @@ def test_management_endpoint_metadata_drops_callback_credentials():
             "logging": [{"callback_vars": {"langfuse_secret_key": "sk-LOGGING-CANARY"}}],
             "other_field": "value",
         },
-        _metadata_variable_name="litellm_metadata",
+        _metadata_variable_name="embrouter_metadata",
     )
 
-    auth_metadata = result["litellm_metadata"]["user_api_key_auth_metadata"]
+    auth_metadata = result["embrouter_metadata"]["user_api_key_auth_metadata"]
     emitted = json.dumps(auth_metadata, default=str)
     assert "sk-TEAM-CANARY" not in emitted
     assert "vt-TEAM-CANARY" not in emitted
@@ -2789,7 +2789,7 @@ def test_management_endpoint_metadata_drops_callback_credentials():
 )
 def test_add_headers_to_llm_call_by_model_group(data, model_group_settings, expected_headers_added):
     """
-    Test LiteLLMProxyRequestSetup.add_headers_to_llm_call_by_model_group method
+    Test EmbRouterProxyRequestSetup.add_headers_to_llm_call_by_model_group method
 
     This tests various scenarios:
     1. When model is in the forward_client_headers_to_llm_api list
@@ -2799,7 +2799,7 @@ def test_add_headers_to_llm_call_by_model_group(data, model_group_settings, expe
     5. When data has no model
     6. When model is None
     """
-    import litellm
+    import embrouter
 
     # Setup test headers and user API key
     headers = {
@@ -2811,18 +2811,18 @@ def test_add_headers_to_llm_call_by_model_group(data, model_group_settings, expe
     user_api_key_dict = UserAPIKeyAuth(api_key="test-key", user_id="test-user", org_id="test-org")
 
     # Mock the model_group_settings
-    original_model_group_settings = getattr(litellm, "model_group_settings", None)
-    litellm.model_group_settings = model_group_settings
+    original_model_group_settings = getattr(embrouter, "model_group_settings", None)
+    embrouter.model_group_settings = model_group_settings
 
     try:
         # Mock the add_headers_to_llm_call method to return expected headers
         expected_returned_headers = {
-            "X-LiteLLM-User": "test-user",
-            "X-LiteLLM-Org": "test-org",
+            "X-EmbRouter-User": "test-user",
+            "X-EmbRouter-Org": "test-org",
         }
 
         with patch.object(
-            LiteLLMProxyRequestSetup,
+            EmbRouterProxyRequestSetup,
             "add_headers_to_llm_call",
             return_value=expected_returned_headers if expected_headers_added else {},
         ) as mock_add_headers:
@@ -2830,7 +2830,7 @@ def test_add_headers_to_llm_call_by_model_group(data, model_group_settings, expe
             original_data = copy.deepcopy(data)
 
             # Call the method under test
-            result = LiteLLMProxyRequestSetup.add_headers_to_llm_call_by_model_group(
+            result = EmbRouterProxyRequestSetup.add_headers_to_llm_call_by_model_group(
                 data=data, headers=headers, user_api_key_dict=user_api_key_dict
             )
 
@@ -2857,14 +2857,14 @@ def test_add_headers_to_llm_call_by_model_group(data, model_group_settings, expe
 
     finally:
         # Restore original model_group_settings
-        litellm.model_group_settings = original_model_group_settings
+        embrouter.model_group_settings = original_model_group_settings
 
 
 def test_add_headers_to_llm_call_by_model_group_empty_headers_returned():
     """
     Test that when add_headers_to_llm_call returns empty dict, no headers are added to data
     """
-    import litellm
+    import embrouter
 
     # Setup test data
     data = {"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}
@@ -2873,16 +2873,16 @@ def test_add_headers_to_llm_call_by_model_group_empty_headers_returned():
 
     # Mock model_group_settings with model in the list
     mock_settings = MagicMock(forward_client_headers_to_llm_api=["gpt-4"])
-    original_model_group_settings = getattr(litellm, "model_group_settings", None)
-    litellm.model_group_settings = mock_settings
+    original_model_group_settings = getattr(embrouter, "model_group_settings", None)
+    embrouter.model_group_settings = mock_settings
 
     try:
         with patch.object(
-            LiteLLMProxyRequestSetup,
+            EmbRouterProxyRequestSetup,
             "add_headers_to_llm_call",
             return_value={},  # Return empty dict
         ) as mock_add_headers:
-            result = LiteLLMProxyRequestSetup.add_headers_to_llm_call_by_model_group(
+            result = EmbRouterProxyRequestSetup.add_headers_to_llm_call_by_model_group(
                 data=data, headers=headers, user_api_key_dict=user_api_key_dict
             )
 
@@ -2898,14 +2898,14 @@ def test_add_headers_to_llm_call_by_model_group_empty_headers_returned():
 
     finally:
         # Restore original model_group_settings
-        litellm.model_group_settings = original_model_group_settings
+        embrouter.model_group_settings = original_model_group_settings
 
 
 def test_add_headers_to_llm_call_by_model_group_existing_headers_in_data():
     """
     Test that existing headers in data are overwritten when new headers are added
     """
-    import litellm
+    import embrouter
 
     # Setup test data with existing headers
     data = {
@@ -2918,18 +2918,18 @@ def test_add_headers_to_llm_call_by_model_group_existing_headers_in_data():
 
     # Mock model_group_settings with model in the list
     mock_settings = MagicMock(forward_client_headers_to_llm_api=["gpt-4"])
-    original_model_group_settings = getattr(litellm, "model_group_settings", None)
-    litellm.model_group_settings = mock_settings
+    original_model_group_settings = getattr(embrouter, "model_group_settings", None)
+    embrouter.model_group_settings = mock_settings
 
     try:
-        new_headers = {"X-LiteLLM-User": "test-user"}
+        new_headers = {"X-EmbRouter-User": "test-user"}
 
         with patch.object(
-            LiteLLMProxyRequestSetup,
+            EmbRouterProxyRequestSetup,
             "add_headers_to_llm_call",
             return_value=new_headers,
         ) as mock_add_headers:
-            result = LiteLLMProxyRequestSetup.add_headers_to_llm_call_by_model_group(
+            result = EmbRouterProxyRequestSetup.add_headers_to_llm_call_by_model_group(
                 data=data, headers=headers, user_api_key_dict=user_api_key_dict
             )
 
@@ -2947,17 +2947,17 @@ def test_add_headers_to_llm_call_by_model_group_existing_headers_in_data():
 
     finally:
         # Restore original model_group_settings
-        litellm.model_group_settings = original_model_group_settings
+        embrouter.model_group_settings = original_model_group_settings
 
 
 from typing import Optional
 
 from fastapi.responses import Response
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.utils import StandardLoggingPayload
 
 
 class TestCustomLogger(CustomLogger):
@@ -2975,23 +2975,23 @@ class TestCustomLogger(CustomLogger):
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_metadata_from_request_headers():
+async def test_add_embrouter_metadata_from_request_headers():
     """
-    Test that add_litellm_metadata_from_request_headers properly adds litellm metadata from request headers,
+    Test that add_embrouter_metadata_from_request_headers properly adds embrouter metadata from request headers,
     makes an LLM request using base_process_llm_request, sleeps for 3 seconds, and checks standard_logging_payload has spend_logs_metadata from headers
 
 
     """
     # Set up test logger
-    litellm._turn_on_debug()
+    embrouter._turn_on_debug()
     test_logger = TestCustomLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [test_logger]
+    original_callbacks = embrouter.callbacks
+    embrouter.callbacks = [test_logger]
 
     try:
-        # Prepare test data (ensure no streaming, add mock_response and api_key to route to litellm.acompletion)
+        # Prepare test data (ensure no streaming, add mock_response and api_key to route to embrouter.acompletion)
         headers = {
-            "x-litellm-spend-logs-metadata": '{"user_id": "12345", "project_id": "proj_abc", "request_type": "chat_completion", "timestamp": "2025-09-02T10:30:00Z"}'
+            "x-embrouter-spend-logs-metadata": '{"user_id": "12345", "project_id": "proj_abc", "request_type": "chat_completion", "timestamp": "2025-09-02T10:30:00Z"}'
         }
         data = {
             "model": "gpt-4",
@@ -3081,11 +3081,11 @@ async def test_add_litellm_metadata_from_request_headers():
         print(f"Standard logging object captured: {json.dumps(standard_logging_obj, indent=4, default=str)}")
 
         SPEND_LOGS_METADATA = standard_logging_obj["metadata"]["spend_logs_metadata"]
-        assert SPEND_LOGS_METADATA == dict(json.loads(headers["x-litellm-spend-logs-metadata"])), (
+        assert SPEND_LOGS_METADATA == dict(json.loads(headers["x-embrouter-spend-logs-metadata"])), (
             "spend_logs_metadata should be the same as the headers"
         )
     finally:
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
@@ -3094,10 +3094,10 @@ async def test_anthropic_messages_standard_logging_object_matches_fixture():
     Regression: /v1/messages calls routed to non-Anthropic providers should keep
     call_type=anthropic_messages in standard logging payloads.
     """
-    litellm._turn_on_debug()
+    embrouter._turn_on_debug()
     test_logger = TestCustomLogger()
-    original_callbacks = litellm.callbacks
-    litellm.callbacks = [test_logger]
+    original_callbacks = embrouter.callbacks
+    embrouter.callbacks = [test_logger]
 
     try:
         data = {
@@ -3176,74 +3176,74 @@ async def test_anthropic_messages_standard_logging_object_matches_fixture():
         assert actual_projection == expected
         assert actual.get("call_type") == "anthropic_messages"
     finally:
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
-def test_add_litellm_metadata_from_request_headers_x_litellm_trace_id_sets_chain_id():
-    """x-litellm-trace-id sets both metadata and top-level litellm_session_id/litellm_trace_id for call chaining."""
-    headers = {"x-litellm-trace-id": "foo"}
+def test_add_embrouter_metadata_from_request_headers_x_embrouter_trace_id_sets_chain_id():
+    """x-embrouter-trace-id sets both metadata and top-level embrouter_session_id/embrouter_trace_id for call chaining."""
+    headers = {"x-embrouter-trace-id": "foo"}
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["trace_id"] == "foo"
     assert data["metadata"]["session_id"] == "foo"
-    assert data["litellm_session_id"] == "foo"
-    assert data["litellm_trace_id"] == "foo"
+    assert data["embrouter_session_id"] == "foo"
+    assert data["embrouter_trace_id"] == "foo"
 
 
-def test_add_litellm_metadata_from_request_headers_x_litellm_session_id_sets_chain_id():
-    """x-litellm-session-id sets both metadata and top-level litellm_session_id/litellm_trace_id for call chaining."""
-    headers = {"x-litellm-session-id": "bar"}
+def test_add_embrouter_metadata_from_request_headers_x_embrouter_session_id_sets_chain_id():
+    """x-embrouter-session-id sets both metadata and top-level embrouter_session_id/embrouter_trace_id for call chaining."""
+    headers = {"x-embrouter-session-id": "bar"}
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["trace_id"] == "bar"
     assert data["metadata"]["session_id"] == "bar"
-    assert data["litellm_session_id"] == "bar"
-    assert data["litellm_trace_id"] == "bar"
+    assert data["embrouter_session_id"] == "bar"
+    assert data["embrouter_trace_id"] == "bar"
 
 
-def test_add_litellm_metadata_from_request_headers_both_headers_trace_id_precedence():
-    """When both x-litellm-trace-id and x-litellm-session-id are present, trace-id takes precedence for chain_id."""
+def test_add_embrouter_metadata_from_request_headers_both_headers_trace_id_precedence():
+    """When both x-embrouter-trace-id and x-embrouter-session-id are present, trace-id takes precedence for chain_id."""
     headers = {
-        "x-litellm-trace-id": "trace-value",
-        "x-litellm-session-id": "session-value",
+        "x-embrouter-trace-id": "trace-value",
+        "x-embrouter-session-id": "session-value",
     }
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["trace_id"] == "trace-value"
     assert data["metadata"]["session_id"] == "trace-value"
-    assert data["litellm_session_id"] == "trace-value"
-    assert data["litellm_trace_id"] == "trace-value"
+    assert data["embrouter_session_id"] == "trace-value"
+    assert data["embrouter_trace_id"] == "trace-value"
 
 
-def test_add_litellm_metadata_from_request_headers_generic_session_id_header():
-    """A generic x-<vendor>-session-id header is used when no explicit litellm header is set."""
+def test_add_embrouter_metadata_from_request_headers_generic_session_id_header():
+    """A generic x-<vendor>-session-id header is used when no explicit embrouter header is set."""
     headers = {"x-claude-code-session-id": "e96634a3-fa28-4083-b354-55542e2dca01"}
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
-    assert data["litellm_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
-    assert data["litellm_trace_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
+    assert data["embrouter_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
+    assert data["embrouter_trace_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
 
 
-def test_add_litellm_metadata_from_anthropic_user_id_sets_session_id():
+def test_add_embrouter_metadata_from_anthropic_user_id_sets_session_id():
     data = {"metadata": {"user_id": "user_abc123_account__session_e96634a3-fa28-4083-b354-55542e2dca01"}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers={}, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
-    assert data["litellm_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
-    assert "litellm_trace_id" not in data
+    assert data["embrouter_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
+    assert "embrouter_trace_id" not in data
 
 
-def test_add_litellm_metadata_from_anthropic_user_id_dict_sets_session_id():
+def test_add_embrouter_metadata_from_anthropic_user_id_dict_sets_session_id():
     data = {
         "metadata": {
             "user_id": {
@@ -3253,32 +3253,32 @@ def test_add_litellm_metadata_from_anthropic_user_id_dict_sets_session_id():
             }
         }
     }
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers={}, data=data, _metadata_variable_name="metadata"
     )
     assert data["metadata"]["user_id"] == "sess_4f8c1d2a-1234"
     assert data["metadata"]["session_id"] == "sess_4f8c1d2a-1234"
-    assert data["litellm_session_id"] == "sess_4f8c1d2a-1234"
-    assert "litellm_trace_id" not in data
+    assert data["embrouter_session_id"] == "sess_4f8c1d2a-1234"
+    assert "embrouter_trace_id" not in data
 
 
-def test_add_litellm_metadata_from_headers_session_id_beats_anthropic_user_id():
+def test_add_embrouter_metadata_from_headers_session_id_beats_anthropic_user_id():
     data = {
         "metadata": {
             "user_id": "user_abc123_account__session_body-session-id",
         }
     }
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
-        headers={"x-litellm-session-id": "header-session-id"},
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
+        headers={"x-embrouter-session-id": "header-session-id"},
         data=data,
         _metadata_variable_name="metadata",
     )
     assert data["metadata"]["session_id"] == "header-session-id"
-    assert data["litellm_session_id"] == "header-session-id"
-    assert data["litellm_trace_id"] == "header-session-id"
+    assert data["embrouter_session_id"] == "header-session-id"
+    assert data["embrouter_trace_id"] == "header-session-id"
 
 
-def test_add_litellm_metadata_from_headers_session_id_beats_anthropic_user_id_dict():
+def test_add_embrouter_metadata_from_headers_session_id_beats_anthropic_user_id_dict():
     data = {
         "metadata": {
             "user_id": {
@@ -3286,14 +3286,14 @@ def test_add_litellm_metadata_from_headers_session_id_beats_anthropic_user_id_di
             }
         }
     }
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
-        headers={"x-litellm-session-id": "header-session-id"},
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
+        headers={"x-embrouter-session-id": "header-session-id"},
         data=data,
         _metadata_variable_name="metadata",
     )
     assert data["metadata"]["session_id"] == "header-session-id"
-    assert data["litellm_session_id"] == "header-session-id"
-    assert data["litellm_trace_id"] == "header-session-id"
+    assert data["embrouter_session_id"] == "header-session-id"
+    assert data["embrouter_trace_id"] == "header-session-id"
 
 
 @pytest.mark.parametrize(
@@ -3304,9 +3304,9 @@ def test_add_litellm_metadata_from_headers_session_id_beats_anthropic_user_id_di
         "user_abc123_account__session_invalid!",
     ],
 )
-def test_add_litellm_metadata_from_anthropic_user_id_ignores_invalid_session_id(user_id: str):
+def test_add_embrouter_metadata_from_anthropic_user_id_ignores_invalid_session_id(user_id: str):
     data = {"metadata": {"user_id": user_id}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers={}, data=data, _metadata_variable_name="metadata"
     )
     assert data == {"metadata": {"user_id": user_id}}
@@ -3321,33 +3321,33 @@ def test_add_litellm_metadata_from_anthropic_user_id_ignores_invalid_session_id(
         {"session_id": ""},
     ],
 )
-def test_add_litellm_metadata_from_anthropic_user_id_dict_ignores_invalid_session_id(
+def test_add_embrouter_metadata_from_anthropic_user_id_dict_ignores_invalid_session_id(
     user_id: object,
 ):
     data = {"metadata": {"user_id": user_id}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers={}, data=data, _metadata_variable_name="metadata"
     )
     assert data == {"metadata": {"user_id": user_id}}
 
 
-def test_add_litellm_metadata_from_request_headers_explicit_header_beats_generic():
-    """Explicit x-litellm-trace-id wins over a generic x-*-session-id header."""
+def test_add_embrouter_metadata_from_request_headers_explicit_header_beats_generic():
+    """Explicit x-embrouter-trace-id wins over a generic x-*-session-id header."""
     headers = {
-        "x-litellm-trace-id": "explicit-trace-id-value",
+        "x-embrouter-trace-id": "explicit-trace-id-value",
         "x-claude-code-session-id": "e96634a3-fa28-4083-b354-55542e2dca01",
     }
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
-    assert data["litellm_session_id"] == "explicit-trace-id-value"
-    assert data["litellm_trace_id"] == "explicit-trace-id-value"
+    assert data["embrouter_session_id"] == "explicit-trace-id-value"
+    assert data["embrouter_trace_id"] == "explicit-trace-id-value"
 
 
 def test_get_chain_id_from_headers_generic_vendor_session_id():
     """get_chain_id_from_headers picks up any x-<vendor>-session-id with a valid value."""
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert (
         get_chain_id_from_headers({"x-claude-code-session-id": "e96634a3-fa28-4083-b354-55542e2dca01"})
@@ -3360,7 +3360,7 @@ def test_get_chain_id_from_headers_generic_vendor_session_id():
     assert (
         get_chain_id_from_headers(
             {
-                "x-litellm-trace-id": "explicit-id-value",
+                "x-embrouter-trace-id": "explicit-id-value",
                 "x-claude-code-session-id": "e96634a3-fa28-4083-b354-55542e2dca01",
             }
         )
@@ -3386,7 +3386,7 @@ CODEX_SESSION_UUID = "0199f0c2-8b41-7c3e-9a52-6d1f4b8e2a77"
 def test_is_codex_user_agent_accepts_every_first_party_originator(user_agent: str):
     """Codex ships several originators sharing only the `codex` stem, and the TUI
     sends a bare `codex-tui` with no version, so matching one spelling misses real clients."""
-    from litellm.proxy.litellm_pre_call_utils import is_codex_user_agent
+    from embrouter.proxy.embrouter_pre_call_utils import is_codex_user_agent
 
     assert is_codex_user_agent(user_agent) is True
 
@@ -3396,14 +3396,14 @@ def test_is_codex_user_agent_accepts_every_first_party_originator(user_agent: st
     ["codexify/1.0", "mycodex-tui/1.0", "curl/8.7.1", "claude-cli/2.1.0 (external, cli)", ""],
 )
 def test_is_codex_user_agent_rejects_non_codex_clients(user_agent: str):
-    from litellm.proxy.litellm_pre_call_utils import is_codex_user_agent
+    from embrouter.proxy.embrouter_pre_call_utils import is_codex_user_agent
 
     assert is_codex_user_agent(user_agent) is False
 
 
 def test_get_chain_id_from_headers_codex_tui_user_agent():
     """The real Codex TUI user agent must group turns, not just the codex_cli_rs spelling."""
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     ua = "codex-tui/0.149.0 (Mac OS 26.5.1; arm64) ghostty/1.3.1 (codex-tui; 0.149.0)"
     assert get_chain_id_from_headers({"user-agent": ua, "session-id": CODEX_SESSION_UUID}) == CODEX_SESSION_UUID
@@ -3418,7 +3418,7 @@ def test_get_chain_id_from_headers_codex_tui_user_agent():
 )
 def test_get_chain_id_from_headers_codex_unprefixed_session_id(header: str):
     """Codex sends its conversation uuid unprefixed, so the x-<vendor>-session-id regex misses it."""
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert get_chain_id_from_headers({"user-agent": CODEX_USER_AGENT, header: CODEX_SESSION_UUID}) == CODEX_SESSION_UUID
 
@@ -3433,14 +3433,14 @@ def test_get_chain_id_from_headers_unprefixed_session_id_requires_codex(user_age
     The name is generic enough that two unrelated callers could collide on a value
     and have their sessions merged, so the bare-header path is Codex-only.
     """
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert get_chain_id_from_headers({"user-agent": user_agent, "session-id": CODEX_SESSION_UUID}) is None
     assert get_chain_id_from_headers({"session-id": CODEX_SESSION_UUID}) is None
 
 
 def test_get_chain_id_from_headers_codex_prefers_session_over_thread():
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert (
         get_chain_id_from_headers(
@@ -3455,20 +3455,20 @@ def test_get_chain_id_from_headers_codex_prefers_session_over_thread():
 
 
 def test_get_chain_id_from_headers_codex_ignores_implausible_value():
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert get_chain_id_from_headers({"user-agent": CODEX_USER_AGENT, "session-id": "short"}) is None
     assert get_chain_id_from_headers({"user-agent": CODEX_USER_AGENT, "session-id": "has spaces!!"}) is None
 
 
 def test_get_chain_id_from_headers_explicit_beats_codex_header():
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert (
         get_chain_id_from_headers(
             {
                 "user-agent": CODEX_USER_AGENT,
-                "x-litellm-trace-id": "explicit-id-value",
+                "x-embrouter-trace-id": "explicit-id-value",
                 "session-id": CODEX_SESSION_UUID,
             }
         )
@@ -3476,19 +3476,19 @@ def test_get_chain_id_from_headers_explicit_beats_codex_header():
     )
 
 
-def test_add_litellm_metadata_groups_codex_turns_into_one_session():
+def test_add_embrouter_metadata_groups_codex_turns_into_one_session():
     """Every turn of a Codex session must log under one session id, not a fresh per-call trace id."""
     headers = {"user-agent": CODEX_USER_AGENT, "session-id": CODEX_SESSION_UUID}
-    turns = [{"litellm_metadata": {}}, {"litellm_metadata": {}}]
+    turns = [{"embrouter_metadata": {}}, {"embrouter_metadata": {}}]
     for turn in turns:
-        LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
-            headers=headers, data=turn, _metadata_variable_name="litellm_metadata"
+        EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
+            headers=headers, data=turn, _metadata_variable_name="embrouter_metadata"
         )
 
     for turn in turns:
-        assert turn["litellm_session_id"] == CODEX_SESSION_UUID
-        assert turn["litellm_trace_id"] == CODEX_SESSION_UUID
-        assert turn["litellm_metadata"]["session_id"] == CODEX_SESSION_UUID
+        assert turn["embrouter_session_id"] == CODEX_SESSION_UUID
+        assert turn["embrouter_trace_id"] == CODEX_SESSION_UUID
+        assert turn["embrouter_metadata"]["session_id"] == CODEX_SESSION_UUID
 
 
 OPENCODE_SESSION_ID = "ses_f91e6e825ffeuhlu5EbglxjAN2"
@@ -3499,25 +3499,25 @@ OPENCODE_HEADERS = {
 }
 
 
-def test_add_litellm_metadata_groups_opencode_turns_into_one_session():
+def test_add_embrouter_metadata_groups_opencode_turns_into_one_session():
     """Every turn of an opencode session must land on metadata.session_id, which is what
     DeploymentAffinityCheck reads for session pinning, instead of a fresh per-call id."""
     turns = [{"metadata": {}}, {"metadata": {}}]
     for turn in turns:
-        LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+        EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
             headers=OPENCODE_HEADERS, data=turn, _metadata_variable_name="metadata"
         )
 
     for turn in turns:
         assert turn["metadata"]["session_id"] == OPENCODE_SESSION_ID
         assert turn["metadata"]["trace_id"] == OPENCODE_SESSION_ID
-        assert turn["litellm_session_id"] == OPENCODE_SESSION_ID
-        assert turn["litellm_trace_id"] == OPENCODE_SESSION_ID
+        assert turn["embrouter_session_id"] == OPENCODE_SESSION_ID
+        assert turn["embrouter_trace_id"] == OPENCODE_SESSION_ID
 
 
 @pytest.mark.parametrize("value", ["short", "has spaces!!", ""])
 def test_get_chain_id_from_headers_bare_session_id_ignores_implausible_value(value: str):
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert get_chain_id_from_headers({"x-session-id": value}) is None
 
@@ -3525,8 +3525,8 @@ def test_get_chain_id_from_headers_bare_session_id_ignores_implausible_value(val
 @pytest.mark.parametrize(
     "other_header",
     [
-        "x-litellm-trace-id",
-        "x-litellm-session-id",
+        "x-embrouter-trace-id",
+        "x-embrouter-session-id",
         "x-claude-code-session-id",
         "x-parent-session-id",
     ],
@@ -3534,7 +3534,7 @@ def test_get_chain_id_from_headers_bare_session_id_ignores_implausible_value(val
 def test_get_chain_id_from_headers_bare_session_id_loses_to_more_specific_header(other_header: str):
     """opencode subagent calls carry x-parent-session-id next to X-Session-Id; explicit and
     vendor-scoped headers must keep winning over the bare header."""
-    from litellm.proxy.litellm_pre_call_utils import get_chain_id_from_headers
+    from embrouter.proxy.embrouter_pre_call_utils import get_chain_id_from_headers
 
     assert (
         get_chain_id_from_headers(
@@ -3548,7 +3548,7 @@ def test_get_chain_id_from_headers_bare_session_id_loses_to_more_specific_header
 
 
 def test_trace_id_from_traceparent_valid():
-    from litellm.proxy.litellm_pre_call_utils import _trace_id_from_traceparent
+    from embrouter.proxy.embrouter_pre_call_utils import _trace_id_from_traceparent
 
     assert (
         _trace_id_from_traceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
@@ -3573,13 +3573,13 @@ def test_trace_id_from_traceparent_valid():
     ],
 )
 def test_trace_id_from_traceparent_rejects_malformed(traceparent: str):
-    from litellm.proxy.litellm_pre_call_utils import _trace_id_from_traceparent
+    from embrouter.proxy.embrouter_pre_call_utils import _trace_id_from_traceparent
 
     assert _trace_id_from_traceparent(traceparent) is None
 
 
 def test_session_id_from_baggage_valid():
-    from litellm.proxy.litellm_pre_call_utils import _session_id_from_baggage
+    from embrouter.proxy.embrouter_pre_call_utils import _session_id_from_baggage
 
     assert _session_id_from_baggage("session.id=abc-123,user.id=42") == "abc-123"
     assert _session_id_from_baggage("user.id=42, session.id=xyz-789") == "xyz-789"
@@ -3594,38 +3594,38 @@ def test_session_id_from_baggage_valid():
     ],
 )
 def test_session_id_from_baggage_absent_or_empty(baggage: str):
-    from litellm.proxy.litellm_pre_call_utils import _session_id_from_baggage
+    from embrouter.proxy.embrouter_pre_call_utils import _session_id_from_baggage
 
     assert _session_id_from_baggage(baggage) is None
 
 
-def test_add_litellm_metadata_from_request_headers_traceparent_sets_trace_id_only():
-    """A bare traceparent header (no litellm-specific headers) sets litellm_trace_id
-    from its trace-id component and leaves litellm_session_id unset."""
+def test_add_embrouter_metadata_from_request_headers_traceparent_sets_trace_id_only():
+    """A bare traceparent header (no embrouter-specific headers) sets embrouter_trace_id
+    from its trace-id component and leaves embrouter_session_id unset."""
     headers = {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
-    assert data["litellm_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert data["embrouter_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
     assert data["metadata"]["trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
-    assert "litellm_session_id" not in data
+    assert "embrouter_session_id" not in data
 
 
-def test_add_litellm_metadata_from_request_headers_baggage_sets_session_id_only():
-    """A bare baggage header (no litellm-specific headers) sets litellm_session_id
-    from its session.id entry and leaves litellm_trace_id unset."""
+def test_add_embrouter_metadata_from_request_headers_baggage_sets_session_id_only():
+    """A bare baggage header (no embrouter-specific headers) sets embrouter_session_id
+    from its session.id entry and leaves embrouter_trace_id unset."""
     headers = {"baggage": "session.id=baggage-session-42,user.id=7"}
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
-    assert data["litellm_session_id"] == "baggage-session-42"
+    assert data["embrouter_session_id"] == "baggage-session-42"
     assert data["metadata"]["session_id"] == "baggage-session-42"
-    assert "litellm_trace_id" not in data
+    assert "embrouter_trace_id" not in data
 
 
-def test_add_litellm_metadata_from_request_headers_baggage_session_id_not_logged_raw(caplog):
+def test_add_embrouter_metadata_from_request_headers_baggage_session_id_not_logged_raw(caplog):
     """The raw baggage session.id value must never reach the debug log line -
     it isn't sanitized until set_session_id() runs much later in
     Logging.__init__(), so logging it here would let a caller with control
@@ -3635,15 +3635,15 @@ def test_add_litellm_metadata_from_request_headers_baggage_session_id_not_logged
     poisoned = "poisoned\x1b[31mFAKE_RED_TEXT\x1b[0m"
     headers = {"baggage": f"session.id={poisoned}"}
     data = {"metadata": {}}
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
-        LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
+        EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
             headers=headers, data=data, _metadata_variable_name="metadata"
         )
-    assert data["litellm_session_id"] == poisoned
+    assert data["embrouter_session_id"] == poisoned
     assert not any(poisoned in record.getMessage() for record in caplog.records)
 
 
-def test_add_litellm_metadata_from_request_headers_traceparent_and_baggage_together():
+def test_add_embrouter_metadata_from_request_headers_traceparent_and_baggage_together():
     """traceparent and baggage are resolved independently - trace_id and
     session_id do not have to be the same value, unlike the chain_id path."""
     headers = {
@@ -3651,26 +3651,26 @@ def test_add_litellm_metadata_from_request_headers_traceparent_and_baggage_toget
         "baggage": "session.id=baggage-session-42",
     }
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
-    assert data["litellm_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
-    assert data["litellm_session_id"] == "baggage-session-42"
+    assert data["embrouter_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert data["embrouter_session_id"] == "baggage-session-42"
 
 
-def test_add_litellm_metadata_from_request_headers_explicit_trace_id_beats_traceparent():
-    """x-litellm-trace-id must win over a traceparent header carrying a
-    different trace-id - explicit litellm headers are always highest priority."""
+def test_add_embrouter_metadata_from_request_headers_explicit_trace_id_beats_traceparent():
+    """x-embrouter-trace-id must win over a traceparent header carrying a
+    different trace-id - explicit embrouter headers are always highest priority."""
     headers = {
-        "x-litellm-trace-id": "explicit-trace-id-value",
+        "x-embrouter-trace-id": "explicit-trace-id-value",
         "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
     }
     data = {"metadata": {}}
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers=headers, data=data, _metadata_variable_name="metadata"
     )
-    assert data["litellm_trace_id"] == "explicit-trace-id-value"
-    assert data["litellm_session_id"] == "explicit-trace-id-value"
+    assert data["embrouter_trace_id"] == "explicit-trace-id-value"
+    assert data["embrouter_session_id"] == "explicit-trace-id-value"
 
 
 def _otel_span_with_trace_id(trace_id: int) -> NonRecordingSpan:
@@ -3691,9 +3691,9 @@ def _request_mock_without_trace_headers() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_defaults_trace_id_to_otel_server_span():
+async def test_add_embrouter_data_to_request_defaults_trace_id_to_otel_server_span():
     """With OTel on and a client that sends no trace headers, the request's
-    litellm_trace_id (and so the spend log session_id) must be the W3C trace-id
+    embrouter_trace_id (and so the spend log session_id) must be the W3C trace-id
     of the proxy's server span, so a trace in the OTel backend can be looked up
     in the Logs UI and vice versa."""
     otel_trace_id: Final = 0x4BF92F3577B34DA6A3CE929D0E0E4736
@@ -3701,7 +3701,7 @@ async def test_add_litellm_data_to_request_defaults_trace_id_to_otel_server_span
         api_key="hashed-key", parent_otel_span=_otel_span_with_trace_id(otel_trace_id)
     )
 
-    data: Final = await add_litellm_data_to_request(
+    data: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6", "messages": [{"role": "user", "content": "hi"}]},
         request=_request_mock_without_trace_headers(),
         user_api_key_dict=user_api_key_dict,
@@ -3709,13 +3709,13 @@ async def test_add_litellm_data_to_request_defaults_trace_id_to_otel_server_span
         general_settings={},
     )
 
-    assert data["litellm_trace_id"] == format(otel_trace_id, "032x")
+    assert data["embrouter_trace_id"] == format(otel_trace_id, "032x")
     assert data["metadata"]["trace_id"] == format(otel_trace_id, "032x")
-    assert "litellm_session_id" not in data
+    assert "embrouter_session_id" not in data
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_falls_back_to_request_state_otel_span():
+async def test_add_embrouter_data_to_request_falls_back_to_request_state_otel_span():
     """Custom auth hooks return a UserAPIKeyAuth without parent_otel_span even
     though user_api_key_auth already opened the server span on request.state,
     so the fallback must read the span from there or custom-auth requests would
@@ -3724,7 +3724,7 @@ async def test_add_litellm_data_to_request_falls_back_to_request_state_otel_span
     request_mock: Final = _request_mock_without_trace_headers()
     request_mock.state.parent_otel_span = _otel_span_with_trace_id(otel_trace_id)
 
-    data: Final = await add_litellm_data_to_request(
+    data: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6"},
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", parent_otel_span=None),
@@ -3732,50 +3732,50 @@ async def test_add_litellm_data_to_request_falls_back_to_request_state_otel_span
         general_settings={},
     )
 
-    assert data["litellm_trace_id"] == format(otel_trace_id, "032x")
+    assert data["embrouter_trace_id"] == format(otel_trace_id, "032x")
     assert data["metadata"]["trace_id"] == format(otel_trace_id, "032x")
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_otel_span_does_not_override_caller_trace_id():
-    """A caller's own trace identity (x-litellm-trace-id header or body
+async def test_add_embrouter_data_to_request_otel_span_does_not_override_caller_trace_id():
+    """A caller's own trace identity (x-embrouter-trace-id header or body
     metadata.trace_id) keeps priority over the OTel server span's trace-id."""
     span: Final = _otel_span_with_trace_id(0x4BF92F3577B34DA6A3CE929D0E0E4736)
 
     header_request: Final = _request_mock_without_trace_headers()
-    header_request.headers = {"Content-Type": "application/json", "x-litellm-trace-id": "caller-trace"}
-    from_header: Final = await add_litellm_data_to_request(
+    header_request.headers = {"Content-Type": "application/json", "x-embrouter-trace-id": "caller-trace"}
+    from_header: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6"},
         request=header_request,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", parent_otel_span=span),
         proxy_config=MagicMock(),
         general_settings={},
     )
-    assert from_header["litellm_trace_id"] == "caller-trace"
+    assert from_header["embrouter_trace_id"] == "caller-trace"
     assert from_header["metadata"]["trace_id"] == "caller-trace"
 
-    from_body: Final = await add_litellm_data_to_request(
+    from_body: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6", "metadata": {"trace_id": "body-trace"}},
         request=_request_mock_without_trace_headers(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", parent_otel_span=span),
         proxy_config=MagicMock(),
         general_settings={},
     )
-    assert "litellm_trace_id" not in from_body
+    assert "embrouter_trace_id" not in from_body
     assert from_body["metadata"]["trace_id"] == "body-trace"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["/v1/responses", "/v1/messages"])
-async def test_add_litellm_data_to_request_otel_span_does_not_override_body_trace_id_on_litellm_metadata_routes(path):
-    """On routes that keep LiteLLM state in litellm_metadata, the caller's body
-    metadata.trace_id is only promoted into litellm_metadata later in the
+async def test_add_embrouter_data_to_request_otel_span_does_not_override_body_trace_id_on_embrouter_metadata_routes(path):
+    """On routes that keep EmbRouter state in embrouter_metadata, the caller's body
+    metadata.trace_id is only promoted into embrouter_metadata later in the
     pipeline, so the OTel fallback must look at the requester metadata too or
     it would claim the slot first and the caller's id would be lost."""
     request_mock: Final = _request_mock_without_trace_headers()
     request_mock.url.path = path
     request_mock.url.__str__.return_value = f"http://localhost{path}"
-    data: Final = await add_litellm_data_to_request(
+    data: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6", "metadata": {"trace_id": "body-trace"}},
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(
@@ -3784,18 +3784,18 @@ async def test_add_litellm_data_to_request_otel_span_does_not_override_body_trac
         proxy_config=MagicMock(),
         general_settings={},
     )
-    assert "litellm_trace_id" not in data
-    assert data["litellm_metadata"]["trace_id"] == "body-trace"
+    assert "embrouter_trace_id" not in data
+    assert data["embrouter_metadata"]["trace_id"] == "body-trace"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("empty_trace_id", [None, ""])
-async def test_add_litellm_data_to_request_otel_span_fills_empty_body_trace_id(empty_trace_id):
-    """A serialized-but-empty litellm_trace_id in the body (null or "") carries
+async def test_add_embrouter_data_to_request_otel_span_fills_empty_body_trace_id(empty_trace_id):
+    """A serialized-but-empty embrouter_trace_id in the body (null or "") carries
     no identity, so it must not block the OTel server span fallback."""
     otel_trace_id: Final = 0x4BF92F3577B34DA6A3CE929D0E0E4736
-    data: Final = await add_litellm_data_to_request(
-        data={"model": "gpt-5.6", "litellm_trace_id": empty_trace_id},
+    data: Final = await add_embrouter_data_to_request(
+        data={"model": "gpt-5.6", "embrouter_trace_id": empty_trace_id},
         request=_request_mock_without_trace_headers(),
         user_api_key_dict=UserAPIKeyAuth(
             api_key="hashed-key", parent_otel_span=_otel_span_with_trace_id(otel_trace_id)
@@ -3803,34 +3803,34 @@ async def test_add_litellm_data_to_request_otel_span_fills_empty_body_trace_id(e
         proxy_config=MagicMock(),
         general_settings={},
     )
-    assert data["litellm_trace_id"] == format(otel_trace_id, "032x")
+    assert data["embrouter_trace_id"] == format(otel_trace_id, "032x")
     assert data["metadata"]["trace_id"] == format(otel_trace_id, "032x")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("parent_otel_span", [None, "invalid_span", "not_a_span", "plain_string"])
-async def test_add_litellm_data_to_request_no_trace_id_without_valid_otel_span(parent_otel_span):
+async def test_add_embrouter_data_to_request_no_trace_id_without_valid_otel_span(parent_otel_span):
     """No OTel span (OTel off), a span with an invalid context, an object that
     only quacks like a span, or a value that is not a span at all (custom auth
-    is typed loosely and can hand back anything) must leave litellm_trace_id
+    is typed loosely and can hand back anything) must leave embrouter_trace_id
     unset, and never fail the request, so downstream keeps generating its own id."""
     span: Final = {
         "invalid_span": INVALID_SPAN,
         "not_a_span": MagicMock(),
         "plain_string": "not-a-span",
     }.get(parent_otel_span)
-    data: Final = await add_litellm_data_to_request(
+    data: Final = await add_embrouter_data_to_request(
         data={"model": "gpt-5.6"},
         request=_request_mock_without_trace_headers(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key", parent_otel_span=span),
         proxy_config=MagicMock(),
         general_settings={},
     )
-    assert "litellm_trace_id" not in data
+    assert "embrouter_trace_id" not in data
     assert "trace_id" not in data["metadata"]
 
 
-def test_add_litellm_metadata_from_request_headers_anthropic_metadata_beats_baggage():
+def test_add_embrouter_metadata_from_request_headers_anthropic_metadata_beats_baggage():
     """The existing Anthropic metadata.user_id session_id path must win over a
     baggage session.id fallback."""
     data = {
@@ -3838,32 +3838,32 @@ def test_add_litellm_metadata_from_request_headers_anthropic_metadata_beats_bagg
             "user_id": "user_abc123_account__session_e96634a3-fa28-4083-b354-55542e2dca01",
         }
     }
-    LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+    EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
         headers={"baggage": "session.id=baggage-session-42"},
         data=data,
         _metadata_variable_name="metadata",
     )
-    assert data["litellm_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
-    assert "litellm_trace_id" not in data
+    assert data["embrouter_session_id"] == "e96634a3-fa28-4083-b354-55542e2dca01"
+    assert "embrouter_trace_id" not in data
 
 
 def test_get_internal_user_header_from_mapping_returns_expected_header():
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "embrouter_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "embrouter_user_role": "customer"},
     ]
 
-    header_name = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
+    header_name = EmbRouterProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
     assert header_name == "X-OpenWebUI-User-Id"
 
 
 def test_get_internal_user_header_from_mapping_none_when_absent():
-    mappings = [{"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"}]
-    header_name = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
+    mappings = [{"header_name": "X-OpenWebUI-User-Email", "embrouter_user_role": "customer"}]
+    header_name = EmbRouterProxyRequestSetup.get_internal_user_header_from_mapping(mappings)
     assert header_name is None
 
-    single = {"header_name": "X-Only-Customer", "litellm_user_role": "customer"}
-    header_name = LiteLLMProxyRequestSetup.get_internal_user_header_from_mapping(single)
+    single = {"header_name": "X-Only-Customer", "embrouter_user_role": "customer"}
+    header_name = EmbRouterProxyRequestSetup.get_internal_user_header_from_mapping(single)
     assert header_name is None
 
 
@@ -3874,13 +3874,13 @@ def test_add_internal_user_from_user_mapping_sets_user_id_when_header_present():
         "user_header_mappings": [
             {
                 "header_name": "X-OpenWebUI-User-Id",
-                "litellm_user_role": "internal_user",
+                "embrouter_user_role": "internal_user",
             },
-            {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+            {"header_name": "X-OpenWebUI-User-Email", "embrouter_user_role": "customer"},
         ]
     }
 
-    result = LiteLLMProxyRequestSetup.add_internal_user_from_user_mapping(general_settings, user_api_key_dict, headers)
+    result = EmbRouterProxyRequestSetup.add_internal_user_from_user_mapping(general_settings, user_api_key_dict, headers)
 
     assert result is user_api_key_dict
     assert user_api_key_dict.user_id == "internal-user-123"
@@ -3889,16 +3889,16 @@ def test_add_internal_user_from_user_mapping_sets_user_id_when_header_present():
 def test_add_internal_user_from_user_mapping_no_header_or_mapping_returns_unchanged():
     user_api_key_dict = UserAPIKeyAuth(api_key="test-key")
 
-    result = LiteLLMProxyRequestSetup.add_internal_user_from_user_mapping(
+    result = EmbRouterProxyRequestSetup.add_internal_user_from_user_mapping(
         None, user_api_key_dict, {"X-OpenWebUI-User-Id": "abc"}
     )
     assert result is user_api_key_dict
     assert user_api_key_dict.user_id is None
 
     general_settings = {
-        "user_header_mappings": [{"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"}]
+        "user_header_mappings": [{"header_name": "X-OpenWebUI-User-Id", "embrouter_user_role": "internal_user"}]
     }
-    result = LiteLLMProxyRequestSetup.add_internal_user_from_user_mapping(
+    result = EmbRouterProxyRequestSetup.add_internal_user_from_user_mapping(
         general_settings, user_api_key_dict, {"Other": "value"}
     )
     assert result is user_api_key_dict
@@ -3916,7 +3916,7 @@ def test_get_sanitized_user_information_from_key_includes_guardrails_metadata():
         metadata={"guardrails": ["presidio", "aporia"], "other_field": "value"},
     )
 
-    result = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+    result = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
 
     assert result["user_api_key_auth_metadata"] is not None
     assert "guardrails" in result["user_api_key_auth_metadata"]
@@ -3931,7 +3931,7 @@ def test_user_and_team_spend_and_budget_flow_to_standard_logging_metadata():
     must reach the StandardLoggingPayload metadata that custom loggers receive,
     alongside the key-level values
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key-hash",
@@ -3945,7 +3945,7 @@ def test_user_and_team_spend_and_budget_flow_to_standard_logging_metadata():
         team_max_budget=1000.0,
     )
 
-    sanitized = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+    sanitized = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
 
     assert sanitized["user_api_key_spend"] == 1.5
     assert sanitized["user_api_key_max_budget"] == 10.0
@@ -3967,11 +3967,11 @@ def test_user_and_team_spend_and_budget_default_to_none_in_standard_logging_meta
     Keys with no user or team level budgets report None for the new fields in the
     StandardLoggingPayload metadata instead of raising
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     user_api_key_dict = UserAPIKeyAuth(api_key="test-key-hash")
 
-    sanitized = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+    sanitized = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
     logging_metadata = StandardLoggingPayloadSetup.get_standard_logging_metadata(dict(sanitized))
 
     assert logging_metadata["user_api_key_user_spend"] is None
@@ -4007,8 +4007,8 @@ async def test_team_guardrails_append_to_key_guardrails():
         team_metadata={"guardrails": ["team-guardrail-1", "key-guardrail-1"]},
     )
 
-    with patch("litellm.proxy.utils._premium_user_check"):
-        updated_data = await add_litellm_data_to_request(
+    with patch("embrouter.proxy.utils._premium_user_check"):
+        updated_data = await add_embrouter_data_to_request(
             data=data,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4056,8 +4056,8 @@ async def test_request_guardrails_do_not_override_key_guardrails():
         "guardrails": [],
     }
 
-    with patch("litellm.proxy.utils._premium_user_check"):
-        updated_data_empty = await add_litellm_data_to_request(
+    with patch("embrouter.proxy.utils._premium_user_check"):
+        updated_data_empty = await add_embrouter_data_to_request(
             data=data_with_empty,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4102,8 +4102,8 @@ async def test_project_guardrails_merge_with_key_and_team():
         project_metadata={"guardrails": ["project-guardrail-1", "team-guardrail-1"]},
     )
 
-    with patch("litellm.proxy.utils._premium_user_check"):
-        updated_data = await add_litellm_data_to_request(
+    with patch("embrouter.proxy.utils._premium_user_check"):
+        updated_data = await add_embrouter_data_to_request(
             data=data,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4151,8 +4151,8 @@ async def test_project_guardrails_only():
         project_metadata={"guardrails": ["project-guardrail-1", "project-guardrail-2"]},
     )
 
-    with patch("litellm.proxy.utils._premium_user_check"):
-        updated_data = await add_litellm_data_to_request(
+    with patch("embrouter.proxy.utils._premium_user_check"):
+        updated_data = await add_embrouter_data_to_request(
             data=data,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4245,15 +4245,15 @@ async def test_embedding_header_forwarding_with_model_group():
     """
     import importlib
 
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils_module
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils_module
 
-    # Reload the module to ensure it has a fresh reference to litellm
-    # This is necessary because conftest.py reloads litellm at module scope,
-    # which can cause the module's litellm reference to become stale
+    # Reload the module to ensure it has a fresh reference to embrouter
+    # This is necessary because conftest.py reloads embrouter at module scope,
+    # which can cause the module's embrouter reference to become stale
     importlib.reload(pre_call_utils_module)
 
     # Re-import the function after reload to get the fresh version
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Setup mock request for embeddings
     request_mock = MagicMock(spec=Request)
@@ -4285,12 +4285,12 @@ async def test_embedding_header_forwarding_with_model_group():
     )
 
     # Mock model_group_settings to enable header forwarding for the model
-    # Use string-based patch to ensure we patch the current sys.modules['litellm']
+    # Use string-based patch to ensure we patch the current sys.modules['embrouter']
     # This avoids issues with module reloading during parallel test execution
     mock_settings = MagicMock(forward_client_headers_to_llm_api=["local-openai/*"])
-    with patch("litellm.model_group_settings", mock_settings):
-        # Call add_litellm_data_to_request which includes header forwarding logic
-        updated_data = await add_litellm_data_to_request(
+    with patch("embrouter.model_group_settings", mock_settings):
+        # Call add_embrouter_data_to_request which includes header forwarding logic
+        updated_data = await add_embrouter_data_to_request(
             data=data,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4326,7 +4326,7 @@ async def test_embedding_header_forwarding_without_model_group_config():
     Test that headers are NOT forwarded for embedding requests when
     the model is not in the forward_client_headers_to_llm_api list.
     """
-    import litellm
+    import embrouter
 
     # Setup mock request for embeddings
     request_mock = MagicMock(spec=Request)
@@ -4355,11 +4355,11 @@ async def test_embedding_header_forwarding_without_model_group_config():
 
     # Mock model_group_settings with a different model in the forward list
     mock_settings = MagicMock(forward_client_headers_to_llm_api=["gpt-4", "claude-*"])
-    original_model_group_settings = getattr(litellm, "model_group_settings", None)
-    litellm.model_group_settings = mock_settings
+    original_model_group_settings = getattr(embrouter, "model_group_settings", None)
+    embrouter.model_group_settings = mock_settings
 
     try:
-        updated_data = await add_litellm_data_to_request(
+        updated_data = await add_embrouter_data_to_request(
             data=data,
             request=request_mock,
             user_api_key_dict=user_api_key_dict,
@@ -4379,7 +4379,7 @@ async def test_embedding_header_forwarding_without_model_group_config():
 
     finally:
         # Restore original model_group_settings
-        litellm.model_group_settings = original_model_group_settings
+        embrouter.model_group_settings = original_model_group_settings
 
 
 @pytest.mark.asyncio
@@ -4388,9 +4388,9 @@ async def test_add_guardrails_from_policy_engine():
     Test that add_guardrails_from_policy_engine adds guardrails from matching policies
     and tracks applied policies in metadata.
     """
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import (
         Policy,
         PolicyAttachment,
         PolicyGuardrails,
@@ -4454,8 +4454,8 @@ async def test_add_guardrails_from_policy_engine():
 
 
 def test_match_and_track_policies_preserves_attachment_and_request_body_order():
-    from litellm.proxy.policy_engine.attachment_registry import AttachmentRegistry
-    from litellm.types.proxy.policy_engine import Policy, PolicyMatchContext
+    from embrouter.proxy.policy_engine.attachment_registry import AttachmentRegistry
+    from embrouter.types.proxy.policy_engine import Policy, PolicyMatchContext
 
     attachment_policy_names = [f"attachment-policy-{index}" for index in range(8)]
     request_body_policy_names = ["body-policy-1", "body-policy-2"]
@@ -4478,8 +4478,8 @@ def test_match_and_track_policies_preserves_attachment_and_request_body_order():
 
 
 def test_match_and_track_policies_keeps_condition_missing_child_alongside_unconditional_sibling():
-    from litellm.proxy.policy_engine.attachment_registry import AttachmentRegistry
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import AttachmentRegistry
+    from embrouter.types.proxy.policy_engine import (
         Policy,
         PolicyCondition,
         PolicyGuardrails,
@@ -4518,9 +4518,9 @@ def test_match_and_track_policies_keeps_condition_missing_child_alongside_uncond
 
 @pytest.mark.asyncio
 async def test_add_guardrails_from_policy_engine_keeps_a_policy_added_guardrail_its_pipeline_also_steps():
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import (
         GuardrailPipeline,
         PipelineStep,
         Policy,
@@ -4560,9 +4560,9 @@ async def test_add_guardrails_from_policy_engine_keeps_a_policy_added_guardrail_
 
 @pytest.mark.asyncio
 async def test_add_guardrails_from_policy_engine_applies_inherited_parent_guardrail_when_child_condition_misses():
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import (
         Policy,
         PolicyAttachment,
         PolicyCondition,
@@ -4606,10 +4606,10 @@ async def test_add_guardrails_from_policy_engine_accepts_dynamic_policies_and_po
     Test that add_guardrails_from_policy_engine accepts dynamic 'policies' from the request body
     and removes them to prevent forwarding to the LLM provider.
 
-    This is critical because 'policies' is a LiteLLM proxy-specific parameter that should
+    This is critical because 'policies' is a EmbRouter proxy-specific parameter that should
     not be sent to the actual LLM API (e.g., OpenAI, Anthropic, etc.).
     """
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
     # Setup test data with 'policies' in the request body
     data = {
@@ -4660,9 +4660,9 @@ async def test_api_created_global_policy_applies_to_new_key_without_restart():
     immediately when attached globally, even if the server started with no
     initialized policy config.
     """
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import (
         Policy,
         PolicyAttachment,
         PolicyGuardrails,
@@ -4712,9 +4712,9 @@ async def test_add_guardrails_from_policy_engine_policy_version_by_id():
     Test that add_guardrails_from_policy_engine executes a specific policy version
     when policy_<uuid> is passed in the request body.
     """
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.types.proxy.policy_engine import Policy, PolicyGuardrails
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.types.proxy.policy_engine import Policy, PolicyGuardrails
 
     policy_version_uuid = "12345678-1234-5678-1234-567812345678"
     policy_version_ref = f"policy_{policy_version_uuid}"
@@ -4772,18 +4772,18 @@ async def test_bearer_token_not_in_debug_logs():
     """
     E2E regression test for the client-reported JWT leak.
 
-    Calls add_litellm_data_to_request with a Bearer token in the request
+    Calls add_embrouter_data_to_request with a Bearer token in the request
     headers and captures all debug log output. Asserts the raw token never
     appears in any log message — covering the exact paths the client reported:
       - "Request Headers: ..."
       - "receiving data: ..."
-      - "[PROXY] returned data from litellm_pre_call_utils: ..."
+      - "[PROXY] returned data from embrouter_pre_call_utils: ..."
     """
     import logging
     from io import StringIO
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     secret_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.fakesignature"
 
@@ -4808,17 +4808,17 @@ async def test_bearer_token_not_in_debug_logs():
     log_capture = StringIO()
     log_handler = logging.StreamHandler(log_capture)
     log_handler.setLevel(logging.DEBUG)
-    logger = logging.getLogger("LiteLLM Proxy")
+    logger = logging.getLogger("EmbRouter Proxy")
     logger.addHandler(log_handler)
     original_level = logger.level
     logger.setLevel(logging.DEBUG)
 
     try:
         with (
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.llm_router", None),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
         ):
-            await add_litellm_data_to_request(
+            await add_embrouter_data_to_request(
                 data=data,
                 request=mock_request,
                 user_api_key_dict=user_api_key_dict,
@@ -4842,11 +4842,11 @@ async def test_bearer_token_not_in_debug_logs():
 
 @pytest.fixture()
 def setup_test_credentials():
-    """Populate litellm.credential_list with test credentials and enable feature flag, clean up after."""
-    original = litellm.credential_list[:]
-    original_flag = litellm.enable_model_config_credential_overrides
-    litellm.enable_model_config_credential_overrides = True
-    litellm.credential_list.extend(
+    """Populate embrouter.credential_list with test credentials and enable feature flag, clean up after."""
+    original = embrouter.credential_list[:]
+    original_flag = embrouter.enable_model_config_credential_overrides
+    embrouter.enable_model_config_credential_overrides = True
+    embrouter.credential_list.extend(
         [
             CredentialItem(
                 credential_name="hotel-azure-eastus",
@@ -4892,15 +4892,15 @@ def setup_test_credentials():
         ]
     )
     yield
-    litellm.credential_list[:] = original
-    litellm.enable_model_config_credential_overrides = original_flag
+    embrouter.credential_list[:] = original
+    embrouter.enable_model_config_credential_overrides = original_flag
 
 
 # --- Unit tests for _extract_credential_from_entry ---
 
 
 def test_extract_credential_from_entry_azure():
-    entry = {"azure": {"litellm_credentials": "my-cred"}}
+    entry = {"azure": {"embrouter_credentials": "my-cred"}}
     assert _extract_credential_from_entry(entry) == "my-cred"
 
 
@@ -4930,12 +4930,12 @@ def test_extract_credential_from_entry_non_dict_entry():
 
 def test_resolve_project_model_specific_wins():
     project_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "proj-gpt4"}},
-        "defaultconfig": {"azure": {"litellm_credentials": "proj-default"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "proj-gpt4"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "proj-default"}},
     }
     team_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "team-gpt4"}},
-        "defaultconfig": {"azure": {"litellm_credentials": "team-default"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "team-gpt4"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "team-default"}},
     }
     result = _resolve_credential_from_model_config("gpt-4", project_config, team_config)
     assert result == "proj-gpt4"
@@ -4943,11 +4943,11 @@ def test_resolve_project_model_specific_wins():
 
 def test_resolve_project_default_wins_over_team():
     project_config = {
-        "defaultconfig": {"azure": {"litellm_credentials": "proj-default"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "proj-default"}},
     }
     team_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "team-gpt4"}},
-        "defaultconfig": {"azure": {"litellm_credentials": "team-default"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "team-gpt4"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "team-default"}},
     }
     result = _resolve_credential_from_model_config("gpt-4", project_config, team_config)
     assert result == "proj-default"
@@ -4955,8 +4955,8 @@ def test_resolve_project_default_wins_over_team():
 
 def test_resolve_team_model_specific_wins_over_team_default():
     team_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "team-gpt4"}},
-        "defaultconfig": {"azure": {"litellm_credentials": "team-default"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "team-gpt4"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "team-default"}},
     }
     result = _resolve_credential_from_model_config("gpt-4", None, team_config)
     assert result == "team-gpt4"
@@ -4964,7 +4964,7 @@ def test_resolve_team_model_specific_wins_over_team_default():
 
 def test_resolve_team_default_used_as_fallback():
     team_config = {
-        "defaultconfig": {"azure": {"litellm_credentials": "team-default"}},
+        "defaultconfig": {"azure": {"embrouter_credentials": "team-default"}},
     }
     result = _resolve_credential_from_model_config("gpt-3.5", None, team_config)
     assert result == "team-default"
@@ -4981,7 +4981,7 @@ def test_resolve_empty_configs_returns_none():
 
 
 def test_resolve_model_not_in_any_config():
-    project_config = {"gpt-4": {"azure": {"litellm_credentials": "x"}}}
+    project_config = {"gpt-4": {"azure": {"embrouter_credentials": "x"}}}
     result = _resolve_credential_from_model_config("gpt-3.5", project_config, None)
     assert result is None
 
@@ -4996,14 +4996,14 @@ def test_apply_overrides_project_model_specific(setup_test_credentials):
         api_key="test-key",
         team_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}},
-                "gpt-4": {"azure": {"litellm_credentials": "hotel-azure-westus"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}},
+                "gpt-4": {"azure": {"embrouter_credentials": "hotel-azure-westus"}},
             }
         },
         project_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-rec-azure"}},
-                "gpt-4-vision": {"azure": {"litellm_credentials": "hotel-rec-vision"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-rec-azure"}},
+                "gpt-4-vision": {"azure": {"embrouter_credentials": "hotel-rec-vision"}},
             }
         },
     )
@@ -5020,14 +5020,14 @@ def test_apply_overrides_project_default(setup_test_credentials):
         api_key="test-key",
         team_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}},
-                "gpt-4": {"azure": {"litellm_credentials": "hotel-azure-westus"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}},
+                "gpt-4": {"azure": {"embrouter_credentials": "hotel-azure-westus"}},
             }
         },
         project_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-rec-azure"}},
-                "gpt-4-vision": {"azure": {"litellm_credentials": "hotel-rec-vision"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-rec-azure"}},
+                "gpt-4-vision": {"azure": {"embrouter_credentials": "hotel-rec-vision"}},
             }
         },
     )
@@ -5043,8 +5043,8 @@ def test_apply_overrides_team_model_specific(setup_test_credentials):
         api_key="test-key",
         team_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}},
-                "gpt-4": {"azure": {"litellm_credentials": "hotel-azure-westus"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}},
+                "gpt-4": {"azure": {"embrouter_credentials": "hotel-azure-westus"}},
             }
         },
         project_metadata={},
@@ -5061,8 +5061,8 @@ def test_apply_overrides_team_default(setup_test_credentials):
         api_key="test-key",
         team_metadata={
             "model_config": {
-                "defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}},
-                "gpt-4": {"azure": {"litellm_credentials": "hotel-azure-westus"}},
+                "defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}},
+                "gpt-4": {"azure": {"embrouter_credentials": "hotel-azure-westus"}},
             }
         },
         project_metadata={},
@@ -5096,7 +5096,7 @@ def test_apply_overrides_clientside_credentials_take_precedence(
     }
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}}}},
+        team_metadata={"model_config": {"defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     assert data["api_base"] == "https://my-custom-endpoint.openai.azure.com/"
@@ -5108,7 +5108,7 @@ def test_apply_overrides_missing_credential_name(setup_test_credentials):
     data = {"model": "gpt-4"}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"gpt-4": {"azure": {"litellm_credentials": "nonexistent-credential"}}}},
+        team_metadata={"model_config": {"gpt-4": {"azure": {"embrouter_credentials": "nonexistent-credential"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     assert "api_base" not in data
@@ -5120,7 +5120,7 @@ def test_apply_overrides_api_version_only_if_present(setup_test_credentials):
     data = {"model": "gpt-3.5"}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}}}},
+        team_metadata={"model_config": {"defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     assert data["api_base"] == "https://hotel-eastus.openai.azure.com/"
@@ -5133,7 +5133,7 @@ def test_apply_overrides_no_model_in_data(setup_test_credentials):
     data = {"messages": [{"role": "user", "content": "hello"}]}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"defaultconfig": {"azure": {"litellm_credentials": "some-cred"}}}},
+        team_metadata={"model_config": {"defaultconfig": {"azure": {"embrouter_credentials": "some-cred"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     assert "api_base" not in data
@@ -5156,7 +5156,7 @@ def test_apply_overrides_clientside_api_version_preserved(setup_test_credentials
     data = {"model": "gpt-4-vision", "api_version": "2025-01-01"}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"gpt-4-vision": {"azure": {"litellm_credentials": "hotel-rec-vision"}}}},
+        team_metadata={"model_config": {"gpt-4-vision": {"azure": {"embrouter_credentials": "hotel-rec-vision"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     # api_base and api_key should be set from credential
@@ -5178,7 +5178,7 @@ def test_resolve_non_dict_model_config_ignored():
     result = _resolve_credential_from_model_config(
         "gpt-4",
         "invalid",
-        {"gpt-4": {"azure": {"litellm_credentials": "valid-cred"}}},
+        {"gpt-4": {"azure": {"embrouter_credentials": "valid-cred"}}},
     )
     assert result == "valid-cred"
 
@@ -5186,7 +5186,7 @@ def test_resolve_non_dict_model_config_ignored():
 def test_resolve_pre_alias_model_name_fallback():
     """model_config keyed on pre-alias name should match after alias resolution."""
     team_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "team-gpt4"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "team-gpt4"}},
     }
     # Post-alias name doesn't match, but pre-alias does (team scope)
     result = _resolve_credential_from_model_config("azure/gpt-4-0613", None, team_config, pre_alias_model_name="gpt-4")
@@ -5194,7 +5194,7 @@ def test_resolve_pre_alias_model_name_fallback():
 
     # Same test for project scope
     project_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "proj-gpt4"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "proj-gpt4"}},
     }
     result = _resolve_credential_from_model_config(
         "azure/gpt-4-0613", project_config, None, pre_alias_model_name="gpt-4"
@@ -5205,8 +5205,8 @@ def test_resolve_pre_alias_model_name_fallback():
 def test_resolve_post_alias_name_takes_priority():
     """Post-alias (resolved) name should be tried before pre-alias name."""
     team_config = {
-        "gpt-4": {"azure": {"litellm_credentials": "pre-alias-cred"}},
-        "gpt-4o-team-1": {"azure": {"litellm_credentials": "post-alias-cred"}},
+        "gpt-4": {"azure": {"embrouter_credentials": "pre-alias-cred"}},
+        "gpt-4o-team-1": {"azure": {"embrouter_credentials": "post-alias-cred"}},
     }
     # Team scope
     result = _resolve_credential_from_model_config("gpt-4o-team-1", None, team_config, pre_alias_model_name="gpt-4")
@@ -5226,7 +5226,7 @@ def test_apply_overrides_with_alias(setup_test_credentials):
         api_key="test-key",
         team_metadata={
             "model_config": {
-                "my-gpt4": {"azure": {"litellm_credentials": "hotel-azure-eastus"}},
+                "my-gpt4": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}},
             }
         },
     )
@@ -5241,11 +5241,11 @@ def test_apply_overrides_with_alias(setup_test_credentials):
 
 def test_apply_overrides_feature_flag_disabled_by_default():
     """Feature flag defaults to False — credential overrides are inert until explicitly enabled."""
-    assert litellm.enable_model_config_credential_overrides is False
+    assert embrouter.enable_model_config_credential_overrides is False
     data = {"model": "gpt-4"}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"gpt-4": {"azure": {"litellm_credentials": "hotel-azure-eastus"}}}},
+        team_metadata={"model_config": {"gpt-4": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict)
     assert "api_base" not in data
@@ -5255,8 +5255,8 @@ def test_apply_overrides_feature_flag_disabled_by_default():
 def test_extract_credential_provider_hint_prefers_exact_match():
     """Provider hint selects the correct provider in a multi-provider entry."""
     entry = {
-        "openai": {"litellm_credentials": "openai-cred"},
-        "azure": {"litellm_credentials": "azure-cred"},
+        "openai": {"embrouter_credentials": "openai-cred"},
+        "azure": {"embrouter_credentials": "azure-cred"},
     }
     # With provider hint, should pick the exact match
     assert _extract_credential_from_entry(entry, provider="azure") == "azure-cred"
@@ -5275,8 +5275,8 @@ def test_resolve_provider_hint_from_model_name():
     """Provider prefix in model name (e.g. azure/gpt-4) threads through to entry extraction."""
     config = {
         "gpt-4": {
-            "openai": {"litellm_credentials": "openai-cred"},
-            "azure": {"litellm_credentials": "azure-cred"},
+            "openai": {"embrouter_credentials": "openai-cred"},
+            "azure": {"embrouter_credentials": "azure-cred"},
         },
     }
     # Model name "azure/gpt-4" -> provider="azure" -> should prefer azure-cred
@@ -5297,22 +5297,22 @@ def test_clean_headers_preserves_x_api_key_when_byok_enabled():
     headers = Headers(
         {
             "x-api-key": "sk-ant-api03-client-key",
-            "x-litellm-api-key": "sk-proxy-virtual-key",
+            "x-embrouter-api-key": "sk-proxy-virtual-key",
             "content-type": "application/json",
         }
     )
 
     result = clean_headers(
         headers=headers,
-        litellm_key_header_name="x-litellm-api-key",
+        embrouter_key_header_name="x-embrouter-api-key",
         forward_llm_provider_auth_headers=True,
-        authenticated_with_header="x-litellm-api-key",
+        authenticated_with_header="x-embrouter-api-key",
     )
 
     # x-api-key must be preserved for BYOK
     assert result.get("x-api-key") == "sk-ant-api03-client-key"
-    # x-litellm-api-key must NOT leak to the upstream
-    assert "x-litellm-api-key" not in result
+    # x-embrouter-api-key must NOT leak to the upstream
+    assert "x-embrouter-api-key" not in result
 
 
 def test_clean_headers_strips_x_api_key_when_byok_disabled():
@@ -5324,15 +5324,15 @@ def test_clean_headers_strips_x_api_key_when_byok_disabled():
     headers = Headers(
         {
             "x-api-key": "sk-ant-api03-client-key",
-            "x-litellm-api-key": "sk-proxy-virtual-key",
+            "x-embrouter-api-key": "sk-proxy-virtual-key",
         }
     )
 
     result = clean_headers(
         headers=headers,
-        litellm_key_header_name="x-litellm-api-key",
+        embrouter_key_header_name="x-embrouter-api-key",
         forward_llm_provider_auth_headers=False,
-        authenticated_with_header="x-litellm-api-key",
+        authenticated_with_header="x-embrouter-api-key",
     )
 
     assert "x-api-key" not in result
@@ -5354,13 +5354,13 @@ def test_clean_headers_strips_x_api_key_when_byok_enabled_but_x_api_key_was_auth
 
     result = clean_headers(
         headers=headers,
-        litellm_key_header_name="x-litellm-api-key",
+        embrouter_key_header_name="x-embrouter-api-key",
         forward_llm_provider_auth_headers=True,
         authenticated_with_header="x-api-key",
     )
 
     # Even with BYOK enabled, x-api-key must be stripped when it was used
-    # as the LiteLLM auth header (anti-replay guard).
+    # as the EmbRouter auth header (anti-replay guard).
     assert "x-api-key" not in result
 
 
@@ -5381,7 +5381,7 @@ async def test_move_guardrails_to_metadata_moves_include_guardrail_response_befo
         "metadata": {},
         "include_guardrail_response": True,
     }
-    with patch("litellm.proxy.policy_engine.policy_registry.get_policy_registry", return_value=policy_registry):
+    with patch("embrouter.proxy.policy_engine.policy_registry.get_policy_registry", return_value=policy_registry):
         await move_guardrails_to_metadata(
             data=true_data,
             _metadata_variable_name="metadata",
@@ -5397,7 +5397,7 @@ async def test_move_guardrails_to_metadata_moves_include_guardrail_response_befo
         "metadata": {},
         "include_guardrail_response": "true",
     }
-    with patch("litellm.proxy.policy_engine.policy_registry.get_policy_registry", return_value=policy_registry):
+    with patch("embrouter.proxy.policy_engine.policy_registry.get_policy_registry", return_value=policy_registry):
         await move_guardrails_to_metadata(
             data=string_data,
             _metadata_variable_name="metadata",
@@ -5414,16 +5414,16 @@ async def test_team_guardrail_merges_with_global_policy():
     Regression: team's direct guardrail must be present alongside guardrails
     resolved from a global policy (scope='*') configured by the admin.
 
-    The bug: get_guardrail_from_metadata checked litellm_metadata before
-    metadata. When the request contained a non-empty litellm_metadata field
+    The bug: get_guardrail_from_metadata checked embrouter_metadata before
+    metadata. When the request contained a non-empty embrouter_metadata field
     (without a 'guardrails' key), the merged list in data["metadata"] was
     shadowed and non-default guardrails silently received an empty
     requested_guardrails list.
     """
-    from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.proxy.litellm_pre_call_utils import move_guardrails_to_metadata
-    from litellm.types.proxy.policy_engine import (
+    from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.proxy.embrouter_pre_call_utils import move_guardrails_to_metadata
+    from embrouter.types.proxy.policy_engine import (
         Policy,
         PolicyAttachment,
         PolicyGuardrails,
@@ -5432,9 +5432,9 @@ async def test_team_guardrail_merges_with_global_policy():
     data = {
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "Hello"}],
-        # Simulate a request that carries litellm_metadata (without guardrails)
+        # Simulate a request that carries embrouter_metadata (without guardrails)
         # which previously shadowed data["metadata"]["guardrails"].
-        "litellm_metadata": {"some_user_field": "some_value"},
+        "embrouter_metadata": {"some_user_field": "some_value"},
         "metadata": {},
     }
 
@@ -5458,7 +5458,7 @@ async def test_team_guardrail_merges_with_global_policy():
     attachment_registry._initialized = True
 
     try:
-        with patch("litellm.proxy.utils._premium_user_check"):
+        with patch("embrouter.proxy.utils._premium_user_check"):
             await move_guardrails_to_metadata(
                 data=data,
                 _metadata_variable_name="metadata",
@@ -5473,8 +5473,8 @@ async def test_team_guardrail_merges_with_global_policy():
         assert len(guardrails) == len(set(guardrails)), f"Duplicates in guardrails list: {guardrails}"
 
         # Verify get_guardrail_from_metadata returns the merged list even
-        # when litellm_metadata is present (the bug: it returned [] before fix)
-        from litellm.integrations.custom_guardrail import CustomGuardrail
+        # when embrouter_metadata is present (the bug: it returned [] before fix)
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
 
         class _DummyGuardrail(CustomGuardrail):
             pass
@@ -5482,7 +5482,7 @@ async def test_team_guardrail_merges_with_global_policy():
         dummy = _DummyGuardrail(guardrail_name="team-direct-guardrail")
         returned = dummy.get_guardrail_from_metadata(data)
         assert "team-direct-guardrail" in returned, (
-            f"get_guardrail_from_metadata shadowed by litellm_metadata; got: {returned}"
+            f"get_guardrail_from_metadata shadowed by embrouter_metadata; got: {returned}"
         )
 
     finally:
@@ -5493,13 +5493,13 @@ async def test_team_guardrail_merges_with_global_policy():
 
 
 @pytest.mark.asyncio
-async def test_get_guardrail_from_metadata_prefers_metadata_over_litellm_metadata():
+async def test_get_guardrail_from_metadata_prefers_metadata_over_embrouter_metadata():
     """
     Unit test: get_guardrail_from_metadata must read from data["metadata"] first.
-    A non-empty data["litellm_metadata"] without a 'guardrails' key must not
+    A non-empty data["embrouter_metadata"] without a 'guardrails' key must not
     shadow data["metadata"]["guardrails"].
     """
-    from litellm.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
 
     class _DummyGuardrail(CustomGuardrail):
         pass
@@ -5508,7 +5508,7 @@ async def test_get_guardrail_from_metadata_prefers_metadata_over_litellm_metadat
 
     data = {
         "metadata": {"guardrails": ["my-guardrail", "other-guardrail"]},
-        "litellm_metadata": {"some_field": "some_value"},  # no 'guardrails' key
+        "embrouter_metadata": {"some_field": "some_value"},  # no 'guardrails' key
     }
 
     result = dummy.get_guardrail_from_metadata(data)
@@ -5518,12 +5518,12 @@ async def test_get_guardrail_from_metadata_prefers_metadata_over_litellm_metadat
     ], f"Expected guardrails from metadata, got: {result}"
 
 
-def test_get_guardrail_from_metadata_reads_litellm_metadata_when_no_metadata():
+def test_get_guardrail_from_metadata_reads_embrouter_metadata_when_no_metadata():
     """
-    get_guardrail_from_metadata must still read from litellm_metadata when
+    get_guardrail_from_metadata must still read from embrouter_metadata when
     data["metadata"] has no 'guardrails' key (thread/assistant endpoint path).
     """
-    from litellm.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
 
     class _DummyGuardrail(CustomGuardrail):
         pass
@@ -5532,11 +5532,11 @@ def test_get_guardrail_from_metadata_reads_litellm_metadata_when_no_metadata():
 
     data = {
         "metadata": {"requester_metadata": {"user": "alice"}},  # no guardrails key
-        "litellm_metadata": {"guardrails": ["my-guardrail"]},
+        "embrouter_metadata": {"guardrails": ["my-guardrail"]},
     }
 
     result = dummy.get_guardrail_from_metadata(data)
-    assert result == ["my-guardrail"], f"Expected guardrails from litellm_metadata fallback, got: {result}"
+    assert result == ["my-guardrail"], f"Expected guardrails from embrouter_metadata fallback, got: {result}"
 
 
 def _build_request_mock_with_headers(headers: dict) -> Request:
@@ -5555,15 +5555,15 @@ def _build_request_mock_with_headers(headers: dict) -> Request:
 
 
 class TestApplyClientTagPolicyPreAuth:
-    """Tests for ``LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth``.
+    """Tests for ``EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth``.
 
-    Regression coverage for the bug where ``x-litellm-tags`` header was
+    Regression coverage for the bug where ``x-embrouter-tags`` header was
     invisible to ``_tag_max_budget_check`` because the merge happened
-    post-auth in ``add_litellm_data_to_request``.
+    post-auth in ``add_embrouter_data_to_request``.
     """
 
     def test_merges_header_tags_into_metadata(self):
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme,env:prod"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme,env:prod"})
         data = {"model": "gpt-3.5-turbo"}
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
@@ -5571,7 +5571,7 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
@@ -5580,7 +5580,7 @@ class TestApplyClientTagPolicyPreAuth:
         assert data["metadata"]["tags"] == ["tenant:acme", "env:prod"]
 
     def test_unions_header_tags_with_existing_metadata_tags(self):
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme,env:prod"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme,env:prod"})
         data = {
             "model": "gpt-3.5-turbo",
             "metadata": {"tags": ["env:prod", "team:platform"]},
@@ -5591,7 +5591,7 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
@@ -5605,11 +5605,11 @@ class TestApplyClientTagPolicyPreAuth:
         # (inside common_checks) enforces per-tag budgets on whatever tags
         # it sees in request_data, including body tags. The helper only
         # adds header tags to metadata.tags.
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme"})
         data = {
             "model": "gpt-3.5-turbo",
             "tags": ["root-tag"],
-            "litellm_metadata": {"tags": ["litellm-meta-tag"]},
+            "embrouter_metadata": {"tags": ["embrouter-meta-tag"]},
         }
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
@@ -5617,25 +5617,25 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
         assert data["tags"] == ["root-tag"]
-        # litellm_metadata is the active metadata key (it's present), so
+        # embrouter_metadata is the active metadata key (it's present), so
         # header tags merge into it and union with existing tags there.
-        assert data["litellm_metadata"]["tags"] == [
-            "litellm-meta-tag",
+        assert data["embrouter_metadata"]["tags"] == [
+            "embrouter-meta-tag",
             "tenant:acme",
         ]
 
-    def test_uses_litellm_metadata_when_present(self):
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme"})
+    def test_uses_embrouter_metadata_when_present(self):
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme"})
         data = {
             "model": "gpt-3.5-turbo",
-            "litellm_metadata": {"foo": "bar"},
+            "embrouter_metadata": {"foo": "bar"},
         }
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
@@ -5643,16 +5643,16 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        # get_metadata_variable_name_from_kwargs returns "litellm_metadata"
+        # get_metadata_variable_name_from_kwargs returns "embrouter_metadata"
         # when present, so header tags should land there to be visible to
         # _tag_max_budget_check.
-        assert data["litellm_metadata"]["tags"] == ["tenant:acme"]
+        assert data["embrouter_metadata"]["tags"] == ["tenant:acme"]
         assert "tags" not in data.get("metadata", {})
 
     def test_no_header_no_mutation(self):
@@ -5664,7 +5664,7 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
@@ -5676,7 +5676,7 @@ class TestApplyClientTagPolicyPreAuth:
         # metadata can arrive as a JSON string (multipart/form-data, extra_body).
         # The pre-auth merge must parse it so an over-budget body tag isn't
         # silently dropped when a within-budget header tag is also present.
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "free"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "free"})
         data = {
             "model": "gpt-3.5-turbo",
             "metadata": '{"tags": ["paid"]}',
@@ -5687,7 +5687,7 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
@@ -5699,12 +5699,12 @@ class TestApplyClientTagPolicyPreAuth:
     @pytest.mark.asyncio
     async def test_string_metadata_does_not_bypass_tag_max_budget_check(self):
         """Regression: string metadata containing an over-budget tag must not
-        be silently overwritten when an x-litellm-tags header is present."""
-        from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TagTable
-        from litellm.proxy.auth.auth_checks import _tag_max_budget_check
-        from litellm.proxy.utils import ProxyLogging
+        be silently overwritten when an x-embrouter-tags header is present."""
+        from embrouter.proxy._types import EmbRouter_BudgetTable, EmbRouter_TagTable
+        from embrouter.proxy.auth.auth_checks import _tag_max_budget_check
+        from embrouter.proxy.utils import ProxyLogging
 
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "free"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "free"})
         data = {
             "model": "gpt-3.5-turbo",
             "metadata": '{"tags": ["paid"]}',
@@ -5715,16 +5715,16 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        paid_tag = LiteLLM_TagTable(
+        paid_tag = EmbRouter_TagTable(
             tag_name="paid",
             spend=0.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=0.10),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=0.10),
         )
 
         async def mock_get_current_spend(counter_key, fallback_spend, max_budget=None, **kwargs):
@@ -5734,16 +5734,16 @@ class TestApplyClientTagPolicyPreAuth:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.get_current_spend",
+                "embrouter.proxy.proxy_server.get_current_spend",
                 mock_get_current_spend,
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_tag_objects_batch",
+                "embrouter.proxy.auth.auth_checks.get_tag_objects_batch",
                 new_callable=AsyncMock,
                 return_value={"paid": paid_tag},
             ),
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await _tag_max_budget_check(
                     request_body=data,
                     prisma_client=MagicMock(),
@@ -5758,11 +5758,11 @@ class TestApplyClientTagPolicyPreAuth:
     async def test_header_tags_visible_to_tag_max_budget_check(self):
         """End-to-end: helper + ``_tag_max_budget_check`` enforces budget on
         header-supplied tags. Without the helper, this would silently pass."""
-        from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TagTable
-        from litellm.proxy.auth.auth_checks import _tag_max_budget_check
-        from litellm.proxy.utils import ProxyLogging
+        from embrouter.proxy._types import EmbRouter_BudgetTable, EmbRouter_TagTable
+        from embrouter.proxy.auth.auth_checks import _tag_max_budget_check
+        from embrouter.proxy.utils import ProxyLogging
 
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme"})
         data = {"model": "gpt-3.5-turbo"}
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
@@ -5770,16 +5770,16 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        tag_object = LiteLLM_TagTable(
+        tag_object = EmbRouter_TagTable(
             tag_name="tenant:acme",
             spend=0.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=0.10),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=0.10),
         )
 
         async def mock_get_current_spend(counter_key, fallback_spend, max_budget=None, **kwargs):
@@ -5789,16 +5789,16 @@ class TestApplyClientTagPolicyPreAuth:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.get_current_spend",
+                "embrouter.proxy.proxy_server.get_current_spend",
                 mock_get_current_spend,
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_tag_objects_batch",
+                "embrouter.proxy.auth.auth_checks.get_tag_objects_batch",
                 new_callable=AsyncMock,
                 return_value={"tenant:acme": tag_object},
             ),
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await _tag_max_budget_check(
                     request_body=data,
                     prisma_client=MagicMock(),
@@ -5818,20 +5818,20 @@ class TestApplyClientTagPolicyPreAuth:
         ],
     )
     async def test_header_tags_visible_to_tag_max_budget_check_on_metadata_route(self, route):
-        """Regression: on LITELLM_METADATA_ROUTES (bedrock, /v1/messages, ...),
-        common_checks pre-seeds ``litellm_metadata`` and writes key tags there
+        """Regression: on EMBROUTER_METADATA_ROUTES (bedrock, /v1/messages, ...),
+        common_checks pre-seeds ``embrouter_metadata`` and writes key tags there
         before ``_tag_max_budget_check`` reads from the same key. The auth wrapper
         calls ``apply_client_tag_policy_pre_auth`` first, so without an earlier
         pre-seed header tags land in ``metadata`` and the budget check (now
-        resolving to ``litellm_metadata``) silently ignores them. This test mirrors
+        resolving to ``embrouter_metadata``) silently ignores them. This test mirrors
         the actual auth-time call order and verifies that an over-budget
         header-supplied tag still trips ``_tag_max_budget_check``.
         """
-        from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TagTable
-        from litellm.proxy.auth.auth_checks import common_checks
-        from litellm.proxy.utils import ProxyLogging
+        from embrouter.proxy._types import EmbRouter_BudgetTable, EmbRouter_TagTable
+        from embrouter.proxy.auth.auth_checks import common_checks
+        from embrouter.proxy.utils import ProxyLogging
 
-        request_mock = _build_request_mock_with_headers({"x-litellm-tags": "tenant:acme"})
+        request_mock = _build_request_mock_with_headers({"x-embrouter-tags": "tenant:acme"})
         data = {"model": "us.anthropic.claude-sonnet-4-6"}
         valid_token = UserAPIKeyAuth(
             token="test-token",
@@ -5840,20 +5840,20 @@ class TestApplyClientTagPolicyPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.pre_seed_litellm_metadata_for_route(
+        EmbRouterProxyRequestSetup.pre_seed_embrouter_metadata_for_route(
             request_data=data,
             route=route,
         )
-        LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+        EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
             request=request_mock,
             request_data=data,
             user_api_key_dict=valid_token,
         )
 
-        tag_object = LiteLLM_TagTable(
+        tag_object = EmbRouter_TagTable(
             tag_name="tenant:acme",
             spend=0.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=0.10),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=0.10),
         )
 
         async def mock_get_current_spend(counter_key, fallback_spend, max_budget=None, **kwargs):
@@ -5863,20 +5863,20 @@ class TestApplyClientTagPolicyPreAuth:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "embrouter.proxy.proxy_server.prisma_client",
                 MagicMock(),
             ),
             patch(
-                "litellm.proxy.proxy_server.get_current_spend",
+                "embrouter.proxy.proxy_server.get_current_spend",
                 mock_get_current_spend,
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_tag_objects_batch",
+                "embrouter.proxy.auth.auth_checks.get_tag_objects_batch",
                 new_callable=AsyncMock,
                 return_value={"tenant:acme": tag_object},
             ),
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await common_checks(
                     request_body=data,
                     team_object=None,
@@ -5894,7 +5894,7 @@ class TestApplyClientTagPolicyPreAuth:
             assert exc_info.value.max_budget == 0.10
 
         assert "metadata" not in data
-        assert data["litellm_metadata"]["tags"] == ["tenant:acme"]
+        assert data["embrouter_metadata"]["tags"] == ["tenant:acme"]
 
 
 class TestApplyKeyTagsPreAuth:
@@ -5906,7 +5906,7 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
@@ -5924,7 +5924,7 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
@@ -5940,7 +5940,7 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
@@ -5955,17 +5955,17 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
         assert "metadata" not in data
 
-    def test_uses_litellm_metadata_when_present(self):
+    def test_uses_embrouter_metadata_when_present(self):
         data = {
             "model": "gpt-3.5-turbo",
-            "litellm_metadata": {"foo": "bar"},
+            "embrouter_metadata": {"foo": "bar"},
         }
         user_api_key_dict = UserAPIKeyAuth(
             api_key="hashed-key",
@@ -5973,12 +5973,12 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        assert data["litellm_metadata"]["tags"] == ["key-tag"]
+        assert data["embrouter_metadata"]["tags"] == ["key-tag"]
         assert "tags" not in data.get("metadata", {})
 
     def test_string_metadata_parsed_before_merge(self):
@@ -5992,7 +5992,7 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
@@ -6002,9 +6002,9 @@ class TestApplyKeyTagsPreAuth:
 
     @pytest.mark.asyncio
     async def test_key_tags_visible_to_tag_max_budget_check(self):
-        from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TagTable
-        from litellm.proxy.auth.auth_checks import _tag_max_budget_check
-        from litellm.proxy.utils import ProxyLogging
+        from embrouter.proxy._types import EmbRouter_BudgetTable, EmbRouter_TagTable
+        from embrouter.proxy.auth.auth_checks import _tag_max_budget_check
+        from embrouter.proxy.utils import ProxyLogging
 
         data = {"model": "gpt-3.5-turbo"}
         user_api_key_dict = UserAPIKeyAuth(
@@ -6013,15 +6013,15 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        tag_object = LiteLLM_TagTable(
+        tag_object = EmbRouter_TagTable(
             tag_name="engineering",
             spend=0.0,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=0.10),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=0.10),
         )
 
         async def mock_get_current_spend(counter_key, fallback_spend, max_budget=None, **kwargs):
@@ -6031,16 +6031,16 @@ class TestApplyKeyTagsPreAuth:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.get_current_spend",
+                "embrouter.proxy.proxy_server.get_current_spend",
                 mock_get_current_spend,
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_tag_objects_batch",
+                "embrouter.proxy.auth.auth_checks.get_tag_objects_batch",
                 new_callable=AsyncMock,
                 return_value={"engineering": tag_object},
             ),
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await _tag_max_budget_check(
                     request_body=data,
                     prisma_client=MagicMock(),
@@ -6053,9 +6053,9 @@ class TestApplyKeyTagsPreAuth:
 
     @pytest.mark.asyncio
     async def test_key_tags_within_budget_passes_check(self):
-        from litellm.proxy._types import LiteLLM_BudgetTable, LiteLLM_TagTable
-        from litellm.proxy.auth.auth_checks import _tag_max_budget_check
-        from litellm.proxy.utils import ProxyLogging
+        from embrouter.proxy._types import EmbRouter_BudgetTable, EmbRouter_TagTable
+        from embrouter.proxy.auth.auth_checks import _tag_max_budget_check
+        from embrouter.proxy.utils import ProxyLogging
 
         data = {"model": "gpt-3.5-turbo"}
         user_api_key_dict = UserAPIKeyAuth(
@@ -6064,15 +6064,15 @@ class TestApplyKeyTagsPreAuth:
             team_metadata={},
         )
 
-        LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(
+        EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(
             request_data=data,
             user_api_key_dict=user_api_key_dict,
         )
 
-        tag_object = LiteLLM_TagTable(
+        tag_object = EmbRouter_TagTable(
             tag_name="engineering",
             spend=0.05,
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=0.10),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=0.10),
         )
 
         async def mock_get_current_spend(counter_key, fallback_spend, max_budget=None, **kwargs):
@@ -6082,11 +6082,11 @@ class TestApplyKeyTagsPreAuth:
 
         with (
             patch(
-                "litellm.proxy.proxy_server.get_current_spend",
+                "embrouter.proxy.proxy_server.get_current_spend",
                 mock_get_current_spend,
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_tag_objects_batch",
+                "embrouter.proxy.auth.auth_checks.get_tag_objects_batch",
                 new_callable=AsyncMock,
                 return_value={"engineering": tag_object},
             ),
@@ -6106,12 +6106,12 @@ class TestApplyKeyTagsPreAuth:
 # ============================================================================
 
 
-def test_resolve_provider_from_deployment_uses_litellm_params_model():
+def test_resolve_provider_from_deployment_uses_embrouter_params_model():
     """When custom_llm_provider is unset, fall back to the prefix of model."""
     router = MagicMock()
     deployment = MagicMock()
-    deployment.litellm_params.model = "bedrock/us.anthropic.claude-sonnet-4-6"
-    deployment.litellm_params.custom_llm_provider = None
+    deployment.embrouter_params.model = "bedrock/us.anthropic.claude-sonnet-4-6"
+    deployment.embrouter_params.custom_llm_provider = None
     router.get_deployment_by_model_group_name.return_value = deployment
 
     assert _resolve_provider_from_deployment(router, "claude-sonnet-4.6") == "bedrock"
@@ -6121,8 +6121,8 @@ def test_resolve_provider_from_deployment_prefers_custom_llm_provider():
     """Explicit custom_llm_provider on the deployment wins over model prefix."""
     router = MagicMock()
     deployment = MagicMock()
-    deployment.litellm_params.model = "us.anthropic.claude-sonnet-4-6"
-    deployment.litellm_params.custom_llm_provider = "bedrock"
+    deployment.embrouter_params.model = "us.anthropic.claude-sonnet-4-6"
+    deployment.embrouter_params.custom_llm_provider = "bedrock"
     router.get_deployment_by_model_group_name.return_value = deployment
 
     assert _resolve_provider_from_deployment(router, "claude-sonnet-4.6") == "bedrock"
@@ -6146,8 +6146,8 @@ def test_resolve_provider_from_deployment_falls_back_to_pre_alias():
     """If post-alias lookup fails, the pre-alias name is also tried."""
     router = MagicMock()
     deployment = MagicMock()
-    deployment.litellm_params.model = "bedrock/anthropic.claude-sonnet-4-6"
-    deployment.litellm_params.custom_llm_provider = None
+    deployment.embrouter_params.model = "bedrock/anthropic.claude-sonnet-4-6"
+    deployment.embrouter_params.custom_llm_provider = None
 
     def lookup(model_group_name):
         if model_group_name == "pre-alias-name":
@@ -6168,14 +6168,14 @@ def test_apply_overrides_multi_provider_default_picks_correct_provider(
     request model has no '/' prefix, the deployment's custom_llm_provider must
     drive provider matching instead of falling through to dict insertion order.
     """
-    litellm.credential_list.append(
+    embrouter.credential_list.append(
         CredentialItem(
             credential_name="bedrock-team-1",
             credential_info={},
             credential_values={"api_key": "ABSK-bedrock-key-for-team-1"},
         )
     )
-    litellm.credential_list.append(
+    embrouter.credential_list.append(
         CredentialItem(
             credential_name="gemini-team-1",
             credential_info={},
@@ -6190,8 +6190,8 @@ def test_apply_overrides_multi_provider_default_picks_correct_provider(
             "model_config": {
                 "defaultconfig": {
                     # gemini comes first in insertion order — the bug picked it.
-                    "gemini": {"litellm_credentials": "gemini-team-1"},
-                    "bedrock": {"litellm_credentials": "bedrock-team-1"},
+                    "gemini": {"embrouter_credentials": "gemini-team-1"},
+                    "bedrock": {"embrouter_credentials": "bedrock-team-1"},
                 }
             }
         },
@@ -6199,8 +6199,8 @@ def test_apply_overrides_multi_provider_default_picks_correct_provider(
 
     router = MagicMock()
     deployment = MagicMock()
-    deployment.litellm_params.model = "us.anthropic.claude-sonnet-4-6"
-    deployment.litellm_params.custom_llm_provider = "bedrock"
+    deployment.embrouter_params.model = "us.anthropic.claude-sonnet-4-6"
+    deployment.embrouter_params.custom_llm_provider = "bedrock"
     router.get_deployment_by_model_group_name.return_value = deployment
 
     _apply_credential_overrides_from_model_config(
@@ -6221,7 +6221,7 @@ def test_apply_overrides_no_router_keeps_legacy_behaviour(setup_test_credentials
     data = {"model": "gpt-4"}
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        team_metadata={"model_config": {"defaultconfig": {"azure": {"litellm_credentials": "hotel-azure-eastus"}}}},
+        team_metadata={"model_config": {"defaultconfig": {"azure": {"embrouter_credentials": "hotel-azure-eastus"}}}},
     )
     _apply_credential_overrides_from_model_config(data=data, user_api_key_dict=user_api_key_dict, llm_router=None)
     assert data["api_base"] == "https://hotel-eastus.openai.azure.com/"
@@ -6241,8 +6241,8 @@ def test_apply_overrides_provider_prefix_in_model_skips_router_lookup(
         team_metadata={
             "model_config": {
                 "defaultconfig": {
-                    "azure": {"litellm_credentials": "hotel-azure-eastus"},
-                    "bedrock": {"litellm_credentials": "hotel-rec-azure"},
+                    "azure": {"embrouter_credentials": "hotel-azure-eastus"},
+                    "bedrock": {"embrouter_credentials": "hotel-rec-azure"},
                 }
             }
         },
@@ -6286,13 +6286,13 @@ def _make_request_mock(path: str, headers: dict) -> MagicMock:
         (None, None, None, None),
     ],
 )
-async def test_add_litellm_data_to_request_agentic_cli_drop_params(
+async def test_add_embrouter_data_to_request_agentic_cli_drop_params(
     user_agent, request_drop_params, operator_drop_params, expected_drop_params
 ):
     """Claude Code sends Anthropic-specific params and Codex sends
     service_tier, both of which fail on providers that reject them, so those
     user agents must turn on drop_params automatically, without overriding an
-    explicit caller value, an explicit operator-level litellm_settings value,
+    explicit caller value, an explicit operator-level embrouter_settings value,
     or affecting other clients.
     """
     headers = {"Content-Type": "application/json"}
@@ -6306,12 +6306,12 @@ async def test_add_litellm_data_to_request_agentic_cli_drop_params(
 
     proxy_config = MagicMock()
     proxy_config.config = (
-        {"litellm_settings": {"drop_params": operator_drop_params}}
+        {"embrouter_settings": {"drop_params": operator_drop_params}}
         if operator_drop_params is not None
-        else {"litellm_settings": {}}
+        else {"embrouter_settings": {}}
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -6324,10 +6324,10 @@ async def test_add_litellm_data_to_request_agentic_cli_drop_params(
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_merges_metadata_tags_on_responses_route():
+async def test_add_embrouter_data_to_request_merges_metadata_tags_on_responses_route():
     """Regression for #31584: user-supplied metadata.tags must be merged into
-    litellm_metadata.tags on /v1/responses so they reach SpendLogs.request_tags."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    embrouter_metadata.tags on /v1/responses so they reach SpendLogs.request_tags."""
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -6352,7 +6352,7 @@ async def test_add_litellm_data_to_request_merges_metadata_tags_on_responses_rou
         team_metadata={},
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -6361,15 +6361,15 @@ async def test_add_litellm_data_to_request_merges_metadata_tags_on_responses_rou
         version="test-version",
     )
 
-    assert "cost-center-1" in updated["litellm_metadata"]["tags"]
-    assert "team-alpha" in updated["litellm_metadata"]["tags"]
+    assert "cost-center-1" in updated["embrouter_metadata"]["tags"]
+    assert "team-alpha" in updated["embrouter_metadata"]["tags"]
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_unions_metadata_tags_with_header_tags_on_responses_route():
-    """On /v1/responses, tags from metadata.tags AND x-litellm-tags header
-    must both appear in litellm_metadata.tags."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+async def test_add_embrouter_data_to_request_unions_metadata_tags_with_header_tags_on_responses_route():
+    """On /v1/responses, tags from metadata.tags AND x-embrouter-tags header
+    must both appear in embrouter_metadata.tags."""
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     request_mock = MagicMock(spec=Request)
     request_mock.url = MagicMock()
@@ -6379,7 +6379,7 @@ async def test_add_litellm_data_to_request_unions_metadata_tags_with_header_tags
     request_mock.query_params = {}
     request_mock.headers = {
         "Content-Type": "application/json",
-        "x-litellm-tags": "header-tag",
+        "x-embrouter-tags": "header-tag",
     }
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
@@ -6397,7 +6397,7 @@ async def test_add_litellm_data_to_request_unions_metadata_tags_with_header_tags
         team_metadata={},
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -6406,7 +6406,7 @@ async def test_add_litellm_data_to_request_unions_metadata_tags_with_header_tags
         version="test-version",
     )
 
-    tags = updated["litellm_metadata"]["tags"]
+    tags = updated["embrouter_metadata"]["tags"]
     assert "header-tag" in tags
     assert "body-tag" in tags
 
@@ -6419,16 +6419,16 @@ def _make_chat_request_mock() -> MagicMock:
 async def test_overwrite_user_with_key_hash_clobbers_caller_supplied_user(monkeypatch):
     """The flag exists so providers can ban by a tamper-proof id; a caller-chosen
     `user` must never survive, and the raw sk- key must never be forwarded."""
-    from litellm.proxy._types import hash_token
+    from embrouter.proxy._types import hash_token
 
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
     raw_key = "sk-overwrite-user-test-1234"
     user_api_key_dict = UserAPIKeyAuth(api_key=raw_key)
     user_api_key_dict.via_virtual_key = True
     data = {"model": "gpt-4o", "user": "attacker-chosen-id"}
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6444,16 +6444,16 @@ async def test_overwrite_user_with_key_hash_clobbers_caller_supplied_user(monkey
 
 @pytest.mark.asyncio
 async def test_overwrite_user_with_key_hash_sets_user_when_absent(monkeypatch):
-    from litellm.proxy._types import hash_token
+    from embrouter.proxy._types import hash_token
 
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
     raw_key = "sk-overwrite-user-test-5678"
     user_api_key_dict = UserAPIKeyAuth(api_key=raw_key)
     user_api_key_dict.via_virtual_key = True
     data = {"model": "gpt-4o"}
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6467,13 +6467,13 @@ async def test_overwrite_user_with_key_hash_sets_user_when_absent(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_overwrite_user_with_key_hash_disabled_preserves_caller_user():
-    assert litellm.overwrite_user_with_key_hash is False
+    assert embrouter.overwrite_user_with_key_hash is False
 
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-overwrite-user-test-9999")
     user_api_key_dict.via_virtual_key = True
     data = {"model": "gpt-4o", "user": "caller-chosen-id"}
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data=data,
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6489,13 +6489,13 @@ async def test_overwrite_user_with_key_hash_disabled_preserves_caller_user():
 async def test_overwrite_user_with_key_hash_skips_custom_auth_credential(monkeypatch):
     """Custom-auth credentials are not sk-prefixed or JWTs, so UserAPIKeyAuth stores
     them raw; the stamp must skip them entirely so auth material never leaks."""
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
     raw_credential = "my-custom-auth-credential-abc123"
     user_api_key_dict = UserAPIKeyAuth(api_key=raw_credential)
     assert user_api_key_dict.api_key == raw_credential
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "user": "caller-chosen-id"},
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6511,14 +6511,14 @@ async def test_overwrite_user_with_key_hash_skips_custom_auth_credential(monkeyp
 async def test_overwrite_user_with_key_hash_skips_jwt_auth(monkeypatch):
     """A hashed JWT rotates on every token re-issue, so it is useless as a stable
     ban id; JWT-authenticated requests are not stamped."""
-    from litellm.proxy._types import hash_token
+    from embrouter.proxy._types import hash_token
 
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
     hashed_jwt = f"hashed-jwt-{hash_token('some-jwt-token')}"
     user_api_key_dict = UserAPIKeyAuth(api_key=hashed_jwt)
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "user": "caller-chosen-id"},
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6535,14 +6535,14 @@ async def test_overwrite_user_with_key_hash_skips_hex_shaped_custom_credential(m
     """A custom-auth credential that happens to be 64 hex chars is indistinguishable
     from a key hash by shape alone; only the server-set via_virtual_key marker may
     authorize stamping, so this raw credential must never be forwarded."""
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
     hex_shaped_credential = "a" * 64
     user_api_key_dict = UserAPIKeyAuth(api_key=hex_shaped_credential)
     assert user_api_key_dict.api_key == hex_shaped_credential
     assert user_api_key_dict.via_virtual_key is False
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "user": "caller-chosen-id"},
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6566,14 +6566,14 @@ def test_via_virtual_key_cannot_be_forged_from_validated_input():
 async def test_overwrite_user_with_key_hash_stamps_master_key_alias(monkeypatch):
     """Master-key requests carry the stable alias instead of a hash (so the master
     key never propagates anywhere); the alias is the stampable id for them."""
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
-    user_api_key_dict = UserAPIKeyAuth(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS)
+    user_api_key_dict = UserAPIKeyAuth(api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS)
     user_api_key_dict.via_virtual_key = True
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "user": "attacker-chosen-id"},
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6582,19 +6582,19 @@ async def test_overwrite_user_with_key_hash_stamps_master_key_alias(monkeypatch)
         version="test-version",
     )
 
-    assert updated_data["user"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert updated_data["user"] == EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
 
 @pytest.mark.asyncio
 async def test_overwrite_user_with_key_hash_rejects_alias_without_marker(monkeypatch):
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
-    monkeypatch.setattr(litellm, "overwrite_user_with_key_hash", True)
+    monkeypatch.setattr(embrouter, "overwrite_user_with_key_hash", True)
 
-    user_api_key_dict = UserAPIKeyAuth(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS)
+    user_api_key_dict = UserAPIKeyAuth(api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS)
     assert user_api_key_dict.via_virtual_key is False
 
-    updated_data = await add_litellm_data_to_request(
+    updated_data = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "user": "caller-chosen-id"},
         request=_make_chat_request_mock(),
         user_api_key_dict=user_api_key_dict,
@@ -6620,20 +6620,20 @@ def test_get_sanitized_user_information_from_key_drops_callback_config():
             "logging": [
                 {
                     "callback_name": "langsmith",
-                    "callback_vars": {"langsmith_api_key": "litellm_enc::ciphertext"},
+                    "callback_vars": {"langsmith_api_key": "embrouter_enc::ciphertext"},
                 }
             ],
-            "callback_settings": {"callback_vars": {"langfuse_secret_key": "litellm_enc::other"}},
+            "callback_settings": {"callback_vars": {"langfuse_secret_key": "embrouter_enc::other"}},
             "priority": "high",
         },
     )
 
-    result = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+    result = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
 
     auth_metadata = result["user_api_key_auth_metadata"]
     assert "logging" not in auth_metadata
     assert "callback_settings" not in auth_metadata
-    assert "litellm_enc::" not in json.dumps(auth_metadata)
+    assert "embrouter_enc::" not in json.dumps(auth_metadata)
     assert auth_metadata["priority"] == "high"
     # UserAPIKeyAuth is the live auth object; the per-key callbacks are resolved
     # from it during pre-call, so it must not be mutated by building the log view
@@ -6650,10 +6650,10 @@ def test_team_alias_targeting_deleted_team_deployment_keeps_requested_model(monk
     public name resolves at the gateway level. The rewrite must be skipped
     when the alias target has no live deployment.
     """
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils
-    from litellm.proxy.litellm_pre_call_utils import _update_model_if_team_alias_exists
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils
+    from embrouter.proxy.embrouter_pre_call_utils import _update_model_if_team_alias_exists
 
-    monkeypatch.delenv("LITELLM_ENABLE_TEAM_STALE_ALIAS_BYPASS", raising=False)
+    monkeypatch.delenv("EMBROUTER_ENABLE_TEAM_STALE_ALIAS_BYPASS", raising=False)
     pre_call_utils._ENABLE_TEAM_STALE_ALIAS_BYPASS = None
 
     class _MockRouter:
@@ -6667,17 +6667,17 @@ def test_team_alias_targeting_deleted_team_deployment_keeps_requested_model(monk
         team_model_aliases={"gpt-4": "model_name_team-1_dead-uuid"},
     )
 
-    with patch("litellm.proxy.proxy_server.llm_router", _MockRouter()):
+    with patch("embrouter.proxy.proxy_server.llm_router", _MockRouter()):
         _update_model_if_team_alias_exists(data=test_data, user_api_key_dict=user_api_key_dict)
 
     assert test_data.get("model") == "gpt-4"
 
 
 def test_team_alias_targeting_live_team_deployment_still_rewrites(monkeypatch):
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils
-    from litellm.proxy.litellm_pre_call_utils import _update_model_if_team_alias_exists
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils
+    from embrouter.proxy.embrouter_pre_call_utils import _update_model_if_team_alias_exists
 
-    monkeypatch.delenv("LITELLM_ENABLE_TEAM_STALE_ALIAS_BYPASS", raising=False)
+    monkeypatch.delenv("EMBROUTER_ENABLE_TEAM_STALE_ALIAS_BYPASS", raising=False)
     pre_call_utils._ENABLE_TEAM_STALE_ALIAS_BYPASS = None
 
     class _MockRouter:
@@ -6691,7 +6691,7 @@ def test_team_alias_targeting_live_team_deployment_still_rewrites(monkeypatch):
         team_model_aliases={"gpt-4": "model_name_team-1_live-uuid"},
     )
 
-    with patch("litellm.proxy.proxy_server.llm_router", _MockRouter()):
+    with patch("embrouter.proxy.proxy_server.llm_router", _MockRouter()):
         _update_model_if_team_alias_exists(data=test_data, user_api_key_dict=user_api_key_dict)
 
     assert test_data.get("model") == "model_name_team-1_live-uuid"
@@ -6700,7 +6700,7 @@ def test_team_alias_targeting_live_team_deployment_still_rewrites(monkeypatch):
 def test_warn_stale_team_alias_once_logs_once_per_key(monkeypatch):
     from collections import OrderedDict
 
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils
 
     monkeypatch.setattr(pre_call_utils, "_STALE_TEAM_ALIAS_WARNING_KEYS", OrderedDict())
 
@@ -6714,7 +6714,7 @@ def test_warn_stale_team_alias_once_logs_once_per_key(monkeypatch):
 def test_warn_stale_team_alias_once_evicts_oldest_key_beyond_cap(monkeypatch):
     from collections import OrderedDict
 
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils
 
     monkeypatch.setattr(pre_call_utils, "_STALE_TEAM_ALIAS_WARNING_KEYS", OrderedDict())
     monkeypatch.setattr(pre_call_utils, "_MAX_STALE_ALIAS_WARNING_KEYS", 2)
@@ -6746,11 +6746,11 @@ def _all_header_dicts(data: dict, metadata_variable_name: str) -> list[dict]:
 @pytest.mark.parametrize(
     "path, metadata_variable_name",
     [
-        ("/v1/messages", "litellm_metadata"),
+        ("/v1/messages", "embrouter_metadata"),
         ("/v1/chat/completions", "metadata"),
     ],
 )
-async def test_add_litellm_data_to_request_redacts_oauth_header_from_logging_copies(path, metadata_variable_name):
+async def test_add_embrouter_data_to_request_redacts_oauth_header_from_logging_copies(path, metadata_variable_name):
     """The Anthropic subscription token is forwarded upstream but never handed to logging."""
     request_mock = _make_request_mock(
         path,
@@ -6758,11 +6758,11 @@ async def test_add_litellm_data_to_request_redacts_oauth_header_from_logging_cop
             "Content-Type": "application/json",
             "anthropic-version": "2023-06-01",
             "Authorization": _OAUTH_TOKEN,
-            "x-litellm-api-key": "Bearer sk-virtual-key",
+            "x-embrouter-api-key": "Bearer sk-virtual-key",
         },
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "anthropic-claude", "messages": [{"role": "user", "content": "hello"}]},
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -6779,7 +6779,7 @@ async def test_add_litellm_data_to_request_redacts_oauth_header_from_logging_cop
 
     assert updated["proxy_server_request"]["headers"] is updated[metadata_variable_name]["headers"]
 
-    from litellm.litellm_core_utils.get_provider_specific_headers import (
+    from embrouter.embrouter_core_utils.get_provider_specific_headers import (
         ProviderSpecificHeaderUtils,
     )
 
@@ -6793,23 +6793,23 @@ async def test_add_litellm_data_to_request_redacts_oauth_header_from_logging_cop
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_keeps_every_forwarded_credential_out_of_logging_copies():
+async def test_add_embrouter_data_to_request_keeps_every_forwarded_credential_out_of_logging_copies():
     """Credentials kept for transport must not survive anywhere under proxy_server_request."""
     secrets = {
         "x-api-key": "sk-byok-provider-key-lit5108",
-        "cookie": "litellm_jwt=session-token-lit5108",
+        "cookie": "embrouter_jwt=session-token-lit5108",
         "proxy-authorization": "Bearer proxy-token-lit5108",
     }
     request_mock = _make_request_mock(
         "/v1/chat/completions",
         {
             "Content-Type": "application/json",
-            "x-litellm-api-key": "Bearer sk-virtual-key",
+            "x-embrouter-api-key": "Bearer sk-virtual-key",
             **secrets,
         },
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]},
         request=request_mock,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -6844,7 +6844,7 @@ async def test_add_litellm_data_to_request_keeps_every_forwarded_credential_out_
     ],
 )
 def test_redact_credential_headers_classifies_each_header(header, expected_redacted):
-    from litellm.proxy.litellm_pre_call_utils import redact_credential_headers
+    from embrouter.proxy.embrouter_pre_call_utils import redact_credential_headers
 
     headers = {header: "secret-value"}
 
@@ -6855,21 +6855,21 @@ def test_redact_credential_headers_classifies_each_header(header, expected_redac
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_debug_log_does_not_print_credentials():
+async def test_add_embrouter_data_to_request_debug_log_does_not_print_credentials():
     """The request-header debug line carries values the stdout secret filter does not match."""
-    import litellm.proxy.litellm_pre_call_utils as pre_call_utils
+    import embrouter.proxy.embrouter_pre_call_utils as pre_call_utils
 
     request_mock = _make_request_mock(
         "/v1/chat/completions",
         {
             "Content-Type": "application/json",
             "Ocp-Apim-Subscription-Key": "apim-plaintext-token-lit5108",
-            "x-litellm-api-key": "Bearer sk-virtual-key",
+            "x-embrouter-api-key": "Bearer sk-virtual-key",
         },
     )
 
     with patch.object(pre_call_utils.verbose_proxy_logger, "debug") as mock_debug:
-        await add_litellm_data_to_request(
+        await add_embrouter_data_to_request(
             data={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]},
             request=request_mock,
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -6911,7 +6911,7 @@ _DATADOG_TEAM_KEY = UserAPIKeyAuth(
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_caller_supplied_callback_credentials():
+async def test_add_embrouter_data_to_request_strips_caller_supplied_callback_credentials():
     """
     The team admin sets dd_api_key only; a caller pairing its own dd_site with that key
     would ship the team's Datadog credential to a host it controls.
@@ -6924,11 +6924,11 @@ async def test_add_litellm_data_to_request_strips_caller_supplied_callback_crede
         "gcs_bucket_name": "attacker-bucket",
         TRUSTED_CALLBACK_VARS_FIELD: {"dd_site": "smuggled.example.com"},
         "metadata": {**caller_destinations, "safe_user_metadata": "kept"},
-        "litellm_metadata": dict(caller_destinations),
-        "litellm_params": {"metadata": dict(caller_destinations)},
+        "embrouter_metadata": dict(caller_destinations),
+        "embrouter_params": {"metadata": dict(caller_destinations)},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_callback_credential_request_mock(),
         user_api_key_dict=_DATADOG_TEAM_KEY,
@@ -6942,15 +6942,15 @@ async def test_add_litellm_data_to_request_strips_caller_supplied_callback_crede
     assert "gcs_bucket_name" not in updated
     assert updated["dd_api_key"] == "team-dd-key"
     assert updated[TRUSTED_CALLBACK_VARS_FIELD] == {"dd_api_key": "team-dd-key"}
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     assert "dd_site" not in updated["metadata"]
     assert "dd_agent_host" not in updated["metadata"]
-    assert "dd_site" not in updated["litellm_params"]["metadata"]
+    assert "dd_site" not in updated["embrouter_params"]["metadata"]
     assert updated["metadata"]["safe_user_metadata"] == "kept"
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_caller_supplied_callback_credentials_with_clientside_creds_allowed():
+async def test_add_embrouter_data_to_request_strips_caller_supplied_callback_credentials_with_clientside_creds_allowed():
     """`allow_client_side_credentials` opens the auth-layer ban; the strip must still hold."""
     data = {
         "model": "gpt-3.5-turbo",
@@ -6958,7 +6958,7 @@ async def test_add_litellm_data_to_request_strips_caller_supplied_callback_crede
         "dd_site": "attacker.example.com",
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_callback_credential_request_mock(),
         user_api_key_dict=_DATADOG_TEAM_KEY,
@@ -6972,7 +6972,7 @@ async def test_add_litellm_data_to_request_strips_caller_supplied_callback_crede
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_omits_trusted_callback_vars_without_team_callbacks():
+async def test_add_embrouter_data_to_request_omits_trusted_callback_vars_without_team_callbacks():
     """Without team/key callback settings the trusted field must not exist for a callback to read."""
     data = {
         "model": "gpt-3.5-turbo",
@@ -6980,7 +6980,7 @@ async def test_add_litellm_data_to_request_omits_trusted_callback_vars_without_t
         TRUSTED_CALLBACK_VARS_FIELD: {"dd_api_key": "caller-key", "dd_site": "attacker.example.com"},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_callback_credential_request_mock(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -6994,10 +6994,10 @@ async def test_add_litellm_data_to_request_omits_trusted_callback_vars_without_t
 
 def test_trusted_callback_vars_never_reach_the_provider():
     """
-    The stamped field rides the request body, so it has to be a recognised litellm param;
+    The stamped field rides the request body, so it has to be a recognised embrouter param;
     otherwise the OpenAI param builder sweeps it into extra_body and the provider 400s.
     """
-    from litellm.utils import get_non_default_completion_params
+    from embrouter.utils import get_non_default_completion_params
 
     non_default = get_non_default_completion_params(
         {
@@ -7035,7 +7035,7 @@ async def test_key_level_callback_vars_survive_the_strip():
         "dd_site": "attacker.example.com",
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_callback_credential_request_mock(),
         user_api_key_dict=key_with_datadog_callback,
@@ -7049,7 +7049,7 @@ async def test_key_level_callback_vars_survive_the_strip():
 
 
 class TestPromotedTraceControlFields:
-    """LIT-5137: caller metadata trace fields must reach litellm_metadata."""
+    """LIT-5137: caller metadata trace fields must reach embrouter_metadata."""
 
     def _make_request(self, path: str) -> MagicMock:
         request = MagicMock(spec=Request)
@@ -7067,7 +7067,7 @@ class TestPromotedTraceControlFields:
         request = self._make_request(path)
         if headers is not None:
             request.headers = {"Content-Type": "application/json", **headers}
-        return await add_litellm_data_to_request(
+        return await add_embrouter_data_to_request(
             data=data,
             request=request,
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -7076,8 +7076,8 @@ class TestPromotedTraceControlFields:
             version="test-version",
         )
 
-    def test_returns_litellm_metadata_for_responses_route(self):
-        assert _get_metadata_variable_name(self._make_request("/v1/responses")) == "litellm_metadata"
+    def test_returns_embrouter_metadata_for_responses_route(self):
+        assert _get_metadata_variable_name(self._make_request("/v1/responses")) == "embrouter_metadata"
 
     def test_promotes_trace_prefixed_and_allow_listed_fields(self):
         requester_metadata = {
@@ -7094,7 +7094,7 @@ class TestPromotedTraceControlFields:
 
         promoted = _promoted_trace_control_fields(
             requester_metadata=requester_metadata,
-            litellm_metadata={},
+            embrouter_metadata={},
         )
 
         assert dict(promoted) == requester_metadata
@@ -7103,7 +7103,7 @@ class TestPromotedTraceControlFields:
         """trace_public flips a trace to publicly readable, so the allow-list is explicit."""
         promoted = _promoted_trace_control_fields(
             requester_metadata={"trace_id": "trace-1", "trace_public": True, "trace_tags": ["a"]},
-            litellm_metadata={},
+            embrouter_metadata={},
         )
 
         assert dict(promoted) == {"trace_id": "trace-1"}
@@ -7122,7 +7122,7 @@ class TestPromotedTraceControlFields:
                 "existing_trace_id": "victim-trace",
                 "update_trace_keys": ["input", "output"],
             },
-            litellm_metadata={},
+            embrouter_metadata={},
         )
 
         assert dict(promoted) == {"trace_id": "trace-1"}
@@ -7135,21 +7135,21 @@ class TestPromotedTraceControlFields:
                 "existing_trace_id": "someone-elses-trace",
                 "update_trace_keys": ["input", "output"],
             },
-            litellm_metadata={},
+            embrouter_metadata={},
         )
 
         assert dict(promoted) == {"trace_id": "trace-1"}
 
-    def test_existing_litellm_metadata_value_wins(self):
+    def test_existing_embrouter_metadata_value_wins(self):
         promoted = _promoted_trace_control_fields(
             requester_metadata={"trace_id": "from-body", "session_id": "from-body", "trace_name": "from-body"},
-            litellm_metadata={"trace_id": "from-header", "session_id": "from-header"},
+            embrouter_metadata={"trace_id": "from-header", "session_id": "from-header"},
         )
 
         assert dict(promoted) == {"trace_name": "from-body"}
 
     def test_empty_requester_metadata_promotes_nothing(self):
-        assert _promoted_trace_control_fields(requester_metadata={}, litellm_metadata={}) == ()
+        assert _promoted_trace_control_fields(requester_metadata={}, embrouter_metadata={}) == ()
 
     @pytest.mark.asyncio
     async def test_responses_route_end_to_end(self):
@@ -7166,9 +7166,9 @@ class TestPromotedTraceControlFields:
             {"model": "gpt-4.1-mini", "input": "say resp", "metadata": copy.deepcopy(caller_metadata)},
         )
 
-        litellm_metadata = updated["litellm_metadata"]
+        embrouter_metadata = updated["embrouter_metadata"]
         for key, value in caller_metadata.items():
-            assert litellm_metadata[key] == value
+            assert embrouter_metadata[key] == value
         assert updated["metadata"] == caller_metadata
 
     @pytest.mark.asyncio
@@ -7183,18 +7183,18 @@ class TestPromotedTraceControlFields:
             },
         )
 
-        assert updated["litellm_metadata"]["trace_id"] == "msg-trace-1"
-        assert updated["litellm_metadata"]["session_id"] == "msg-session-1"
+        assert updated["embrouter_metadata"]["trace_id"] == "msg-trace-1"
+        assert updated["embrouter_metadata"]["session_id"] == "msg-session-1"
 
     @pytest.mark.asyncio
     async def test_session_id_header_beats_body_metadata(self):
         updated = await self._run(
             "/v1/responses",
             {"model": "gpt-4.1-mini", "input": "say resp", "metadata": {"session_id": "from-body"}},
-            headers={"x-litellm-session-id": "from-header-12345678"},
+            headers={"x-embrouter-session-id": "from-header-12345678"},
         )
 
-        assert updated["litellm_metadata"]["session_id"] == "from-header-12345678"
+        assert updated["embrouter_metadata"]["session_id"] == "from-header-12345678"
 
     @pytest.mark.asyncio
     async def test_forged_user_api_key_fields_are_not_promoted(self):
@@ -7207,9 +7207,9 @@ class TestPromotedTraceControlFields:
             },
         )
 
-        litellm_metadata = updated["litellm_metadata"]
-        assert litellm_metadata["trace_id"] == "trace-1"
-        assert litellm_metadata.get("user_api_key_user_id") != "forged"
+        embrouter_metadata = updated["embrouter_metadata"]
+        assert embrouter_metadata["trace_id"] == "trace-1"
+        assert embrouter_metadata.get("user_api_key_user_id") != "forged"
 
     @pytest.mark.asyncio
     async def test_chat_completions_route_is_untouched(self):
@@ -7222,13 +7222,13 @@ class TestPromotedTraceControlFields:
             },
         )
 
-        assert "litellm_metadata" not in updated
+        assert "embrouter_metadata" not in updated
         assert updated["metadata"]["trace_id"] == "trace-1"
         assert updated["metadata"]["session_id"] == "session-1"
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags():
+async def test_add_embrouter_data_to_request_inherited_tags_excludes_caller_tags():
     """inherited_tags must carry only what key/team/project policy contributed,
     never anything the caller's own request (header/body) supplied, even when the
     caller resubmits the identical value -- it's a snapshot taken before the
@@ -7263,7 +7263,7 @@ async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags()
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -7278,9 +7278,9 @@ async def test_add_litellm_data_to_request_inherited_tags_excludes_caller_tags()
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_inherited_tags_survives_pre_auth_header_merge():
+async def test_add_embrouter_data_to_request_inherited_tags_survives_pre_auth_header_merge():
     """Regression: apply_client_tag_policy_pre_auth (run from user_api_key_auth,
-    for _tag_max_budget_check) merges the caller's x-litellm-tags header into the
+    for _tag_max_budget_check) merges the caller's x-embrouter-tags header into the
     same metadata.tags list this function later reads from -- before this
     function ever runs. A snapshot-based inherited_tags would misattribute that
     caller-controlled value as policy-backed; inherited_tags must instead be read
@@ -7292,7 +7292,7 @@ async def test_add_litellm_data_to_request_inherited_tags_survives_pre_auth_head
     request_mock.url.__str__.return_value = "http://localhost/v1/chat/completions"
     request_mock.method = "POST"
     request_mock.query_params = {}
-    request_mock.headers = {"Content-Type": "application/json", "x-litellm-tags": "caller-invented-tag"}
+    request_mock.headers = {"Content-Type": "application/json", "x-embrouter-tags": "caller-invented-tag"}
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
@@ -7311,15 +7311,15 @@ async def test_add_litellm_data_to_request_inherited_tags_survives_pre_auth_head
     )
 
     # Simulate the real request pipeline: the pre-auth merge runs first, on the
-    # same data dict, before add_litellm_data_to_request is ever called.
-    LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+    # same data dict, before add_embrouter_data_to_request is ever called.
+    EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
         request=request_mock,
         request_data=data,
         user_api_key_dict=user_api_key_dict,
     )
     assert data["metadata"]["tags"] == ["caller-invented-tag"]
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -7334,7 +7334,7 @@ async def test_add_litellm_data_to_request_inherited_tags_survives_pre_auth_head
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_caller_tags_excludes_key_and_team_tags():
+async def test_add_embrouter_data_to_request_caller_tags_excludes_key_and_team_tags():
     """caller_tags must carry only what the caller itself sent (header + body
     tags), never anything merged in from key/team metadata, even though the
     merged "tags" field (used for matching) legitimately contains all three."""
@@ -7365,7 +7365,7 @@ async def test_add_litellm_data_to_request_caller_tags_excludes_key_and_team_tag
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -7379,8 +7379,8 @@ async def test_add_litellm_data_to_request_caller_tags_excludes_key_and_team_tag
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_caller_tags_includes_header_tags():
-    """The x-litellm-tags header is as much a caller-controlled input as the
+async def test_add_embrouter_data_to_request_caller_tags_includes_header_tags():
+    """The x-embrouter-tags header is as much a caller-controlled input as the
     body's "tags" field; both must land in caller_tags."""
     request_mock = MagicMock(spec=Request)
     request_mock.url.path = "/v1/chat/completions"
@@ -7388,7 +7388,7 @@ async def test_add_litellm_data_to_request_caller_tags_includes_header_tags():
     request_mock.url.__str__.return_value = "http://localhost/v1/chat/completions"
     request_mock.method = "POST"
     request_mock.query_params = {}
-    request_mock.headers = {"Content-Type": "application/json", "x-litellm-tags": "header-tag"}
+    request_mock.headers = {"Content-Type": "application/json", "x-embrouter-tags": "header-tag"}
     request_mock.client = MagicMock()
     request_mock.client.host = "127.0.0.1"
 
@@ -7406,7 +7406,7 @@ async def test_add_litellm_data_to_request_caller_tags_includes_header_tags():
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -7420,7 +7420,7 @@ async def test_add_litellm_data_to_request_caller_tags_includes_header_tags():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_caller_tags_empty_when_caller_sends_nothing():
+async def test_add_embrouter_data_to_request_caller_tags_empty_when_caller_sends_nothing():
     """caller_tags must be present (an empty tuple), not absent, when the caller
     supplied no tags of their own -- an empty-but-present value tells
     tag_based_routing.py's allow_fail_open that any required/excluded tag on the
@@ -7450,7 +7450,7 @@ async def test_add_litellm_data_to_request_caller_tags_empty_when_caller_sends_n
         team_max_budget=200.0,
     )
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=request_mock,
         user_api_key_dict=user_api_key_dict,
@@ -7691,7 +7691,7 @@ async def test_newrelic_team_callback_vars_reach_trusted_field():
         "newrelic_api_key": "attacker-key",
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_callback_credential_request_mock(),
         user_api_key_dict=key_with_newrelic_callback,
@@ -7706,7 +7706,7 @@ async def test_newrelic_team_callback_vars_reach_trusted_field():
     }
     assert updated["success_callback"] == ["newrelic"]
 
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         initialize_standard_callback_dynamic_params,
     )
 
@@ -7714,12 +7714,12 @@ async def test_newrelic_team_callback_vars_reach_trusted_field():
     assert params.get("newrelic_api_key") == "team-nr-key"
     assert params.get("newrelic_region") == "eu"
 
-    from litellm.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
+    from embrouter.integrations.otel.presets import dynamic_otlp_endpoint, dynamic_otlp_headers
 
     assert dynamic_otlp_headers("newrelic", params) == {"api-key": "team-nr-key"}
     assert dynamic_otlp_endpoint("newrelic", params) == "https://otlp.eu01.nr-data.net"
 
-    from litellm.utils import get_non_default_completion_params
+    from embrouter.utils import get_non_default_completion_params
 
     forwarded = get_non_default_completion_params(updated)
     assert not any(param.startswith("newrelic_") for param in forwarded)
@@ -7731,8 +7731,8 @@ def test_newrelic_vars_scoped_to_newrelic_callback_entry():
     callback-name check, so a team that puts newrelic_* under a different
     callback's vars must not have them enter the shared bag (and so never
     exports to New Relic). Vars under a real newrelic entry are kept."""
-    from litellm.proxy._types import AddTeamCallback
-    from litellm.proxy.litellm_pre_call_utils import convert_key_logging_metadata_to_callback
+    from embrouter.proxy._types import AddTeamCallback
+    from embrouter.proxy.embrouter_pre_call_utils import convert_key_logging_metadata_to_callback
 
     smuggled = convert_key_logging_metadata_to_callback(
         AddTeamCallback(
@@ -7796,20 +7796,20 @@ _PLANTED_STAMPS = {
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_both_buckets() -> None:
+async def test_add_embrouter_data_to_request_strips_router_reserved_stamps_from_both_buckets() -> None:
     """attempted_fallbacks and original_model_group are router-written facts the spend row
     reads back; a client planting them in either bucket is dropped at the boundary so the
     router never sees a reserved key it did not write."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": dict(_PLANTED_STAMPS),
-        "litellm_metadata": dict(_PLANTED_STAMPS),
+        "embrouter_metadata": dict(_PLANTED_STAMPS),
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_reserved_stamp_request("/v1/chat/completions"),
         user_api_key_dict=_reserved_stamp_key(),
@@ -7818,7 +7818,7 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_bo
         version="test-version",
     )
 
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     assert "attempted_fallbacks" not in updated["metadata"]
     assert "original_model_group" not in updated["metadata"]
     assert "_client_output_ceiling" not in updated["metadata"]
@@ -7828,16 +7828,16 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_bo
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_json_string_litellm_metadata() -> None:
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+async def test_add_embrouter_data_to_request_strips_router_reserved_stamps_from_json_string_embrouter_metadata() -> None:
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_metadata": json.dumps(_PLANTED_STAMPS),
+        "embrouter_metadata": json.dumps(_PLANTED_STAMPS),
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_reserved_stamp_request("/v1/chat/completions"),
         user_api_key_dict=_reserved_stamp_key(),
@@ -7846,7 +7846,7 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_js
         version="test-version",
     )
 
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     assert "attempted_fallbacks" not in updated["metadata"]
     assert "original_model_group" not in updated["metadata"]
     assert "request_retry_count" not in updated["metadata"]
@@ -7854,18 +7854,18 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_from_js
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_router_reserved_stamps_despite_pricing_override_opt_in() -> None:
+async def test_add_embrouter_data_to_request_strips_router_reserved_stamps_despite_pricing_override_opt_in() -> None:
     """The pricing strip is gated on allow_client_pricing_override; the reserved-stamp strip
     is not, because no key or team setting makes a client-written fallback count valid."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_metadata": {**_PLANTED_STAMPS, "model_info": {"input_cost_per_token": 0.0}},
+        "embrouter_metadata": {**_PLANTED_STAMPS, "model_info": {"input_cost_per_token": 0.0}},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_reserved_stamp_request("/v1/chat/completions"),
         user_api_key_dict=_reserved_stamp_key({"allow_client_pricing_override": True}),
@@ -7874,7 +7874,7 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_despite
         version="test-version",
     )
 
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     assert updated["metadata"]["model_info"] == {"input_cost_per_token": 0.0}
     assert "attempted_fallbacks" not in updated["metadata"]
     assert "original_model_group" not in updated["metadata"]
@@ -7882,19 +7882,19 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_despite
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_strips_router_reserved_stamps_on_responses_route():
-    """On the Responses family the proxy-owned bucket is litellm_metadata and the client's
+async def test_add_embrouter_data_to_request_strips_router_reserved_stamps_on_responses_route():
+    """On the Responses family the proxy-owned bucket is embrouter_metadata and the client's
     OpenAI metadata param is the sibling; both lose the reserved keys."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     data = {
         "model": "gpt-3.5-turbo",
         "input": "hi",
         "metadata": dict(_PLANTED_STAMPS),
-        "litellm_metadata": dict(_PLANTED_STAMPS),
+        "embrouter_metadata": dict(_PLANTED_STAMPS),
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_reserved_stamp_request("/v1/responses"),
         user_api_key_dict=_reserved_stamp_key(),
@@ -7903,7 +7903,7 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_on_resp
         version="test-version",
     )
 
-    for bucket in ("metadata", "litellm_metadata"):
+    for bucket in ("metadata", "embrouter_metadata"):
         assert "attempted_fallbacks" not in updated[bucket]
         assert "original_model_group" not in updated[bucket]
         assert updated[bucket]["client_key"] == "client_value"
@@ -7912,19 +7912,19 @@ async def test_add_litellm_data_to_request_strips_router_reserved_stamps_on_resp
 @pytest.mark.asyncio
 async def test_router_keeps_proxy_metadata_bucket_identity_after_reserved_stamp_strip():
     """Regression for the #38586 break: a client that planted a reserved key in
-    litellm_metadata made the router hand downstream a scrubbed copy, so the proxy's
+    embrouter_metadata made the router hand downstream a scrubbed copy, so the proxy's
     post_call write-backs (guardrail telemetry, applied guardrails) landed in a dict the
     spend row never read. After the boundary strip plus the in-place scrub, the object the
     router forwards is the proxy's own request_data bucket; on chat routes that bucket is
-    ``metadata``, since the boundary folds client ``litellm_metadata`` into it."""
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    ``metadata``, since the boundary folds client ``embrouter_metadata`` into it."""
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     data = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "hi"}],
-        "litellm_metadata": dict(_PLANTED_STAMPS),
+        "embrouter_metadata": dict(_PLANTED_STAMPS),
     }
-    request_data = await add_litellm_data_to_request(
+    request_data = await add_embrouter_data_to_request(
         data=data,
         request=_reserved_stamp_request("/v1/chat/completions"),
         user_api_key_dict=_reserved_stamp_key(),
@@ -7935,11 +7935,11 @@ async def test_router_keeps_proxy_metadata_bucket_identity_after_reserved_stamp_
     proxy_bucket = request_data["metadata"]
     assert "attempted_fallbacks" not in proxy_bucket
     assert "original_model_group" not in proxy_bucket
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -7963,14 +7963,14 @@ async def test_router_keeps_proxy_metadata_bucket_identity_after_reserved_stamp_
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_folds_litellm_metadata_into_metadata_on_chat_routes():
+async def test_add_embrouter_data_to_request_folds_embrouter_metadata_into_metadata_on_chat_routes():
     data = {
         "model": "gpt-3.5-turbo",
         "metadata": {"tags": ["from-metadata"]},
-        "litellm_metadata": {"trace_id": "abc", "tags": ["from-litellm-metadata"]},
+        "embrouter_metadata": {"trace_id": "abc", "tags": ["from-embrouter-metadata"]},
     }
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_make_chat_request_mock(),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -7979,16 +7979,16 @@ async def test_add_litellm_data_to_request_folds_litellm_metadata_into_metadata_
         version="test-version",
     )
 
-    assert "litellm_metadata" not in updated
+    assert "embrouter_metadata" not in updated
     assert updated["metadata"]["trace_id"] == "abc"
-    assert updated["metadata"]["tags"] == ["from-metadata", "from-litellm-metadata"]
+    assert updated["metadata"]["tags"] == ["from-metadata", "from-embrouter-metadata"]
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_keeps_litellm_metadata_on_litellm_metadata_routes():
-    data = {"model": "claude-sonnet-5", "litellm_metadata": {"trace_id": "abc"}}
+async def test_add_embrouter_data_to_request_keeps_embrouter_metadata_on_embrouter_metadata_routes():
+    data = {"model": "claude-sonnet-5", "embrouter_metadata": {"trace_id": "abc"}}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_make_request_mock("/v1/messages", {"Content-Type": "application/json"}),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -7997,13 +7997,13 @@ async def test_add_litellm_data_to_request_keeps_litellm_metadata_on_litellm_met
         version="test-version",
     )
 
-    assert updated["litellm_metadata"]["trace_id"] == "abc"
+    assert updated["embrouter_metadata"]["trace_id"] == "abc"
 
 
 def _stamp_model_access_groups(matched_model_access_groups, metadata_variable_name="metadata"):
     user_api_key_dict = UserAPIKeyAuth(api_key="hashed-key")
     user_api_key_dict.matched_model_access_groups = matched_model_access_groups
-    return LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    return EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data={metadata_variable_name: {}},
         user_api_key_dict=user_api_key_dict,
         _metadata_variable_name=metadata_variable_name,
@@ -8018,20 +8018,20 @@ def test_matched_model_access_groups_are_stamped_into_request_metadata():
     assert MODEL_ACCESS_GROUP_METADATA_KEY not in _stamp_model_access_groups(None)
 
 
-def test_stamped_model_access_groups_survive_the_litellm_metadata_merge():
+def test_stamped_model_access_groups_survive_the_embrouter_metadata_merge():
     """
     The key must keep its ``user_api_key`` prefix: when a request carries both metadata dicts,
-    get_litellm_metadata_from_kwargs returns litellm_metadata and copies a key over from metadata
+    get_embrouter_metadata_from_kwargs returns embrouter_metadata and copies a key over from metadata
     only when that substring is in its name, so an unprefixed key is silently dropped.
     """
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": _stamp_model_access_groups(["tier-a"]),
-            "litellm_metadata": {"trace_id": "abc"},
+            "embrouter_metadata": {"trace_id": "abc"},
         }
     }
 
-    assert get_litellm_metadata_from_kwargs(kwargs)[MODEL_ACCESS_GROUP_METADATA_KEY] == ["tier-a"]
+    assert get_embrouter_metadata_from_kwargs(kwargs)[MODEL_ACCESS_GROUP_METADATA_KEY] == ["tier-a"]
 
 
 def _request_for(path: str) -> MagicMock:
@@ -8049,21 +8049,21 @@ def _request_for(path: str) -> MagicMock:
 
 
 def _spend_log_session_id(data: dict[str, object], metadata_key: str = "metadata") -> str | None:
-    """Resolve session_id the way LiteLLM_SpendLogs does, reading the omit decision stamped on the request."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
+    """Resolve session_id the way EmbRouter_SpendLogs does, reading the omit decision stamped on the request."""
+    from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
 
     metadata = data[metadata_key]
     assert isinstance(metadata, dict)
-    litellm_params = get_litellm_params(
-        litellm_session_id=str(data["litellm_session_id"]) if "litellm_session_id" in data else None,
-        litellm_trace_id=str(data["litellm_trace_id"]) if "litellm_trace_id" in data else None,
+    embrouter_params = get_embrouter_params(
+        embrouter_session_id=str(data["embrouter_session_id"]) if "embrouter_session_id" in data else None,
+        embrouter_trace_id=str(data["embrouter_trace_id"]) if "embrouter_trace_id" in data else None,
         metadata=metadata,
     )
     trace_id = StandardLoggingPayloadSetup.get_standard_logging_payload_trace_id(
-        logging_obj=SimpleNamespace(litellm_trace_id="per-call-random-trace-id"),
-        litellm_params=litellm_params,
+        logging_obj=SimpleNamespace(embrouter_trace_id="per-call-random-trace-id"),
+        embrouter_params=embrouter_params,
     )
     return _get_session_id_for_spend_log(
         kwargs={},
@@ -8081,10 +8081,10 @@ async def test_missing_session_id_generate_makes_spend_log_and_callback_session_
     """Without a session header, SpendLogs.session_id and the metadata.session_id that Langfuse logs
     must be the same generated id, so cross-referencing the two by session_id works. The id is marked
     as generated so affinity consumers (Fireworks x-session-affinity, router session pins) skip it."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", request_correlation_in_logs)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", request_correlation_in_logs)
     data = {"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=data,
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8097,14 +8097,14 @@ async def test_missing_session_id_generate_makes_spend_log_and_callback_session_
     assert _spend_log_session_id(updated) == callback_session_id
     assert updated["metadata"][SESSION_ID_GENERATED_METADATA_KEY] is True
     assert (
-        get_fireworks_session_id({"litellm_session_id": updated["litellm_session_id"], "metadata": updated["metadata"]})
+        get_fireworks_session_id({"embrouter_session_id": updated["embrouter_session_id"], "metadata": updated["metadata"]})
         is None
     )
 
 
 @pytest.mark.asyncio
 async def test_missing_session_id_unset_keeps_legacy_divergence():
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8113,7 +8113,7 @@ async def test_missing_session_id_unset_keeps_legacy_divergence():
     )
 
     assert "session_id" not in updated["metadata"]
-    assert "litellm_session_id" not in updated
+    assert "embrouter_session_id" not in updated
     assert _spend_log_session_id(updated) == "per-call-random-trace-id"
 
 
@@ -8124,7 +8124,7 @@ async def test_missing_session_id_omit_leaves_spend_log_session_id_null():
     request = _request_for("/v1/chat/completions")
     request.headers = {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=request,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8133,7 +8133,7 @@ async def test_missing_session_id_omit_leaves_spend_log_session_id_null():
     )
 
     assert "session_id" not in updated["metadata"]
-    assert updated["litellm_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert updated["embrouter_trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
     assert updated["metadata"][SESSION_ID_OMITTED_METADATA_KEY] is True
     assert _spend_log_session_id(updated) is None
 
@@ -8141,9 +8141,9 @@ async def test_missing_session_id_omit_leaves_spend_log_session_id_null():
 @pytest.mark.asyncio
 async def test_missing_session_id_omit_keeps_client_supplied_session_id():
     request = _request_for("/v1/chat/completions")
-    request.headers = {"x-litellm-session-id": "client-session-1"}
+    request.headers = {"x-embrouter-session-id": "client-session-1"}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=request,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8159,19 +8159,19 @@ async def test_missing_session_id_omit_keeps_client_supplied_session_id():
 @pytest.mark.parametrize(
     "client_body",
     [
-        {"model": "gpt-4o", "messages": [], "litellm_session_id": "cust-sess-1"},
-        {"model": "gpt-4o", "messages": [], "litellm_session_id": "cust-sess-1", "metadata": {"trace_id": "trace-1"}},
+        {"model": "gpt-4o", "messages": [], "embrouter_session_id": "cust-sess-1"},
+        {"model": "gpt-4o", "messages": [], "embrouter_session_id": "cust-sess-1", "metadata": {"trace_id": "trace-1"}},
     ],
 )
-async def test_missing_session_id_omit_keeps_body_litellm_session_id(
+async def test_missing_session_id_omit_keeps_body_embrouter_session_id(
     monkeypatch: pytest.MonkeyPatch, client_body: dict[str, object]
 ):
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data=client_body,
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8180,8 +8180,8 @@ async def test_missing_session_id_omit_keeps_body_litellm_session_id(
     )
 
     callback_session_id = StandardLoggingPayloadSetup.get_standard_logging_payload_session_id(
-        logging_obj=SimpleNamespace(litellm_session_id=""),
-        litellm_params=get_litellm_params(litellm_session_id="cust-sess-1", metadata=updated["metadata"]),
+        logging_obj=SimpleNamespace(embrouter_session_id=""),
+        embrouter_params=get_embrouter_params(embrouter_session_id="cust-sess-1", metadata=updated["metadata"]),
     )
     assert callback_session_id == "cust-sess-1"
     assert updated["metadata"]["session_id"] == "cust-sess-1"
@@ -8189,12 +8189,12 @@ async def test_missing_session_id_omit_keeps_body_litellm_session_id(
 
 
 @pytest.mark.asyncio
-async def test_missing_session_id_omit_body_litellm_session_id_does_not_override_metadata_session_id():
-    updated = await add_litellm_data_to_request(
+async def test_missing_session_id_omit_body_embrouter_session_id_does_not_override_metadata_session_id():
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-4o",
             "messages": [],
-            "litellm_session_id": "cust-sess-1",
+            "embrouter_session_id": "cust-sess-1",
             "metadata": {"session_id": "meta-sess-1"},
         },
         request=_request_for("/v1/chat/completions"),
@@ -8209,12 +8209,12 @@ async def test_missing_session_id_omit_body_litellm_session_id_does_not_override
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["/v1/responses", "/v1/messages"])
-async def test_missing_session_id_omit_keeps_metadata_session_id_on_litellm_metadata_routes(path: str):
-    updated = await add_litellm_data_to_request(
+async def test_missing_session_id_omit_keeps_metadata_session_id_on_embrouter_metadata_routes(path: str):
+    updated = await add_embrouter_data_to_request(
         data={
             "model": "gpt-4o",
             "input": "hi",
-            "litellm_session_id": "cust-sess-1",
+            "embrouter_session_id": "cust-sess-1",
             "metadata": {"session_id": "meta-sess-1"},
         },
         request=_request_for(path),
@@ -8223,29 +8223,29 @@ async def test_missing_session_id_omit_keeps_metadata_session_id_on_litellm_meta
         general_settings={"missing_session_id": "omit"},
     )
 
-    assert updated["litellm_metadata"]["session_id"] == "meta-sess-1"
-    assert _spend_log_session_id(updated, "litellm_metadata") == "meta-sess-1"
+    assert updated["embrouter_metadata"]["session_id"] == "meta-sess-1"
+    assert _spend_log_session_id(updated, "embrouter_metadata") == "meta-sess-1"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["/v1/responses", "/v1/messages"])
-async def test_missing_session_id_omit_keeps_body_litellm_session_id_on_litellm_metadata_routes(path: str):
-    updated = await add_litellm_data_to_request(
-        data={"model": "gpt-4o", "input": "hi", "litellm_session_id": "cust-sess-1"},
+async def test_missing_session_id_omit_keeps_body_embrouter_session_id_on_embrouter_metadata_routes(path: str):
+    updated = await add_embrouter_data_to_request(
+        data={"model": "gpt-4o", "input": "hi", "embrouter_session_id": "cust-sess-1"},
         request=_request_for(path),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
         proxy_config=MagicMock(),
         general_settings={"missing_session_id": "omit"},
     )
 
-    assert updated["litellm_metadata"]["session_id"] == "cust-sess-1"
-    assert _spend_log_session_id(updated, "litellm_metadata") == "cust-sess-1"
+    assert updated["embrouter_metadata"]["session_id"] == "cust-sess-1"
+    assert _spend_log_session_id(updated, "embrouter_metadata") == "cust-sess-1"
 
 
 @pytest.mark.asyncio
-async def test_missing_session_id_omit_ignores_empty_body_litellm_session_id():
-    updated = await add_litellm_data_to_request(
-        data={"model": "gpt-4o", "messages": [], "litellm_session_id": ""},
+async def test_missing_session_id_omit_ignores_empty_body_embrouter_session_id():
+    updated = await add_embrouter_data_to_request(
+        data={"model": "gpt-4o", "messages": [], "embrouter_session_id": ""},
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
         proxy_config=MagicMock(),
@@ -8262,7 +8262,7 @@ async def test_missing_session_id_generate_reuses_traceparent_trace_id():
     request = _request_for("/v1/chat/completions")
     request.headers = {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=request,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8278,9 +8278,9 @@ async def test_missing_session_id_generate_reuses_traceparent_trace_id():
 @pytest.mark.parametrize("policy", ["generate", "reject"])
 async def test_missing_session_id_policy_keeps_client_supplied_session_id(policy: str):
     request = _request_for("/v1/chat/completions")
-    request.headers = {"x-litellm-session-id": "client-session-1"}
+    request.headers = {"x-embrouter-session-id": "client-session-1"}
 
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=request,
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8288,19 +8288,19 @@ async def test_missing_session_id_policy_keeps_client_supplied_session_id(policy
         general_settings={"missing_session_id": policy},
     )
 
-    assert updated["litellm_session_id"] == "client-session-1"
+    assert updated["embrouter_session_id"] == "client-session-1"
     assert updated["metadata"]["session_id"] == "client-session-1"
     assert _spend_log_session_id(updated) == "client-session-1"
     assert SESSION_ID_GENERATED_METADATA_KEY not in updated["metadata"]
     assert (
-        get_fireworks_session_id({"litellm_session_id": "client-session-1", "metadata": updated["metadata"]})
+        get_fireworks_session_id({"embrouter_session_id": "client-session-1", "metadata": updated["metadata"]})
         == "client-session-1"
     )
 
 
 @pytest.mark.asyncio
 async def test_missing_session_id_reject_accepts_body_metadata_session_id():
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": [], "metadata": {"session_id": "body-session-1"}},
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8314,7 +8314,7 @@ async def test_missing_session_id_reject_accepts_body_metadata_session_id():
 @pytest.mark.asyncio
 async def test_missing_session_id_reject_returns_400_without_session_id():
     with pytest.raises(ProxyException) as exc_info:
-        await add_litellm_data_to_request(
+        await add_embrouter_data_to_request(
             data={"model": "gpt-4o", "messages": []},
             request=_request_for("/v1/chat/completions"),
             user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8329,7 +8329,7 @@ async def test_missing_session_id_reject_returns_400_without_session_id():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["/mcp/", "/mcp/tools", "/key/health"])
 async def test_missing_session_id_policy_skips_non_inference_routes(path: str):
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o"},
         request=_request_for(path),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8342,7 +8342,7 @@ async def test_missing_session_id_policy_skips_non_inference_routes(path: str):
 
 @pytest.mark.asyncio
 async def test_missing_session_id_unknown_value_is_ignored():
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": []},
         request=_request_for("/v1/chat/completions"),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8358,12 +8358,12 @@ async def test_missing_session_id_unknown_value_is_ignored():
     "path, sent_in, metadata_key, general_settings",
     [
         ("/v1/chat/completions", "metadata", "metadata", {}),
-        ("/v1/chat/completions", "litellm_metadata", "metadata", {}),
-        ("/v1/chat/completions", "litellm_metadata", "metadata", {"missing_session_id": "generate"}),
-        ("/v1/messages", "litellm_metadata", "litellm_metadata", {}),
-        ("/v1/messages", "metadata", "litellm_metadata", {}),
+        ("/v1/chat/completions", "embrouter_metadata", "metadata", {}),
+        ("/v1/chat/completions", "embrouter_metadata", "metadata", {"missing_session_id": "generate"}),
+        ("/v1/messages", "embrouter_metadata", "embrouter_metadata", {}),
+        ("/v1/messages", "metadata", "embrouter_metadata", {}),
         ("/mcp/tools", "metadata", "metadata", {"missing_session_id": "omit"}),
-        ("/mcp/tools", "litellm_metadata", "metadata", {"missing_session_id": "omit"}),
+        ("/mcp/tools", "embrouter_metadata", "metadata", {"missing_session_id": "omit"}),
     ],
 )
 async def test_client_supplied_omit_marker_never_reaches_the_spend_log(
@@ -8372,7 +8372,7 @@ async def test_client_supplied_omit_marker_never_reaches_the_spend_log(
     """The omit marker is proxy-owned: only the pre-call policy may set it. A caller that sends it in either
     metadata bucket, including the one later merged into the route's bucket, must not be able to null out
     SpendLogs.session_id on a request the proxy did not omit."""
-    updated = await add_litellm_data_to_request(
+    updated = await add_embrouter_data_to_request(
         data={"model": "gpt-4o", "messages": [], sent_in: {SESSION_ID_OMITTED_METADATA_KEY: True}},
         request=_request_for(path),
         user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
@@ -8389,11 +8389,11 @@ async def test_client_supplied_omit_marker_never_reaches_the_spend_log(
 
 
 def test_default_team_settings_bool_turn_off_message_logging_redacts():
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     pc = ProxyConfig()
     pc.config = {
-        "litellm_settings": {
+        "embrouter_settings": {
             "default_team_settings": [
                 {
                     "team_id": "team-redact",
@@ -8405,7 +8405,7 @@ def test_default_team_settings_bool_turn_off_message_logging_redacts():
         }
     }
 
-    callback_metadata = LiteLLMProxyRequestSetup.add_team_based_callbacks_from_config(
+    callback_metadata = EmbRouterProxyRequestSetup.add_team_based_callbacks_from_config(
         team_id="team-redact",
         proxy_config=pc,
     )
@@ -8422,7 +8422,7 @@ def test_default_team_settings_bool_turn_off_message_logging_redacts():
 
 
 def test_add_user_api_key_auth_to_request_metadata_attributes_a_cli_session_to_its_alias():
-    data = {"model": "gpt-5.4-nano", "messages": [{"role": "user", "content": "hi"}], "litellm_metadata": {}}
+    data = {"model": "gpt-5.4-nano", "messages": [{"role": "user", "content": "hi"}], "embrouter_metadata": {}}
     session = UserAPIKeyAuth(
         api_key="cli-session-Qm7xJ2kP9sLw4vT1nR8yAa",
         key_alias="cli-session-alice",
@@ -8430,9 +8430,9 @@ def test_add_user_api_key_auth_to_request_metadata_attributes_a_cli_session_to_i
         is_session_token=True,
     )
 
-    metadata = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
-        data=data, user_api_key_dict=session, _metadata_variable_name="litellm_metadata"
-    )["litellm_metadata"]
+    metadata = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        data=data, user_api_key_dict=session, _metadata_variable_name="embrouter_metadata"
+    )["embrouter_metadata"]
 
     assert metadata["user_api_key"] == "cli-session-alice"
     assert metadata["user_api_key_hash"] == "cli-session-alice"
@@ -8441,15 +8441,15 @@ def test_add_user_api_key_auth_to_request_metadata_attributes_a_cli_session_to_i
 
 
 def test_add_user_api_key_auth_to_request_metadata_keeps_the_hashed_token_for_virtual_keys():
-    from litellm.proxy._types import hash_token
+    from embrouter.proxy._types import hash_token
 
-    data = {"model": "gpt-5.4-nano", "messages": [], "litellm_metadata": {}}
+    data = {"model": "gpt-5.4-nano", "messages": [], "embrouter_metadata": {}}
     hashed = hash_token("sk-virtual-key")
     virtual_key = UserAPIKeyAuth(api_key=hashed, key_alias="cli-session-alice", user_id="alice")
 
-    metadata = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
-        data=data, user_api_key_dict=virtual_key, _metadata_variable_name="litellm_metadata"
-    )["litellm_metadata"]
+    metadata = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        data=data, user_api_key_dict=virtual_key, _metadata_variable_name="embrouter_metadata"
+    )["embrouter_metadata"]
 
     assert metadata["user_api_key"] == hashed
     assert metadata["user_api_key_hash"] == hashed
@@ -8459,9 +8459,9 @@ def test_add_user_api_key_auth_to_request_metadata_keeps_the_hashed_token_for_vi
 @pytest.mark.parametrize("path", ["/mcp-rest/tools/call", "/v1/responses", "/v1/chat/completions"])
 @pytest.mark.parametrize("custom_auth", ["x-mcp-auth", "x-private-mcp-token"])
 async def test_mcp_credentials_only_removed_from_logging_copies(path: str, custom_auth: str):
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
-    metadata_name: Final = "litellm_metadata" if path == "/v1/responses" else "metadata"
+    metadata_name: Final = "embrouter_metadata" if path == "/v1/responses" else "metadata"
     secrets: Final = {
         "X-MCP-Deepwiki-Authorization": "upstream-sentinel",
         custom_auth: "client-auth-sentinel",
@@ -8476,13 +8476,13 @@ async def test_mcp_credentials_only_removed_from_logging_copies(path: str, custo
         extra_headers=["x-service-token", "x-user-id"],
     )
     with (
-        patch("litellm.proxy.proxy_server.general_settings", settings),
+        patch("embrouter.proxy.proxy_server.general_settings", settings),
         patch.dict(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager.config_mcp_servers",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager.config_mcp_servers",
             {"header-test": server}, clear=True,
         ),
     ):
-        updated: Final = await add_litellm_data_to_request(
+        updated: Final = await add_embrouter_data_to_request(
             data={"model": "test-model", "messages": [{"role": "user", "content": "hello"}]},
             request=request, user_api_key_dict=UserAPIKeyAuth(api_key="hashed-key"),
             proxy_config=MagicMock(), general_settings=settings, version="test",
@@ -8498,8 +8498,8 @@ async def test_mcp_credentials_only_removed_from_logging_copies(path: str, custo
 
 
 def test_signoz_callback_vars_are_scoped_to_the_signoz_callback():
-    from litellm.proxy._types import AddTeamCallback
-    from litellm.proxy.litellm_pre_call_utils import convert_key_logging_metadata_to_callback
+    from embrouter.proxy._types import AddTeamCallback
+    from embrouter.proxy.embrouter_pre_call_utils import convert_key_logging_metadata_to_callback
 
     under_signoz = convert_key_logging_metadata_to_callback(
         data=AddTeamCallback(

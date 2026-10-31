@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import Request, Response
 
-from litellm import DualCache
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
-from litellm.types.utils import ModelResponse
+from embrouter import DualCache
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.aim.aim import AimGuardrail
+from embrouter.types.utils import ModelResponse
 
 
 def test_aim_inspection_messages_coerces_chat_completions_tool_role_to_user():
@@ -105,8 +105,8 @@ async def test_aim_skips_embeddings_without_calling_the_guardrail(hook: str, cal
     guardrail = AimGuardrail(api_key="hs-aim-key", guardrail_name="aim", event_hook="pre_call")
     data = {"model": "text-embedding-3-small", "input": ["first chunk", "second chunk"]}
 
-    with patch(  # test-quality-ok: transport is litellm's aiohttp-backed handler; respx cannot intercept it
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+    with patch(  # test-quality-ok: transport is embrouter's aiohttp-backed handler; respx cannot intercept it
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         if hook == "pre_call":
@@ -139,17 +139,17 @@ async def test_aim_skips_embeddings_without_calling_the_guardrail(hook: str, cal
 def test_aim_config_plumbs_inspect_embeddings(
     configured: dict[str, object], expected: bool, monkeypatch: pytest.MonkeyPatch
 ):
-    import litellm
-    from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+    import embrouter
+    from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
 
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "aim-guard",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "aim",
                     "mode": "pre_call",
                     "api_key": "hs-aim-key",
@@ -160,7 +160,7 @@ def test_aim_config_plumbs_inspect_embeddings(
         config_file_path="",
     )
 
-    aim_guardrails = [callback for callback in litellm.callbacks if isinstance(callback, AimGuardrail)]
+    aim_guardrails = [callback for callback in embrouter.callbacks if isinstance(callback, AimGuardrail)]
     assert len(aim_guardrails) == 1
     assert aim_guardrails[0].inspect_embeddings is expected
 
@@ -423,8 +423,8 @@ async def test_aim_still_inspects_every_conversational_call_type(call_type: str)
     guardrail = AimGuardrail(api_key="hs-aim-key", guardrail_name="aim", event_hook="pre_call")
     data = {"messages": [{"role": "user", "content": "Hi my name is Brian"}]}
 
-    with patch(  # test-quality-ok: transport is litellm's aiohttp-backed handler; respx cannot intercept it
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+    with patch(  # test-quality-ok: transport is embrouter's aiohttp-backed handler; respx cannot intercept it
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         return_value=Response(
             json={
                 "analysis_result": {"analysis_time_ms": 1, "policy_drill_down": {}},

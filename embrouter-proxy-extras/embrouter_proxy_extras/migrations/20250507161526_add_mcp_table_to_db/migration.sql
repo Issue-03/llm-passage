@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_MCPServerTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MCPServerTable" (
     "server_id" TEXT NOT NULL,
     "alias" TEXT,
     "description" TEXT,
@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_MCPServerTable" (
     "updated_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_MCPServerTable_pkey" PRIMARY KEY ("server_id")
+    CONSTRAINT "EmbRouter_MCPServerTable_pkey" PRIMARY KEY ("server_id")
 );
 

@@ -21,7 +21,7 @@ describe("SearchToolView", () => {
   const mockSearchTool: SearchTool = {
     search_tool_id: "test-tool-id-123",
     search_tool_name: "Test Search Tool",
-    litellm_params: {
+    embrouter_params: {
       search_provider: "perplexity",
       api_key: "sk-test-key",
     },
@@ -79,7 +79,7 @@ describe("SearchToolView", () => {
   it("should display provider name using provider_name when UI-friendly name is not available", () => {
     const searchToolWithoutProvider: SearchTool = {
       ...mockSearchTool,
-      litellm_params: {
+      embrouter_params: {
         search_provider: "unknown-provider",
       },
     };
@@ -96,7 +96,7 @@ describe("SearchToolView", () => {
   it("should display 'Not set' when API key is not set", () => {
     const searchToolWithoutApiKey: SearchTool = {
       ...mockSearchTool,
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
       },
     };

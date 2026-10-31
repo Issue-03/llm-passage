@@ -1,8 +1,8 @@
 """Upstream-reported cost and usage for pass-through endpoints.
 
-Some pass-through targets invoke several models internally, so LiteLLM cannot
+Some pass-through targets invoke several models internally, so EmbRouter cannot
 price the request from the response body. Those targets report the totals for
-the whole HTTP request in ``x-litellm-*`` response headers instead; LiteLLM
+the whole HTTP request in ``x-embrouter-*`` response headers instead; EmbRouter
 records the reported values without recomputing them.
 """
 
@@ -12,17 +12,17 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.utils import Usage
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.utils import Usage
 
-UPSTREAM_RESPONSE_COST_HEADER: Final = "x-litellm-response-cost"
-UPSTREAM_TOTAL_TOKENS_HEADER: Final = "x-litellm-total-tokens"
+UPSTREAM_RESPONSE_COST_HEADER: Final = "x-embrouter-response-cost"
+UPSTREAM_TOTAL_TOKENS_HEADER: Final = "x-embrouter-total-tokens"
 
 # model_call_details key holding what the upstream reported, so later stages of
-# the success path can tell an upstream-reported cost apart from one LiteLLM
+# the success path can tell an upstream-reported cost apart from one EmbRouter
 # derived itself.
-UPSTREAM_REPORTED_USAGE_KEY: Final = "_litellm_upstream_reported_usage"
+UPSTREAM_REPORTED_USAGE_KEY: Final = "_embrouter_upstream_reported_usage"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +94,7 @@ def parse_upstream_reported_usage(headers: httpx.Headers) -> UpstreamReportedUsa
 
     Returns ``None`` when neither header is present, which is the normal case
     for a target that does not speak this contract (e.g. Anthropic or Vertex,
-    whose cost LiteLLM derives from the response body instead).
+    whose cost EmbRouter derives from the response body instead).
     """
     raw_response_cost: Final = headers.get(UPSTREAM_RESPONSE_COST_HEADER)
     raw_total_tokens: Final = headers.get(UPSTREAM_TOTAL_TOKENS_HEADER)
@@ -107,13 +107,13 @@ def parse_upstream_reported_usage(headers: httpx.Headers) -> UpstreamReportedUsa
 
 
 def apply_upstream_reported_usage(
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     headers: httpx.Headers,
 ) -> UpstreamReportedUsage | None:
     """Record the upstream's reported totals on the request's logging object.
 
     Only the values the upstream actually reported are written, so a target
-    that reports cost but not tokens keeps the token count LiteLLM derived on
+    that reports cost but not tokens keeps the token count EmbRouter derived on
     its own rather than having it zeroed.
     """
     reported: Final = parse_upstream_reported_usage(headers)
@@ -127,7 +127,7 @@ def apply_upstream_reported_usage(
     return reported
 
 
-def has_upstream_reported_usage(logging_obj: LiteLLMLoggingObj) -> bool:
+def has_upstream_reported_usage(logging_obj: EmbRouterLoggingObj) -> bool:
     """Whether the upstream spoke this contract on the request's response.
 
     True even when the value it sent was unusable: a target that reports its

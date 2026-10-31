@@ -1,18 +1,18 @@
 """
-ObjectPermission repository for database operations on LiteLLM_ObjectPermissionTable.
+ObjectPermission repository for database operations on EmbRouter_ObjectPermissionTable.
 """
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
 
-class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
+class ObjectPermissionRepository(BaseRepository[EmbRouter_ObjectPermissionTable]):
     """Repository for object permission database operations."""
 
     def __init__(self, prisma_client: object, *, use_writer: bool = False) -> None:
@@ -20,17 +20,17 @@ class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
         self._use_writer = use_writer
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_ObjectPermissionTable"]:
+    def table(self) -> TableActions["prisma_models.EmbRouter_ObjectPermissionTable"]:
         database: Final = self.prisma_client.writer_db if self._use_writer else self.prisma_client.db
-        return database.litellm_objectpermissiontable
+        return database.embrouter_objectpermissiontable
 
     @property
-    def model_class(self) -> type[LiteLLM_ObjectPermissionTable]:
-        return LiteLLM_ObjectPermissionTable
+    def model_class(self) -> type[EmbRouter_ObjectPermissionTable]:
+        return EmbRouter_ObjectPermissionTable
 
     async def find_by_id(
         self, object_permission_id: str, id_field: str = "object_permission_id"
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         return await super().find_by_id(object_permission_id, id_field)
 
     async def create_permission(
@@ -46,7 +46,7 @@ class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
         mcp_toolsets: list[str] | None = None,
         search_tools: list[str] | None = None,
         skills: list[str] | None = None,
-    ) -> LiteLLM_ObjectPermissionTable:
+    ) -> EmbRouter_ObjectPermissionTable:
         """Create a new object permission record."""
         data: Final[dict[str, Any]] = {}
         if mcp_servers is not None:
@@ -88,7 +88,7 @@ class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
         mcp_toolsets: list[str] | None = None,
         search_tools: list[str] | None = None,
         skills: list[str] | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """Update an object permission record."""
         data: Final[dict[str, Any]] = {}
         if mcp_servers is not None:
@@ -116,6 +116,6 @@ class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
 
         return await self.update(object_permission_id, data, id_field="object_permission_id")
 
-    async def delete_permission(self, object_permission_id: str) -> LiteLLM_ObjectPermissionTable | None:
+    async def delete_permission(self, object_permission_id: str) -> EmbRouter_ObjectPermissionTable | None:
         """Delete an object permission record."""
         return await self.delete(object_permission_id, id_field="object_permission_id")

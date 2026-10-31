@@ -16,30 +16,30 @@ import pytest
 @pytest.fixture(scope="module")
 def use_local_model_cost_map():
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
 
-    import litellm
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    import embrouter
+    from embrouter.utils import _invalidate_model_cost_lowercase_map
 
-    original_model_cost = litellm.model_cost
-    litellm.model_cost = json.loads(
-        files("litellm")
+    original_model_cost = embrouter.model_cost
+    embrouter.model_cost = json.loads(
+        files("embrouter")
         .joinpath("model_prices_and_context_window_backup.json")
         .read_text(encoding="utf-8")
     )
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
     _invalidate_model_cost_lowercase_map()
     try:
-        yield litellm
+        yield embrouter
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_model_cost
+        embrouter.get_model_info.cache_clear()
         _invalidate_model_cost_lowercase_map()
         monkeypatch.undo()
 
 
 def test_azure_ai_fw_nemotron_lightning_supports_tool_choice(use_local_model_cost_map):
-    from litellm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
+    from embrouter.llms.azure_ai.chat.transformation import AzureAIStudioConfig
 
     supported_params = AzureAIStudioConfig().get_supported_openai_params("FW-Nemotron-Lightning-3.5-30B-A3B")
 

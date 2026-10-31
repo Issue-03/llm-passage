@@ -35,7 +35,7 @@ class _JsonBodyView(TypedDict):
 
 @click.group()
 def credentials():
-    """Manage credentials for the LiteLLM proxy server"""
+    """Manage credentials for the EmbRouter proxy server"""
 
 
 @credentials.command()

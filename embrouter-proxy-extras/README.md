@@ -1,20 +1,20 @@
-Additional files for the proxy. Reduces the size of the main litellm package.
+Additional files for the proxy. Reduces the size of the main embrouter package.
 
-Currently, only stores the migration.sql files for litellm-proxy.
+Currently, only stores the migration.sql files for embrouter-proxy.
 
 To install, run:
 
 ```bash
-uv add litellm-proxy-extras
+uv add embrouter-proxy-extras
 ```
 OR 
 
 ```bash
-uv tool install 'litellm[proxy]' # installs litellm-proxy-extras and other proxy dependencies
+uv tool install 'embrouter[proxy]' # installs embrouter-proxy-extras and other proxy dependencies
 ```
 
 To use the migrations, run:
 
 ```bash
-litellm --use_prisma_migrate
+embrouter --use_prisma_migrate
 ```

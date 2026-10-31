@@ -2,16 +2,16 @@
 
 import pytest
 
-import litellm
-from litellm.llms.openai.cost_calculation import cost_per_second
+import embrouter
+from embrouter.llms.openai.cost_calculation import cost_per_second
 
 
 def _register_stt(name: str, **pricing: float) -> None:
-    litellm.register_model(
+    embrouter.register_model(
         {
             name: {
                 "mode": "audio_transcription",
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 **pricing,
             }
         },

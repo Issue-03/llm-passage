@@ -5,25 +5,25 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import httpx
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.responses.main import *
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.responses.main import *
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -59,7 +59,7 @@ class BaseResponsesAPIConfig(ABC):
         """Return True if this provider handles the file_search tool natively.
 
         Override in provider subclasses that support file_search without
-        LiteLLM emulation (e.g. OpenAI, Azure OpenAI).
+        EmbRouter emulation (e.g. OpenAI, Azure OpenAI).
         """
         return False
 
@@ -100,14 +100,14 @@ class BaseResponsesAPIConfig(ABC):
         pass
 
     @abstractmethod
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
         return {}
 
     @abstractmethod
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         OPTIONAL
@@ -126,7 +126,7 @@ class BaseResponsesAPIConfig(ABC):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         pass
@@ -136,14 +136,14 @@ class BaseResponsesAPIConfig(ABC):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         return self.transform_responses_api_request(
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -152,7 +152,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         pass
 
@@ -161,7 +161,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         model: str,
         parsed_chunk: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIStreamingResponse:
         """
         Transform a parsed streaming response chunk into a ResponsesAPIStreamingResponse
@@ -175,7 +175,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         pass
@@ -184,7 +184,7 @@ class BaseResponsesAPIConfig(ABC):
     def transform_delete_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteResponseResult:
         pass
 
@@ -200,7 +200,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         pass
@@ -209,7 +209,7 @@ class BaseResponsesAPIConfig(ABC):
     def transform_get_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         pass
 
@@ -221,7 +221,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         before: str | None = None,
@@ -235,7 +235,7 @@ class BaseResponsesAPIConfig(ABC):
     def transform_list_input_items_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> dict:
         pass
 
@@ -258,7 +258,7 @@ class BaseResponsesAPIConfig(ABC):
         stream: bool | None,
         custom_llm_provider: str | None = None,
     ) -> bool:
-        """Returns True if litellm should fake a stream for the given model and stream value"""
+        """Returns True if embrouter should fake a stream for the given model and stream value"""
         return False
 
     def supports_native_websocket(self) -> bool:
@@ -276,7 +276,7 @@ class BaseResponsesAPIConfig(ABC):
     def get_websocket_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Return the wss:// URL for the provider's native Responses WebSocket endpoint.
@@ -285,7 +285,7 @@ class BaseResponsesAPIConfig(ABC):
         WebSocket path differs from their HTTP path (e.g. Azure uses
         /openai/v1/responses without api-version) should override this.
         """
-        http_url: Final = self.get_complete_url(api_base=api_base, litellm_params=litellm_params)
+        http_url: Final = self.get_complete_url(api_base=api_base, embrouter_params=embrouter_params)
         return http_url.replace("https://", "wss://").replace("http://", "ws://")
 
     def model_in_websocket_url(self) -> bool:
@@ -304,7 +304,7 @@ class BaseResponsesAPIConfig(ABC):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         pass
@@ -313,7 +313,7 @@ class BaseResponsesAPIConfig(ABC):
     def transform_cancel_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         pass
 
@@ -331,7 +331,7 @@ class BaseResponsesAPIConfig(ABC):
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         pass
@@ -340,7 +340,7 @@ class BaseResponsesAPIConfig(ABC):
     def transform_compact_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         pass
 
@@ -370,7 +370,7 @@ class BaseResponsesAPIConfig(ABC):
         extra_body: Mapping[str, object],
         request: Mapping[str, object],
         model: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
     ) -> Mapping[str, object]:
         return extra_body
 

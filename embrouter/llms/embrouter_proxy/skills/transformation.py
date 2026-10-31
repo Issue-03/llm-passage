@@ -1,10 +1,10 @@
 """
-Transformation handler for LiteLLM database-backed skills.
+Transformation handler for EmbRouter database-backed skills.
 
 This module provides the SDK-level transformation layer that converts
-API requests to database operations via LiteLLMSkillsHandler.
+API requests to database operations via EmbRouterSkillsHandler.
 
-Pattern follows litellm/llms/litellm_proxy/responses/transformation.py
+Pattern follows embrouter/llms/embrouter_proxy/responses/transformation.py
 """
 
 from collections.abc import Coroutine, Sequence
@@ -12,30 +12,30 @@ from typing import TYPE_CHECKING, Final, Optional
 
 from pydantic import JsonValue
 
-from litellm.types.llms.anthropic_skills import (
+from embrouter.types.llms.anthropic_skills import (
     DeleteSkillResponse,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import LiteLLM_SkillsTable, UserAPIKeyAuth
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import EmbRouter_SkillsTable, UserAPIKeyAuth
 
 
-class LiteLLMSkillsTransformationHandler:
+class EmbRouterSkillsTransformationHandler:
     """
-    Transformation handler for skills API requests to LiteLLM database operations.
+    Transformation handler for skills API requests to EmbRouter database operations.
 
-    This is used when custom_llm_provider="litellm_proxy" to store/retrieve skills
-    from the LiteLLM proxy database instead of calling an external API.
+    This is used when custom_llm_provider="embrouter_proxy" to store/retrieve skills
+    from the EmbRouter proxy database instead of calling an external API.
     """
 
     @property
     def custom_llm_provider(self) -> str:
         """Return the provider name for logging."""
-        return LlmProviders.LITELLM_PROXY.value
+        return LlmProviders.EMBROUTER_PROXY.value
 
     def create_skill_handler(
         self,
@@ -50,12 +50,12 @@ class LiteLLMSkillsTransformationHandler:
         user_id: str | None = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         _is_async: bool = False,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
-        litellm_call_id: str | None = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
+        embrouter_call_id: str | None = None,
         **kwargs,
     ) -> Skill | Coroutine[object, object, Skill]:
         """
-        Create a skill in LiteLLM database.
+        Create a skill in EmbRouter database.
 
         Args:
             display_title: Display title for the skill
@@ -78,7 +78,7 @@ class LiteLLMSkillsTransformationHandler:
                 kwargs=kwargs,
                 model=None,
                 optional_params={"display_title": display_title},
-                litellm_params={"litellm_call_id": litellm_call_id},
+                embrouter_params={"embrouter_call_id": embrouter_call_id},
                 custom_llm_provider=self.custom_llm_provider,
             )
 
@@ -135,8 +135,8 @@ class LiteLLMSkillsTransformationHandler:
     ) -> Skill:
         """Async implementation of create_skill."""
         # Lazy import to avoid SDK dependency on proxy
-        from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
-        from litellm.proxy._types import NewSkillRequest
+        from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
+        from embrouter.proxy._types import NewSkillRequest
 
         skill_request: Final = NewSkillRequest(
             display_title=display_title,
@@ -148,7 +148,7 @@ class LiteLLMSkillsTransformationHandler:
             metadata=metadata,
         )
 
-        db_skill: Final = await LiteLLMSkillsHandler.create_skill(
+        db_skill: Final = await EmbRouterSkillsHandler.create_skill(
             data=skill_request,
             user_id=user_id,
             user_api_key_dict=user_api_key_dict,
@@ -161,20 +161,20 @@ class LiteLLMSkillsTransformationHandler:
         limit: int = 20,
         offset: int = 0,
         _is_async: bool = False,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
-        litellm_call_id: str | None = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
+        embrouter_call_id: str | None = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         **kwargs,
     ) -> ListSkillsResponse | Coroutine[object, object, ListSkillsResponse]:
         """
-        List skills from LiteLLM database.
+        List skills from EmbRouter database.
 
         Args:
             limit: Maximum number of skills to return
             offset: Number of skills to skip
             _is_async: Whether to return a coroutine
-            logging_obj: LiteLLM logging object
-            litellm_call_id: Call ID for logging
+            logging_obj: EmbRouter logging object
+            embrouter_call_id: Call ID for logging
 
         Returns:
             ListSkillsResponse or coroutine that returns ListSkillsResponse
@@ -185,7 +185,7 @@ class LiteLLMSkillsTransformationHandler:
                 kwargs=kwargs,
                 model=None,
                 optional_params={"limit": limit, "offset": offset},
-                litellm_params={"litellm_call_id": litellm_call_id},
+                embrouter_params={"embrouter_call_id": embrouter_call_id},
                 custom_llm_provider=self.custom_llm_provider,
             )
 
@@ -214,9 +214,9 @@ class LiteLLMSkillsTransformationHandler:
     ) -> ListSkillsResponse:
         """Async implementation of list_skills."""
         # Lazy import to avoid SDK dependency on proxy
-        from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+        from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
-        db_skills: Final = await LiteLLMSkillsHandler.list_skills(
+        db_skills: Final = await EmbRouterSkillsHandler.list_skills(
             limit=limit,
             offset=offset,
             user_api_key_dict=user_api_key_dict,
@@ -235,19 +235,19 @@ class LiteLLMSkillsTransformationHandler:
         self,
         skill_id: str,
         _is_async: bool = False,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
-        litellm_call_id: str | None = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
+        embrouter_call_id: str | None = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         **kwargs,
     ) -> Skill | Coroutine[object, object, Skill]:
         """
-        Get a skill from LiteLLM database.
+        Get a skill from EmbRouter database.
 
         Args:
             skill_id: The skill ID to retrieve
             _is_async: Whether to return a coroutine
-            logging_obj: LiteLLM logging object
-            litellm_call_id: Call ID for logging
+            logging_obj: EmbRouter logging object
+            embrouter_call_id: Call ID for logging
 
         Returns:
             Skill or coroutine that returns Skill
@@ -258,7 +258,7 @@ class LiteLLMSkillsTransformationHandler:
                 kwargs=kwargs,
                 model=None,
                 optional_params={"skill_id": skill_id},
-                litellm_params={"litellm_call_id": litellm_call_id},
+                embrouter_params={"embrouter_call_id": embrouter_call_id},
                 custom_llm_provider=self.custom_llm_provider,
             )
 
@@ -284,9 +284,9 @@ class LiteLLMSkillsTransformationHandler:
     ) -> Skill:
         """Async implementation of get_skill."""
         # Lazy import to avoid SDK dependency on proxy
-        from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+        from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
-        db_skill: Final = await LiteLLMSkillsHandler.get_skill(
+        db_skill: Final = await EmbRouterSkillsHandler.get_skill(
             skill_id=skill_id,
             user_api_key_dict=user_api_key_dict,
         )
@@ -296,19 +296,19 @@ class LiteLLMSkillsTransformationHandler:
         self,
         skill_id: str,
         _is_async: bool = False,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
-        litellm_call_id: str | None = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
+        embrouter_call_id: str | None = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         **kwargs,
     ) -> DeleteSkillResponse | Coroutine[object, object, DeleteSkillResponse]:
         """
-        Delete a skill from LiteLLM database.
+        Delete a skill from EmbRouter database.
 
         Args:
             skill_id: The skill ID to delete
             _is_async: Whether to return a coroutine
-            logging_obj: LiteLLM logging object
-            litellm_call_id: Call ID for logging
+            logging_obj: EmbRouter logging object
+            embrouter_call_id: Call ID for logging
 
         Returns:
             DeleteSkillResponse or coroutine that returns DeleteSkillResponse
@@ -319,7 +319,7 @@ class LiteLLMSkillsTransformationHandler:
                 kwargs=kwargs,
                 model=None,
                 optional_params={"skill_id": skill_id},
-                litellm_params={"litellm_call_id": litellm_call_id},
+                embrouter_params={"embrouter_call_id": embrouter_call_id},
                 custom_llm_provider=self.custom_llm_provider,
             )
 
@@ -345,9 +345,9 @@ class LiteLLMSkillsTransformationHandler:
     ) -> DeleteSkillResponse:
         """Async implementation of delete_skill."""
         # Lazy import to avoid SDK dependency on proxy
-        from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+        from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
-        result: Final = await LiteLLMSkillsHandler.delete_skill(
+        result: Final = await EmbRouterSkillsHandler.delete_skill(
             skill_id=skill_id,
             user_api_key_dict=user_api_key_dict,
         )
@@ -356,12 +356,12 @@ class LiteLLMSkillsTransformationHandler:
             type=result.get("type", "skill_deleted"),
         )
 
-    def db_skill_to_response(self, db_skill: "LiteLLM_SkillsTable") -> Skill:
+    def db_skill_to_response(self, db_skill: "EmbRouter_SkillsTable") -> Skill:
         """
         Convert a database skill record to Anthropic-compatible Skill response.
 
         Args:
-            db_skill: LiteLLM_SkillsTable record
+            db_skill: EmbRouter_SkillsTable record
 
         Returns:
             Skill object

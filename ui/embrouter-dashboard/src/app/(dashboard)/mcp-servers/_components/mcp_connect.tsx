@@ -51,7 +51,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   const getHeadersConfig = () => {
     const headers: Record<string, any> = {
-      "x-litellm-api-key": "Bearer YOUR_LITELLM_API_KEY",
+      "x-embrouter-api-key": "Bearer YOUR_EMBROUTER_API_KEY",
     };
     if (useServerHeader && serverName) {
       const formattedServerName = serverName.replace(/\s+/g, "_");
@@ -196,7 +196,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
     </div>
   );
 
-  const LiteLLMProxyTab = () => (
+  const EmbRouterProxyTab = () => (
     <div className="flex w-full flex-col gap-6">
       <div className="bg-linear-to-r from-success/15 to-success/5 p-6 rounded-lg border border-success/15">
         <div className="flex items-center gap-3 mb-3">
@@ -218,7 +218,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
             <div>
               <span>Get your Virtual Key from your EmbRouter dashboard or contact your administrator</span>
             </div>
-            <CodeBlock title="Environment Variable" code='export LITELLM_API_KEY="sk-..."' copyKey="litellm-env" />
+            <CodeBlock title="Environment Variable" code='export EMBROUTER_API_KEY="sk-..."' copyKey="embrouter-env" />
           </div>
         </FeatureCard>
 
@@ -227,7 +227,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
           title="MCP Server Information"
           description="Connection details for your EmbRouter MCP server"
         >
-          <CodeBlock title="Server URL" code={`${proxyBaseUrl}/mcp`} copyKey="litellm-server-url" />
+          <CodeBlock title="Server URL" code={`${proxyBaseUrl}/mcp`} copyKey="embrouter-server-url" />
         </FeatureCard>
 
         <FeatureCard
@@ -240,17 +240,17 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
           <CodeBlock
             code={`curl --location '${proxyBaseUrl}/v1/responses' \\
 --header 'Content-Type: application/json' \\
---header "Authorization: Bearer $LITELLM_VIRTUAL_KEY" \\
+--header "Authorization: Bearer $EMBROUTER_VIRTUAL_KEY" \\
 --data '{
     "model": "gpt-4",
     "tools": [
         {
             "type": "mcp",
-            "server_label": "litellm",
-            "server_url": "litellm_proxy",
+            "server_label": "embrouter",
+            "server_url": "embrouter_proxy",
             "require_approval": "never",
             "headers": {
-                "x-litellm-api-key": "Bearer YOUR_LITELLM_VIRTUAL_KEY",
+                "x-embrouter-api-key": "Bearer YOUR_EMBROUTER_VIRTUAL_KEY",
                 "x-mcp-servers": "Zapier_MCP,dev-group"
             }
         }
@@ -258,7 +258,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
     "input": "Run available tools",
     "tool_choice": "required"
 }'`}
-            copyKey="litellm-curl"
+            copyKey="embrouter-curl"
             className="text-xs"
           />
         </FeatureCard>
@@ -326,11 +326,11 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
     "tools": [
         {
             "type": "mcp",
-            "server_label": "litellm",
+            "server_label": "embrouter",
             "server_url": "${proxyBaseUrl}/mcp",
             "require_approval": "never",
             "headers": {
-                "x-litellm-api-key": "Bearer YOUR_LITELLM_API_KEY",
+                "x-embrouter-api-key": "Bearer YOUR_EMBROUTER_API_KEY",
                 "x-mcp-servers": "Zapier_MCP,dev-group"
             }
         }
@@ -393,7 +393,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
       "Zapier_MCP": {
         "url": "${proxyBaseUrl}/mcp",
         "headers": {
-          "x-litellm-api-key": "Bearer YOUR_LITELLM_API_KEY",
+          "x-embrouter-api-key": "Bearer YOUR_EMBROUTER_API_KEY",
           "x-mcp-servers": "Zapier_MCP,dev-group"
         }
       }
@@ -439,7 +439,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
             title="Headers Configuration"
             code={JSON.stringify(
               {
-                "x-litellm-api-key": "Bearer YOUR_LITELLM_API_KEY",
+                "x-embrouter-api-key": "Bearer YOUR_EMBROUTER_API_KEY",
               },
               null,
               2,
@@ -488,7 +488,7 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
                   OpenAI API
                 </span>
               </TabsTrigger>
-              <TabsTrigger value="litellm" className="flex-none px-6 py-3">
+              <TabsTrigger value="embrouter" className="flex-none px-6 py-3">
                 <span className="flex items-center gap-2 font-medium">
                   <Zap size={18} />
                   EmbRouter
@@ -511,8 +511,8 @@ const MCPConnect: React.FC<MCPConnectProps> = ({ currentServerAccessGroups = [] 
           <TabsContent value="openai" keepMounted className="mt-6">
             <OpenAITab />
           </TabsContent>
-          <TabsContent value="litellm" keepMounted className="mt-6">
-            <LiteLLMProxyTab />
+          <TabsContent value="embrouter" keepMounted className="mt-6">
+            <EmbRouterProxyTab />
           </TabsContent>
           <TabsContent value="cursor" keepMounted className="mt-6">
             <CursorTab />

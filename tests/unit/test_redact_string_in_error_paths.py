@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm._logging import _ENABLE_SECRET_REDACTION, _redact_string
+from embrouter._logging import _ENABLE_SECRET_REDACTION, _redact_string
 
 
 class TestRedactStringFunction:
@@ -74,7 +74,7 @@ class TestOpenAIRealtimeRedaction:
 
     @pytest.mark.asyncio
     async def test_generic_exception_redacts_reason(self):
-        from litellm.llms.openai.realtime.handler import OpenAIRealtime
+        from embrouter.llms.openai.realtime.handler import OpenAIRealtime
 
         handler = OpenAIRealtime()
         secret_error = RuntimeError(
@@ -150,17 +150,17 @@ class TestRouterFallbackFailureTracebackRedaction:
         so an exc_info=True regression there would degrade to (None, None, None) and
         this test would pass against it.
         """
-        import litellm
+        import embrouter
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key"},
+                    "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key"},
                 },
                 {
                     "model_name": "claude-3-haiku",
-                    "litellm_params": {"model": "anthropic/claude-3-haiku-20240307", "api_key": "fake-key"},
+                    "embrouter_params": {"model": "anthropic/claude-3-haiku-20240307", "api_key": "fake-key"},
                 },
             ],
         )
@@ -168,13 +168,13 @@ class TestRouterFallbackFailureTracebackRedaction:
         secret = "sk-testsecretvalue1234567890abcdef"
 
         with patch(
-            "litellm.router.run_async_fallback",
+            "embrouter.router.run_async_fallback",
             new=AsyncMock(side_effect=RuntimeError(f"boom api_key={secret}")),
         ):
             try:
                 raise ValueError(f"primary deployment failed api_key={secret}")
             except ValueError as original_exception:
-                with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
+                with caplog.at_level(logging.DEBUG, logger="EmbRouter Router"):
                     with pytest.raises(ValueError, match='primary deployment failed api_key=sk-testsecretvalu'):
                         await router.async_function_with_fallbacks_common_utils(
                             e=original_exception,
@@ -221,7 +221,7 @@ class TestGeminiIngestionHeaders:
 
     @pytest.mark.asyncio
     async def test_create_file_search_store_sends_header(self):
-        from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+        from embrouter.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
 
         ingestion = GeminiRAGIngestion(ingest_options=_make_mock_ingest_options())
 
@@ -232,7 +232,7 @@ class TestGeminiIngestionHeaders:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
+            "embrouter.rag.ingestion.gemini_ingestion.get_async_httpx_client",
             return_value=mock_client,
         ):
             result = await ingestion._create_file_search_store(
@@ -248,7 +248,7 @@ class TestGeminiIngestionHeaders:
 
     @pytest.mark.asyncio
     async def test_initiate_resumable_upload_sends_header(self):
-        from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+        from embrouter.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
 
         ingestion = GeminiRAGIngestion(ingest_options=_make_mock_ingest_options())
 
@@ -261,7 +261,7 @@ class TestGeminiIngestionHeaders:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.rag.ingestion.gemini_ingestion.get_async_httpx_client",
+            "embrouter.rag.ingestion.gemini_ingestion.get_async_httpx_client",
             return_value=mock_client,
         ):
             result = await ingestion._initiate_resumable_upload(

@@ -6,9 +6,9 @@ Docs: https://cloud.ibm.com/apidocs/watsonx-ai#text-chat
 
 from typing import Final
 
-from litellm import verbose_logger
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.watsonx import (
+from embrouter import verbose_logger
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.watsonx import (
     WatsonXAIEndpoint,
     WatsonXModelPattern,
 )
@@ -84,7 +84,7 @@ class IBMWatsonXChatConfig(IBMWatsonXMixin, OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         url = self._get_base_url(api_base=api_base)
@@ -105,7 +105,7 @@ class IBMWatsonXChatConfig(IBMWatsonXMixin, OpenAIGPTConfig):
     @staticmethod
     def _apply_prompt_template_core(model: str, messages: list[dict[str, str]], hf_template_fn) -> str | None:
         """Core logic for applying prompt templates"""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             custom_prompt,
             ibm_granite_pt,
             mistral_instruct_pt,
@@ -157,7 +157,7 @@ class IBMWatsonXChatConfig(IBMWatsonXMixin, OpenAIGPTConfig):
     @staticmethod
     async def aapply_prompt_template(model: str, messages: list[dict[str, str]]) -> str | None:
         """Apply prompt template (async version)"""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             ahf_chat_template,
             custom_prompt,
             ibm_granite_pt,
@@ -215,7 +215,7 @@ class IBMWatsonXChatConfig(IBMWatsonXMixin, OpenAIGPTConfig):
     @staticmethod
     def apply_prompt_template(model: str, messages: list[dict[str, str]]) -> str | None:
         """Apply prompt template (sync version)"""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             hf_chat_template,
         )
 

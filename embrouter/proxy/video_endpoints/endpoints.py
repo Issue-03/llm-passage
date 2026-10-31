@@ -6,23 +6,23 @@ from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFil
 from fastapi.responses import ORJSONResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_body,
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.image_endpoints.endpoints import batch_to_bytesio
-from litellm.proxy.video_endpoints.utils import (
+from embrouter.proxy.image_endpoints.endpoints import batch_to_bytesio
+from embrouter.proxy.video_endpoints.utils import (
     encode_character_id_in_response,
     extract_model_from_target_model_names,
     get_custom_provider_from_data,
     video_reference_to_id,
 )
-from litellm.types.videos.utils import (
+from embrouter.types.videos.utils import (
     decode_character_id_with_provider,
     decode_video_id_with_provider,
 )
@@ -65,7 +65,7 @@ async def video_generation(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -147,7 +147,7 @@ async def video_list(
         -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -235,7 +235,7 @@ async def video_status(
         -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -267,7 +267,7 @@ async def video_status(
         data["custom_llm_provider"] = custom_llm_provider
 
     # Resolve model_name from model_id if available
-    # This allows the router to automatically inject litellm_params from the model config
+    # This allows the router to automatically inject embrouter_params from the model config
     if model_id_from_decoded and llm_router:
         resolved_model: Final = llm_router.resolve_model_name_from_model_id(model_id_from_decoded)
         if resolved_model:
@@ -336,7 +336,7 @@ async def video_content(
         --output video.mp4
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -367,7 +367,7 @@ async def video_content(
         data["custom_llm_provider"] = custom_llm_provider
 
     # Resolve model_name from model_id if available
-    # This allows the router to automatically inject litellm_params from the model config
+    # This allows the router to automatically inject embrouter_params from the model config
     if model_id_from_decoded and llm_router:
         resolved_model: Final = llm_router.resolve_model_name_from_model_id(model_id_from_decoded)
         if resolved_model:
@@ -444,7 +444,7 @@ async def video_remix(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -475,7 +475,7 @@ async def video_remix(
         data["custom_llm_provider"] = custom_llm_provider
 
     # Resolve model_name from model_id if available
-    # This allows the router to automatically inject litellm_params from the model config
+    # This allows the router to automatically inject embrouter_params from the model config
     if model_id_from_decoded and llm_router:
         resolved_model: Final = llm_router.resolve_model_name_from_model_id(model_id_from_decoded)
         if resolved_model:
@@ -546,7 +546,7 @@ async def video_create_character(
         -F "name=my_character"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -646,7 +646,7 @@ async def video_get_character(
         -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -753,7 +753,7 @@ async def video_edit(
         -d '{"prompt": "Make it brighter", "video": {"id": "video_123"}}'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -857,7 +857,7 @@ async def video_extension(
         -d '{"prompt": "Continue the scene", "seconds": "5", "video": {"id": "video_123"}}'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
