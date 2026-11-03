@@ -121,10 +121,6 @@ mcp = ["mcp>=2.2.0,<3", "httpx2>=2.5.0,<3", "pydantic>=2.12.0,<3"]
 # bundle the native libxmlsec1/libxml2 libraries, so no system packages are
 # required. Kept out of the base `proxy` extra so it stays optional.
 saml = ["python3-saml>=1.16.0,<2.0"]
-semantic-router = [
-    "semantic-router>=0.1.15,<1.0; python_version < '3.14'",
-    "aurelio-sdk>=0.0.19,<1.0; python_version < '3.14'",
-]
 mlflow = ["mlflow>=3.11.1,<4.0"]
 grpc = [
     # Newest non-yanked release older than the 30-day cutoff.

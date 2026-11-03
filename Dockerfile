@@ -80,7 +80,6 @@ RUN uv sync --frozen --no-install-project --no-install-workspace --no-default-gr
     --extra proxy \
     --extra proxy-runtime \
     --extra extra_proxy \
-    --extra semantic-router \
     --extra saml \
     --extra bedrock-realtime \
     --python python3.13
@@ -102,7 +101,6 @@ RUN uv sync --frozen --no-default-groups --no-editable \
     --extra proxy \
     --extra proxy-runtime \
     --extra extra_proxy \
-    --extra semantic-router \
     --extra saml \
     --extra bedrock-realtime \
     --python python3.13
