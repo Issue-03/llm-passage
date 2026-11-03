@@ -327,7 +327,7 @@ class TestToolPermissionGuardrail:
                     "tool_name": r"^mail_mcp-send_email$",
                     "decision": "allow",
                     "allowed_param_patterns": {
-                        "to[]": r"^.+@berri\.ai$",
+                        "to[]": r"^.+@acme\.com$",
                         "subject": r"^.{1,120}$",
                     },
                 }
@@ -339,7 +339,7 @@ class TestToolPermissionGuardrail:
         tool_call = {
             "function": {
                 "name": "mail_mcp-send_email",
-                "arguments": '{"to": ["owner@berri.ai"], "subject": "Hi"}',
+                "arguments": '{"to": ["owner@acme.com"], "subject": "Hi"}',
             },
             "type": "function",
         }
@@ -361,7 +361,7 @@ class TestToolPermissionGuardrail:
                     "id": "allow_mail",
                     "tool_name": r"^mail_mcp-send_email$",
                     "decision": "allow",
-                    "allowed_param_patterns": {"to[]": r"^.+@berri\.ai$"},
+                    "allowed_param_patterns": {"to[]": r"^.+@acme\.com$"},
                 }
             ],
             default_action="deny",
@@ -394,7 +394,7 @@ class TestToolPermissionGuardrail:
                     "id": "allow_mail",
                     "tool_name": r"^mail_mcp-send_email$",
                     "decision": "allow",
-                    "allowed_param_patterns": {"to[]": r"^.+@berri\.ai$"},
+                    "allowed_param_patterns": {"to[]": r"^.+@acme\.com$"},
                 }
             ],
             default_action="deny",
@@ -402,7 +402,7 @@ class TestToolPermissionGuardrail:
         )
 
         tool_call = {
-            "id": "call_berri",
+            "id": "call_acme",
             "function": {
                 "name": "mail_mcp-send_email",
                 "arguments": '{"to": ["visitor@example.com"]}',
@@ -422,7 +422,7 @@ class TestToolPermissionGuardrail:
         assert isinstance(choice, Choices)
         assert not choice.message.tool_calls
         assert isinstance(choice.message.content, str)
-        assert "berri" in choice.message.content
+        assert "acme" in choice.message.content
 
     @pytest.mark.asyncio
     async def test_async_post_call_success_hook_missing_arguments_blocks_param_rule(
@@ -463,7 +463,7 @@ class TestToolPermissionGuardrail:
         "arguments",
         [
             "{not-json",
-            '["owner@berri.ai"]',
+            '["owner@acme.com"]',
         ],
     )
     async def test_async_post_call_success_hook_malformed_arguments_blocks_param_rule(

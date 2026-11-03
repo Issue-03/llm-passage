@@ -217,7 +217,7 @@ class TestPGVectorStoreConfig:
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "object": "vector_store.search_results.page",
-                "search_query": ["what are remote working hours for BerriAI"],
+                "search_query": ["what are remote working hours for Acme"],
                 "data": [
                     {
                         "file_id": "file_123",
@@ -241,7 +241,7 @@ class TestPGVectorStoreConfig:
             vector_store_id = (
                 "pg-vector-test-store-123"  # Different from test registry IDs
             )
-            query = "what are remote working hours for BerriAI"
+            query = "what are remote working hours for Acme"
 
             # Call embrouter vector store search
             exception_raised = None

@@ -223,18 +223,18 @@ def test_transform_search_response_real_fixture_dedupes_and_preserves_order():
 
     assert resp.object == "search"
     assert [r.url for r in resp.results] == [
-        "https://github.com/BerriAI/embrouter/releases",
-        "https://releasealert.dev/github/BerriAI/embrouter",
-        "https://api.github.com/repos/BerriAI/embrouter/releases/latest",
+        "https://github.com/acme/embrouter/releases",
+        "https://releasealert.dev/github/acme/embrouter",
+        "https://api.github.com/repos/acme/embrouter/releases/latest",
     ]
-    assert resp.results[0].title == "Releases · BerriAI/embrouter - GitHub"
-    assert resp.results[1].title == "BerriAI/embrouter on GitHub | Release Alert"
+    assert resp.results[0].title == "Releases · acme/embrouter - GitHub"
+    assert resp.results[1].title == "acme/embrouter on GitHub | Release Alert"
 
 
 def test_transform_search_response_real_fixture_snippets_are_the_cited_claims():
     resp = _config().transform_search_response(_resp(REAL_FIXTURE), logging_obj=Mock())
 
-    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for BerriAI/embrouter")
+    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for acme/embrouter")
     assert resp.results[1].snippet.startswith("- An external release")
     assert resp.results[2].snippet.startswith("- The GitHub API (via `releases/latest`)")
     for result in resp.results:

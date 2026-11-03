@@ -338,7 +338,7 @@ async def test_normal_router_call_tpm_v3(
             "embrouter_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
-                "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
+                "api_base": "https://my-endpoint-europe-992.openai.azure.com",
                 "rpm": 6,
             },
             "model_info": {"id": 2},

@@ -533,16 +533,16 @@ def test_base_counts_cached_treats_empty_fetched_counts_as_a_miss(tmp_path):
 
 
 def test_origin_slug_parsing_supports_ssh_and_https_github_forms():
-    assert gate.parse_origin_slug("git@github.com:BerriAI/embrouter.git") == "BerriAI/embrouter"
-    assert gate.parse_origin_slug("git@github.com:BerriAI/embrouter") == "BerriAI/embrouter"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter.git") == "BerriAI/embrouter"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter") == "BerriAI/embrouter"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter/") == "BerriAI/embrouter"
+    assert gate.parse_origin_slug("git@github.com:acme/embrouter.git") == "acme/embrouter"
+    assert gate.parse_origin_slug("git@github.com:acme/embrouter") == "acme/embrouter"
+    assert gate.parse_origin_slug("https://github.com/acme/embrouter.git") == "acme/embrouter"
+    assert gate.parse_origin_slug("https://github.com/acme/embrouter") == "acme/embrouter"
+    assert gate.parse_origin_slug("https://github.com/acme/embrouter/") == "acme/embrouter"
 
 
 def test_origin_slug_parsing_rejects_non_github_urls():
-    assert gate.parse_origin_slug("https://gitlab.com/BerriAI/embrouter.git") is None
-    assert gate.parse_origin_slug("git@bitbucket.org:BerriAI/embrouter.git") is None
+    assert gate.parse_origin_slug("https://gitlab.com/acme/embrouter.git") is None
+    assert gate.parse_origin_slug("git@bitbucket.org:acme/embrouter.git") is None
     assert gate.parse_origin_slug("not a url") is None
     assert gate.parse_origin_slug("") is None
 

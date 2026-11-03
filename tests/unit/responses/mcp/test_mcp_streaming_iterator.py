@@ -103,7 +103,7 @@ def _make_iterator(initial_chunks) -> MCPEnhancedStreamingIterator:
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-4",
-            "input": "what is berriai/embrouter?",
+            "input": "what is acme/embrouter?",
             "tools": [{"type": "mcp"}],
         },
     )
@@ -304,7 +304,7 @@ async def test_streaming_follow_up_replays_reasoning_when_store_is_false(monkeyp
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-5",
-            "input": "what is berriai/embrouter?",
+            "input": "what is acme/embrouter?",
             "tools": [{"type": "mcp"}],
             "store": False,
             "previous_response_id": "resp_prev",
@@ -342,7 +342,7 @@ async def test_streaming_follow_up_keeps_previous_response_id_when_stored(monkey
         user_api_key_auth=None,
         original_request_params={
             "model": "gpt-5",
-            "input": "what is berriai/embrouter?",
+            "input": "what is acme/embrouter?",
             "tools": [{"type": "mcp"}],
             "previous_response_id": "resp_prev",
         },

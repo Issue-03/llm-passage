@@ -2,12 +2,12 @@
 
 model_list:
 - embrouter_params:
-    api_base: https://my-endpoint-europe-berri-992.openai.azure.com/
+    api_base: https://my-endpoint-europe-992.openai.azure.com/
     api_key: os.environ/AZURE_EUROPE_API_KEY
     model: azure/gpt-35-turbo
   model_name: azure-model
 - embrouter_params:
-    api_base: https://my-endpoint-canada-berri992.openai.azure.com
+    api_base: https://my-endpoint-canada-992.openai.azure.com
     api_key: os.environ/AZURE_CANADA_API_KEY
     model: azure/gpt-35-turbo
   model_name: azure-model

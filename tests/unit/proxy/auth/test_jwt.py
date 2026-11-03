@@ -938,7 +938,7 @@ async def mock_user_object(*args, **kwargs):
 
 
 @pytest.mark.parametrize(
-    "user_email, should_work", [("ishaan@berri.ai", True), ("krrish@tassle.xyz", False)]
+    "user_email, should_work", [("user@acme.com", True), ("krrish@tassle.xyz", False)]
 )
 @pytest.mark.asyncio
 async def test_allow_access_by_email(
@@ -946,8 +946,6 @@ async def test_allow_access_by_email(
 ):
     """
     Allow anyone with an `@xyz.com` email make a request to the proxy.
-
-    Relevant issue: https://github.com/BerriAI/embrouter/issues/5605
     """
     import jwt
     from starlette.datastructures import URL
@@ -973,7 +971,7 @@ async def test_allow_access_by_email(
 
     jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
         user_email_jwt_field="email",
-        user_allowed_email_domain="berri.ai",
+        user_allowed_email_domain="acme.com",
         user_id_upsert=True,
     )
 

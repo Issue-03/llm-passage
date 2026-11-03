@@ -476,7 +476,7 @@ async def test_mcp_allowed_tools_filtering():
         # First instance of duplicate tool
         MCPTool.model_validate({
                 "name": "GitMCP-fetch_embrouter_documentation",
-                "description": "Fetch entire documentation file from GitHub repository: BerriAI/embrouter. Useful for general questions. Always call this tool first if asked about BerriAI/embrouter.",
+                "description": "Fetch entire documentation file from GitHub repository: acme/embrouter. Useful for general questions. Always call this tool first if asked about acme/embrouter.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -486,7 +486,7 @@ async def test_mcp_allowed_tools_filtering():
         # Second instance of duplicate tool (should be filtered out)
         MCPTool.model_validate({
                 "name": "GitMCP-fetch_embrouter_documentation",
-                "description": "Fetch entire documentation file from GitHub repository: BerriAI/embrouter. Useful for general questions. Always call this tool first if asked about BerriAI/embrouter.",
+                "description": "Fetch entire documentation file from GitHub repository: acme/embrouter. Useful for general questions. Always call this tool first if asked about acme/embrouter.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -496,7 +496,7 @@ async def test_mcp_allowed_tools_filtering():
         # Other unique tools
         MCPTool.model_validate({
                 "name": "GitMCP-search_embrouter_documentation",
-                "description": "Semantically search within the fetched documentation from GitHub repository: BerriAI/embrouter. Useful for specific queries.",
+                "description": "Semantically search within the fetched documentation from GitHub repository: acme/embrouter. Useful for specific queries.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {"query": {"type": "string"}},
@@ -653,7 +653,7 @@ async def test_streaming_mcp_events_validation():
     mock_mcp_tools = [
         MCPTool.model_validate({
                 "name": "search_repo",
-                "description": "Search BerriAI/embrouter repository for information",
+                "description": "Search acme/embrouter repository for information",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1005,7 +1005,7 @@ async def test_mcp_tool_execution_events_creation():
         },
         {
             "tool_call_id": "call_def456",
-            "result": "Repository: BerriAI/embrouter - Python library for LLM integration",
+            "result": "Repository: acme/embrouter - Python library for LLM integration",
         },
     ]
 

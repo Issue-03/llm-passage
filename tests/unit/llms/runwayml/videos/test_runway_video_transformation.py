@@ -35,7 +35,7 @@ class TestRunwayMLVideoTransformation:
             prompt=prompt,
             api_base=api_base,
             video_create_optional_request_params={
-                "promptImage": "https://media.licdn.com/dms/image/v2/D4D0BAQFqOrIAJEgtLw/company-logo_200_200/company-logo_200_200/0/1714076049190/berri_ai_logo",
+                "promptImage": "https://example.com/logo.png",
                 "duration": 5,
                 "ratio": "1280:720",
             },
@@ -319,7 +319,7 @@ class TestRunwayMLVideoTransformation:
             prompt=prompt,
             api_base=api_base,
             video_create_optional_request_params={
-                "promptImage": "https://media.licdn.com/dms/image/v2/D4D0BAQFqOrIAJEgtLw/company-logo_200_200/company-logo_200_200/0/1714076049190/berri_ai_logo",
+                "promptImage": "https://example.com/logo.png",
                 "ratio": "1280:720",
                 "duration": 5,
             },
