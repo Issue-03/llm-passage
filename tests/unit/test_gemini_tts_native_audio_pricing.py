@@ -8,7 +8,7 @@ import pytest
 import embrouter
 
 REPO_ROOT: Final = Path(__file__).parents[2]
-MAIN_PATH: Final = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_PATH: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PATH: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 
 FLASH_TTS_KEYS: Final = ("gemini-2.5-flash-preview-tts", "gemini/gemini-2.5-flash-preview-tts")

@@ -34,7 +34,7 @@ class TestXAICostCalculator:
         import json
 
         try:
-            with open("model_prices_and_context_window.json", "r") as f:
+            with open("embrouter/model_prices_and_context_window_backup.json", "r") as f:
                 model_cost_map = json.load(f)
             embrouter.model_cost = model_cost_map
         except FileNotFoundError:

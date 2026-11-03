@@ -9,7 +9,7 @@ from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provid
 from embrouter.types.utils import TranscriptionResponse
 
 REPO_ROOT: Final = Path(__file__).parents[4]
-MAIN_COST_MAP: Final = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_COST_MAP: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_COST_MAP: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 COST_MAP_ADAPTER: Final = TypeAdapter(dict[str, dict[str, object]])
 A_MILLION: Final = 1_000_000

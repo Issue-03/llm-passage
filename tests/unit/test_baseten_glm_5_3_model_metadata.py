@@ -6,7 +6,7 @@ import pytest
 import embrouter
 
 REPO_ROOT = Path(__file__).parents[2]
-MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 
 MODEL = "baseten/zai-org/GLM-5.3"

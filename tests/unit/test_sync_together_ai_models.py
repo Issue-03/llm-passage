@@ -362,7 +362,7 @@ def test_new_keys_land_at_the_end_of_the_provider_block() -> None:
 
 
 def test_sync_is_idempotent_over_the_repo_cost_map() -> None:
-    cost_map = json.loads((ROOT / "model_prices_and_context_window.json").read_text())
+    cost_map = json.loads((ROOT / "embrouter" / "model_prices_and_context_window_backup.json").read_text())
     first = sync.compute_sync(cost_map, RECORDED_CATALOG, RECORDED_DOC)
     second = sync.compute_sync(first.cost_map, RECORDED_CATALOG, RECORDED_DOC)
     assert not second.has_changes

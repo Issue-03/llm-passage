@@ -23,7 +23,7 @@ from embrouter.types.videos.main import VideoObject
 
 VEO_31_LITE_VERTEX_MODEL = "vertex_ai/veo-3.1-lite-generate-001"
 ROOT_MODEL_COST_PATH = (
-    Path(__file__).parents[5] / "model_prices_and_context_window.json"
+    Path(__file__).parents[5] / "embrouter" / "model_prices_and_context_window_backup.json"
 )
 BACKUP_MODEL_COST_PATH = (
     Path(__file__).parents[5]

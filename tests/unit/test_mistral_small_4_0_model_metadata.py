@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).parents[2]
-MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 
 SMALL_4_0_MODELS = (

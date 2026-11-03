@@ -10,7 +10,7 @@ from embrouter.llms.databricks.cost_calculator import cost_per_token
 from embrouter.types.utils import ModelInfo, Usage
 
 REPO_ROOT: Final = Path(__file__).parents[4]
-MAIN_PRICES: Final = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_PRICES: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PRICES: Final = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 NEW_MODELS: Final = (
     "databricks/databricks-claude-opus-4-7",

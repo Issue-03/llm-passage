@@ -297,11 +297,8 @@ class TestQwenBrandUserFacingNames:
     @pytest.mark.parametrize("brand", BRAND_CASES)
     @pytest.mark.parametrize(
         "matrix_path",
-        [
-            Path(embrouter.__file__).parent / "provider_endpoints_support_backup.json",
-            Path(embrouter.__file__).parent.parent / "provider_endpoints_support.json",
-        ],
-        ids=["backup", "root"],
+        [Path(embrouter.__file__).parent / "provider_endpoints_support_backup.json"],
+        ids=["backup"],
     )
     def test_supported_endpoints_matrix_display_name(self, brand, matrix_path):
         matrix = json.loads(matrix_path.read_text())

@@ -6,7 +6,7 @@ from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provid
 
 def test_sambanova_minimax_m27_model_info():
     model = "sambanova/MiniMax-M2.7"
-    json_path = Path(__file__).parents[2] / "model_prices_and_context_window.json"
+    json_path = Path(__file__).parents[2] / "embrouter" / "model_prices_and_context_window_backup.json"
     with open(json_path) as f:
         model_cost = json.load(f)
 

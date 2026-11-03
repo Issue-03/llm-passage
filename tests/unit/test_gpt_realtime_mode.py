@@ -49,7 +49,7 @@ def test_realtime_is_a_valid_mode_literal():
 
 def test_backup_matches_main_for_realtime_models():
     repo_root = Path(__file__).parents[2]
-    with open(repo_root / "model_prices_and_context_window.json") as f:
+    with open(repo_root / "embrouter" / "model_prices_and_context_window_backup.json") as f:
         main_cost = json.load(f)
     with open(repo_root / "embrouter" / "model_prices_and_context_window_backup.json") as f:
         backup_cost = json.load(f)

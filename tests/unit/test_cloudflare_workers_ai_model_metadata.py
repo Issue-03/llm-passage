@@ -18,8 +18,8 @@ import pytest
 import embrouter
 
 ROOT_MAP = os.path.join(
-    os.path.dirname(os.path.dirname(embrouter.__file__)),
-    "model_prices_and_context_window.json",
+    os.path.dirname(embrouter.__file__),
+    "model_prices_and_context_window_backup.json",
 )
 BACKUP_MAP = os.path.join(
     os.path.dirname(embrouter.__file__),

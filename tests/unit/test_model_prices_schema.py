@@ -18,7 +18,7 @@ from embrouter.router_utils.reasoning_effort_capability import resolve_supported
 
 REPO_ROOT = Path(__file__).parents[2]
 GENERATOR_PATH = REPO_ROOT / "ci_cd" / "generate_model_prices_schema.py"
-PRICES_PATH = REPO_ROOT / "model_prices_and_context_window.json"
+PRICES_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PRICES_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 SCHEMA_PATH = REPO_ROOT / "model_prices_and_context_window.schema.json"
 

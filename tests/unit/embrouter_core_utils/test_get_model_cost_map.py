@@ -28,7 +28,7 @@ from embrouter.embrouter_core_utils.get_model_cost_map import (
 
 
 def _load_root_cost_map() -> dict:
-    path = os.path.join(os.path.dirname(__file__), "../../../model_prices_and_context_window.json")
+    path = os.path.join(os.path.dirname(__file__), "../../../embrouter/model_prices_and_context_window_backup.json")
     with open(path) as f:
         return json.load(f)
 

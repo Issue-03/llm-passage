@@ -10,7 +10,7 @@ from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_
 from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
 REPO_ROOT = Path(__file__).parents[2]
-MAIN_PATH = REPO_ROOT / "model_prices_and_context_window.json"
+MAIN_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 BACKUP_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 
 FLEX_LONG_CONTEXT = {

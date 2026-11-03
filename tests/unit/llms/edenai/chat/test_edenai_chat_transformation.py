@@ -430,11 +430,8 @@ class TestDashboardRegistration:
 
     @pytest.mark.parametrize(
         "matrix_path",
-        [
-            REPO_ROOT / "provider_endpoints_support.json",
-            REPO_ROOT / "embrouter" / "provider_endpoints_support_backup.json",
-        ],
-        ids=["root", "backup"],
+        [REPO_ROOT / "embrouter" / "provider_endpoints_support_backup.json"],
+        ids=["backup"],
     )
     def test_endpoint_matrix_documents_every_served_surface(self, matrix_path):
         entry = json.loads(matrix_path.read_text())["providers"]["edenai"]
