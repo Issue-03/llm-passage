@@ -26,7 +26,6 @@ REPO_ROOT: Final = os.path.join(os.path.dirname(__file__), "..", "..")
 PROXY_DOCKERFILES: Final = (
     "Dockerfile",
     os.path.join("docker", "Dockerfile.non_root"),
-    os.path.join("docker", "Dockerfile.database"),
     os.path.join("gateway", "Dockerfile"),
 )
 

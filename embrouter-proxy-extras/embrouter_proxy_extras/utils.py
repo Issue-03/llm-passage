@@ -116,7 +116,7 @@ _SPEND_LOGS_PK_CLAUSE_RE = re.compile(
 )
 
 PARTITIONED_SPEND_LOGS_PUSH_ERROR = (
-    "EmbRouter_SpendLogs is a partitioned table (see db_scripts/partition_spend_logs.sql), "
+    "EmbRouter_SpendLogs is a partitioned table, "
     "so its primary key must include the partition key (\"startTime\"). `prisma db push` "
     "reconciles the database against schema.prisma, which declares the unpartitioned "
     "primary key (\"request_id\"), and Postgres rejects that rewrite with: unique "
@@ -150,7 +150,7 @@ def _without_spend_logs_pk_clauses(statement: str) -> Optional[str]:
 
 def filter_partitioned_spend_logs_diff(diff_sql: str) -> str:
     """Drop statements from a `prisma migrate diff` script that fight the
-    SpendLogs partitioning runbook (db_scripts/partition_spend_logs.sql): the
+    manual SpendLogs partitioning: the
     primary-key rewrite on "EmbRouter_SpendLogs", which Postgres rejects on a
     partitioned table, and drops of runbook artifacts such as
     "EmbRouter_SpendLogs_legacy"."""
@@ -595,7 +595,7 @@ class ProxyExtrasDBManager:
         """True when the connected database's EmbRouter_SpendLogs is a
         partitioned table in Prisma's target schema (the `schema` URL param,
         falling back to Prisma's default target, public), i.e. the operator
-        ran db_scripts/partition_spend_logs.sql. Returns False when psycopg is
+        partitioned it by hand. Returns False when psycopg is
         unavailable or the database cannot be reached, preserving the
         pre-existing behavior in those cases."""
         database_url = os.getenv("DATABASE_URL")
@@ -607,8 +607,7 @@ class ProxyExtrasDBManager:
         except ImportError:
             logger.warning(
                 "psycopg is not installed; skipping the EmbRouter_SpendLogs "
-                "partition check. If this table is partitioned (see "
-                "db_scripts/partition_spend_logs.sql), schema reconciliation "
+                "partition check. If this table is partitioned, schema reconciliation "
                 "will try to rewrite its primary key and fail. Install the "
                 "embrouter[extra_proxy] extra, which now includes psycopg."
             )

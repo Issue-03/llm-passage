@@ -33,9 +33,9 @@ Rule for every phase: the app has to run at the end of it, and each phase gets i
 | `pyproject.toml`, `uv.lock` | Python build and dependencies (uv). The `Makefile` was deleted 2026-11-04 |
 | `docker-compose.yml`, `Dockerfile`, `docker/` | local Postgres (the proxy image is optional; `docker/` holds the Dockerfile's entrypoint scripts) |
 | ~~`policy_templates.json`~~ | deleted 2026-11-04: nothing read it; `GET /policy/templates` serves `embrouter/policy_templates_backup.json` |
-| `db_scripts/` | optional SQL helpers (spend backfills, views), 44 KB |
+| ~~`db_scripts/`~~ | deleted 2026-11-04 (manual backfills, views, key import, SpendLogs partitioning); code comments no longer point to it |
 | Tool configs: `ruff*.toml`, `pyrightconfig.json`, `.gitignore`, `.dockerignore`, `.npmrc` | lint and build settings |
-| `proxy_server_config.yaml`, `.env.example` | sample config |
+| `.env.example` | sample config (`proxy_server_config.yaml`, upstream's CI test config, deleted 2026-11-04) |
 | `tests/unit/`, `tests/test_litellm/`, plus the root-level helper files `tests/*.py` (the unit tests may import them) | ~2,000 offline unit tests (no network or API keys). Used to check each phase, especially the Phase 3 rename. |
 | `LICENSE` | MIT; keeping it is required |
 

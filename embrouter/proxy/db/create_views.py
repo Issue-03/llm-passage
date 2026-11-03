@@ -48,9 +48,6 @@ async def create_view_tolerating_race(db: SupportsExecuteRaw, view_name: str, dd
 
 async def create_missing_views(db: SupportsRawQueries) -> None:
     """
-    --------------------------------------------------
-    NOTE: Copy of `embrouter/db_scripts/create_views.py`.
-    --------------------------------------------------
     Checks if the EmbRouter_VerificationTokenView and MonthlyGlobalSpend exists in the user's db.
 
     EmbRouter_VerificationTokenView: This view is used for getting the token + team data in user_api_key_auth

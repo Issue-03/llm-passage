@@ -8,8 +8,8 @@ DROP TABLE on a whole partition: an instant metadata operation that returns disk
 to the OS immediately, with no tombstones and no vacuum.
 
 This manager only acts when use_spend_logs_partitioning is enabled in
-general_settings AND the table is already partitioned (set up via the
-db_scripts/partition_spend_logs.sql runbook). Without both, the cleanup job
+general_settings AND the table is already partitioned (set up by hand).
+Without both, the cleanup job
 keeps the batched-DELETE path, so existing deployments are untouched.
 """
 

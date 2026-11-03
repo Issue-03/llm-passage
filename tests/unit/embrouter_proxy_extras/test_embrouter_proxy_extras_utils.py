@@ -483,7 +483,7 @@ DROP TABLE "EmbRouter_SpendLogs_legacy";
 
 
 class TestPartitionedSpendLogsDriftFilter:
-    """A doc-partitioned EmbRouter_SpendLogs (db_scripts/partition_spend_logs.sql) has a
+    """A hand-partitioned EmbRouter_SpendLogs has a
     composite primary key that schema.prisma cannot express, so `prisma migrate diff`
     emits a primary-key rewrite that Postgres rejects, aborting the whole drift script
     before its legitimate statements run."""
