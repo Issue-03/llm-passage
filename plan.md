@@ -337,8 +337,7 @@ Hidden through `HIDDEN_MODEL_TABS` in `ui/litellm-dashboard/src/app/(dashboard)/
 
 ### Parked (2026-10-26, revisit after Phase 3)
 
-- "Environment-credential login is enabled" banner: leave, hide, or create a real admin and set `disable_env_credential_login: true`.
-- "No Redis configured" banner: maybe set the disable env var for local use.
+- Done 2026-11-04: the "Environment-credential login is enabled" and "No Redis configured" banners are removed from the UI (`EnvCredentialLoginWarningBanner`, `NoRedisWarningBanner` deleted; `layout.tsx` no longer renders them). The backend still reports the flags in `/health/readiness`; nothing shows them.
 
 - Policies → Attachments still shows an "Enterprise Feature Notice" box.
 - About 50 hard-coded `blue-*` / `indigo-*` classes remain on pages outside the Compliance tab; fix as they're spotted.

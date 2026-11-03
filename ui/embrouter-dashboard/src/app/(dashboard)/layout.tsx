@@ -10,8 +10,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import SidebarProvider from "@/app/(dashboard)/components/SidebarProvider";
 import { notFound, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DebugWarningBanner } from "@/components/DebugWarningBanner";
-import { NoRedisWarningBanner } from "@/components/NoRedisWarningBanner";
-import { EnvCredentialLoginWarningBanner } from "@/components/EnvCredentialLoginWarningBanner";
 import { LicenseExpiryBanner } from "@/components/LicenseExpiryBanner";
 import { UserBanner } from "@/components/UserBanner";
 import { routeSegmentForPathname, uiHref } from "@/utils/uiHref";
@@ -125,8 +123,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen flex-col overflow-hidden bg-background">
         <Navbar accessToken={accessToken} isPublicPage={false} />
         <DebugWarningBanner accessToken={accessToken} />
-        <NoRedisWarningBanner accessToken={accessToken} />
-        <EnvCredentialLoginWarningBanner accessToken={accessToken} />
         <LicenseExpiryBanner accessToken={accessToken} />
         <UserBanner accessToken={accessToken} />
         <main className="flex min-h-0 flex-1 overflow-hidden">
@@ -145,8 +141,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader />
         <DebugWarningBanner accessToken={accessToken} />
-        <NoRedisWarningBanner accessToken={accessToken} />
-        <EnvCredentialLoginWarningBanner accessToken={accessToken} />
         <LicenseExpiryBanner accessToken={accessToken} />
         <UserBanner accessToken={accessToken} />
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
