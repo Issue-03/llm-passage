@@ -2732,7 +2732,7 @@ class Logging(EmbRouterLoggingBaseClass):
 
     def success_handler(
         self,
-        result: object = None,  # heterogeneous response object; varies by call type (ANN401 ignored, see ruff-strict.toml)
+        result: object = None,  # heterogeneous response object; varies by call type
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         cache_hit: bool | None = None,
@@ -3171,7 +3171,7 @@ class Logging(EmbRouterLoggingBaseClass):
 
     async def async_success_handler(
         self,
-        result: object = None,  # heterogeneous response object; varies by call type (ANN401 ignored, see ruff-strict.toml)
+        result: object = None,  # heterogeneous response object; varies by call type
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         cache_hit: bool | None = None,
@@ -3189,7 +3189,7 @@ class Logging(EmbRouterLoggingBaseClass):
 
     async def _async_success_handler_body(
         self,
-        result: object = None,  # heterogeneous response object; varies by call type (ANN401 ignored, see ruff-strict.toml)
+        result: object = None,  # heterogeneous response object; varies by call type
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
         cache_hit: bool | None = None,

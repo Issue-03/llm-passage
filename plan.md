@@ -29,12 +29,12 @@ Rule for every phase: the app has to run at the end of it, and each phase gets i
 | `litellm-proxy-extras/` (without its `dist/`) | Prisma DB migrations and Prisma helpers. The proxy imports it directly (`proxy_cli.py`, `db/prisma_client.py`) and applies the migrations on startup. It's required. |
 | `ui/litellm-dashboard/` | Admin UI (Next.js 16 / React 19) |
 | `schema.prisma` | DB schema (PostgreSQL) |
-| `model_prices_and_context_window.json`, `provider_endpoints_support.json` | model price and capability data |
-| `pyproject.toml`, `uv.lock`, `Makefile` | Python build and dependencies (uv) |
+| ~~`model_prices_and_context_window.json`~~, ~~`provider_endpoints_support.json`~~ | deleted 2026-11-04; the app and tests use the bundled `embrouter/model_prices_and_context_window_backup.json` and `embrouter/provider_endpoints_support_backup.json` (the 30 providers and `sandbox` endpoint only in the root copy were merged in first) |
+| `pyproject.toml`, `uv.lock` | Python build and dependencies (uv). The `Makefile` was deleted 2026-11-04 |
 | `docker-compose.yml`, `Dockerfile`, `docker/` | local Postgres (the proxy image is optional; `docker/` holds the Dockerfile's entrypoint scripts) |
-| `policy_templates.json` | read at runtime by `proxy/management_endpoints/policy_endpoints` |
+| ~~`policy_templates.json`~~ | deleted 2026-11-04: nothing read it; `GET /policy/templates` serves `embrouter/policy_templates_backup.json` |
 | `db_scripts/` | optional SQL helpers (spend backfills, views), 44 KB |
-| Tool configs: `ruff*.toml`, `pyrightconfig.json`, `.gitignore`, `.gitattributes`, `.dockerignore`, `.npmrc` | lint and build settings |
+| Tool configs: `ruff*.toml`, `pyrightconfig.json`, `.gitignore`, `.dockerignore`, `.npmrc` | lint and build settings |
 | `proxy_server_config.yaml`, `.env.example` | sample config |
 | `tests/unit/`, `tests/test_litellm/`, plus the root-level helper files `tests/*.py` (the unit tests may import them) | ~2,000 offline unit tests (no network or API keys). Used to check each phase, especially the Phase 3 rename. |
 | `LICENSE` | MIT; keeping it is required |
@@ -457,10 +457,8 @@ Original outline:
 
 ## Phase 4: Finish
 
-- **License:** keep `LICENSE` with Berri AI's MIT copyright (required), and add a `NOTICE` saying "EmbRouter is derived from LiteLLM (MIT)".
-- **Makefile targets:**
-  - `make db`, `make install`, `make migrate`, `make run`
-  - `make ui-dev`, `make ui-build` (which also copies the build into the proxy)
+- **License:** `NOTICE` was added in Phase 3; `LICENSE` and `NOTICE` were then removed on 2026-11-04 (`8cdd2f8`).
+- **Makefile:** deleted 2026-11-04 (most targets called the missing `scripts/` folder) together with `ruff-strict.toml` and its test; not replaced. The run commands go in the README instead.
 - **README:** a "run locally" guide.
 
 ## Trade-off
