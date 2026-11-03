@@ -79,7 +79,3 @@ uv run pytest tests/unit tests/test_embrouter -n 8 -q -m "not requires_rust_exte
 ```
 
 `test_custom_proxy.py` is skipped because it starts the proxy with `SERVER_ROOT_PATH=/my-custom-path`, which rewrites the built UI files in `embrouter/proxy/_experimental/out/` in place and breaks the UI (unstyled page, assets 404).
-
-## License
-
-MIT, see [LICENSE](LICENSE).

@@ -292,14 +292,6 @@ keys = client.keys.list(
 )
 ```
 
-## Contributing
-
-Contributions are welcome! Please check out our [contributing guidelines](../../CONTRIBUTING.md) for details.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
-
 ## CLI Authentication Flow
 
 The EmbRouter CLI supports SSO authentication through a polling-based approach that works with any OAuth-compatible SSO provider.
